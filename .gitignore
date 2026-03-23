@@ -1,0 +1,9 @@
+frames/
+*.mp4
+*.flv
+*.jpg
+*.log
+.ssh/
+ssh_key
+*.pem
+*.key
