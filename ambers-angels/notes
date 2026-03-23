@@ -56,6 +56,17 @@ http {
 #Start Server
 sudo /usr/local/nginx/sbin/nginx
 
+#Broadcast Stream
+ffmpeg -i rtmp://localhost/live/drone1 -c copy -f flv rtmp://localhost/live/stable
+
+#Start recording
+ffmpeg -i rtmp://localhost/live/stable \
+-c copy \
+-f segment \
+-segment_time 10 \
+-reset_timestamps 1 \
+recording_%03d.mp4
+
 #Start ALPR
 #sudo apt install docker.io -y
 docker run -it --rm -v /root/frames:/data openalpr/openalpr -c us /data/frame_0001.jpg
