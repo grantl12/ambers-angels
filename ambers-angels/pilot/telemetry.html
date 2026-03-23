@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Amber's Angels Telemetry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 700px; margin: auto; }
+    input, button, select { padding: 10px; margin: 6px 0; width: 100%; }
+    #log { white-space: pre-wrap; background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Amber's Angels Pilot Telemetry</h1>
+
+  <label>API Base URL</label>
+  <input id="apiBase" value="http://157.245.125.103:8000" />
+
+  <label>Drone ID</label>
+  <input id="droneId" value="drone1" />
+
+  <label>Pilot ID</label>
+  <input id="pilotId" value="pilot_123" />
+
+  <label>Send Interval (ms)</label>
+  <input id="intervalMs" type="number" value="1000" />
+
+  <button onclick="startTelemetry()">Start Telemetry</button>
+  <button onclick="stopTelemetry()">Stop Telemetry</button>
+
+  <div id="log">Idle.</div>
+
+  <script>
+    let timer = null;
+
+    function log(msg) {
+      const el = document.getElementById("log");
+      el.textContent = `[${new Date().toISOString()}] ${msg}\n` + el.textContent;
+    }
+
+    async function sendTelemetry() {
+      const apiBase = document.getElementById("apiBase").value.trim();
+      const droneId = document.getElementById("droneId").value.trim();
+      const pilotId = document.getElementById("pilotId").value.trim();
+
+      if (!navigator.geolocation) {
+        log("Geolocation not supported by this browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const payload = {
+            drone_id: droneId,
+            pilot_id: pilotId,
+            timestamp: new Date().toISOString(),
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            altitude_m: pos.coords.altitude,
+            speed_mps: pos.coords.speed,
+            heading_deg: pos.coords.heading,
+            accuracy_m: pos.coords.accuracy,
+            source: "phone_gps"
+          };
+
+          try {
+            const resp = await fetch(`${apiBase}/telemetry`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json();
+            log(`telemetry sent: ${JSON.stringify(data)}`);
+          } catch (err) {
+            log(`send failed: ${err}`);
+          }
+        },
+        (err) => {
+          log(`gps error: ${err.message}`);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    function startTelemetry() {
+      if (timer) {
+        log("Telemetry already running.");
+        return;
+      }
+      const intervalMs = parseInt(document.getElementById("intervalMs").value, 10) || 1000;
+      sendTelemetry();
+      timer = setInterval(sendTelemetry, intervalMs);
+      log(`Telemetry started at ${intervalMs} ms interval.`);
+    }
+
+    function stopTelemetry() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+        log("Telemetry stopped.");
+      }
+    }
+  </script>
+</body>
+</html>
