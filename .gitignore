@@ -7,3 +7,15 @@ frames/
 ssh_key
 *.pem
 *.key
+node_modules
+.next/
+.npm/
+_cacache/
+*.log
+.next
+.env*
+dist
+package-lock.json
+yarn-error.log*
+npm-debug.log*
+.cache*

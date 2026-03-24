@@ -289,3 +289,77 @@ pwd
 cd /root
 ssh-keygen
 ssh-keygen -t ed25519 -C "grant.m.lindberg@googlemail.com"
+curl http://127.0.0.1:8000/latest-telemetry/drone1
+pwd
+cd ambers-angels/
+ls
+mkdir scripts
+ls
+cd scripts/
+nano start_all.sh
+nano stop_all.sh
+mkdir -p /root/ambers-angels/scripts
+chmod +x /root/ambers-angels/scripts/start_all.sh 
+chmod +x /root/ambers-angels/scripts/stop_all.sh 
+stop_all.sh
+./stop_all.sh 
+./start_all.sh 
+tail -f /root/ambers-angels/logs/api.log 
+tail -f /root/ambers-angels/logs/gps_sender.log 
+./stop_all.sh 
+./start_all.sh 
+tail -f /root/ambers-angels/logs/api.log 
+tail -f /root/ambers-angels/logs/gps_sender.log 
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/latest-telemetry/drone1
+ls
+cd /root
+ls
+cd frames/
+ls
+ls -l
+cd ..
+systemctl status nginx
+ffprobe rtmp://127.0.0.1/live/drone1
+ffprobe rtmp://157.145.125.103/live/drone1
+cat /etc/nginx/nginx.conf 
+sudo nano /etc/nginx/nginx.conf 
+mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.old
+rm /etc/nginx/nginx.conf 
+sudo nano /etc/nginx/nginx.conf 
+sudo nano /etc/nginx/sites-available/telemetry 
+sudo mkdir -p /var/www/telemetry
+sudo cp /root/ambers-angels/pilot/telemetry.html /var/www/telemetry/
+sudo rm -f /etc/nginx/sites-enabled/default 
+sudo ln -sf /etc/nginx/sites-available/telemetry /etc/nginx/sites-enabled/telemetry 
+sudo nginx -t
+sudo nano /etc/nginx/nginx.conf 
+nginx -V 2>&1
+sudo apt update
+sudo apt install -y libnginx-mod-rtmp
+ls /usr/lib/nginx/modules | grep rtmp
+sudo nano /etc/nginx/nginx.conf 
+sudo nginx -t
+sudo systemctl restart nginx
+sudo ufw allow 80/tcp
+sudo ufw allow 1935/tcp
+curl http://127.0.0.1/
+sudo systemctl start ufw
+curl http://157.245.125.103/
+curl http://127.0.0.1/api/health
+curl http://157.245.125.103/api/health
+ss -ltnp | grep 1935
+ffprobe rtmp://127.0.0.1/live/drone1
+cd ambers-angels/
+cat notes
+clear
+ffmpeg -i rtmp://127.0.0.1/live/drone1 -vf fps=2 /root/frames/drone1/frame_%06d.jpg
+cd ..
+cd frames/
+ls 
+ls -l
+rm *
+ls
+ffmpeg -i rtmp://127.0.0.1/live/drone1 -vf fps=2 /root/frames/drone1/frame_%06d.jpg
+mkdir -p /root/frames/drone1
+ffmpeg -i rtmp://127.0.0.1/live/drone1 -vf fps=2 /root/frames/drone1/frame_%06d.jpg

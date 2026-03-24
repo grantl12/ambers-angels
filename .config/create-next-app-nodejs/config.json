@@ -1,0 +1,8 @@
+{
+	"preferences": {
+		"linter": "eslint",
+		"eslint": true,
+		"reactCompiler": true,
+		"agentsMd": true
+	}
+}

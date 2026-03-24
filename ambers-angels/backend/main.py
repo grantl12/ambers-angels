@@ -49,6 +49,14 @@ class TelemetryIn(BaseModel):
     source: Optional[str] = "phone_gps"
 
 
+class DetectionIn(BaseModel):
+	frame_id:int
+	drone_id:str = Field(..., min_length=1)
+	plate_text: Optional[str] = None
+	confidence: Optional[float] = None
+	detected_at: datetime
+	raw_payload: Optional[Any] = None
+
 class FrameIn(BaseModel):
     drone_id: str = Field(..., min_length=1)
     frame_path: str = Field(..., min_length=1)
@@ -265,6 +273,70 @@ def create_detection(d: DetectionIn):
             "telemetry_id": frame["telemetry_id"],
             "detected_at": detected_at.isoformat(),
         }
+    finally:
+        cur.close()
+        conn.close()
+@app.get("/detections/recent/{drone_id}")
+def recent_detections(drone_id: str, limit: int = 20):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT
+                id,
+                frame_id,
+                drone_id,
+                plate_text,
+                confidence,
+                lat,
+                lon,
+                altitude_m,
+                telemetry_id,
+                detected_at,
+                created_at
+            FROM detections
+            WHERE drone_id = %s
+            ORDER BY detected_at DESC
+            LIMIT %s
+            """,
+            (drone_id, limit),
+        )
+        rows = cur.fetchall()
+        return {"ok": True, "detections": rows}
+    finally:
+        cur.close()
+        conn.close()
+
+
+
+
+@app.get("/frames/recent/{drone_id}")
+def recent_frames(drone_id: str, limit: int = 20):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT
+                f.id,
+                f.drone_id,
+                f.frame_path,
+                f.frame_ts,
+                f.telemetry_id,
+                tp.lat,
+                tp.lon,
+                tp.altitude_m
+            FROM frames f
+            LEFT JOIN telemetry_points tp ON tp.id = f.telemetry_id
+            WHERE f.drone_id = %s
+            ORDER BY f.frame_ts DESC
+            LIMIT %s
+            """,
+            (drone_id, limit),
+        )
+        rows = cur.fetchall()
+        return {"ok": True, "frames": rows}
     finally:
         cur.close()
         conn.close()
