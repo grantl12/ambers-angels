@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-PROJECT_ROOT="/root/ambers-angels"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 WORKER_DIR="$PROJECT_ROOT/worker"
 LOG_DIR="$PROJECT_ROOT/logs"
@@ -20,7 +21,7 @@ export DB_PORT="5432"
 # ---- Worker / telemetry env ----
 export API_BASE="http://127.0.0.1:8000"
 export DRONE_ID="drone1"
-export FRAMES_DIR="/root/frames/drone1"
+export FRAMES_DIR="$PROJECT_ROOT/frames/drone1"
 
 # Start FastAPI
 echo "Starting API..."
