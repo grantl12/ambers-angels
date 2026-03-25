@@ -1,0 +1,38 @@
+import uuid
+from datetime import datetime, timedelta
+from typing import Optional
+from sqlalchemy import select, update, and_
+from services.detection_models import EventStatus, EventClassification
+
+class EventRepository:
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+
+    async def get_active_event(self, plate: str, drone_id: str, window_seconds: int = 120):
+        """Finds an existing event to see if we should 'update' instead of 'create'."""
+        cutoff = datetime.utcnow() - timedelta(seconds=window_seconds)
+        async with self.session_factory() as session:
+            query = select(DetectionEvent).where(
+                and_(
+                    DetectionEvent.plate_best == plate,
+                    DetectionEvent.drone_id == drone_id,
+                    DetectionEvent.last_seen >= cutoff,
+                    DetectionEvent.status == 'active'
+                )
+            )
+            result = await session.execute(query)
+            return result.scalars().first()
+
+    async def create_event(self, event_data: dict):
+        async with self.session_factory() as session:
+            new_event = DetectionEvent(**event_data)
+            session.add(new_event)
+            await session.commit()
+            await session.refresh(new_event)
+            return new_event
+
+    async def update_event(self, event_id: uuid.UUID, updates: dict):
+        async with self.session_factory() as session:
+            query = update(DetectionEvent).where(DetectionEvent.id == event_id).values(**updates)
+            await session.execute(query)
+            await session.commit()

@@ -1,47 +1,26 @@
-CREATE TABLE IF NOT EXISTS telemetry_points (
-    id BIGSERIAL PRIMARY KEY,
-    drone_id TEXT NOT NULL,
-    pilot_id TEXT,
-    ts TIMESTAMPTZ NOT NULL,
-    lat DOUBLE PRECISION NOT NULL,
-    lon DOUBLE PRECISION NOT NULL,
-    altitude_m DOUBLE PRECISION,
-    speed_mps DOUBLE PRECISION,
-    heading_deg DOUBLE PRECISION,
-    accuracy_m DOUBLE PRECISION,
-    source TEXT DEFAULT 'phone_gps',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+-- 1. Create the table first
+CREATE TABLE IF NOT EXISTS detection_events (
+    id SERIAL PRIMARY KEY,
+    plate_best VARCHAR(20) NOT NULL,
+    drone_id VARCHAR(50) NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    classification VARCHAR(20) DEFAULT 'weak',
+    occurrence_count INTEGER DEFAULT 1,
+    average_confidence FLOAT,
+    first_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_telemetry_drone_ts
-ON telemetry_points (drone_id, ts DESC);
+-- 2. Create the index separately (Postgres way)
+CREATE INDEX IF NOT EXISTS idx_plate_drone ON detection_events (plate_best, drone_id, last_seen);
 
-CREATE TABLE IF NOT EXISTS frames (
-    id BIGSERIAL PRIMARY KEY,
-    drone_id TEXT NOT NULL,
-    frame_path TEXT NOT NULL,
-    frame_ts TIMESTAMPTZ NOT NULL,
-    telemetry_id BIGINT REFERENCES telemetry_points(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+-- 3. Create the alerts table
+CREATE TABLE IF NOT EXISTS alerts (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER REFERENCES detection_events(id),
+    alert_type VARCHAR(50),
+    severity VARCHAR(20),
+    message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_frames_drone_ts
-ON frames (drone_id, frame_ts DESC);
-
-CREATE TABLE IF NOT EXISTS detections (
-    id BIGSERIAL PRIMARY KEY,
-    frame_id BIGINT REFERENCES frames(id) ON DELETE CASCADE,
-    drone_id TEXT NOT NULL,
-    plate_text TEXT,
-    confidence DOUBLE PRECISION,
-    lat DOUBLE PRECISION,
-    lon DOUBLE PRECISION,
-    altitude_m DOUBLE PRECISION,
-    telemetry_id BIGINT REFERENCES telemetry_points(id) ON DELETE SET NULL,
-    detected_at TIMESTAMPTZ NOT NULL,
-    raw_payload JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_detections_drone_time
-ON detections (drone_id, detected_at DESC);

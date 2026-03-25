@@ -88,59 +88,71 @@ def extract_best_plate(alpr_json: Dict[str, Any]) -> tuple[Optional[str], Option
 
 
 def post_detection(
-    frame_id: int,
     plate_text: Optional[str],
     confidence: Optional[float],
     detected_at: datetime,
-    raw_payload: Dict[str, Any],
 ) -> Dict[str, Any]:
+    # Aligning with your new Postgres Schema keys
     payload = {
-        "frame_id": frame_id,
+        "plate": plate_text if plate_text else "UNKNOWN",
+        "plate_normalized": plate_text.replace("-", "").replace(" ", "").upper() if plate_text else "UNKNOWN",
+        "confidence": confidence if confidence else 0.0,
         "drone_id": DRONE_ID,
-        "plate_text": plate_text,
-        "confidence": confidence,
-        "detected_at": detected_at.isoformat(),
-        "raw_payload": raw_payload,
+        "latitude": 33.7490, # Placeholder - hook into your GPS logic if available
+        "longitude": -84.3880,
+        "timestamp": detected_at.isoformat()
     }
 
-    resp = requests.post(f"{API_BASE}/detections", json=payload, timeout=10)
+    # Added /api/ prefix if not in API_BASE, and pointed to process_detection
+    target_url = f"{API_BASE.rstrip('/')}/process_detection"
+    resp = requests.post(target_url, json=payload, timeout=10)
     resp.raise_for_status()
     return resp.json()
 
-
 def process_one_frame(frame_path: str) -> None:
-    print(f"[INFO] Processing frame: {frame_path}")
+    # Colors
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
 
-    frame_result = register_frame(frame_path)
-    frame_id = frame_result["frame_id"]
+    start_time = time.time()
+    
+    # 1. Register the Frame
+    try:
+        frame_result = register_frame(frame_path)
+        frame_id = frame_result["frame_id"]
+    except Exception as e:
+        print(f"❌ {YELLOW}Frame Registration Failed:{RESET} {e}")
+        return
 
+    # 2. Run ALPR
     alpr_json = run_openalpr(frame_path)
     plate_text, confidence = extract_best_plate(alpr_json)
-
     detected_at = parse_frame_ts_from_filename(frame_path)
 
-    detection_result = post_detection(
-        frame_id=frame_id,
-        plate_text=plate_text,
-        confidence=confidence,
-        detected_at=detected_at,
-        raw_payload=alpr_json,
-    )
-
-    print(
-        json.dumps(
-            {
-                "frame_id": frame_id,
-                "plate_text": plate_text,
-                "confidence": confidence,
-                "detection_id": detection_result["detection_id"],
-                "lat": detection_result.get("lat"),
-                "lon": detection_result.get("lon"),
-            }
+    # 3. Handle Detection
+    if plate_text:
+        detection_result = post_detection(
+            frame_id=frame_id,
+            plate_text=plate_text,
+            confidence=confidence,
+            detected_at=detected_at,
+            raw_payload=alpr_json,
         )
-    )
-
-
+        
+        proc_time = time.time() - start_time
+        conf_color = GREEN if confidence > 85 else YELLOW
+        
+        # --- THE PRETTY LOG LINE ---
+        print(f"{CYAN}[{datetime.now().strftime('%H:%M:%S')}] {RESET}"
+              f"{BOLD}HIT:{RESET} {conf_color}{plate_text.ljust(10)}{RESET} | "
+              f"Conf: {conf_color}{confidence:>5.1f}%{RESET} | "
+              f"ID: {detection_result.get('detection_id', 'N/A')} | "
+              f"Proc: {proc_time:.2f}s")
+    else:
+        print(f"{CYAN}[{datetime.now().strftime('%H:%M:%S')}] {RESET}SCAN: No plate found in {os.path.basename(frame_path)}")
 def list_candidate_frames() -> List[str]:
     path = Path(FRAMES_DIR)
     if not path.exists():

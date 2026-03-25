@@ -5,8 +5,7 @@ from datetime import datetime, timezone
 
 import requests
 
-
-API_BASE = os.getenv("API_BASE", "http://127.0.0.1:8000")
+API_BASE = os.getenv("API_BASE", "http://157.245.125.103/api")
 DRONE_ID = os.getenv("DRONE_ID", "drone1")
 
 
@@ -39,10 +38,16 @@ def register_frame(frame_path: str):
         "frame_ts": frame_ts.isoformat(),
     }
 
-    resp = requests.post(f"{API_BASE}/frames", json=payload, timeout=10)
+    # 2. Ensure it hits the /api/frames endpoint
+    target_url = f"{API_BASE.rstrip('/')}/frames"
+    resp = requests.post(target_url, json=payload, timeout=10)
+    
+    # Add a check to see if the backend is actually receiving it
+    if resp.status_code == 404:
+        print(f"❌ Error: Backend returned 404 at {target_url}. Check your FastAPI routes!")
+    
     resp.raise_for_status()
     return resp.json()
-
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

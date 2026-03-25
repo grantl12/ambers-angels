@@ -1,18 +1,19 @@
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 import psycopg2
 import psycopg2.extras
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+from services.detection_models import DetectionEvent
 
 app = FastAPI(title="Amber's Angels Metadata API")
 
 
 DB_NAME = os.getenv("DB_NAME", "ambersangels")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+DB_USER = os.getenv("DB_USER", "ambers-angels")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "Ambers1Angels")
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
 
@@ -340,3 +341,9 @@ def recent_frames(drone_id: str, limit: int = 20):
     finally:
         cur.close()
         conn.close()
+@app.get("/events", response_model=List[DetectionEvent])
+async def get_recent_events():
+    # This assumes your repo has a get_recent method
+    # If not, we can write the raw SQL here
+    events = await repo.get_recent_events(limit=50) 
+    return events
