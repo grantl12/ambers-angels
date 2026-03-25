@@ -1,21 +1,38 @@
-frames/
-*.mp4
-*.flv
-*.jpg
-*.log
-.ssh/
-ssh_key
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Secrets / env
+.env
+.env.*
 *.pem
 *.key
-node_modules
-.next/
-.npm/
-_cacache/
+
+# Logs
+logs/
 *.log
-.next
-.env*
-dist
-package-lock.json
-yarn-error.log*
-npm-debug.log*
-.cache*
+
+# Runtime / temp
+*.pid
+tmp/
+*.tmp
+
+# Worker state
+/tmp/ambers_angels_*.json
+
+# Media artifacts
+frames/
+recordings/
+*.mp4
+*.jpg
+*.jpeg
+*.png
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
