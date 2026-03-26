@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
-from sqlalchemy import select, update, and_, text
-from services.detection_models import DetectionEvent, EventStatus, EventClassification
+from sqlalchemy import select, update, and_
+from services.detection_models import EventStatus, EventClassification
 
 class EventRepository:
     def __init__(self, session_factory):
@@ -10,21 +10,20 @@ class EventRepository:
 
     async def get_active_event(self, plate: str, drone_id: str, window_seconds: int = 120):
         """Finds an existing event to see if we should 'update' instead of 'create'."""
-        cutoff = datetime.now() - timedelta(seconds=window_seconds)
+        cutoff = datetime.utcnow() - timedelta(seconds=window_seconds)
         async with self.session_factory() as session:
             query = select(DetectionEvent).where(
                 and_(
                     DetectionEvent.plate_best == plate,
                     DetectionEvent.drone_id == drone_id,
                     DetectionEvent.last_seen >= cutoff,
-                    DetectionEvent.status == EventStatus.ACTIVE
+                    DetectionEvent.status == 'active'
                 )
             )
             result = await session.execute(query)
             return result.scalars().first()
 
     async def create_event(self, event_data: dict):
-        """Creates a new high-level detection event in the database."""
         async with self.session_factory() as session:
             new_event = DetectionEvent(**event_data)
             session.add(new_event)
@@ -33,16 +32,15 @@ class EventRepository:
             return new_event
 
     async def update_event(self, event_id: uuid.UUID, updates: dict):
-        """Updates an existing active event with new aggregation data."""
         async with self.session_factory() as session:
             query = update(DetectionEvent).where(DetectionEvent.id == event_id).values(**updates)
             await session.execute(query)
             await session.commit()
 
-    async def check_watchlist(self, plate: str):
+   async def check_watchlist(self, plate: str):
         """Checks if the plate exists in the watchlist table."""
         async with self.session_factory() as session:
-            # We use a raw text query to ensure it works even if a Watchlist model isn't defined
-            query = text("SELECT description FROM watchlist WHERE plate_text = :p")
-            result = await session.execute(query, {"p": plate})
+            # Assumes you have a Watchlist model defined in your SQLAlchemy models
+            query = select(Watchlist).where(Watchlist.plate_text == plate)
+            result = await session.execute(query)
             return result.scalars().first()

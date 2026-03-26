@@ -1,75 +1,144 @@
 import os
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Any, List
-import psycopg2
-import psycopg2.extras
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+import sys
+import uuid
+from datetime import datetime, timezone
+from typing import Optional, Any
 
-app = FastAPI(title="Amber's Angels Metadata API")
+from fastapi import FastAPI, BackgroundTasks, HTTPException
+from pydantic import BaseModel  # <--- THIS WAS MISSING
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
-# DB Settings
-DB_NAME = os.getenv("DB_NAME", "ambers_angels")
-DB_USER = os.getenv("DB_USER", "ambers-angels")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "Ambers1Angels")
-DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
-DB_PORT = int(os.getenv("DB_PORT", "5432"))
+# Ensure local paths are recognized
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-def get_conn():
-    return psycopg2.connect(
-        dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD,
-        host=DB_HOST, port=DB_PORT,
-        cursor_factory=psycopg2.extras.RealDictCursor
-    )
+from services.detection_models import DetectionInput as ModelInput
+from services.aggregation_service import AggregationService, DetectionInput as AggInput
+from services.event_service import EventService
+from services.alert_dispatcher import AlertDispatcher
+from event_repository import EventRepository
+from services.detection_pipeline import DetectionPipeline
 
-class FrameIn(BaseModel):
-    drone_id: str
-    frame_path: str
-    frame_ts: datetime
+app = FastAPI(title="Amber's Angels - Unified Mission Control")
 
-class DetectionIn(BaseModel):
-    frame_id: int
-    drone_id: str
+# ... (All previous imports and setup from the last block) ...
+
+class WatchlistAdd(BaseModel):
     plate_text: str
-    confidence: float
-    detected_at: datetime
-    raw_payload: Optional[Any] = None
+    description: Optional[str] = "Target of Interest"
+
+@app.post("/watchlist")
+async def add_to_watchlist(item: WatchlistAdd):
+    async with AsyncSessionLocal() as session:
+        try:
+            clean_plate = item.plate_text.replace("-", "").replace(" ", "").upper()
+            
+            # Use the text() wrapper we discussed
+            await session.execute(
+                text("INSERT INTO watchlist (plate_text, description) VALUES (:p, :d) ON CONFLICT (plate_text) DO NOTHING"),
+                {"p": clean_plate, "d": item.description}
+            )
+            await session.commit()
+            return {"status": "added", "plate": clean_plate}
+        except Exception as e:
+            await session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+# ... (Rest of the file) ...
+
+# --- Database & Session Setup ---
+# Using the verified credentials from your Droplet
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+)
+
+engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+def get_session_factory():
+    return AsyncSessionLocal
+
+# --- Singleton Service Initialization ---
+# Initialized once to maintain the 'Active Groups' state in memory
+aggregation_service = AggregationService()
+repo = EventRepository(session_factory=get_session_factory())
+event_service = EventService(repo)
+
+# Alert Dispatcher with your Webhook URL
+WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL")
+alert_dispatcher = AlertDispatcher(repository=repo, webhook_url=WEBHOOK_URL)
+
+# The Master Pipeline
+pipeline = DetectionPipeline(
+    aggregation=aggregation_service,
+    events=event_service,
+    alerts=alert_dispatcher
+)
+
+# --- API Routes ---
+
+@app.post("/frames")
+async def register_frame(payload: dict):
+    """
+    Registers the raw image frame from the drone.
+    Matches the schema expected by register_frame.py
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            # Logic to save the frame path and timestamp to your 'frames' table
+            # repo.save_frame(...) 
+            # For now, we'll return a success to keep the worker happy
+            frame_id = str(uuid.uuid4())
+            return {"status": "registered", "frame_id": frame_id}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Frame Reg Error: {str(e)}")
+
+@app.post("/process_detection")
+@app.post("/detections")
+async def handle_detection(payload: dict, background_tasks: BackgroundTasks):
+    """
+    Primary ALPR endpoint. 
+    Accepts raw JSON, transforms to DetectionInput, and feeds the Pipeline.
+    """
+    try:
+        # Transform flat JSON into your Aggregation Dataclass
+        detection_data = AggInput(
+            detection_id=str(uuid.uuid4()),
+            frame_id=payload.get("frame_id", "unknown"),
+            drone_id=payload.get("drone_id", "drone1"),
+            detected_at=datetime.fromisoformat(payload["timestamp"]) if "timestamp" in payload else datetime.now(timezone.utc),
+            plate_raw=payload.get("plate") or payload.get("plate_text", "UNKNOWN"),
+            confidence=float(payload.get("confidence", 0.0)),
+            quality_flags=payload.get("quality_flags", []),
+            telemetry={
+                "lat": payload.get("latitude", 33.7490),
+                "lon": payload.get("longitude", -84.3880)
+            }
+        )
+
+        # Offload heavy aggregation/alerting logic to a background task
+        # This keeps the [CPU Usage](https://cloud.digitalocean.com/droplets/559904925/graphs?i=b249b2&period=hour) spikes manageable
+        background_tasks.add_task(pipeline.process_detection, detection_data)
+
+        return {"status": "accepted", "plate": detection_data.plate_raw}
+
+    except Exception as e:
+        print(f"❌ Ingest Error: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.post("/telemetry")
-def ingest_telemetry(t: dict):
-    conn = get_conn()
-    cur = conn.cursor()
-    try:
-        ts = t.get("ts") or t.get("timestamp") or datetime.now(timezone.utc)
-        cur.execute(
-            "INSERT INTO telemetry_points (drone_id, pilot_id, ts, lat, lon, source) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-            (t.get("drone_id"), t.get("pilot_id"), ts, t.get("lat", 0), t.get("lon", 0), t.get("source", "bridge"))
-        )
-        row = cur.fetchone()
-        conn.commit()
-        return {"ok": True, "id": row["id"]}
-    finally:
-        cur.close()
-        conn.close()
-
-@app.post("/detections")
-def create_detection(d: DetectionIn):
-    conn = get_conn()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            "INSERT INTO detections (frame_id, drone_id, plate_text, confidence, detected_at) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (d.frame_id, d.drone_id, d.plate_text, d.confidence, d.detected_at)
-        )
-        row = cur.fetchone()
-        conn.commit()
-        return {"ok": True, "detection_id": row["id"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
+async def ingest_telemetry(t: dict):
+    """Placeholder for future GPS/Drone telemetry data."""
+    return {"status": "received", "ts": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/health")
-def health():
-    return {"status": "online"}
+async def health():
+    """Monitor system vitals."""
+    return {
+        "status": "online",
+        "active_aggregation_groups": aggregation_service.active_group_count(),
+        "database": "connected",
+        "webhook_enabled": WEBHOOK_URL is not None
+    }

@@ -1,0 +1,95 @@
+import os
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Any, List
+import psycopg2
+import psycopg2.extras
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+app = FastAPI(title="Amber's Angels Metadata API")
+
+class DetectionCreate(BaseModel):
+    plate_text: str
+    confidence: float
+    drone_id: str
+    detected_at: Optional[datetime] = None
+
+# DB Settings
+DB_NAME = os.getenv("DB_NAME", "ambers_angels")
+DB_USER = os.getenv("DB_USER", "ambers-angels")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "Ambers1Angels")
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+
+def get_conn():
+    return psycopg2.connect(
+        dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD,
+        host=DB_HOST, port=DB_PORT,
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
+
+class FrameIn(BaseModel):
+    drone_id: str
+    frame_path: str
+    frame_ts: datetime
+
+class DetectionIn(BaseModel):
+    frame_id: int
+    drone_id: str
+    plate_text: str
+    confidence: float
+    detected_at: datetime
+    raw_payload: Optional[Any] = None
+
+@app.post("/telemetry")
+def ingest_telemetry(t: dict):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        ts = t.get("ts") or t.get("timestamp") or datetime.now(timezone.utc)
+        cur.execute(
+            "INSERT INTO telemetry_points (drone_id, pilot_id, ts, lat, lon, source) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (t.get("drone_id"), t.get("pilot_id"), ts, t.get("lat", 0), t.get("lon", 0), t.get("source", "bridge"))
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return {"ok": True, "id": row["id"]}
+    finally:
+        cur.close()
+        conn.close()
+#commented out prod detections while testing
+#@app.post("/detections")
+#def create_detection(d: DetectionIn):
+#    conn = get_conn()
+#    cur = conn.cursor()
+#    try:
+#        cur.execute(
+#            "INSERT INTO detections (frame_id, drone_id, plate_text, confidence, detected_at) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+#            (d.frame_id, d.drone_id, d.plate_text, d.confidence, d.detected_at)
+#        )
+#        row = cur.fetchone()
+#        conn.commit()
+#        return {"ok": True, "detection_id": row["id"]}
+#    except Exception as e:
+#        raise HTTPException(status_code=500, detail=str(e))
+#    finally:
+#        cur.close()
+#        conn.close()
+
+WATCH_LIST = ["AMB3R-1"]
+
+@app.post("/detections")
+async def create_detection(detection: DetectionCreate):
+    # ... your existing DB logic ...
+    
+    if detection.plate_text in WATCH_LIST:
+        print("\n" + "!"*40)
+        print(f"ALERT: TARGET PLATE {detection.plate_text} DETECTED!")
+        print("!"*40 + "\n")
+        # You could also add a column in your DB: is_alert=True
+    
+    return {"status": "logged"}
+
+@app.get("/health")
+def health():
+    return {"status": "online"}

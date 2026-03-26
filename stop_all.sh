@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "🛑 Shutting down systems..."
+
+# Kill tmux sessions
+tmux kill-session -t drone-backend 2>/dev/null
+tmux kill-session -t drone-logic 2>/dev/null
+
+# Kill any stray python/uvicorn processes
+sudo fuser -k 8000/tcp 2>/dev/null
+
+# Optional: Stop Nginx if you want to close the RTMP port entirely
+# sudo systemctl stop nginx
+
+echo "📴 All systems offline."

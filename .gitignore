@@ -6,6 +6,9 @@ __pycache__/
 .venv/
 venv/
 
+#OpenAlpr install
+backend/openalpr/*
+
 # Secrets / env
 .env
 .env.*
