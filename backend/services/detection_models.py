@@ -7,6 +7,12 @@ from enum import Enum
 class EventStatus(str, Enum):
     ACTIVE = "active"
     CLOSED = "closed"
+    CANDIDATE = "candidate" 
+    DETECTION = "detection"
+    TARGET_MATCH = "target_match"
+    ANOMALY = "anomaly"
+    QUEUED_REVIEW = "queued_review"
+    ALERTED = "alerted"
 
 class EventClassification(str, Enum):
     WEAK = "weak"
@@ -17,6 +23,7 @@ class AlertChannel(str, Enum):
     DISCORD = "discord"
     SLACK = "slack"
     WEBHOOK = "webhook"
+    INTERNAL = "internal"
     EMAIL = "email"
 
 class AlertDeliveryStatus(str, Enum):

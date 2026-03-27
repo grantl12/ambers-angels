@@ -1,152 +1,57 @@
-from __future__ import annotations
-
-import json
-from datetime import datetime, timezone
-from typing import Protocol
-from uuid import UUID
-
+import os
 import httpx
-
-from services.detection_models import (
-    Alert,
-    AlertChannel,
-    AlertCreate,
-    AlertDeliveryStatus,
-    DetectionEvent,
-    build_alert_event_payload,
-)
-
-
-# -----------------------------------------------------------------------------
-# Repository protocol
-# -----------------------------------------------------------------------------
-
-
-class AlertRepository(Protocol):
-    def create_alert(self, payload: AlertCreate) -> Alert:
-        ...
-
-    def update_alert(self, alert: Alert, fields: dict) -> Alert:
-        ...
-
-
-# -----------------------------------------------------------------------------
-# Dispatcher
-# -----------------------------------------------------------------------------
-
+from datetime import datetime, timezone
+from typing import Any
+from services.detection_models import DetectionEvent, AlertCreate
 
 class AlertDispatcher:
-    def __init__(
-        self,
-        repository: AlertRepository,
-        *,
-        webhook_url: str | None = None,
-        timeout_seconds: float = 5.0,
-    ) -> None:
+    def __init__(self, repository, webhook_url: str):
         self.repository = repository
         self.webhook_url = webhook_url
-        self.timeout_seconds = timeout_seconds
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    async def dispatch(self, event: Any):
+        # Handle both dict and object types for the event
+        is_dict = isinstance(event, dict)
+        plate = event.get('plate_best') if is_dict else event.plate_best
+        drone_id = event.get('drone_id') if is_dict else event.drone_id
+        event_id = event.get('id') if is_dict else event.id
 
-    async def dispatch(self, event: DetectionEvent) -> list[Alert]:
-        """
-        Fan out alerts for an event.
+        print(f"[LOUD DEBUG] 🚀 Dispatching alert for Plate: {plate}")
 
-        POC behavior:
-        - always create INTERNAL alert record
-        - optionally send WEBHOOK if configured
-        """
-        alerts: list[Alert] = []
-
-        payload = build_alert_event_payload(event)
-        payload_dict = json.loads(payload.model_dump_json())
-
-        # Always create internal alert
-        internal = self.repository.create_alert(
-            AlertCreate(
-                event_id=event.id,
-                channel=AlertChannel.INTERNAL,
-                payload=payload_dict,
+        # 1. Create the Alert Record for the Database
+        try:
+            alert_data = AlertCreate(
+                alert_type='WATCHLIST_MATCH',
+                severity='CRITICAL',
+                message=f"Target Plate {plate} Detected",
+                event_id=event_id,
+                plate_text=plate,
+                drone_id=drone_id,
+                sent_at=datetime.now(timezone.utc)
             )
-        )
-        alerts.append(internal)
-
-        # Optional webhook
-        if self.webhook_url:
-            webhook_alert = self.repository.create_alert(
-                AlertCreate(
-                    event_id=event.id,
-                    channel=AlertChannel.WEBHOOK,
-                    destination=self.webhook_url,
-                    payload=payload_dict,
+            
+            # Log to DB
+            if hasattr(self.repository, 'create_alert'):
+                await self.repository.create_alert(
+                    event_id=event_id,
+                    plate=plate,
+                    drone_id=drone_id,
+                    channel="DISCORD"
                 )
-            )
+        except Exception as e:
+            print(f"[LOUD DEBUG] ⚠️ Alert Record Creation Failed: {e}")
 
-            alerts.append(
-                await self._send_webhook(webhook_alert)
-            )
-
-        return alerts
-
-    # ------------------------------------------------------------------
-    # Webhook
-    # ------------------------------------------------------------------
-
-    async def _send_webhook(self, alert: Alert) -> Alert:
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+        # 2. Send to Discord
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "content": f"🚨 **AMBER ALERT: TARGET MATCH** 🚨\n**Plate:** {plate}\n**Drone:** {drone_id}\n**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            }
             try:
-                response = await client.post(
-                    alert.destination,
-                    json=alert.payload,
-                    headers={"Content-Type": "application/json"},
-                )
+                resp = await client.post(self.webhook_url, json=payload)
+                if resp.status_code == 204 or resp.status_code == 200:
+                    print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful for {plate}")
+                else:
+                    print(f"[LOUD DEBUG] ❌ Discord returned error {resp.status_code}: {resp.text}")
+            except Exception as e:
+                print(f"[LOUD DEBUG] ❌ Network Error sending to Discord: {e}")
 
-                updated = self.repository.update_alert(
-                    alert,
-                    {
-                        "delivery_status": AlertDeliveryStatus.SENT.value
-                        if response.status_code < 400
-                        else AlertDeliveryStatus.FAILED.value,
-                        "provider_response": {
-                            "status_code": response.status_code,
-                            "body": response.text[:2000],
-                        },
-                        "sent_at": datetime.now(timezone.utc),
-                    },
-                )
-                return updated
-
-            except Exception as exc:
-                updated = self.repository.update_alert(
-                    alert,
-                    {
-                        "delivery_status": AlertDeliveryStatus.FAILED.value,
-                        "provider_response": {
-                            "error": str(exc),
-                        },
-                        "sent_at": datetime.now(timezone.utc),
-                    },
-                )
-                return updated
-
-
-# -----------------------------------------------------------------------------
-# Simple sync wrapper (optional)
-# -----------------------------------------------------------------------------
-
-
-class SyncAlertDispatcher:
-    """
-    Convenience wrapper if you're not async yet.
-    """
-
-    def __init__(self, async_dispatcher: AlertDispatcher):
-        self.async_dispatcher = async_dispatcher
-
-    def dispatch(self, event: DetectionEvent) -> list[Alert]:
-        import asyncio
-
-        return asyncio.run(self.async_dispatcher.dispatch(event))

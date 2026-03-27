@@ -1,32 +1,24 @@
 import asyncio
-import logging
 from services.detection_models import DetectionInput 
 from services.aggregation_service import AggregationService
 from services.event_service import EventService
 from services.alert_dispatcher import AlertDispatcher
 
 class DetectionPipeline:
-    def __init__(self, aggregation: AggregationService, events: EventService, alerts: AlertDispatcher):
+    def __init__(self, aggregation, events, alerts):
         self.aggregation = aggregation
         self.events = events
         self.alerts = alerts
 
     async def process_detection(self, detection_input: DetectionInput):
-        # 1. Ingest into the aggregator
         snapshot = self.aggregation.ingest(detection_input)
-        
-        # If the aggregator says this isn't an event yet (e.g. needs more hits), stop here.
         if not snapshot or not snapshot.should_open_event:
             return None
 
-        # 2. THE CRITICAL FIX: We must AWAIT the event service now that it is async
-        # Without this 'await', the database write never happens.
-        decision = await self.events.upsert_from_snapshot(snapshot)
-        
+	decision = await self.events.upsert_from_snapshot(snapshot)
         if not decision:
             return None
 
-        # 3. Dispatch alerts if the decision says so
         if decision.should_dispatch_alert:
             await self.alerts.dispatch(decision.event)
 

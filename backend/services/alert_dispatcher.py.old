@@ -1,0 +1,159 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from typing import Protocol
+from uuid import UUID
+
+import httpx
+
+from services.detection_models import (
+    Alert,
+    AlertChannel,
+    AlertCreate,
+    AlertDeliveryStatus,
+    DetectionEvent,
+)
+
+
+# -----------------------------------------------------------------------------
+# Repository protocol (Updated for Async)
+# -----------------------------------------------------------------------------
+
+
+class AlertRepository(Protocol):
+    async def create_alert(self, payload: AlertCreate) -> Alert:
+        ...
+
+    async def update_alert(self, alert: Alert, fields: dict) -> Alert:
+        ...
+
+
+# -----------------------------------------------------------------------------
+# Dispatcher
+# -----------------------------------------------------------------------------
+
+
+class AlertDispatcher:
+    def __init__(
+        self,
+        repository: AlertRepository,
+        *,
+        webhook_url: str | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> None:
+        self.repository = repository
+        self.webhook_url = webhook_url
+        self.timeout_seconds = timeout_seconds
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def dispatch(self, event: DetectionEvent) -> list[Alert]:
+        """
+        Fan out alerts for an event.
+        - Records an INTERNAL alert in the DB.
+        - Sends a Discord-formatted webhook if URL is provided.
+        """
+        alerts: list[Alert] = []
+
+        # Prepare a clean dictionary for the database/webhook
+        # We handle both dictionary (from our recent fix) and object access
+        event_id = event.get('id') if isinstance(event, dict) else event.id
+        plate = event.get('plate_best') if isinstance(event, dict) else event.get('plate_best') if isinstance(event, dict) else event.plate_best
+        conf = event.get('aggregate_confidence') if isinstance(event, dict) else event.aggregate_confidence
+        drone = event.get('drone_id') if isinstance(event, dict) else event.drone_id
+        
+        payload_dict = {
+            "event_id": str(event_id),
+            "plate_best": plate,
+            "confidence": f"{conf*100:.1f}%" if conf else "0%",
+            "drone_id": drone,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        # 1. Always create internal alert record
+        internal = await self.repository.create_alert(
+            AlertCreate(alert_type='WATCHLIST_MATCH', severity='CRITICAL', message=f'Target Plate {event.get('plate_best') if isinstance(event, dict) else event.plate_best} Detected', 
+                event_id=event_id,
+                channel="INTERNAL",
+                payload=payload_dict,
+            )
+        )
+        alerts.append(internal)
+
+        # 2. Optional Discord Webhook
+        if self.webhook_url:
+            webhook_alert = await self.repository.create_alert(
+                AlertCreate(alert_type='WATCHLIST_MATCH', severity='CRITICAL', message=f'Target Plate {event.get('plate_best') if isinstance(event, dict) else event.plate_best} Detected', 
+                    event_id=event_id,
+                    channel=AlertChannel.WEBHOOK,
+                    destination=self.webhook_url,
+                    payload=payload_dict,
+                )
+            )
+
+            # Process the actual network send
+            sent_alert = await self._send_discord_webhook(webhook_alert)
+            alerts.append(sent_alert)
+
+        return alerts
+
+    # ------------------------------------------------------------------
+    # Discord-Specific Webhook Logic
+    # ------------------------------------------------------------------
+
+    async def _send_discord_webhook(self, alert: Alert) -> Alert:
+        """
+        Formats the generic payload into a pretty Discord Embed.
+        """
+        p = alert.payload
+        discord_payload = {
+            "username": "AA-Drone-Monitor",
+            "embeds": [{
+                "title": "🚨 TARGET PLATE DETECTED",
+                "color": 15158332, # Red
+                "fields": [
+                    {"name": "Plate", "value": f"`{p.get('plate_best')}`", "inline": True},
+                    {"name": "Confidence", "value": f"{p.get('confidence')}", "inline": True},
+                    {"name": "Drone", "value": f"{p.get('drone_id')}", "inline": True},
+                ],
+                "footer": {"text": f"ID: {p.get('event_id')}"},
+                "timestamp": p.get('timestamp')
+            }]
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            try:
+                response = await client.post(
+                    alert.destination,
+                    json=discord_payload,
+                    headers={"Content-Type": "application/json"},
+                )
+
+                # Update the DB record with the result
+                status = AlertDeliveryStatus.SENT if response.status_code < 400 else AlertDeliveryStatus.FAILED
+                updated = await self.repository.update_alert(
+                    alert,
+                    {
+                        "delivery_status": status.value,
+                        "provider_response": {
+                            "status_code": response.status_code,
+                            "body": response.text[:1000],
+                        },
+                        "sent_at": datetime.now(timezone.utc),
+                    },
+                )
+                return updated
+
+            except Exception as exc:
+                updated = await self.repository.update_alert(
+                    alert,
+                    {
+                        "delivery_status": AlertDeliveryStatus.FAILED.value,
+                        "provider_response": {"error": str(exc)},
+                        "sent_at": datetime.now(timezone.utc),
+                    },
+                )
+                return updated
