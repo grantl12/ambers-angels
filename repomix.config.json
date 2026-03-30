@@ -1,0 +1,11 @@
+{
+  "ignore": {
+    "customPatterns": [
+      "**/*.jpg",
+      "**/*.jpeg",
+      "**/scan_results.json",
+      "**/openalpr/**",
+      "**/old/**"
+    ]
+  }
+}

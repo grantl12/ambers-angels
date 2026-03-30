@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # --- CONFIGURATION ---
-# Format: "DroneName|RTMP_URL"
 DRONES=(
     "drone1|rtmp://127.0.0.1/live/drone1"
     "drone2|rtmp://127.0.0.1/live/drone2"
@@ -9,36 +8,46 @@ DRONES=(
 )
 
 BASE_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
-FPS="2"
+FPS="3"
+
+# --- CLEANUP HANDLER ---
+cleanup() {
+    echo -e "\n\n🛑 Shutting down Harvester Cluster..."
+    pkill -P $$ ffmpeg 2>/dev/null
+    echo "✅ All FFmpeg instances stopped."
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
 
 echo "🚀 Starting Multi-Drone Harvester Cluster..."
 
 for drone in "${DRONES[@]}"; do
-    # Split the string into Name and URL
     IFS="|" read -r NAME URL <<< "$drone"
-    
     TARGET_DIR="$BASE_DIR/$NAME"
     mkdir -p "$TARGET_DIR"
 
-    echo "🛰️  Launching Harvester for $NAME at $URL"
-
-    # Start FFmpeg in the background for this specific drone
-    # We use a subshell ( ... ) & to allow auto-restart logic per drone
+    # Start the loop in the background
     (
         while true; do
-            ffmpeg -hide_banner -loglevel error \
+            # 1. We removed '-er 4' and used '-flags +discardcorrupt' for compatibility
+            # 2. We redirect STDERR (2) to /dev/null so "Option not found" doesn't spam
+            ffmpeg -hide_banner -loglevel panic \
+                   -fflags nobuffer+genpts \
+                   -flags +discardcorrupt \
                    -i "$URL" \
                    -vf "fps=$FPS" -q:v 2 \
-                   -f image2 "$TARGET_DIR/frame_%04d.jpg"
+                   -vsync vfr \
+                   -f image2 "$TARGET_DIR/frame_%04d.jpg" 2>/dev/null
             
-            echo "⚠️  Connection lost for $NAME ($URL). Retrying in 5s..."
+            # This only prints if ffmpeg exits (connection lost or never started)
+            echo "📡 [$NAME] Searching for stream..."
             sleep 5
         done
     ) & 
 done
 
-echo "✅ All harvesters are running in the background."
-echo "💡 Use 'ps aux | grep ffmpeg' to monitor them."
+echo "✅ Harvesters are polling for drone connections."
+echo "💡 Press Ctrl+C to stop."
 
-# Keep the script alive so it doesn't close the background processes immediately
 wait

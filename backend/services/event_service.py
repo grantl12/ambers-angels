@@ -1,10 +1,13 @@
 from __future__ import annotations
 import uuid
+import os
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Protocol, Any
 from uuid import UUID
 from sqlalchemy import text
+from difflib import SequenceMatcher
 
 from services.aggregation_service import EventSnapshot
 from services.detection_models import (
@@ -58,6 +61,18 @@ class EventService:
             print("[LOUD DEBUG] 🛑 Snapshot rejected: 'should_open_event' is False.")
             return None
 
+        # --- AUTO-ARCHIVE HIGH CONFIDENCE FRAMES ---
+        if snapshot.aggregate_confidence > 90:
+            try:
+                gold_path = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames"
+                os.makedirs(gold_path, exist_ok=True)
+                src = f"/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/{snapshot.drone_id}/{snapshot.best_frame_id}"
+                if os.path.exists(src):
+                    shutil.copy(src, os.path.join(gold_path, f"auto_gold_{snapshot.plate_best}_{snapshot.best_frame_id}"))
+                    print(f"[LOUD DEBUG] 🏆 Frame {snapshot.best_frame_id} ARCHIVED to Golden Frames.")
+            except Exception as e:
+                print(f"[LOUD DEBUG] ⚠️ Auto-archive failed: {e}")
+
         # 1. Database Lookup
         existing = await self.repository.get_active_event_by_group_key(snapshot.group_key)
         if existing is None:
@@ -72,7 +87,7 @@ class EventService:
             event = await self.repository.update_event(existing, self._build_update_fields(existing, snapshot))
             created, updated = False, True
 
-        # 2. EVALUATE ALERT (The Logic Gate)
+        # 2. EVALUATE ALERT (Fuzzy Logic Applied Here)
         should_dispatch_alert, suppression_reason, cooldown_expires_at = await self._evaluate_alert_dispatch(
             event=event,
             snapshot=snapshot
@@ -81,15 +96,11 @@ class EventService:
         # 3. DISPATCH TO DISCORD
         if should_dispatch_alert:
             print(f"[LOUD DEBUG] 🚨 ALERT TRIGGERED for {snapshot.plate_best}!")
-            
-            # Update status to ALERTED in DB
             event = await self.repository.update_event(
                 event,
                 {"status": EventStatus.ALERTED.value, "updated_at": datetime.now(timezone.utc)}
             )
-
             try:
-                print(f"[LOUD DEBUG] 📡 Pinging Discord Dispatcher...")
                 await self.dispatcher.dispatch(event)
                 print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful.")
             except Exception as e:
@@ -97,35 +108,38 @@ class EventService:
         else:
             print(f"[LOUD DEBUG] ℹ️ Alert Suppressed. Reason: {suppression_reason}")
 
-        # 4. TRACE RECORD (The Sequence Keeper)
+        # 4. TRACE RECORD
         try:
             async with self.repository.session_factory() as session:
-                # Removed the "Sequence 18" hardcoded text for clarity
                 sql = text("INSERT INTO detections (drone_id, plate_text, confidence, detected_at) VALUES (:d, :p, :c, :t)")
                 await session.execute(sql, {"d": snapshot.drone_id, "p": snapshot.plate_best, "c": snapshot.aggregate_confidence, "t": datetime.now(timezone.utc)})
                 await session.commit()
-                print(f"[LOUD DEBUG] 📊 Trace record saved to 'detections' table.")
         except Exception as e:
             print(f"[LOUD DEBUG] ⚠️ Trace record failed: {e}")
 
         return EventDecision(event, created, updated, should_dispatch_alert, suppression_reason, cooldown_expires_at)
 
     async def _evaluate_alert_dispatch(self, *, event: DetectionEvent, snapshot: EventSnapshot) -> tuple[bool, str | None, datetime | None]:
-        # --- FUZZY WATCHLIST LOGIC ---
-        # We manually check the watchlist here to bypass any Aggregator misses
+        def get_similarity(a, b):
+            return SequenceMatcher(None, a, b).ratio()
+
         plate = snapshot.plate_best.upper()
         async with self.repository.session_factory() as session:
-            # Check if our detected plate is part of a watchlist plate OR vice versa
-            res = await session.execute(
-                text("SELECT plate_text FROM watchlist WHERE :p LIKE '%' || plate_text || '%' OR plate_text LIKE '%' || :p || '%'"),
-                {"p": plate}
-            )
-            match = res.fetchone()
+            res = await session.execute(text("SELECT plate_text FROM watchlist WHERE is_active = 1"))
+            targets = [row[0] for row in res.fetchall()]
             
-        if not match:
+        match_found = None
+        for target in targets:
+            target_up = target.upper()
+            similarity = get_similarity(plate, target_up)
+            # 0.7 threshold + substring check
+            if similarity >= 0.7 or target_up in plate or plate in target_up:
+                match_found = target
+                print(f"[LOUD DEBUG] 🎯 FUZZY MATCH: {plate} matches {target} (Sim: {similarity:.2f})")
+                break
+            
+        if not match_found:
             return False, "not_on_watchlist", None
-
-        print(f"[LOUD DEBUG] 🎯 Watchlist Match Confirmed: {plate} matches {match[0]}")
 
         # Check Cooldown
         current_status = event.get('status') if isinstance(event, dict) else event.status
@@ -133,13 +147,11 @@ class EventService:
             updated_at = event.get('updated_at') if isinstance(event, dict) else event.updated_at
             base_time = updated_at or datetime.now(timezone.utc)
             cooldown_expires_at = base_time + timedelta(seconds=self.alert_cooldown_seconds)
-            
             if datetime.now(timezone.utc) < cooldown_expires_at:
                 return False, "cooldown_active", cooldown_expires_at
 
         return True, None, None
 
-    # --- Helper methods remain largely the same but updated for dict safety ---
     def _build_create_payload(self, snapshot: EventSnapshot) -> DetectionEventCreate:
         return DetectionEventCreate(
             drone_id=snapshot.drone_id, status=snapshot.status, classification=snapshot.classification,
@@ -163,8 +175,3 @@ class EventService:
     async def _find_recent_reopen_candidate(self, snapshot: EventSnapshot) -> DetectionEvent | None:
         since = snapshot.first_seen_at - timedelta(seconds=self.reopen_window_seconds)
         return await self.repository.get_recent_event_by_plate(drone_id=snapshot.drone_id, plate_normalized=snapshot.plate_normalized, since=since)
-
-    @staticmethod
-    def _classification_rank(value: Any) -> int:
-        ranks = {EventClassification.WEAK: 0, EventClassification.PROBABLE: 1, EventClassification.HIGH_CONFIDENCE: 2}
-        return ranks.get(value if isinstance(value, EventClassification) else EventClassification(value), 0)

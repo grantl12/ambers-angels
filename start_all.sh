@@ -18,12 +18,12 @@ tmux new-session -d -s aa-backend "cd /home/ambers-angels/proj_dir/ambers-angels
 
 # 4. Start Worker (The Processor)
 tmux kill-session -t aa-worker 2>/dev/null
-tmux new-session -d -s aa-worker "cd /home/ambers-angels/proj_dir/ambers-angels/worker && python3 process_frames.py"
+tmux new-session -d -s aa-worker "cd /home/ambers-angels/proj_dir/ambers-angels/worker && python3 unified_worker.py &"
 
 # 5. Multi-Drone Harvester (The Eyes/Mouth)
 # Fixed: We create the session FIRST, then run the script
 tmux kill-session -t aa-feed 2>/dev/null
-tmux new-session -d -s aa-feed -n 'Harvester' "cd /home/ambers-angels/proj_dir/ambers-angels && ./harvest_all.sh"
+tmux new-session -d -s aa-feed -n 'Harvester' "cd /home/ambers-angels/proj_dir/ambers-angels && ./harvest_stream.sh"
 
 echo "------------------------------------------------"
 echo "✅  System LIVE."
