@@ -1,138 +1,130 @@
-import os
+"""
+backend/main.py
+Amber's Angels — FastAPI entry point.
+"""
 import sys
-import uuid
-import base64
+import os
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from typing import Optional, Any
-
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from pydantic import BaseModel  
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 
-# Ensure local paths are recognized
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Ensure the backend directory is on the path regardless of working directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from services.aggregation_service import AggregationService, DetectionInput as AggInput
+# --- Core imports ---
+import database
+import schemas
+from services.detection_models import EventStatus, EventClassification
 from services.event_service import EventService
-from services.alert_dispatcher import AlertDispatcher
 from event_repository import EventRepository
-from services.detection_pipeline import DetectionPipeline
+from services.alert_dispatcher import AlertDispatcher
 
-app = FastAPI(title="Amber's Angels - Unified Mission Control")
-
-# --- Database & Session Setup ---
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+# The alert dispatcher singleton — reads ALERT_WEBHOOK_URL from env
+_alert_dispatcher = AlertDispatcher(
+    repository=None,  # repository is injected per-request below
+    webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
 )
 
-engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
 
-def get_session_factory():
-    return AsyncSessionLocal
+app = FastAPI(title="Amber's Angels API")
 
-# --- Watchlist ---
-class WatchlistAdd(BaseModel):
-    plate_text: str
-    description: Optional[str] = "Target of Interest"
-
-@app.post("/watchlist")
-async def add_to_watchlist(item: WatchlistAdd):
-    async with AsyncSessionLocal() as session:
-        try:
-            clean_plate = item.plate_text.replace("-", "").replace(" ", "").upper()
-            await session.execute(
-                text("INSERT INTO watchlist (plate_text, description) VALUES (:p, :d) ON CONFLICT (plate_text) DO NOTHING"),
-                {"p": clean_plate, "d": item.description}
-            )
-            await session.commit()
-            return {"status": "added", "plate": clean_plate}
-        except Exception as e:
-            await session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-
-# --- Service Initialization ---
-# CRITICAL FIX: Robust Webhook Fallback
-RAW_WEBHOOK = os.getenv("ALERT_WEBHOOK_URL", "")
-# Replace the string below with your ACTUAL Discord URL if the environment variable fails
-FALLBACK_URL = "https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
-
-if not RAW_WEBHOOK or "your_discord_webhook_here" in RAW_WEBHOOK:
-    WEBHOOK_URL = FALLBACK_URL
-else:
-    WEBHOOK_URL = RAW_WEBHOOK
-
-aggregation_service = AggregationService()
-repo = EventRepository(session_factory=get_session_factory())
-alert_dispatcher = AlertDispatcher(repository=repo, webhook_url=WEBHOOK_URL)
-event_service = EventService(repository=repo, dispatcher=alert_dispatcher)
-
-pipeline = DetectionPipeline(
-    aggregation=aggregation_service,
-    events=event_service,
-    alerts=alert_dispatcher
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- The Image-Saving & Detection Logic ---
-@app.post("/detections")
-@app.post("/process_detection")
-async def handle_detection(payload: dict, background_tasks: BackgroundTasks):
-    print(f"\n[LOUD DEBUG] 📦 FULL PAYLOAD RECEIVED: {payload}")
-    print(f"[LOUD DEBUG] 🔑 KEYS PRESENT: {list(payload.keys())}")
+
+def get_db():
+    db = database.SessionLocal()
     try:
-        # 1. Identify Drone and Frame
-        drone_id = payload.get("drone_id", "drone1")
-        frame_id = payload.get("frame_id") or str(uuid.uuid4())
-        
-        # 2. Dynamic Image Persistence (Supports Multi-Drone Folders)
-        save_dir = f"/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/{drone_id}"
-        os.makedirs(save_dir, exist_ok=True)
-        
-        img_b64 = payload.get("image") or payload.get("image_b64")
-        if img_b64:
-            file_path = os.path.join(save_dir, f"{frame_id}.jpg")
-            # Remove data URI header if present
-            if "," in img_b64:
-                img_b64 = img_b64.split(",")[1]
-            
-            with open(file_path, "wb") as f:
-                f.write(base64.b64decode(img_b64))
-            print(f"📸 Saved: {file_path}")
+        yield db
+    finally:
+        db.close()
 
-        # 3. Extract Plate (Fuzzy keys for different drone softwares)
-        plate_raw = (
-            payload.get("plate_best") or payload.get("plate") or 
-            payload.get("plate_text") or 
-            payload.get("plate_best") or 
-            "UNKNOWN"
-        )
 
-        # 4. Pipeline Ingest
-        detection_data = AggInput(
-            detection_id=None,  # BigInt handled by DB
-            frame_id=frame_id,
-            drone_id=drone_id,
-            detected_at=datetime.now(timezone.utc),
-            plate_raw=plate_raw,
-            confidence=float(payload.get("confidence", 0.0)),
-            telemetry={
-                "lat": payload.get("latitude", 33.7490),
-                "lon": payload.get("longitude", -84.3880)
-            }
-        )
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
-        # Trigger background processing
-        background_tasks.add_task(pipeline.process_detection, detection_data)
-        
-        return {"status": "accepted", "plate": plate_raw, "frame_id": frame_id}
+@app.get("/")
+def read_root():
+    return {"status": "Amber's Angels Pipeline Active", "version": "2.1"}
 
-    except Exception as e:
-        print(f"❌ Ingest Error: {e}")
-        return {"status": "error", "message": str(e)}
 
 @app.get("/health")
-async def health():
-    return {"status": "online", "webhook_configured": bool("discord" in WEBHOOK_URL)}
+def health_check(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+
+
+@app.post("/detections/")
+async def create_detection(
+    detection: schemas.DetectionCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Accepts a raw detection from the worker or bridge, runs it through
+    the event service (which handles deduplication, watchlist checking,
+    and alert dispatch).
+    """
+    # Build the repo with the async session factory for this request
+    repo = EventRepository(database.AsyncSessionLocal)
+
+    # Wire the dispatcher to the repo so DB alert logging works
+    dispatcher = AlertDispatcher(
+        repository=repo,
+        webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
+    )
+
+    service = EventService(repository=repo, dispatcher=dispatcher)
+
+    # Build an EventSnapshot directly from the incoming detection
+    # (bypasses the aggregation layer for single-detection ingress)
+    from services.aggregation_service import EventSnapshot as AggSnapshot
+
+    snapshot = AggSnapshot(
+        drone_id=detection.drone_id,
+        group_key=f"{detection.drone_id}_{detection.plate_text.upper().replace(' ', '')}",
+        plate_best=detection.plate_text.upper().replace(" ", ""),
+        plate_normalized=detection.plate_text.upper().replace(" ", ""),
+        first_seen_at=datetime.now(timezone.utc),
+        last_seen_at=datetime.now(timezone.utc),
+        aggregate_confidence=detection.confidence,
+        classification=EventClassification.PROBABLE,
+        status=EventStatus.CANDIDATE,
+        detection_count=1,
+        distinct_frame_count=1,
+        best_frame_id=detection.best_frame_id or "unknown.jpg",
+        best_detection_id=None,
+        should_open_event=True,
+        should_alert=False,   # event_service will evaluate this via watchlist
+        dominant_ratio=1.0,
+        top_hypotheses=[],
+        quality_flags=[],
+        raw_summary={},
+        location_centroid=None,
+    )
+
+    decision = await service.upsert_from_snapshot(snapshot)
+
+    if not decision:
+        return {"status": "ignored", "reason": "snapshot_rejected"}
+
+    event = decision.event
+    plate = event.get("plate_best") if isinstance(event, dict) else event.plate_best
+
+    return {
+        "status": "processed",
+        "plate": plate,
+        "alert_triggered": decision.should_dispatch_alert,
+    }

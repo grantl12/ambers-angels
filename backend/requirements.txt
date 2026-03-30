@@ -1,9 +1,11 @@
 fastapi
-uvicorn
-sqlalchemy
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
 psycopg2-binary
 pydantic
 python-dotenv
 requests
+httpx
 opencv-python
 numpy

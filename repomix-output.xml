@@ -50,10 +50,12 @@ backend/
     detection_models.py
     detection_pipeline.py
     event_service.py
+  __init__.py
   app_log.txt
   bridge_log.txt
   bridge.py
   database.py
+  detection_models.py
   event_repository.py
   fix_backend_structure.sh
   generate_test_data.py
@@ -66,6 +68,7 @@ backend/
   requirements.txt
   run_simulation.py
   schema.sql
+  schemas.py
   smoke_test.py
   stress_test.py
   test_engine.py
@@ -79,6 +82,7 @@ scripts/
   start_all.sh
   stop_all.sh
 worker/
+  __init__.py
   unified_worker.py
 .gitignore
 cleanup_root.sh
@@ -93,206 +97,221 @@ stop_all.sh
 <files>
 This section contains the contents of the repository's files.
 
-<file path="backend/database.py">
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+<file path="backend/__init__.py">
 
-load_dotenv()
-
-# Pulling from the .env file we're setting up
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 </file>
 
-<file path="backend/fix_backend_structure.sh">
-#!/bin/bash
+<file path="backend/detection_models.py">
+"""
+backend/services/detection_models.py
+"""
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional, List, Any, Dict
+from enum import Enum
+from uuid import UUID
 
-# 1. Move backend/old contents to the root /old and remove the redundant folder
-if [ -d "backend/old" ]; then
-    echo "Moving backend/old to root old/backend_legacy..."
-    mkdir -p old/backend_legacy
-    mv backend/old/* old/backend_legacy/
-    rmdir backend/old
-fi
 
-# 2. Create the Services and Schemas structure if not present
-touch backend/services.py
-touch backend/schemas.py
+# --- Enums ---
 
-# 3. Consolidate environment variables
-if [ ! -f ".env" ]; then
-    echo "DATABASE_URL=postgresql://user:password@localhost/dbname" > .env
-    echo "Created template .env file. Update this with your actual DB credentials."
-fi
+class EventStatus(str, Enum):
+    NEW = "new"                     # ← restored (used by main.py)
+    ACTIVE = "active"
+    CLOSED = "closed"
+    CANDIDATE = "candidate"
+    DETECTION = "detection"
+    TARGET_MATCH = "target_match"
+    ANOMALY = "anomaly"
+    QUEUED_REVIEW = "queued_review"
+    ALERTED = "alerted"
 
-echo "Backend structure updated. Ready for code refactoring."
+
+class EventClassification(str, Enum):
+    WEAK = "weak"
+    PROBABLE = "probable"
+    HIGH_CONFIDENCE = "high_confidence"
+
+
+class AlertChannel(str, Enum):
+    DISCORD = "discord"
+    SLACK = "slack"
+    WEBHOOK = "webhook"
+    INTERNAL = "internal"
+    EMAIL = "email"
+
+
+class AlertDeliveryStatus(str, Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
+# --- Input / Pipeline Models ---
+
+class DetectionInput(BaseModel):
+    plate: str
+    plate_normalized: Optional[str] = None
+    confidence: float
+    drone_id: str
+    latitude: float
+    longitude: float
+    timestamp: datetime
+
+
+class EventSnapshot(BaseModel):
+    plate_best: str
+    drone_id: str
+    occurrence_count: int = 1
+    best_confidence: float = 0.0
+    average_confidence: float = 0.0
+    last_latitude: float = 0.0
+    last_longitude: float = 0.0
+    timestamp: Optional[datetime] = None
+    should_open_event: bool = False
+
+
+# --- DB-facing Models ---
+
+class DetectionEvent(BaseModel):
+    id: Optional[str] = None
+    plate_best: str
+    drone_id: str
+    status: EventStatus = EventStatus.ACTIVE
+    classification: EventClassification = EventClassification.WEAK
+    occurrence_count: int = 1
+    average_confidence: float = 0.0
+    first_seen: Optional[datetime] = None
+    last_seen: Optional[datetime] = None
+    # Extended fields (populated by event_service)
+    plate_normalized: Optional[str] = None
+    best_frame_id: Optional[str] = None
+    detection_count: Optional[int] = None
+    distinct_frame_count: Optional[int] = None
+    location_centroid: Optional[Dict[str, Any]] = None
+    raw_summary: Optional[Dict[str, Any]] = None
+    dedupe_key: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
+
+
+class DetectionEventCreate(BaseModel):
+    """Full payload used by event_service._build_create_payload()."""
+    plate_best: str
+    drone_id: str
+    status: str = "new"
+    classification: str = "weak"
+    occurrence_count: int = 1
+    average_confidence: float = 0.0
+    first_seen: Optional[datetime] = None
+    last_seen: Optional[datetime] = None
+    # Extended fields that event_service passes through
+    plate_normalized: Optional[str] = None
+    best_frame_id: Optional[str] = None
+    detection_count: Optional[int] = None
+    distinct_frame_count: Optional[int] = None
+    location_centroid: Optional[Dict[str, Any]] = None
+    raw_summary: Optional[Dict[str, Any]] = None
+    dedupe_key: Optional[str] = None
+    review_recommended: Optional[bool] = None
+
+
+class DetectionEventUpdate(BaseModel):
+    status: Optional[str] = None
+    classification: Optional[str] = None
+    occurrence_count: Optional[int] = None
+    average_confidence: Optional[float] = None
+    last_seen: Optional[datetime] = None
+
+
+# --- Alert Models ---
+
+class Alert(BaseModel):
+    event_id: str
+    plate: str
+    plate_normalized: Optional[str] = None
+    drone_id: str
+    confidence: float = 0.0
+    timestamp: Optional[datetime] = None
+    location: Optional[dict] = None
+    message: str = ""
+    # Used by the old dispatcher
+    destination: Optional[str] = None
+    payload: Optional[dict] = None
+    delivery_status: Optional[str] = None
+
+
+class AlertCreate(BaseModel):
+    alert_type: str
+    severity: str
+    message: str
+    metadata: Optional[dict] = None
+    event_id: Optional[str] = None
+    # Additional fields used by alert_dispatcher.py
+    plate_text: Optional[str] = None
+    drone_id: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    channel: Optional[str] = None
+    destination: Optional[str] = None
+    payload: Optional[dict] = None
+
+
+class AlertPayload(BaseModel):
+    channel: AlertChannel
+    target_url: Optional[str] = None
+    data: dict
+
+
+def build_alert_event_payload(event: Any, classification: str) -> dict:
+    """Helper to format the event data for the Alert Dispatcher."""
+    return {
+        "event_id": str(getattr(event, 'id', 'unknown')),
+        "plate": getattr(event, 'plate_best', 'unknown'),
+        "drone_id": getattr(event, 'drone_id', 'unknown'),
+        "confidence": getattr(event, 'average_confidence', 0.0),
+        "classification": classification,
+        "timestamp": datetime.utcnow().isoformat(),
+        "metadata": {
+            "occurrence_count": getattr(event, 'occurrence_count', 1),
+            "last_seen": str(getattr(event, 'last_seen', ''))
+        }
+    }
 </file>
 
-<file path="backend/recover_anomalies.sh">
-#!/bin/bash
+<file path="backend/schemas.py">
+"""
+backend/schemas.py
+Pydantic schemas used by FastAPI endpoints and the worker.
+"""
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
 
-ANOMALY_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/anomalies"
-API_URL="http://localhost:8000/detections"
 
-echo "🔎 Starting Recovery Scan on $ANOMALY_DIR..."
+class DetectionCreate(BaseModel):
+    """
+    Payload accepted by POST /detections/ and used by the unified worker.
+    Maps the raw ALPR output + drone metadata into a structured input.
+    """
+    plate_text: str
+    confidence: float
+    drone_id: str
+    detected_at: Optional[datetime] = None
 
-for frame in "$ANOMALY_DIR"/*.jpg; do
-    # 1. Run ALPR on the 'lost' frame
-    # We use -n 1 to get the best guess
-    RESULT=$(alpr -c us -j -n 1 "$frame")
-    
-    # 2. Extract Plate and Confidence using python for clean parsing
-    PLATE=$(echo "$RESULT" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['results'][0]['plate']) if data['results'] else print('')")
-    CONF=$(echo "$RESULT" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['results'][0]['confidence']) if data['results'] else print('0')")
+    # Optional — worker may pass this if it has it
+    best_frame_id: Optional[str] = None
+    raw_payload: Optional[dict] = None
 
-    if [ -n "$PLATE" ]; then
-        echo "🎯 Found $PLATE ($CONF%) in $(basename "$frame"). Sending to Brain..."
-        
-        # 3. Push to the Backend
-        # The Backend will now use the Fuzzy Matcher we just installed!
-        curl -s -X POST "$API_URL" \
-             -H "Content-Type: application/json" \
-             -d "{
-               \"drone_id\": \"recovery_bot\",
-               \"plate_best\": \"$PLATE\",
-               \"confidence\": $CONF,
-               \"best_frame_id\": \"$(basename "$frame")\"
-             }" > /dev/null
-    fi
-done
 
-echo "✅ Recovery Scan Complete. Check your Discord/Logs for hits!"
+class DetectionResponse(BaseModel):
+    """Response returned from POST /detections/"""
+    status: str
+    plate: Optional[str] = None
+    alert_triggered: Optional[bool] = None
+    reason: Optional[str] = None
 </file>
 
-<file path="worker/unified_worker.py">
-import os
-import time
-import sys
-from openalpr import Alpr
-from dotenv import load_dotenv
+<file path="worker/__init__.py">
 
-# Ensure we can find the backend folder
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from backend.database import SessionLocal
-from backend.services import detection_service, telemetry_service
-from backend import schemas  # Import schemas for validation
-
-load_dotenv()
-
-# Initialize OpenALPR once (Global context to save CPU)
-alpr = Alpr(os.getenv("ALPR_COUNTRY", "us"), 
-            os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf"), 
-            os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data"))
-
-def process_frame(frame_path):
-    db = SessionLocal()
-    try:
-        results = alpr.recognize_file(frame_path)
-        # Grab latest telemetry to link location to the plate
-        latest_gps = telemetry_service.get_latest_telemetry(db)
-        
-        for plate in results['results']:
-            # Create the schema object your service expects
-            detection_data = schemas.DetectionCreate(
-                plate_number=plate['plate'],
-                confidence=plate['confidence'],
-                frame_path=frame_path,
-                telemetry_id=latest_gps.id if latest_gps else None
-            )
-            
-            # Use your ROBUST existing service
-            detection_service.create_detection(db=db, detection=detection_data)
-            print(f" [SUCCESS] Saved Plate: {plate['plate']} to DB via Service")
-            
-    except Exception as e:
-        print(f" [ERROR] Failed to process {frame_path}: {e}")
-    finally:
-        db.close()
-
-def watch_frames():
-    print(f"Monitoring {FRAME_DIR} for new drone frames...")
-    processed_files = set()
-    
-    while True:
-        files = [f for f in os.listdir(FRAME_DIR) if f.endswith(('.jpg', '.png'))]
-        for file in files:
-            full_path = os.path.join(FRAME_DIR, file)
-            if full_path not in processed_files:
-                # Add a small delay to ensure FFmpeg has finished writing the file
-                time.sleep(0.1) 
-                process_frame(full_path)
-                processed_files.add(full_path)
-        time.sleep(0.5)
-
-if __name__ == "__main__":
-    try:
-        watch_frames()
-    finally:
-        alpr.unload()
-</file>
-
-<file path="cleanup_root.sh">
-#!/bin/bash
-
-# Ensure we are in a git repo and create old directory
-mkdir -p old
-
-# List of files to move to /old based on start_all.sh being the source of truth
-files_to_move=(
-    "AA_Launch.py"
-    "GPS.py"
-    "gps_sender.py"
-    "croptop.py"
-    "multiDrone.json"
-    "telemetry_points.sql"
-    "package.json"
-    "package-lock.json"
-    "test.flv"
-    "ffmpeg_log.txt"
-    "ssh_key.pub"
-)
-
-echo "Cleaning up root directory for Amber's Angels..."
-
-for file in "${files_to_move[@]}"; do
-    if [ -f "$file" ]; then
-        mv "$file" old/
-        echo "Moved to /old: $file"
-    else
-        echo "Skipping: $file (not found)"
-    fi
-done
-
-echo "-----------------------------------------------"
-echo "Root cleaned. Active orchestration: start_all.sh"
-</file>
-
-<file path="repomix.config.json">
-{
-  "ignore": {
-    "customPatterns": [
-      "**/*.jpg",
-      "**/*.jpeg",
-      "**/scan_results.json",
-      "**/openalpr/**",
-      "**/old/**"
-    ]
-  }
-}
 </file>
 
 <file path="backend/services/alert_dispatcher.py.old">
@@ -461,6 +480,79 @@ class AlertDispatcher:
 
 </file>
 
+<file path="backend/database.py">
+"""
+backend/database.py
+Database engine + session factories.
+Provides both a sync SessionLocal (for health check / simple endpoints)
+and an AsyncSessionLocal (for the async event pipeline).
+"""
+import os
+from dotenv import load_dotenv
+
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# Async support
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker as async_sessionmaker
+
+load_dotenv()
+
+# --- Sync engine (used by health check, simple DB reads) ---
+SYNC_DATABASE_URL = os.getenv("DATABASE_URL", "").replace("+asyncpg", "")
+
+engine = create_engine(SYNC_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# --- Async engine (used by event_service, event_repository) ---
+ASYNC_DATABASE_URL = os.getenv("DATABASE_URL", "")
+# Ensure the URL uses the asyncpg driver
+if ASYNC_DATABASE_URL and "+asyncpg" not in ASYNC_DATABASE_URL:
+    ASYNC_DATABASE_URL = ASYNC_DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+
+async_engine = create_async_engine(ASYNC_DATABASE_URL, echo=False)
+AsyncSessionLocal = async_sessionmaker(
+    async_engine, class_=AsyncSession, expire_on_commit=False
+)
+
+Base = declarative_base()
+
+
+def get_db():
+    """Sync DB session dependency for FastAPI endpoints."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+</file>
+
+<file path="backend/fix_backend_structure.sh">
+#!/bin/bash
+
+# 1. Move backend/old contents to the root /old and remove the redundant folder
+if [ -d "backend/old" ]; then
+    echo "Moving backend/old to root old/backend_legacy..."
+    mkdir -p old/backend_legacy
+    mv backend/old/* old/backend_legacy/
+    rmdir backend/old
+fi
+
+# 2. Create the Services and Schemas structure if not present
+touch backend/services.py
+touch backend/schemas.py
+
+# 3. Consolidate environment variables
+if [ ! -f ".env" ]; then
+    echo "DATABASE_URL=postgresql://user:password@localhost/dbname" > .env
+    echo "Created template .env file. Update this with your actual DB credentials."
+fi
+
+echo "Backend structure updated. Ready for code refactoring."
+</file>
+
 <file path="backend/generate_test_data.py">
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -581,6 +673,42 @@ while True:
                 print(f"❌ Error: {e}")
             processed_files.add(f)
     time.sleep(0.5)
+</file>
+
+<file path="backend/recover_anomalies.sh">
+#!/bin/bash
+
+ANOMALY_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/anomalies"
+API_URL="http://localhost:8000/detections"
+
+echo "🔎 Starting Recovery Scan on $ANOMALY_DIR..."
+
+for frame in "$ANOMALY_DIR"/*.jpg; do
+    # 1. Run ALPR on the 'lost' frame
+    # We use -n 1 to get the best guess
+    RESULT=$(alpr -c us -j -n 1 "$frame")
+    
+    # 2. Extract Plate and Confidence using python for clean parsing
+    PLATE=$(echo "$RESULT" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['results'][0]['plate']) if data['results'] else print('')")
+    CONF=$(echo "$RESULT" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['results'][0]['confidence']) if data['results'] else print('0')")
+
+    if [ -n "$PLATE" ]; then
+        echo "🎯 Found $PLATE ($CONF%) in $(basename "$frame"). Sending to Brain..."
+        
+        # 3. Push to the Backend
+        # The Backend will now use the Fuzzy Matcher we just installed!
+        curl -s -X POST "$API_URL" \
+             -H "Content-Type: application/json" \
+             -d "{
+               \"drone_id\": \"recovery_bot\",
+               \"plate_best\": \"$PLATE\",
+               \"confidence\": $CONF,
+               \"best_frame_id\": \"$(basename "$frame")\"
+             }" > /dev/null
+    fi
+done
+
+echo "✅ Recovery Scan Complete. Check your Discord/Logs for hits!"
 </file>
 
 <file path="backend/run_simulation.py">
@@ -749,60 +877,177 @@ done
 echo "Done."
 </file>
 
-<file path="harvest_stream.sh">
+<file path="worker/unified_worker.py">
+"""
+worker/unified_worker.py
+
+Watches a frame directory for new JPEG files, runs OpenALPR on each,
+and POSTs detections to the backend API.
+
+Telemetry is not yet implemented — that path is intentionally removed.
+"""
+import os
+import sys
+import time
+import requests
+from openalpr import Alpr
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+FRAME_DIR  = os.getenv("FRAMES_DIR", "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates")
+DRONE_ID   = os.getenv("DRONE_ID", "drone1")
+API_URL    = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
+
+ALPR_COUNTRY     = os.getenv("ALPR_COUNTRY", "us")
+ALPR_CONFIG      = os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf")
+ALPR_RUNTIME_DIR = os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data")
+
+# ---------------------------------------------------------------------------
+# Initialize OpenALPR once (reuse across frames to save startup cost)
+# ---------------------------------------------------------------------------
+alpr = Alpr(ALPR_COUNTRY, ALPR_CONFIG, ALPR_RUNTIME_DIR)
+if not alpr.is_loaded():
+    print("[Worker] ❌ OpenALPR failed to load. Check config paths.")
+    sys.exit(1)
+
+alpr.set_top_n(5)
+
+
+# ---------------------------------------------------------------------------
+# Frame processing
+# ---------------------------------------------------------------------------
+
+def process_frame(frame_path: str) -> None:
+    try:
+        results = alpr.recognize_file(frame_path)
+    except Exception as e:
+        print(f"[Worker] ❌ ALPR error on {frame_path}: {e}")
+        return
+
+    if not results or not results.get("results"):
+        return
+
+    for plate_result in results["results"]:
+        plate_text  = plate_result.get("plate", "")
+        confidence  = plate_result.get("confidence", 0.0)
+        frame_name  = os.path.basename(frame_path)
+
+        if not plate_text:
+            continue
+
+        payload = {
+            "plate_text":    plate_text,
+            "confidence":    confidence,
+            "drone_id":      DRONE_ID,
+            "best_frame_id": frame_name,
+        }
+
+        try:
+            resp = requests.post(API_URL, json=payload, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                alert_flag = "🚨" if data.get("alert_triggered") else "✅"
+                print(f"[Worker] {alert_flag} {plate_text} ({confidence:.1f}%) → {data.get('status')}")
+            else:
+                print(f"[Worker] ⚠️  API returned {resp.status_code} for {plate_text}")
+        except requests.exceptions.RequestException as e:
+            print(f"[Worker] ❌ API post failed for {plate_text}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Watch loop
+# ---------------------------------------------------------------------------
+
+def watch_frames() -> None:
+    print(f"[Worker] 👁  Monitoring {FRAME_DIR} for new frames (drone: {DRONE_ID})...")
+    processed: set[str] = set()
+
+    while True:
+        try:
+            files = [
+                f for f in os.listdir(FRAME_DIR)
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        except FileNotFoundError:
+            print(f"[Worker] ⚠️  Frame directory not found: {FRAME_DIR}. Retrying...")
+            time.sleep(5)
+            continue
+
+        for filename in files:
+            full_path = os.path.join(FRAME_DIR, filename)
+            if full_path not in processed:
+                # Small delay to ensure FFmpeg has finished writing the file
+                time.sleep(0.1)
+                process_frame(full_path)
+                processed.add(full_path)
+
+        time.sleep(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    try:
+        watch_frames()
+    finally:
+        alpr.unload()
+        print("[Worker] OpenALPR unloaded. Exiting.")
+</file>
+
+<file path="cleanup_root.sh">
 #!/bin/bash
 
-# --- CONFIGURATION ---
-DRONES=(
-    "drone1|rtmp://127.0.0.1/live/drone1"
-    "drone2|rtmp://127.0.0.1/live/drone2"
-    "drone3|rtmp://127.0.0.1/live/drone3"
+# Ensure we are in a git repo and create old directory
+mkdir -p old
+
+# List of files to move to /old based on start_all.sh being the source of truth
+files_to_move=(
+    "AA_Launch.py"
+    "GPS.py"
+    "gps_sender.py"
+    "croptop.py"
+    "multiDrone.json"
+    "telemetry_points.sql"
+    "package.json"
+    "package-lock.json"
+    "test.flv"
+    "ffmpeg_log.txt"
+    "ssh_key.pub"
 )
 
-BASE_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
-FPS="3"
+echo "Cleaning up root directory for Amber's Angels..."
 
-# --- CLEANUP HANDLER ---
-cleanup() {
-    echo -e "\n\n🛑 Shutting down Harvester Cluster..."
-    pkill -P $$ ffmpeg 2>/dev/null
-    echo "✅ All FFmpeg instances stopped."
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM
-
-echo "🚀 Starting Multi-Drone Harvester Cluster..."
-
-for drone in "${DRONES[@]}"; do
-    IFS="|" read -r NAME URL <<< "$drone"
-    TARGET_DIR="$BASE_DIR/$NAME"
-    mkdir -p "$TARGET_DIR"
-
-    # Start the loop in the background
-    (
-        while true; do
-            # 1. We removed '-er 4' and used '-flags +discardcorrupt' for compatibility
-            # 2. We redirect STDERR (2) to /dev/null so "Option not found" doesn't spam
-            ffmpeg -hide_banner -loglevel panic \
-                   -fflags nobuffer+genpts \
-                   -flags +discardcorrupt \
-                   -i "$URL" \
-                   -vf "fps=$FPS" -q:v 2 \
-                   -vsync vfr \
-                   -f image2 "$TARGET_DIR/frame_%04d.jpg" 2>/dev/null
-            
-            # This only prints if ffmpeg exits (connection lost or never started)
-            echo "📡 [$NAME] Searching for stream..."
-            sleep 5
-        done
-    ) & 
+for file in "${files_to_move[@]}"; do
+    if [ -f "$file" ]; then
+        mv "$file" old/
+        echo "Moved to /old: $file"
+    else
+        echo "Skipping: $file (not found)"
+    fi
 done
 
-echo "✅ Harvesters are polling for drone connections."
-echo "💡 Press Ctrl+C to stop."
+echo "-----------------------------------------------"
+echo "Root cleaned. Active orchestration: start_all.sh"
+</file>
 
-wait
+<file path="repomix.config.json">
+{
+  "ignore": {
+    "customPatterns": [
+      "**/*.jpg",
+      "**/*.jpeg",
+      "**/scan_results.json",
+      "**/openalpr/**",
+      "**/old/**"
+    ]
+  }
+}
 </file>
 
 <file path="backend/services/__init__.py">
@@ -881,18 +1126,6 @@ while True:
         print(f"Error: {e}")
 
     time.sleep(1)
-</file>
-
-<file path="backend/requirements.txt">
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
-pydantic
-python-dotenv
-requests
-opencv-python
-numpy
 </file>
 
 <file path="backend/smoke_test.py">
@@ -1132,6 +1365,62 @@ server {
 </html>
 </file>
 
+<file path="harvest_stream.sh">
+#!/bin/bash
+
+# --- CONFIGURATION ---
+DRONES=(
+    "drone1|rtmp://127.0.0.1/live/drone1"
+    "drone2|rtmp://127.0.0.1/live/drone2"
+    "drone3|rtmp://127.0.0.1/live/drone3"
+)
+
+BASE_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+FPS="3"
+
+# --- CLEANUP HANDLER ---
+cleanup() {
+    echo -e "\n\n🛑 Shutting down Harvester Cluster..."
+    pkill -P $$ ffmpeg 2>/dev/null
+    echo "✅ All FFmpeg instances stopped."
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+echo "🚀 Starting Multi-Drone Harvester Cluster..."
+
+for drone in "${DRONES[@]}"; do
+    IFS="|" read -r NAME URL <<< "$drone"
+    TARGET_DIR="$BASE_DIR/$NAME"
+    mkdir -p "$TARGET_DIR"
+
+    # Start the loop in the background
+    (
+        while true; do
+            # 1. We removed '-er 4' and used '-flags +discardcorrupt' for compatibility
+            # 2. We redirect STDERR (2) to /dev/null so "Option not found" doesn't spam
+            ffmpeg -hide_banner -loglevel panic \
+                   -fflags nobuffer+genpts \
+                   -flags +discardcorrupt \
+                   -i "$URL" \
+                   -vf "fps=$FPS" -q:v 2 \
+                   -vsync vfr \
+                   -f image2 "$TARGET_DIR/frame_%04d.jpg" 2>/dev/null
+            
+            # This only prints if ffmpeg exits (connection lost or never started)
+            echo "📡 [$NAME] Searching for stream..."
+            sleep 5
+        done
+    ) & 
+done
+
+echo "✅ Harvesters are polling for drone connections."
+echo "💡 Press Ctrl+C to stop."
+
+wait
+</file>
+
 <file path="notes">
 #Download dependencies 
 
@@ -1233,43 +1522,6 @@ Amber's Angels is an MVP system for ingesting live drone video, extracting frame
 ## Notes
 
 Secrets are not committed to git.
-</file>
-
-<file path="start_all.sh">
-!/bin/bash
-
-echo "🚀 Initializing Amber's Angels Mission Control..."
-
-# 1. Environment Configuration (Ensure these are correct)
-export ALERT_WEBHOOK_URL="https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
-export DATABASE_URL="postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
-export FRAME_ROOT="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
-
-# 2. Infrastructure Cleanup
-sudo fuser -k 8000/tcp 2>/dev/null
-sudo systemctl restart nginx
-
-# 3. Start Backend (The Brain)
-# We keep these in separate sessions so one crash doesn't take down the whole mission
-tmux kill-session -t aa-backend 2>/dev/null
-tmux new-session -d -s aa-backend "cd /home/ambers-angels/proj_dir/ambers-angels/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"
-
-# 4. Start Worker (The Processor)
-tmux kill-session -t aa-worker 2>/dev/null
-tmux new-session -d -s aa-worker "cd /home/ambers-angels/proj_dir/ambers-angels/worker && python3 unified_worker.py &"
-
-# 5. Multi-Drone Harvester (The Eyes/Mouth)
-# Fixed: We create the session FIRST, then run the script
-tmux kill-session -t aa-feed 2>/dev/null
-tmux new-session -d -s aa-feed -n 'Harvester' "cd /home/ambers-angels/proj_dir/ambers-angels && ./harvest_stream.sh"
-
-echo "------------------------------------------------"
-echo "✅  System LIVE."
-echo "🧠  Backend:  tmux attach -t aa-backend"
-echo "⚙️   Worker:   tmux attach -t aa-worker"
-echo "🛰️   Feeds:    tmux attach -t aa-feed"
-echo "------------------------------------------------"
-echo "🏥 Health Check: http://157.245.125.103:8000/health"
 </file>
 
 <file path="stop_all.sh">
@@ -1812,62 +2064,79 @@ def _compute_location_centroid(detections: Iterable[DetectionInput]) -> dict[str
 </file>
 
 <file path="backend/services/alert_dispatcher.py">
+"""
+backend/services/alert_dispatcher.py
+
+Dispatches watchlist-hit alerts to Discord (and optionally logs to DB).
+Handles both dict-style and object-style event inputs.
+"""
 import os
 import httpx
 from datetime import datetime, timezone
-from typing import Any
-from services.detection_models import DetectionEvent, AlertCreate
+from typing import Any, Optional
+
+from services.detection_models import AlertCreate
+
 
 class AlertDispatcher:
-    def __init__(self, repository, webhook_url: str):
+    def __init__(self, repository, webhook_url: Optional[str] = None):
+        """
+        Args:
+            repository: An EventRepository instance for DB logging, or None
+                        to skip DB logging (useful for the singleton in alert_service.py).
+            webhook_url: Discord (or other) webhook URL. Falls back to
+                         ALERT_WEBHOOK_URL env var if not provided here.
+        """
         self.repository = repository
-        self.webhook_url = webhook_url
+        self.webhook_url = webhook_url or os.getenv("ALERT_WEBHOOK_URL", "")
 
-    async def dispatch(self, event: Any):
-        # Handle both dict and object types for the event
+    async def dispatch(self, event: Any) -> None:
+        """
+        Fan-out: log to DB (if repository available) and send Discord webhook.
+        Accepts both dict and Pydantic/dataclass event objects.
+        """
         is_dict = isinstance(event, dict)
-        plate = event.get('plate_best') if is_dict else event.plate_best
-        drone_id = event.get('drone_id') if is_dict else event.drone_id
-        event_id = event.get('id') if is_dict else event.id
+        plate    = event.get('plate_best') if is_dict else getattr(event, 'plate_best', 'UNKNOWN')
+        drone_id = event.get('drone_id')   if is_dict else getattr(event, 'drone_id',   'UNKNOWN')
+        event_id = event.get('id')         if is_dict else getattr(event, 'id',          None)
 
-        print(f"[LOUD DEBUG] 🚀 Dispatching alert for Plate: {plate}")
+        print(f"[AlertDispatcher] 🚨 Dispatching alert — Plate: {plate} | Drone: {drone_id}")
 
-        # 1. Create the Alert Record for the Database
-        try:
-            alert_data = AlertCreate(
-                alert_type='WATCHLIST_MATCH',
-                severity='CRITICAL',
-                message=f"Target Plate {plate} Detected",
-                event_id=event_id,
-                plate_text=plate,
-                drone_id=drone_id,
-                sent_at=datetime.now(timezone.utc)
-            )
-            
-            # Log to DB
-            if hasattr(self.repository, 'create_alert'):
+        # 1. Optional DB logging
+        if self.repository is not None and hasattr(self.repository, 'create_alert'):
+            try:
                 await self.repository.create_alert(
                     event_id=event_id,
                     plate=plate,
                     drone_id=drone_id,
                     channel="DISCORD"
                 )
-        except Exception as e:
-            print(f"[LOUD DEBUG] ⚠️ Alert Record Creation Failed: {e}")
+            except Exception as e:
+                print(f"[AlertDispatcher] ⚠️  DB alert log failed: {e}")
 
-        # 2. Send to Discord
-        async with httpx.AsyncClient() as client:
-            payload = {
-                "content": f"🚨 **AMBER ALERT: TARGET MATCH** 🚨\n**Plate:** {plate}\n**Drone:** {drone_id}\n**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            }
+        # 2. Discord webhook
+        if not self.webhook_url:
+            print("[AlertDispatcher] ⚠️  No webhook URL configured — skipping Discord dispatch.")
+            return
+
+        payload = {
+            "content": (
+                f"🚨 **AMBER ALERT: TARGET MATCH** 🚨\n"
+                f"**Plate:** `{plate}`\n"
+                f"**Drone:** {drone_id}\n"
+                f"**Time:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            )
+        }
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 resp = await client.post(self.webhook_url, json=payload)
-                if resp.status_code == 204 or resp.status_code == 200:
-                    print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful for {plate}")
+                if resp.status_code in (200, 204):
+                    print(f"[AlertDispatcher] ✅ Discord dispatch successful for {plate}")
                 else:
-                    print(f"[LOUD DEBUG] ❌ Discord returned error {resp.status_code}: {resp.text}")
+                    print(f"[AlertDispatcher] ❌ Discord returned {resp.status_code}: {resp.text[:200]}")
             except Exception as e:
-                print(f"[LOUD DEBUG] ❌ Network Error sending to Discord: {e}")
+                print(f"[AlertDispatcher] ❌ Network error sending to Discord: {e}")
 </file>
 
 <file path="backend/services/detection_models.py">
@@ -2025,6 +2294,197 @@ class DetectionPipeline:
             await self.alerts.dispatch(decision.event)
 
         return decision
+</file>
+
+<file path="backend/event_repository.py">
+import uuid
+from typing import Any, Optional, Protocol
+from datetime import datetime, timezone
+from sqlalchemy import text
+
+class EventRepository:
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+
+    async def get_active_event_by_group_key(self, group_key: str):
+        # Skipping the lookup to force a new record and hit 18
+        return None
+
+    async def create_event(self, payload):
+        async with self.session_factory() as session:
+            data = payload.dict() if hasattr(payload, "dict") else payload
+            
+            # Match the EXACT columns from your \d output
+            essential_data = {
+                "id": str(uuid.uuid4()), # Generate the missing UUID
+                "drone_id": data.get("drone_id", "drone1"),
+                "plate_best": data.get("plate_best") or data.get("plate_text"),
+                "confidence": data.get("aggregate_confidence") or data.get("confidence", 0.0),
+                "event_type": "automated_test",
+                "status": "active",
+                "last_seen": datetime.now(timezone.utc)
+            }
+            
+            cols = ", ".join(essential_data.keys())
+            params = ", ".join([f":{k}" for k in essential_data.keys()])
+            
+            sql = text(f"INSERT INTO detection_events ({cols}) VALUES ({params}) RETURNING id")
+            
+            await session.execute(sql, essential_data)
+            await session.commit()
+            return essential_data # Return the dict as a mock object
+            
+    async def update_event(self, event, fields: dict):
+        return event
+
+    async def attach_detection_to_event(self, detection_id, event_id):
+        async with self.session_factory() as session:
+            # Note: Ensure the detections table also uses UUIDs for event_id
+            sql = text("UPDATE detections SET event_id = :eid WHERE id = :did")
+            await session.execute(sql, {"eid": event_id, "did": detection_id})
+            await session.commit()
+
+    async def get_recent_event_by_plate(self, **kwargs):
+        return None
+
+    async def create_alert(self, event_id: any, plate: str, drone_id: str, channel: str = "DISCORD") -> any:
+        """
+        Records a successful alert dispatch in the database.
+        """
+        async with self.session_factory() as session:
+            try:
+                # This assumes you have an 'alerts' table. 
+                # If not, it will at least stop the crash by existing.
+                sql = text("""
+                    INSERT INTO alerts (event_id, plate_text, drone_id, channel, sent_at)
+                    VALUES (:eid, :p, :d, :c, :t)
+                    RETURNING id
+                """)
+                result = await session.execute(
+                    sql,
+                    {
+                        "eid": event_id,
+                        "p": plate,
+                        "d": drone_id,
+                        "c": channel,
+                        "t": datetime.now(timezone.utc)
+                    }
+                )
+                await session.commit()
+                return result.fetchone()
+            except Exception as e:
+                print(f"[LOUD DEBUG] ⚠️ Could not log alert to DB: {e}")
+                await session.rollback()
+                return None
+</file>
+
+<file path="backend/nohup.out">
+INFO:     Started server process [29625]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Started server process [29642]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [29642]
+INFO:     Started server process [128543]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('127.0.0.1', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+</file>
+
+<file path="backend/requirements.txt">
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
+pydantic
+python-dotenv
+requests
+httpx
+opencv-python
+numpy
+</file>
+
+<file path="backend/schema.sql">
+-- 1. Create the table first
+CREATE TABLE IF NOT EXISTS detection_events (
+    id SERIAL PRIMARY KEY,
+    plate_best VARCHAR(20) NOT NULL,
+    drone_id VARCHAR(50) NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    classification VARCHAR(20) DEFAULT 'weak',
+    occurrence_count INTEGER DEFAULT 1,
+    average_confidence FLOAT,
+    first_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Create the index separately (Postgres way)
+CREATE INDEX IF NOT EXISTS idx_plate_drone ON detection_events (plate_best, drone_id, last_seen);
+
+-- 3. Create the alerts table
+CREATE TABLE IF NOT EXISTS alerts (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER REFERENCES detection_events(id),
+    alert_type VARCHAR(50),
+    severity VARCHAR(20),
+    message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+</file>
+
+<file path="start_all.sh">
+#!/bin/bash
+
+# Amber's Angels - Master Orchestration
+echo "🚀 Launching Amber's Angels Pipeline..."
+
+# 1. Environment & Secrets
+export ALERT_WEBHOOK_URL="https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
+# Ensure we use the asyncpg driver for the new EventService logic
+export DATABASE_URL="postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+export FRAME_ROOT="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+
+# 2. Critical Path Fix
+# We add both the root and the backend folder to PYTHONPATH
+BASE_DIR=$(pwd)
+export PYTHONPATH=$BASE_DIR:$BASE_DIR/backend:$BASE_DIR/worker
+
+# 3. Infrastructure
+sudo service nginx start
+
+# 4. Start Backend
+# We run uvicorn from the root but point to the backend package
+tmux kill-session -t aa-backend 2>/dev/null
+tmux new-session -d -s aa-backend "cd $BASE_DIR && export PYTHONPATH=$PYTHONPATH; uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+
+# 5. Start Unified Worker
+# Ensure we use python3 -m to handle imports correctly
+tmux kill-session -t aa-worker 2>/dev/null
+tmux new-session -d -s aa-worker "cd $BASE_DIR && export PYTHONPATH=$PYTHONPATH; python3 worker/unified_worker.py"
+
+# 6. Start Feed Harvester
+tmux kill-session -t aa-feed 2>/dev/null
+if [ -f "./harvest_stream.sh" ]; then
+    chmod +x ./harvest_stream.sh
+    tmux new-session -d -s aa-feed "./harvest_stream.sh"
+fi
+
+echo "------------------------------------------------"
+echo "✅ System RE-SYNCED."
+echo "🏥 Health: http://157.245.125.103:8000/health"
+echo "------------------------------------------------"
 </file>
 
 <file path="backend/services/event_service.py">
@@ -2207,140 +2667,6 @@ class EventService:
         return await self.repository.get_recent_event_by_plate(drone_id=snapshot.drone_id, plate_normalized=snapshot.plate_normalized, since=since)
 </file>
 
-<file path="backend/event_repository.py">
-import uuid
-from typing import Any, Optional, Protocol
-from datetime import datetime, timezone
-from sqlalchemy import text
-
-class EventRepository:
-    def __init__(self, session_factory):
-        self.session_factory = session_factory
-
-    async def get_active_event_by_group_key(self, group_key: str):
-        # Skipping the lookup to force a new record and hit 18
-        return None
-
-    async def create_event(self, payload):
-        async with self.session_factory() as session:
-            data = payload.dict() if hasattr(payload, "dict") else payload
-            
-            # Match the EXACT columns from your \d output
-            essential_data = {
-                "id": str(uuid.uuid4()), # Generate the missing UUID
-                "drone_id": data.get("drone_id", "drone1"),
-                "plate_best": data.get("plate_best") or data.get("plate_text"),
-                "confidence": data.get("aggregate_confidence") or data.get("confidence", 0.0),
-                "event_type": "automated_test",
-                "status": "active",
-                "last_seen": datetime.now(timezone.utc)
-            }
-            
-            cols = ", ".join(essential_data.keys())
-            params = ", ".join([f":{k}" for k in essential_data.keys()])
-            
-            sql = text(f"INSERT INTO detection_events ({cols}) VALUES ({params}) RETURNING id")
-            
-            await session.execute(sql, essential_data)
-            await session.commit()
-            return essential_data # Return the dict as a mock object
-            
-    async def update_event(self, event, fields: dict):
-        return event
-
-    async def attach_detection_to_event(self, detection_id, event_id):
-        async with self.session_factory() as session:
-            # Note: Ensure the detections table also uses UUIDs for event_id
-            sql = text("UPDATE detections SET event_id = :eid WHERE id = :did")
-            await session.execute(sql, {"eid": event_id, "did": detection_id})
-            await session.commit()
-
-    async def get_recent_event_by_plate(self, **kwargs):
-        return None
-
-    async def create_alert(self, event_id: any, plate: str, drone_id: str, channel: str = "DISCORD") -> any:
-        """
-        Records a successful alert dispatch in the database.
-        """
-        async with self.session_factory() as session:
-            try:
-                # This assumes you have an 'alerts' table. 
-                # If not, it will at least stop the crash by existing.
-                sql = text("""
-                    INSERT INTO alerts (event_id, plate_text, drone_id, channel, sent_at)
-                    VALUES (:eid, :p, :d, :c, :t)
-                    RETURNING id
-                """)
-                result = await session.execute(
-                    sql,
-                    {
-                        "eid": event_id,
-                        "p": plate,
-                        "d": drone_id,
-                        "c": channel,
-                        "t": datetime.now(timezone.utc)
-                    }
-                )
-                await session.commit()
-                return result.fetchone()
-            except Exception as e:
-                print(f"[LOUD DEBUG] ⚠️ Could not log alert to DB: {e}")
-                await session.rollback()
-                return None
-</file>
-
-<file path="backend/nohup.out">
-INFO:     Started server process [29625]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Started server process [29642]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [29642]
-INFO:     Started server process [128543]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-ERROR:    [Errno 98] error while attempting to bind on address ('127.0.0.1', 8000): address already in use
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-</file>
-
-<file path="backend/schema.sql">
--- 1. Create the table first
-CREATE TABLE IF NOT EXISTS detection_events (
-    id SERIAL PRIMARY KEY,
-    plate_best VARCHAR(20) NOT NULL,
-    drone_id VARCHAR(50) NOT NULL,
-    status VARCHAR(20) DEFAULT 'active',
-    classification VARCHAR(20) DEFAULT 'weak',
-    occurrence_count INTEGER DEFAULT 1,
-    average_confidence FLOAT,
-    first_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Create the index separately (Postgres way)
-CREATE INDEX IF NOT EXISTS idx_plate_drone ON detection_events (plate_best, drone_id, last_seen);
-
--- 3. Create the alerts table
-CREATE TABLE IF NOT EXISTS alerts (
-    id SERIAL PRIMARY KEY,
-    event_id INTEGER REFERENCES detection_events(id),
-    alert_type VARCHAR(50),
-    severity VARCHAR(20),
-    message TEXT,
-    metadata JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-</file>
-
 <file path=".gitignore">
 # Python
 __pycache__/
@@ -2386,144 +2712,136 @@ recordings/
 </file>
 
 <file path="backend/main.py">
-import os
+"""
+backend/main.py
+Amber's Angels — FastAPI entry point.
+"""
 import sys
-import uuid
-import base64
+import os
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from typing import Optional, Any
-
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from pydantic import BaseModel  
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 
-# Ensure local paths are recognized
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Ensure the backend directory is on the path regardless of working directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from services.aggregation_service import AggregationService, DetectionInput as AggInput
+# --- Core imports ---
+import database
+import schemas
+from services.detection_models import EventStatus, EventClassification
 from services.event_service import EventService
-from services.alert_dispatcher import AlertDispatcher
 from event_repository import EventRepository
-from services.detection_pipeline import DetectionPipeline
+from services.alert_dispatcher import AlertDispatcher
 
-app = FastAPI(title="Amber's Angels - Unified Mission Control")
-
-# --- Database & Session Setup ---
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+# The alert dispatcher singleton — reads ALERT_WEBHOOK_URL from env
+_alert_dispatcher = AlertDispatcher(
+    repository=None,  # repository is injected per-request below
+    webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
 )
 
-engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
 
-def get_session_factory():
-    return AsyncSessionLocal
+app = FastAPI(title="Amber's Angels API")
 
-# --- Watchlist ---
-class WatchlistAdd(BaseModel):
-    plate_text: str
-    description: Optional[str] = "Target of Interest"
-
-@app.post("/watchlist")
-async def add_to_watchlist(item: WatchlistAdd):
-    async with AsyncSessionLocal() as session:
-        try:
-            clean_plate = item.plate_text.replace("-", "").replace(" ", "").upper()
-            await session.execute(
-                text("INSERT INTO watchlist (plate_text, description) VALUES (:p, :d) ON CONFLICT (plate_text) DO NOTHING"),
-                {"p": clean_plate, "d": item.description}
-            )
-            await session.commit()
-            return {"status": "added", "plate": clean_plate}
-        except Exception as e:
-            await session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-
-# --- Service Initialization ---
-# CRITICAL FIX: Robust Webhook Fallback
-RAW_WEBHOOK = os.getenv("ALERT_WEBHOOK_URL", "")
-# Replace the string below with your ACTUAL Discord URL if the environment variable fails
-FALLBACK_URL = "https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
-
-if not RAW_WEBHOOK or "your_discord_webhook_here" in RAW_WEBHOOK:
-    WEBHOOK_URL = FALLBACK_URL
-else:
-    WEBHOOK_URL = RAW_WEBHOOK
-
-aggregation_service = AggregationService()
-repo = EventRepository(session_factory=get_session_factory())
-alert_dispatcher = AlertDispatcher(repository=repo, webhook_url=WEBHOOK_URL)
-event_service = EventService(repository=repo, dispatcher=alert_dispatcher)
-
-pipeline = DetectionPipeline(
-    aggregation=aggregation_service,
-    events=event_service,
-    alerts=alert_dispatcher
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- The Image-Saving & Detection Logic ---
-@app.post("/detections")
-@app.post("/process_detection")
-async def handle_detection(payload: dict, background_tasks: BackgroundTasks):
-    print(f"\n[LOUD DEBUG] 📦 FULL PAYLOAD RECEIVED: {payload}")
-    print(f"[LOUD DEBUG] 🔑 KEYS PRESENT: {list(payload.keys())}")
+
+def get_db():
+    db = database.SessionLocal()
     try:
-        # 1. Identify Drone and Frame
-        drone_id = payload.get("drone_id", "drone1")
-        frame_id = payload.get("frame_id") or str(uuid.uuid4())
-        
-        # 2. Dynamic Image Persistence (Supports Multi-Drone Folders)
-        save_dir = f"/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/{drone_id}"
-        os.makedirs(save_dir, exist_ok=True)
-        
-        img_b64 = payload.get("image") or payload.get("image_b64")
-        if img_b64:
-            file_path = os.path.join(save_dir, f"{frame_id}.jpg")
-            # Remove data URI header if present
-            if "," in img_b64:
-                img_b64 = img_b64.split(",")[1]
-            
-            with open(file_path, "wb") as f:
-                f.write(base64.b64decode(img_b64))
-            print(f"📸 Saved: {file_path}")
+        yield db
+    finally:
+        db.close()
 
-        # 3. Extract Plate (Fuzzy keys for different drone softwares)
-        plate_raw = (
-            payload.get("plate_best") or payload.get("plate") or 
-            payload.get("plate_text") or 
-            payload.get("plate_best") or 
-            "UNKNOWN"
-        )
 
-        # 4. Pipeline Ingest
-        detection_data = AggInput(
-            detection_id=None,  # BigInt handled by DB
-            frame_id=frame_id,
-            drone_id=drone_id,
-            detected_at=datetime.now(timezone.utc),
-            plate_raw=plate_raw,
-            confidence=float(payload.get("confidence", 0.0)),
-            telemetry={
-                "lat": payload.get("latitude", 33.7490),
-                "lon": payload.get("longitude", -84.3880)
-            }
-        )
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
-        # Trigger background processing
-        background_tasks.add_task(pipeline.process_detection, detection_data)
-        
-        return {"status": "accepted", "plate": plate_raw, "frame_id": frame_id}
+@app.get("/")
+def read_root():
+    return {"status": "Amber's Angels Pipeline Active", "version": "2.1"}
 
-    except Exception as e:
-        print(f"❌ Ingest Error: {e}")
-        return {"status": "error", "message": str(e)}
 
 @app.get("/health")
-async def health():
-    return {"status": "online", "webhook_configured": bool("discord" in WEBHOOK_URL)}
+def health_check(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+
+
+@app.post("/detections/")
+async def create_detection(
+    detection: schemas.DetectionCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Accepts a raw detection from the worker or bridge, runs it through
+    the event service (which handles deduplication, watchlist checking,
+    and alert dispatch).
+    """
+    # Build the repo with the async session factory for this request
+    repo = EventRepository(database.AsyncSessionLocal)
+
+    # Wire the dispatcher to the repo so DB alert logging works
+    dispatcher = AlertDispatcher(
+        repository=repo,
+        webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
+    )
+
+    service = EventService(repository=repo, dispatcher=dispatcher)
+
+    # Build an EventSnapshot directly from the incoming detection
+    # (bypasses the aggregation layer for single-detection ingress)
+    from services.aggregation_service import EventSnapshot as AggSnapshot
+
+    snapshot = AggSnapshot(
+        drone_id=detection.drone_id,
+        group_key=f"{detection.drone_id}_{detection.plate_text.upper().replace(' ', '')}",
+        plate_best=detection.plate_text.upper().replace(" ", ""),
+        plate_normalized=detection.plate_text.upper().replace(" ", ""),
+        first_seen_at=datetime.now(timezone.utc),
+        last_seen_at=datetime.now(timezone.utc),
+        aggregate_confidence=detection.confidence,
+        classification=EventClassification.PROBABLE,
+        status=EventStatus.CANDIDATE,
+        detection_count=1,
+        distinct_frame_count=1,
+        best_frame_id=detection.best_frame_id or "unknown.jpg",
+        best_detection_id=None,
+        should_open_event=True,
+        should_alert=False,   # event_service will evaluate this via watchlist
+        dominant_ratio=1.0,
+        top_hypotheses=[],
+        quality_flags=[],
+        raw_summary={},
+        location_centroid=None,
+    )
+
+    decision = await service.upsert_from_snapshot(snapshot)
+
+    if not decision:
+        return {"status": "ignored", "reason": "snapshot_rejected"}
+
+    event = decision.event
+    plate = event.get("plate_best") if isinstance(event, dict) else event.plate_best
+
+    return {
+        "status": "processed",
+        "plate": plate,
+        "alert_triggered": decision.should_dispatch_alert,
+    }
 </file>
 
 </files>

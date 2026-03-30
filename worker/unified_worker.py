@@ -1,65 +1,120 @@
+"""
+worker/unified_worker.py
+
+Watches a frame directory for new JPEG files, runs OpenALPR on each,
+and POSTs detections to the backend API.
+
+Telemetry is not yet implemented — that path is intentionally removed.
+"""
 import os
-import time
 import sys
+import time
+import requests
 from openalpr import Alpr
 from dotenv import load_dotenv
 
-# Ensure we can find the backend folder
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from backend.database import SessionLocal
-from backend.services import detection_service, telemetry_service
-from backend import schemas  # Import schemas for validation
-
 load_dotenv()
 
-# Initialize OpenALPR once (Global context to save CPU)
-alpr = Alpr(os.getenv("ALPR_COUNTRY", "us"), 
-            os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf"), 
-            os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data"))
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+FRAME_DIR  = os.getenv("FRAMES_DIR", "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates")
+DRONE_ID   = os.getenv("DRONE_ID", "drone1")
+API_URL    = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
 
-def process_frame(frame_path):
-    db = SessionLocal()
+ALPR_COUNTRY     = os.getenv("ALPR_COUNTRY", "us")
+ALPR_CONFIG      = os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf")
+ALPR_RUNTIME_DIR = os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data")
+
+# ---------------------------------------------------------------------------
+# Initialize OpenALPR once (reuse across frames to save startup cost)
+# ---------------------------------------------------------------------------
+alpr = Alpr(ALPR_COUNTRY, ALPR_CONFIG, ALPR_RUNTIME_DIR)
+if not alpr.is_loaded():
+    print("[Worker] ❌ OpenALPR failed to load. Check config paths.")
+    sys.exit(1)
+
+alpr.set_top_n(5)
+
+
+# ---------------------------------------------------------------------------
+# Frame processing
+# ---------------------------------------------------------------------------
+
+def process_frame(frame_path: str) -> None:
     try:
         results = alpr.recognize_file(frame_path)
-        # Grab latest telemetry to link location to the plate
-        latest_gps = telemetry_service.get_latest_telemetry(db)
-        
-        for plate in results['results']:
-            # Create the schema object your service expects
-            detection_data = schemas.DetectionCreate(
-                plate_number=plate['plate'],
-                confidence=plate['confidence'],
-                frame_path=frame_path,
-                telemetry_id=latest_gps.id if latest_gps else None
-            )
-            
-            # Use your ROBUST existing service
-            detection_service.create_detection(db=db, detection=detection_data)
-            print(f" [SUCCESS] Saved Plate: {plate['plate']} to DB via Service")
-            
     except Exception as e:
-        print(f" [ERROR] Failed to process {frame_path}: {e}")
-    finally:
-        db.close()
+        print(f"[Worker] ❌ ALPR error on {frame_path}: {e}")
+        return
 
-def watch_frames():
-    print(f"Monitoring {FRAME_DIR} for new drone frames...")
-    processed_files = set()
-    
+    if not results or not results.get("results"):
+        return
+
+    for plate_result in results["results"]:
+        plate_text  = plate_result.get("plate", "")
+        confidence  = plate_result.get("confidence", 0.0)
+        frame_name  = os.path.basename(frame_path)
+
+        if not plate_text:
+            continue
+
+        payload = {
+            "plate_text":    plate_text,
+            "confidence":    confidence,
+            "drone_id":      DRONE_ID,
+            "best_frame_id": frame_name,
+        }
+
+        try:
+            resp = requests.post(API_URL, json=payload, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                alert_flag = "🚨" if data.get("alert_triggered") else "✅"
+                print(f"[Worker] {alert_flag} {plate_text} ({confidence:.1f}%) → {data.get('status')}")
+            else:
+                print(f"[Worker] ⚠️  API returned {resp.status_code} for {plate_text}")
+        except requests.exceptions.RequestException as e:
+            print(f"[Worker] ❌ API post failed for {plate_text}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Watch loop
+# ---------------------------------------------------------------------------
+
+def watch_frames() -> None:
+    print(f"[Worker] 👁  Monitoring {FRAME_DIR} for new frames (drone: {DRONE_ID})...")
+    processed: set[str] = set()
+
     while True:
-        files = [f for f in os.listdir(FRAME_DIR) if f.endswith(('.jpg', '.png'))]
-        for file in files:
-            full_path = os.path.join(FRAME_DIR, file)
-            if full_path not in processed_files:
-                # Add a small delay to ensure FFmpeg has finished writing the file
-                time.sleep(0.1) 
+        try:
+            files = [
+                f for f in os.listdir(FRAME_DIR)
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        except FileNotFoundError:
+            print(f"[Worker] ⚠️  Frame directory not found: {FRAME_DIR}. Retrying...")
+            time.sleep(5)
+            continue
+
+        for filename in files:
+            full_path = os.path.join(FRAME_DIR, filename)
+            if full_path not in processed:
+                # Small delay to ensure FFmpeg has finished writing the file
+                time.sleep(0.1)
                 process_frame(full_path)
-                processed_files.add(full_path)
+                processed.add(full_path)
+
         time.sleep(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     try:
         watch_frames()
     finally:
         alpr.unload()
+        print("[Worker] OpenALPR unloaded. Exiting.")
