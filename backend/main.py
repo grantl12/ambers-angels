@@ -4,8 +4,11 @@ Amber's Angels — FastAPI entry point.
 """
 import sys
 import os
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from sqlalchemy import text
@@ -20,6 +23,13 @@ from services.detection_models import EventStatus, EventClassification
 from services.event_service import EventService
 from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
+from services.fema_connector import fema_background_loop, poll_fema_ipaws
+from routers.read_api import router as read_router
+
+GOLDEN_DIR = os.getenv(
+    "GOLDEN_DIR",
+    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
+)
 
 # The alert dispatcher singleton — reads ALERT_WEBHOOK_URL from env
 _alert_dispatcher = AlertDispatcher(
@@ -28,10 +38,34 @@ _alert_dispatcher = AlertDispatcher(
 )
 
 # ---------------------------------------------------------------------------
+# Lifespan — background tasks that run for the life of the server
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(
+        fema_background_loop(
+            session_factory=database.AsyncSessionLocal,
+            webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
+        )
+    )
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+# ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Amber's Angels API")
+app = FastAPI(title="Amber's Angels API", lifespan=lifespan)
+app.include_router(read_router)
+
+# Serve golden_frames as static files — thumbnails for alert detections
+os.makedirs(GOLDEN_DIR, exist_ok=True)
+app.mount("/frames", StaticFiles(directory=GOLDEN_DIR), name="frames")
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,6 +90,16 @@ def get_db():
 @app.get("/")
 def read_root():
     return {"status": "Amber's Angels Pipeline Active", "version": "2.1"}
+
+
+@app.post("/fema/test")
+async def fema_test():
+    """Manually trigger a FEMA IPAWS poll — useful when no live alerts are active."""
+    await poll_fema_ipaws(
+        session_factory=database.AsyncSessionLocal,
+        webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
+    )
+    return {"status": "poll_complete"}
 
 
 @app.get("/health")

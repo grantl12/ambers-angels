@@ -9,6 +9,7 @@ Telemetry is not yet implemented — that path is intentionally removed.
 import os
 import sys
 import time
+import shutil
 import requests
 from openalpr import Alpr
 from dotenv import load_dotenv
@@ -25,6 +26,10 @@ API_URL    = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
 ALPR_COUNTRY     = os.getenv("ALPR_COUNTRY", "us")
 ALPR_CONFIG      = os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf")
 ALPR_RUNTIME_DIR = os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data")
+GOLDEN_DIR       = os.getenv(
+    "GOLDEN_DIR",
+    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
+)
 
 # ---------------------------------------------------------------------------
 # Initialize OpenALPR once (reuse across frames to save startup cost)
@@ -35,6 +40,22 @@ if not alpr.is_loaded():
     sys.exit(1)
 
 alpr.set_top_n(5)
+
+
+# ---------------------------------------------------------------------------
+# Golden frame archival
+# ---------------------------------------------------------------------------
+
+def _save_to_golden(frame_path: str, plate_text: str) -> None:
+    """Copy a watchlist-hit frame into golden_frames for audit and manual re-ingestion."""
+    try:
+        os.makedirs(GOLDEN_DIR, exist_ok=True)
+        frame_name = os.path.basename(frame_path)
+        dest = os.path.join(GOLDEN_DIR, f"alert_{plate_text}_{frame_name}")
+        shutil.copy2(frame_path, dest)
+        print(f"[Worker] 💾 Saved to golden_frames: {os.path.basename(dest)}")
+    except Exception as e:
+        print(f"[Worker] ⚠️  Could not save golden frame: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -70,8 +91,11 @@ def process_frame(frame_path: str) -> None:
             resp = requests.post(API_URL, json=payload, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
-                alert_flag = "🚨" if data.get("alert_triggered") else "✅"
+                alert_triggered = data.get("alert_triggered", False)
+                alert_flag = "🚨" if alert_triggered else "✅"
                 print(f"[Worker] {alert_flag} {plate_text} ({confidence:.1f}%) → {data.get('status')}")
+                if alert_triggered:
+                    _save_to_golden(frame_path, plate_text)
             else:
                 print(f"[Worker] ⚠️  API returned {resp.status_code} for {plate_text}")
         except requests.exceptions.RequestException as e:

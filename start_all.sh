@@ -4,15 +4,21 @@
 echo "🚀 Launching Amber's Angels Pipeline..."
 
 # 1. Environment & Secrets
-export ALERT_WEBHOOK_URL="https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
-# Ensure we use the asyncpg driver for the new EventService logic
-export DATABASE_URL="postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+else
+    echo "⚠️  WARNING: .env file not found at $SCRIPT_DIR/.env — secrets will be missing!"
+fi
 export FRAME_ROOT="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+export FRAMES_DIR="$FRAME_ROOT"
 
 # 2. Critical Path Fix
 # We add both the root and the backend folder to PYTHONPATH
 BASE_DIR=$(pwd)
-export PYTHONPATH=$BASE_DIR:$BASE_DIR/backend:$BASE_DIR/worker
+export PYTHONPATH=$BASE_DIR:$BASE_DIR/backend:$BASE_DIR/worker:/usr/lib/python2.7/dist-packages
 
 # 3. Infrastructure
 sudo service nginx start
@@ -34,7 +40,18 @@ if [ -f "./harvest_stream.sh" ]; then
     tmux new-session -d -s aa-feed "./harvest_stream.sh"
 fi
 
+# 7. Start Frontend (PM2)
+~/.local/bin/pm2 restart ambers-angels-web 2>/dev/null || \
+    (cd /opt/ambers-angels/web && ~/.local/bin/pm2 start npm --name ambers-angels-web -- start)
+
+echo "================================================"
+echo "  ✅  Amber's Angels is LIVE"
+echo "================================================"
+echo "  🧠  Backend  →  tmux attach -t aa-backend"
+echo "  ⚙️   Worker   →  tmux attach -t aa-worker"
+echo "  🛰️   Feeds    →  tmux attach -t aa-feed"
+echo "  🗺️   Frontend →  pm2 logs ambers-angels-web"
 echo "------------------------------------------------"
-echo "✅ System RE-SYNCED."
-echo "🏥 Health: http://157.245.125.103:8000/health"
-echo "------------------------------------------------"
+echo "  🌐  Dashboard →  http://157.245.125.103/map"
+echo "  🏥  Health    →  http://157.245.125.103:8000/health"
+echo "================================================"

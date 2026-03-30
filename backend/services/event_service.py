@@ -1,7 +1,5 @@
 from __future__ import annotations
 import uuid
-import os
-import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Protocol, Any
@@ -61,18 +59,6 @@ class EventService:
             print("[LOUD DEBUG] 🛑 Snapshot rejected: 'should_open_event' is False.")
             return None
 
-        # --- AUTO-ARCHIVE HIGH CONFIDENCE FRAMES ---
-        if snapshot.aggregate_confidence > 90:
-            try:
-                gold_path = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames"
-                os.makedirs(gold_path, exist_ok=True)
-                src = f"/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/{snapshot.drone_id}/{snapshot.best_frame_id}"
-                if os.path.exists(src):
-                    shutil.copy(src, os.path.join(gold_path, f"auto_gold_{snapshot.plate_best}_{snapshot.best_frame_id}"))
-                    print(f"[LOUD DEBUG] 🏆 Frame {snapshot.best_frame_id} ARCHIVED to Golden Frames.")
-            except Exception as e:
-                print(f"[LOUD DEBUG] ⚠️ Auto-archive failed: {e}")
-
         # 1. Database Lookup
         existing = await self.repository.get_active_event_by_group_key(snapshot.group_key)
         if existing is None:
@@ -96,9 +82,15 @@ class EventService:
         # 3. DISPATCH TO DISCORD
         if should_dispatch_alert:
             print(f"[LOUD DEBUG] 🚨 ALERT TRIGGERED for {snapshot.plate_best}!")
+            # Store frame_url so the frontend can show the thumbnail
+            frame_url = f"/frames/{snapshot.best_frame_id}" if snapshot.best_frame_id else None
             event = await self.repository.update_event(
                 event,
-                {"status": EventStatus.ALERTED.value, "updated_at": datetime.now(timezone.utc)}
+                {
+                    "status": EventStatus.ALERTED.value,
+                    "updated_at": datetime.now(timezone.utc),
+                    "frame_url": frame_url,
+                }
             )
             try:
                 await self.dispatcher.dispatch(event)
@@ -125,7 +117,7 @@ class EventService:
 
         plate = snapshot.plate_best.upper()
         async with self.repository.session_factory() as session:
-            res = await session.execute(text("SELECT plate_text FROM watchlist WHERE is_active = 1"))
+            res = await session.execute(text("SELECT plate_text FROM watchlist"))
             targets = [row[0] for row in res.fetchall()]
             
         match_found = None

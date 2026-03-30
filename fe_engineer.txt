@@ -1,0 +1,663 @@
+Instructions to a new front end engineer agent. This isn't built yet:
+
+Perfect. Since you already have the DigitalOcean droplet and an early backend pipeline, I’d start by getting a thin vertical slice live instead of trying to design the whole app at once.
+
+First build target
+We should ship this first:
+
+Mission Map MVP
+
+front end deployed on the droplet
+map page loads
+active mission shell exists
+drone telemetry renders as live markers
+recent flight path renders as a line
+detections render as map markers
+left panel shows mission summary
+right panel shows live event feed placeholder
+That gives us the backbone of the product.
+
+Proposed stack
+I’d use:
+
+Next.js
+React
+TypeScript
+Tailwind
+Mapbox GL or react-map-gl
+TanStack Query
+Zustand
+Suggested repo structure
+If we’re starting clean, I’d make the frontend app like this:
+
+ambers-angels/
+  apps/
+    web/
+  packages/
+    ui/
+    config/
+    types/
+But if you want speed over monorepo polish, we can also just do:
+
+ambers-angels-web/
+For now, I’d bias toward single frontend repo unless you already have a monorepo.
+
+Immediate architecture
+For the first slice:
+
+src/
+  app/
+    page.tsx
+    map/
+      page.tsx
+    profile/
+      page.tsx
+    history/
+      page.tsx
+  components/
+    map/
+      mission-map.tsx
+      drone-layer.tsx
+      detection-layer.tsx
+      flight-path-layer.tsx
+      map-legend.tsx
+    mission/
+      mission-sidebar.tsx
+      event-feed.tsx
+    layout/
+      app-shell.tsx
+  features/
+    missions/
+      api.ts
+      types.ts
+    telemetry/
+      api.ts
+      types.ts
+    detections/
+      api.ts
+      types.ts
+    pilots/
+      api.ts
+      types.ts
+  lib/
+    api-client.ts
+    env.ts
+    geo.ts
+  stores/
+    ui-store.ts
+    mission-store.ts
+Backend contract to target first
+Even if your backend is rough, the UI only needs a few stable reads to start.
+
+1. Active missions
+GET /missions/active
+Response:
+
+type Mission = {
+  id: string
+  title: string
+  status: "active" | "paused" | "completed"
+  startedAt: string
+  area?: GeoJSON.Feature
+}
+2. Latest telemetry by drone
+GET /telemetry/latest?missionId=...
+Response:
+
+type DronePosition = {
+  droneId: string
+  pilotId?: string
+  timestamp: string
+  lat: number
+  lng: number
+  altitude?: number
+  heading?: number
+}
+3. Recent telemetry trail
+GET /telemetry/trail?missionId=...&minutes=30
+Response:
+
+type TelemetryTrail = {
+  droneId: string
+  points: {
+    timestamp: string
+    lat: number
+    lng: number
+  }[]
+}[]
+4. Detections
+GET /detections?missionId=...
+Response:
+
+type Detection = {
+  id: string
+  timestamp: string
+  lat: number
+  lng: number
+  plateText?: string
+  confidence?: number
+  status: "candidate" | "reviewed" | "dismissed" | "escalated"
+  imageUrl?: string
+}
+That’s enough to make the first real screen.
+
+First screen layout
+/map
+Top bar:
+
+app name
+active mission selector
+mission status
+pilot count
+detection count
+Left sidebar:
+
+active mission summary
+layer toggles
+time filter
+Main map:
+
+drone markers
+flight trails
+detection markers
+mission boundary
+Right sidebar:
+
+event feed
+selected drone details
+selected detection details
+Visual behavior
+For MVP:
+
+drone markers update every 5 to 10 seconds via polling
+trail shows last 15 to 30 minutes
+detections show clickable pins
+selected detection opens side detail card
+selected drone shows latest telemetry and simple status
+No fancy real-time infra yet unless your backend already supports it.
+
+Coverage visualization for v1
+Do not overbuild this first week.
+
+Start with:
+
+recent path line
+optional translucent buffered line later
+Then phase 2:
+
+simple square grid coverage overlay
+That keeps us moving.
+
+Deployment shape on the droplet
+Since you already have Nginx and backend services there, the cleanest initial deployment is:
+
+backend continues on FastAPI
+frontend runs as a Next.js app
+Nginx reverse proxies:
+/api/ -> FastAPI
+/ -> Next.js frontend
+Example shape:
+
+internet
+  -> nginx
+      /        -> nextjs:3000
+      /api/    -> fastapi:8000
+      /rtmp/   -> existing stream services
+Practical build order
+Step 1
+Bootstrap frontend app and deploy hello-world shell on droplet.
+
+Step 2
+Build /map with static fake data.
+
+Step 3
+Hook map to real mission + telemetry endpoints.
+
+Step 4
+Add detections layer.
+
+Step 5
+Polish mission sidebar and event feed.
+
+Step 6
+Add /profile and /history.
+
+What I’d do first, concretely
+Today I’d knock out these tasks:
+
+Frontend foundation
+create Next.js app
+add Tailwind
+add map library
+create app shell
+create /map route
+Data layer
+create typed API client
+add mission, telemetry, detection query hooks
+add mock fallback data so UI still works during backend churn
+Map UI
+render base map
+render test drone markers
+render test trail
+render test detection markers
+add click interaction
+Example front-end types
+export type Mission = {
+  id: string
+  title: string
+  status: "planned" | "active" | "paused" | "completed"
+  startedAt: string
+  endedAt?: string
+  area?: GeoJSON.Feature
+}
+
+export type DronePosition = {
+  droneId: string
+  pilotId?: string
+  timestamp: string
+  lat: number
+  lng: number
+  altitude?: number
+  heading?: number
+}
+
+export type Detection = {
+  id: string
+  timestamp: string
+  lat: number
+  lng: number
+  plateText?: string
+  confidence?: number
+  status: "candidate" | "reviewed" | "dismissed" | "escalated"
+  imageUrl?: string
+}
+Example API client pattern
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status}`)
+  }
+
+  return res.json()
+}
+Recommendation on our first milestone
+Let’s define milestone 1 as:
+
+“A deployed /map page that shows one active mission, live drone positions, recent flight traces, and detection markers from your backend.”
+
+That’s the correct starting point.
+
+The very next thing I’d want from you is the current repo shape and whatever FastAPI read endpoints already exist, so I can turn this into the exact frontend scaffold and file-by-file implementation plan.
+
+
+
+
+
+Today’s plan
+1. Create the frontend app
+On the droplet:
+
+mkdir -p /opt/ambers-angels
+cd /opt/ambers-angels
+npx create-next-app@latest web --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
+cd web
+npm install react-map-gl mapbox-gl @tanstack/react-query zustand lucide-react
+2. Add env file
+Create .env.local:
+
+cat > .env.local <<'EOF'
+NEXT_PUBLIC_APP_NAME=Amber's Angels
+NEXT_PUBLIC_MAPBOX_TOKEN=YOUR_MAPBOX_PUBLIC_TOKEN_HERE
+NEXT_PUBLIC_API_BASE_URL=http://157.245.125.103:8000
+EOF
+Later, when Nginx is proxying, we can switch NEXT_PUBLIC_API_BASE_URL to /api.
+
+3. Build the first app shell
+Create src/lib/env.ts:
+
+export const env = {
+  appName: process.env.NEXT_PUBLIC_APP_NAME || "Amber's Angels",
+  mapboxToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "",
+  apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000",
+}
+Create src/lib/api-client.ts:
+
+import { env } from "@/lib/env"
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+Create src/features/missions/types.ts:
+
+export type Mission = {
+  id: string
+  title: string
+  status: "planned" | "active" | "paused" | "completed"
+  startedAt: string
+  endedAt?: string
+}
+Create src/features/telemetry/types.ts:
+
+export type DronePosition = {
+  droneId: string
+  pilotId?: string
+  timestamp: string
+  lat: number
+  lng: number
+  altitude?: number
+  heading?: number
+}
+Create src/features/detections/types.ts:
+
+export type Detection = {
+  id: string
+  timestamp: string
+  lat: number
+  lng: number
+  plateText?: string
+  confidence?: number
+  status: "candidate" | "reviewed" | "dismissed" | "escalated"
+}
+4. Add mock data so the UI is unblocked
+Create src/lib/mock-data.ts:
+
+import type { Mission } from "@/features/missions/types"
+import type { DronePosition } from "@/features/telemetry/types"
+import type { Detection } from "@/features/detections/types"
+
+export const mockMission: Mission = {
+  id: "mission-1",
+  title: "Active Search Mission",
+  status: "active",
+  startedAt: new Date().toISOString(),
+}
+
+export const mockDronePositions: DronePosition[] = [
+  {
+    droneId: "drone-1",
+    pilotId: "pilot-1",
+    timestamp: new Date().toISOString(),
+    lat: 30.2672,
+    lng: -97.7431,
+    altitude: 220,
+    heading: 45,
+  },
+  {
+    droneId: "drone-2",
+    pilotId: "pilot-2",
+    timestamp: new Date().toISOString(),
+    lat: 30.271,
+    lng: -97.75,
+    altitude: 180,
+    heading: 120,
+  },
+]
+
+export const mockDetections: Detection[] = [
+  {
+    id: "det-1",
+    timestamp: new Date().toISOString(),
+    lat: 30.2695,
+    lng: -97.746,
+    plateText: "ABC1234",
+    confidence: 0.82,
+    status: "candidate",
+  },
+]
+
+export const mockTrail = [
+  [-97.748, 30.265],
+  [-97.746, 30.266],
+  [-97.744, 30.267],
+  [-97.742, 30.268],
+] as [number, number][]
+5. Build the map page
+Create src/components/map/mission-map.tsx:
+
+"use client"
+
+import Map, { Marker, NavigationControl, Popup, Source, Layer } from "react-map-gl"
+import "mapbox-gl/dist/mapbox-gl.css"
+import { useMemo, useState } from "react"
+import { env } from "@/lib/env"
+import { mockDetections, mockDronePositions, mockTrail } from "@/lib/mock-data"
+import type { Detection } from "@/features/detections/types"
+
+export function MissionMap() {
+  const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null)
+
+  const trailGeoJson = useMemo(
+    () => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "LineString" as const,
+        coordinates: mockTrail,
+      },
+      properties: {},
+    }),
+    []
+  )
+
+  return (
+    <Map
+      initialViewState={{
+        longitude: -97.7431,
+        latitude: 30.2672,
+        zoom: 12,
+      }}
+      mapStyle="mapbox://styles/mapbox/dark-v11"
+      mapboxAccessToken={env.mapboxToken}
+    >
+      <NavigationControl position="top-right" />
+
+      {mockDronePositions.map((drone) => (
+        <Marker
+          key={drone.droneId}
+          longitude={drone.lng}
+          latitude={drone.lat}
+          anchor="center"
+        >
+          <div className="h-4 w-4 rounded-full border border-white bg-sky-500 shadow" />
+        </Marker>
+      ))}
+
+      {mockDetections.map((detection) => (
+        <Marker
+          key={detection.id}
+          longitude={detection.lng}
+          latitude={detection.lat}
+          anchor="center"
+          onClick={(e) => {
+            e.originalEvent.stopPropagation()
+            setSelectedDetection(detection)
+          }}
+        >
+          <div className="h-4 w-4 rounded-full border border-white bg-rose-500 shadow" />
+        </Marker>
+      ))}
+
+      <Source id="trail" type="geojson" data={trailGeoJson}>
+        <Layer
+          id="trail-line"
+          type="line"
+          paint={{
+            "line-width": 4,
+            "line-opacity": 0.8,
+          }}
+        />
+      </Source>
+
+      {selectedDetection && (
+        <Popup
+          longitude={selectedDetection.lng}
+          latitude={selectedDetection.lat}
+          anchor="top"
+          onClose={() => setSelectedDetection(null)}
+        >
+          <div className="text-sm">
+            <div className="font-semibold">{selectedDetection.plateText || "Unknown plate"}</div>
+            <div>Status: {selectedDetection.status}</div>
+            <div>Confidence: {selectedDetection.confidence ?? "n/a"}</div>
+          </div>
+        </Popup>
+      )}
+    </Map>
+  )
+}
+Create src/components/mission/mission-sidebar.tsx:
+
+import { mockMission, mockDronePositions, mockDetections } from "@/lib/mock-data"
+
+export function MissionSidebar() {
+  return (
+    <aside className="flex h-full w-80 flex-col border-r border-white/10 bg-black/40 p-4 text-white backdrop-blur">
+      <h2 className="text-lg font-semibold">{mockMission.title}</h2>
+      <div className="mt-2 text-sm text-white/70">Status: {mockMission.status}</div>
+
+      <div className="mt-6 space-y-3">
+        <div className="rounded-xl border border-white/10 p-3">
+          <div className="text-xs uppercase text-white/50">Active drones</div>
+          <div className="mt-1 text-2xl font-semibold">{mockDronePositions.length}</div>
+        </div>
+
+        <div className="rounded-xl border border-white/10 p-3">
+          <div className="text-xs uppercase text-white/50">Detections</div>
+          <div className="mt-1 text-2xl font-semibold">{mockDetections.length}</div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+Create src/components/mission/event-feed.tsx:
+
+import { mockDetections } from "@/lib/mock-data"
+
+export function EventFeed() {
+  return (
+    <aside className="flex h-full w-80 flex-col border-l border-white/10 bg-black/40 p-4 text-white backdrop-blur">
+      <h2 className="text-lg font-semibold">Live Events</h2>
+
+      <div className="mt-4 space-y-3">
+        {mockDetections.map((detection) => (
+          <div key={detection.id} className="rounded-xl border border-white/10 p-3">
+            <div className="font-medium">{detection.plateText || "Unknown plate"}</div>
+            <div className="text-sm text-white/70">Status: {detection.status}</div>
+            <div className="text-sm text-white/70">
+              Confidence: {detection.confidence ?? "n/a"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  )
+}
+Create src/app/map/page.tsx:
+
+import { MissionMap } from "@/components/map/mission-map"
+import { MissionSidebar } from "@/components/mission/mission-sidebar"
+import { EventFeed } from "@/components/mission/event-feed"
+
+export default function MapPage() {
+  return (
+    <main className="flex h-screen w-screen bg-neutral-950">
+      <MissionSidebar />
+      <div className="flex-1">
+        <MissionMap />
+      </div>
+      <EventFeed />
+    </main>
+  )
+}
+Update src/app/page.tsx:
+
+import { redirect } from "next/navigation"
+
+export default function HomePage() {
+  redirect("/map")
+}
+6. Run it locally on the droplet
+npm run dev -- --hostname 0.0.0.0 --port 3000
+Visit:
+
+http://157.245.125.103:3000/map
+At this point you should see:
+
+a live map
+left summary panel
+right event feed
+2 drone markers
+1 detection marker
+1 flight trail
+7. Production run for today
+For a quick production-ish run, use PM2:
+
+npm install -g pm2
+npm run build
+pm2 start npm --name ambers-angels-web -- start
+pm2 save
+pm2 startup
+8. Nginx reverse proxy
+Add a server block like this:
+
+server {
+    listen 80;
+    server_name YOUR_DOMAIN_OR_IP;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+Then reload:
+
+sudo nginx -t
+sudo systemctl reload nginx
+What we should finish today
+The exact checklist:
+
+scaffold Next app
+install map + state/query deps
+add env vars
+build /map
+render mock drones, detections, and trail
+deploy frontend on droplet
+put Nginx in front of it
+Tomorrow’s first step
+Once this shell is visible, we replace mock data in this order:
+
+active mission
+latest telemetry
+telemetry trail
+detections
+That will turn the screen from prototype into product.
+
+
+Send me your current FastAPI read endpoints next, and I’ll convert this static shell into the real data-wired version.

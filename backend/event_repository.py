@@ -20,7 +20,7 @@ class EventRepository:
                 "id": str(uuid.uuid4()), # Generate the missing UUID
                 "drone_id": data.get("drone_id", "drone1"),
                 "plate_best": data.get("plate_best") or data.get("plate_text"),
-                "confidence": data.get("aggregate_confidence") or data.get("confidence", 0.0),
+                "confidence": data.get("aggregate_confidence") or data.get("average_confidence") or data.get("confidence", 0.0),
                 "event_type": "automated_test",
                 "status": "active",
                 "last_seen": datetime.now(timezone.utc)
@@ -36,6 +36,25 @@ class EventRepository:
             return essential_data # Return the dict as a mock object
             
     async def update_event(self, event, fields: dict):
+        event_id = event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
+        if not event_id or not fields:
+            return event
+        # Only update columns that actually exist in the table
+        allowed = {"status", "frame_url", "confidence", "plate_best", "drone_id"}
+        safe_fields = {k: v for k, v in fields.items() if k in allowed}
+        if not safe_fields:
+            return event
+        async with self.session_factory() as session:
+            try:
+                set_clause = ", ".join(f"{k} = :{k}" for k in safe_fields)
+                sql = text(f"UPDATE detection_events SET {set_clause} WHERE id = :id")
+                await session.execute(sql, {**safe_fields, "id": event_id})
+                await session.commit()
+                if isinstance(event, dict):
+                    event.update(safe_fields)
+            except Exception as e:
+                print(f"[EventRepository] ⚠️ update_event failed: {e}")
+                await session.rollback()
         return event
 
     async def attach_detection_to_event(self, detection_id, event_id):
