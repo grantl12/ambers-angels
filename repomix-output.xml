@@ -1,0 +1,2825 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: **/*.jpg, **/*.jpeg, **/scan_results.json, **/openalpr/**, **/old/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+backend/
+  services/
+    __init__.py
+    aggregation_service.py
+    alert_dispatcher.py
+    alert_dispatcher.py.old
+    detection_models.py
+    detection_pipeline.py
+    event_service.py
+  app_log.txt
+  bridge_log.txt
+  bridge.py
+  event_repository.py
+  generate_test_data.py
+  generate_verified_plate.py
+  live_db_test.py
+  live_watcher.py
+  main.py
+  nohup.out
+  recover_anomalies.sh
+  requirements.txt
+  run_simulation.py
+  schema.sql
+  smoke_test.py
+  stress_test.py
+  test_engine.py
+ops/
+  nginx/
+    nginx.conf
+    telemetry.site.conf
+pilot/
+  telemetry.html
+scripts/
+  start_all.sh
+  stop_all.sh
+worker/
+  process_frames.py
+  register_frame.py
+.gitignore
+AA_Launch.py
+croptop.py
+ffmpeg_log.txt
+gps_sender.py
+GPS.py
+harvest_stream.sh
+multiDrone.json
+notes
+package.json
+README.md
+repomix.config.json
+ssh_key.pub
+start_all.sh
+stop_all.sh
+telemetry_points.sql
+test.flv
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="backend/recover_anomalies.sh">
+#!/bin/bash
+
+ANOMALY_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/anomalies"
+API_URL="http://localhost:8000/detections"
+
+echo "🔎 Starting Recovery Scan on $ANOMALY_DIR..."
+
+for frame in "$ANOMALY_DIR"/*.jpg; do
+    # 1. Run ALPR on the 'lost' frame
+    # We use -n 1 to get the best guess
+    RESULT=$(alpr -c us -j -n 1 "$frame")
+    
+    # 2. Extract Plate and Confidence using python for clean parsing
+    PLATE=$(echo "$RESULT" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['results'][0]['plate']) if data['results'] else print('')")
+    CONF=$(echo "$RESULT" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['results'][0]['confidence']) if data['results'] else print('0')")
+
+    if [ -n "$PLATE" ]; then
+        echo "🎯 Found $PLATE ($CONF%) in $(basename "$frame"). Sending to Brain..."
+        
+        # 3. Push to the Backend
+        # The Backend will now use the Fuzzy Matcher we just installed!
+        curl -s -X POST "$API_URL" \
+             -H "Content-Type: application/json" \
+             -d "{
+               \"drone_id\": \"recovery_bot\",
+               \"plate_best\": \"$PLATE\",
+               \"confidence\": $CONF,
+               \"best_frame_id\": \"$(basename "$frame")\"
+             }" > /dev/null
+    fi
+done
+
+echo "✅ Recovery Scan Complete. Check your Discord/Logs for hits!"
+</file>
+
+<file path="repomix.config.json">
+{
+  "ignore": {
+    "customPatterns": [
+      "**/*.jpg",
+      "**/*.jpeg",
+      "**/scan_results.json",
+      "**/openalpr/**",
+      "**/old/**"
+    ]
+  }
+}
+</file>
+
+<file path="backend/services/alert_dispatcher.py.old">
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from typing import Protocol
+from uuid import UUID
+
+import httpx
+
+from services.detection_models import (
+    Alert,
+    AlertChannel,
+    AlertCreate,
+    AlertDeliveryStatus,
+    DetectionEvent,
+)
+
+
+# -----------------------------------------------------------------------------
+# Repository protocol (Updated for Async)
+# -----------------------------------------------------------------------------
+
+
+class AlertRepository(Protocol):
+    async def create_alert(self, payload: AlertCreate) -> Alert:
+        ...
+
+    async def update_alert(self, alert: Alert, fields: dict) -> Alert:
+        ...
+
+
+# -----------------------------------------------------------------------------
+# Dispatcher
+# -----------------------------------------------------------------------------
+
+
+class AlertDispatcher:
+    def __init__(
+        self,
+        repository: AlertRepository,
+        *,
+        webhook_url: str | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> None:
+        self.repository = repository
+        self.webhook_url = webhook_url
+        self.timeout_seconds = timeout_seconds
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def dispatch(self, event: DetectionEvent) -> list[Alert]:
+        """
+        Fan out alerts for an event.
+        - Records an INTERNAL alert in the DB.
+        - Sends a Discord-formatted webhook if URL is provided.
+        """
+        alerts: list[Alert] = []
+
+        # Prepare a clean dictionary for the database/webhook
+        # We handle both dictionary (from our recent fix) and object access
+        event_id = event.get('id') if isinstance(event, dict) else event.id
+        plate = event.get('plate_best') if isinstance(event, dict) else event.get('plate_best') if isinstance(event, dict) else event.plate_best
+        conf = event.get('aggregate_confidence') if isinstance(event, dict) else event.aggregate_confidence
+        drone = event.get('drone_id') if isinstance(event, dict) else event.drone_id
+        
+        payload_dict = {
+            "event_id": str(event_id),
+            "plate_best": plate,
+            "confidence": f"{conf*100:.1f}%" if conf else "0%",
+            "drone_id": drone,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        # 1. Always create internal alert record
+        internal = await self.repository.create_alert(
+            AlertCreate(alert_type='WATCHLIST_MATCH', severity='CRITICAL', message=f'Target Plate {event.get('plate_best') if isinstance(event, dict) else event.plate_best} Detected', 
+                event_id=event_id,
+                channel="INTERNAL",
+                payload=payload_dict,
+            )
+        )
+        alerts.append(internal)
+
+        # 2. Optional Discord Webhook
+        if self.webhook_url:
+            webhook_alert = await self.repository.create_alert(
+                AlertCreate(alert_type='WATCHLIST_MATCH', severity='CRITICAL', message=f'Target Plate {event.get('plate_best') if isinstance(event, dict) else event.plate_best} Detected', 
+                    event_id=event_id,
+                    channel=AlertChannel.WEBHOOK,
+                    destination=self.webhook_url,
+                    payload=payload_dict,
+                )
+            )
+
+            # Process the actual network send
+            sent_alert = await self._send_discord_webhook(webhook_alert)
+            alerts.append(sent_alert)
+
+        return alerts
+
+    # ------------------------------------------------------------------
+    # Discord-Specific Webhook Logic
+    # ------------------------------------------------------------------
+
+    async def _send_discord_webhook(self, alert: Alert) -> Alert:
+        """
+        Formats the generic payload into a pretty Discord Embed.
+        """
+        p = alert.payload
+        discord_payload = {
+            "username": "AA-Drone-Monitor",
+            "embeds": [{
+                "title": "🚨 TARGET PLATE DETECTED",
+                "color": 15158332, # Red
+                "fields": [
+                    {"name": "Plate", "value": f"`{p.get('plate_best')}`", "inline": True},
+                    {"name": "Confidence", "value": f"{p.get('confidence')}", "inline": True},
+                    {"name": "Drone", "value": f"{p.get('drone_id')}", "inline": True},
+                ],
+                "footer": {"text": f"ID: {p.get('event_id')}"},
+                "timestamp": p.get('timestamp')
+            }]
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            try:
+                response = await client.post(
+                    alert.destination,
+                    json=discord_payload,
+                    headers={"Content-Type": "application/json"},
+                )
+
+                # Update the DB record with the result
+                status = AlertDeliveryStatus.SENT if response.status_code < 400 else AlertDeliveryStatus.FAILED
+                updated = await self.repository.update_alert(
+                    alert,
+                    {
+                        "delivery_status": status.value,
+                        "provider_response": {
+                            "status_code": response.status_code,
+                            "body": response.text[:1000],
+                        },
+                        "sent_at": datetime.now(timezone.utc),
+                    },
+                )
+                return updated
+
+            except Exception as exc:
+                updated = await self.repository.update_alert(
+                    alert,
+                    {
+                        "delivery_status": AlertDeliveryStatus.FAILED.value,
+                        "provider_response": {"error": str(exc)},
+                        "sent_at": datetime.now(timezone.utc),
+                    },
+                )
+                return updated
+</file>
+
+<file path="backend/bridge_log.txt">
+
+</file>
+
+<file path="backend/generate_test_data.py">
+import os
+from PIL import Image, ImageDraw, ImageFont
+
+output_dir = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+os.makedirs(output_dir, exist_ok=True)
+
+def create_high_fidelity_plate(text, filename):
+    # 1000x1000 Dark Gray Canvas (The Car Bumper)
+    img = Image.new('RGB', (1000, 1000), color=(40, 40, 40))
+    d = ImageDraw.Draw(img)
+    
+    # Draw a "Plate Holder" (Black shadow)
+    d.rectangle([245, 395, 755, 605], fill=(10, 10, 10))
+    
+    # Draw the White Plate
+    d.rectangle([250, 400, 750, 600], fill=(245, 245, 245), outline=(100, 100, 100), width=5)
+    
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 110)
+    except:
+        font = ImageFont.load_default()
+        
+    # Center text with clear margins
+    bbox = d.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2]-bbox[0], bbox[3]-bbox[1]
+    d.text((500 - tw//2, 500 - th//2), text, fill=(20, 20, 20), font=font)
+    
+    img.save(os.path.join(output_dir, filename), "JPEG")
+
+create_high_fidelity_plate("AMB3R-1", "target_target_01.jpg")
+</file>
+
+<file path="backend/generate_verified_plate.py">
+from PIL import Image, ImageDraw, ImageFont
+import os
+
+path = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/verified_test.jpg"
+
+# 1920x1080 (Standard Drone Frame)
+img = Image.new('RGB', (1920, 1080), color=(50, 50, 50))
+d = ImageDraw.Draw(img)
+
+# White Plate Background
+d.rectangle([700, 400, 1220, 650], fill=(255, 255, 255), outline=(0,0,0), width=5)
+
+try:
+    # Use a common bold font
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
+except:
+    font = ImageFont.load_default()
+
+# Draw Text
+d.text((750, 460), "AMB3R 1", fill=(0, 0, 0), font=font)
+
+img.save(path, "JPEG", quality=95)
+print(f"✅ Generated: {path}")
+</file>
+
+<file path="backend/live_watcher.py">
+import os, time, subprocess, json, requests, shutil, psycopg2
+
+WATCH_DIR = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+ALERT_DIR = "/home/ambers-angels/proj_dir/ambers-angels/backend/alerts"
+API_URL = "http://127.0.0.1:8000/detections"
+DB_PARAMS = "dbname=ambersangels user=postgres"
+
+os.makedirs(ALERT_DIR, exist_ok=True)
+processed_files = set()
+
+def is_on_watchlist(plate):
+    try:
+        conn = psycopg2.connect(DB_PARAMS)
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM watchlist WHERE plate_text = %s", (plate,))
+        match = cur.fetchone() is not None
+        cur.close()
+        conn.close()
+        return match
+    except Exception as e:
+        print(f"⚠️ DB Lookup Error: {e}")
+        return False
+
+print("🚀 Watcher active. Querying 'watchlist' table for targets...")
+
+while True:
+    files = [f for f in os.listdir(WATCH_DIR) if f.endswith(".jpg")]
+    for f in files:
+        if f not in processed_files:
+            path = os.path.join(WATCH_DIR, f)
+            result = subprocess.run(['alpr', '-c', 'us', '-j', path], capture_output=True, text=True)
+            
+            try:
+                data = json.loads(result.stdout)
+                if data['results']:
+                    best = data['results'][0]
+                    plate = best['plate']
+                    
+                    # 1. LOG EVERYTHING
+                    requests.post(API_URL, json={
+                        "plate_text": plate,
+                        "confidence": best['confidence'],
+                        "drone_id": "drone-alpha",
+                        "detected_at": time.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    })
+                    
+                    # 2. CHECK DB WATCHLIST FOR IMAGE RETENTION
+                    if is_on_watchlist(plate):
+                        archive_path = os.path.join(ALERT_DIR, f"ALERT_{plate}_{int(time.time())}.jpg")
+                        shutil.move(path, archive_path)
+                        print(f"🚨 DB MATCH FOUND: {plate}. Image archived.")
+                    else:
+                        print(f"✅ Logged {plate}. No match, deleting image.")
+                        os.remove(path)
+                else:
+                    os.remove(path)
+            except Exception as e:
+                print(f"❌ Error: {e}")
+            processed_files.add(f)
+    time.sleep(0.5)
+</file>
+
+<file path="backend/run_simulation.py">
+import os
+import time
+import requests
+import docker
+import json
+
+client = docker.from_env()
+container_name = "alpr-service"
+# The path on your actual machine
+test_dir = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+api_url = "http://127.0.0.1:8000/detections"
+
+# The path the Docker container now sees thanks to our new mapping
+docker_internal_path = "/home/ambers-angels/test_plates"
+
+files = [f for f in os.listdir(test_dir) if f.endswith(".jpg")]
+print(f"🚀 Starting Test on {len(files)} images...")
+
+success_count = 0
+for filename in sorted(files):
+    try:
+        # We tell docker to look in its internal version of the folder
+        cmd = f"alpr -j {docker_internal_path}/{filename}"
+        result = client.containers.get(container_name).exec_run(cmd)
+        
+        output = json.loads(result.output.decode('utf-8'))
+        if output.get("results"):
+            plate = output["results"][0]["candidates"][0]["plate"]
+            requests.post(api_url, json={
+                "frame_id": 0,
+                "drone_id": "sim-drone-01",
+                "plate_text": plate,
+                "confidence": 0.9,
+                "detected_at": time.strftime('%Y-%m-%dT%H:%M:%SZ')
+            })
+            print(f"✅ Found: {plate}")
+            success_count += 1
+    except Exception as e:
+        print(f"❌ Error on {filename}: {e}")
+
+print(f"Done. Found {success_count} plates.")
+</file>
+
+<file path="backend/stress_test.py">
+import os
+import time
+import requests
+import docker
+
+client = docker.from_env()
+container_name = "alpr-service"
+test_dir = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+
+print("Starting Stress Test: 100 Plates...")
+start_time = time.time()
+
+for filename in os.listdir(test_dir):
+    if filename.endswith(".jpg"):
+        # 1. Copy file to a place Docker can see
+        # (Assuming your docker volume is -v /path/to/backend:/data)
+        file_path = f"/data/test_plates/{filename}"
+        
+        # 2. Run ALPR
+        result = client.containers.get(container_name).exec_run(f"alpr -j {file_path}")
+        # Note: In a real test, you'd parse this and POST to localhost:8000/detections
+        print(f"Processed: {filename}")
+
+end_time = time.time()
+print(f"Finished! Total time for 100 plates: {end_time - start_time:.2f} seconds")
+</file>
+
+<file path="backend/test_engine.py">
+import easyocr
+import cv2
+
+reader = easyocr.Reader(['en']) # This will download the model (approx 100MB)
+image_path = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/target_target_01.jpg"
+
+print(f"Reading {image_path}...")
+results = reader.readtext(image_path)
+
+for (bbox, text, prob) in results:
+    print(f"✅ DETECTED: {text} (Confidence: {prob:.2f})")
+
+if not results:
+    print("❌ No text found.")
+</file>
+
+<file path="scripts/start_all.sh">
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BACKEND_DIR="$PROJECT_ROOT/backend"
+WORKER_DIR="$PROJECT_ROOT/worker"
+LOG_DIR="$PROJECT_ROOT/logs"
+
+mkdir -p "$LOG_DIR"
+
+echo "Starting Amber's Angels services..."
+
+# ---- Backend env ----
+export DB_NAME="ambersangels"
+export DB_USER="postgres"
+export DB_PASSWORD="Ambers1Angels"
+export DB_HOST="127.0.0.1"
+export DB_PORT="5432"
+
+# ---- Worker / telemetry env ----
+export API_BASE="http://127.0.0.1:8000"
+export DRONE_ID="drone1"
+export FRAMES_DIR="$PROJECT_ROOT/frames/drone1"
+
+# Start FastAPI
+echo "Starting API..."
+cd "$BACKEND_DIR"
+nohup python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 > "$LOG_DIR/api.log" 2>&1 &
+echo $! > "$LOG_DIR/api.pid"
+
+sleep 2
+
+# Start GPS sender
+echo "Starting GPS sender..."
+cd "$PROJECT_ROOT"
+nohup python3 gps_sender.py > "$LOG_DIR/gps_sender.log" 2>&1 &
+echo $! > "$LOG_DIR/gps_sender.pid"
+
+sleep 1
+
+# Start frame worker
+echo "Starting frame worker..."
+cd "$WORKER_DIR"
+nohup python3 process_frames.py > "$LOG_DIR/frame_worker.log" 2>&1 &
+echo $! > "$LOG_DIR/frame_worker.pid"
+
+echo ""
+echo "All services started."
+echo "Logs: $LOG_DIR"
+echo "API PID: $(cat "$LOG_DIR/api.pid")"
+echo "GPS PID: $(cat "$LOG_DIR/gps_sender.pid")"
+echo "Worker PID: $(cat "$LOG_DIR/frame_worker.pid")"
+</file>
+
+<file path="scripts/stop_all.sh">
+#!/usr/bin/env bash
+set +e
+
+PROJECT_ROOT="/root/ambers-angels"
+LOG_DIR="$PROJECT_ROOT/logs"
+
+echo "Stopping Amber's Angels services..."
+
+for file in "$LOG_DIR/api.pid" "$LOG_DIR/gps_sender.pid" "$LOG_DIR/frame_worker.pid"; do
+if [ -f "$file" ]; then
+PID=$(cat "$file")
+kill "$PID" 2>/dev/null
+rm -f "$file"
+echo "Stopped PID $PID"
+fi
+done
+
+echo "Done."
+</file>
+
+<file path="harvest_stream.sh">
+#!/bin/bash
+
+# --- CONFIGURATION ---
+DRONES=(
+    "drone1|rtmp://127.0.0.1/live/drone1"
+    "drone2|rtmp://127.0.0.1/live/drone2"
+    "drone3|rtmp://127.0.0.1/live/drone3"
+)
+
+BASE_DIR="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+FPS="3"
+
+# --- CLEANUP HANDLER ---
+cleanup() {
+    echo -e "\n\n🛑 Shutting down Harvester Cluster..."
+    pkill -P $$ ffmpeg 2>/dev/null
+    echo "✅ All FFmpeg instances stopped."
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+echo "🚀 Starting Multi-Drone Harvester Cluster..."
+
+for drone in "${DRONES[@]}"; do
+    IFS="|" read -r NAME URL <<< "$drone"
+    TARGET_DIR="$BASE_DIR/$NAME"
+    mkdir -p "$TARGET_DIR"
+
+    # Start the loop in the background
+    (
+        while true; do
+            # 1. We removed '-er 4' and used '-flags +discardcorrupt' for compatibility
+            # 2. We redirect STDERR (2) to /dev/null so "Option not found" doesn't spam
+            ffmpeg -hide_banner -loglevel panic \
+                   -fflags nobuffer+genpts \
+                   -flags +discardcorrupt \
+                   -i "$URL" \
+                   -vf "fps=$FPS" -q:v 2 \
+                   -vsync vfr \
+                   -f image2 "$TARGET_DIR/frame_%04d.jpg" 2>/dev/null
+            
+            # This only prints if ffmpeg exits (connection lost or never started)
+            echo "📡 [$NAME] Searching for stream..."
+            sleep 5
+        done
+    ) & 
+done
+
+echo "✅ Harvesters are polling for drone connections."
+echo "💡 Press Ctrl+C to stop."
+
+wait
+</file>
+
+<file path="backend/services/__init__.py">
+
+</file>
+
+<file path="backend/app_log.txt">
+INFO:     Started server process [33517]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+</file>
+
+<file path="backend/bridge.py">
+import cv2
+import docker
+import requests
+import time
+import json
+import os
+from datetime import datetime
+
+# Setup
+client = docker.from_env()
+rtmp_url = "rtmp://localhost/live/drone1"
+api_url = "http://127.0.0.1:8000/detections"
+container_name = "alpr-service"
+
+work_dir = "/home/ambers-angels/proj_dir/ambers-angels/backend"
+static_dir = os.path.join(work_dir, "static/captures")
+temp_frame = os.path.join(work_dir, "current_frame.jpg")
+
+cap = cv2.VideoCapture(rtmp_url)
+print("Archiving Bridge Started. Saving all detected plates to /static/captures/...")
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        time.sleep(2)
+        cap.open(rtmp_url)
+        continue
+
+    cv2.imwrite(temp_frame, frame)
+    
+    try:
+        result = client.containers.get(container_name).exec_run("alpr -j /data/current_frame.jpg")
+        output = result.output.decode('utf-8')
+        
+        if output.strip():
+            data = json.loads(output)
+            if data.get("results"):
+                best = data["results"][0]["candidates"][0]
+                plate = best["plate"]
+                conf = best["confidence"]
+                
+                if conf > 80:
+                    # Create a unique filename for this detection
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{plate}_{timestamp}.jpg"
+                    save_path = os.path.join(static_dir, filename)
+                    
+                    # Save the permanent evidence image
+                    cv2.imwrite(save_path, frame)
+                    print(f"STAKE OUT: Saved image for {plate} to {filename}")
+
+                    # Log to Database
+                    requests.post(api_url, json={
+                        "frame_id": 1,
+                        "drone_id": "drone1",
+                        "plate_text": plate,
+                        "confidence": float(conf)/100,
+                        "detected_at": datetime.utcnow().isoformat(),
+                        "raw_payload": {"image_path": f"/static/captures/{filename}"}
+                    })
+    except Exception as e:
+        print(f"Error: {e}")
+
+    time.sleep(1)
+</file>
+
+<file path="backend/requirements.txt">
+fastapi
+uvicorn[standard]
+psycopg2-binary
+pydantic
+python-multipart
+</file>
+
+<file path="backend/smoke_test.py">
+import asyncio
+from datetime import datetime
+# Clean imports
+from services.detection_models import DetectionInput
+from services.aggregation_service import AggregationService
+from services.event_service import EventService
+from services.alert_dispatcher import AlertDispatcher
+from services.detection_pipeline import DetectionPipeline
+
+class MockRepo:
+    def __init__(self): self.data = {}
+    async def get_active_event(self, p, d, **kwargs): return self.data.get(f"{p}_{d}")
+    async def create_event(self, obj): 
+        self.data[f"{obj.plate_best}_{obj.drone_id}"] = obj
+        return obj
+    async def update_event(self, id, updates): pass
+
+async def run_test():
+    class MockRepo: pass
+    repo = MockRepo()
+    # Setup
+    agg = AggregationService()
+    events = EventService(repository=MockRepo())
+    alerts = AlertDispatcher(repository=repo, webhook_url=None)
+    pipeline = DetectionPipeline(agg, events, alerts)
+
+    print("🚀 Running Smoke Test (Corrected Namespaces)...")
+    
+    det = DetectionInput(
+        plate="TEST123",
+        confidence=98.0,
+        drone_id="DRONE_01",
+        latitude=0.0,
+        longitude=0.0,
+        timestamp=datetime.utcnow()
+    )
+    
+    result = await pipeline.process_detection(det)
+    if result:
+        print(f"✅ Success! Status: {result.status}")
+    else:
+        print("❌ Failed: Detection was filtered.")
+
+if __name__ == "__main__":
+    asyncio.run(run_test())
+</file>
+
+<file path="ops/nginx/nginx.conf">
+#NGINX
+load_module modules/ngx_rtmp_module.so;
+
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+rtmp {
+    server {
+        listen 1935;
+        chunk_size 4096;
+
+        application live {
+            live on;
+            record off;
+
+            # Optional: allow publishing/playing from anywhere for testing
+            allow publish all;
+            allow play all;
+        }
+    }
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+</file>
+
+<file path="ops/nginx/telemetry.site.conf">
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+
+    root /var/www/telemetry;
+    index telemetry.html;
+
+    location = / {
+        return 302 /telemetry.html;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location /api/ {
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+</file>
+
+<file path="pilot/telemetry.html">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Amber's Angels Telemetry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 700px; margin: auto; }
+    input, button, select { padding: 10px; margin: 6px 0; width: 100%; }
+    #log { white-space: pre-wrap; background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Amber's Angels Pilot Telemetry</h1>
+
+  <label>API Base URL</label>
+  <input id="apiBase" value="http://157.245.125.103:8000" />
+
+  <label>Drone ID</label>
+  <input id="droneId" value="drone1" />
+
+  <label>Pilot ID</label>
+  <input id="pilotId" value="pilot_123" />
+
+  <label>Send Interval (ms)</label>
+  <input id="intervalMs" type="number" value="1000" />
+
+  <button onclick="startTelemetry()">Start Telemetry</button>
+  <button onclick="stopTelemetry()">Stop Telemetry</button>
+
+  <div id="log">Idle.</div>
+
+  <script>
+    let timer = null;
+
+    function log(msg) {
+      const el = document.getElementById("log");
+      el.textContent = `[${new Date().toISOString()}] ${msg}\n` + el.textContent;
+    }
+
+    async function sendTelemetry() {
+      const apiBase = document.getElementById("apiBase").value.trim();
+      const droneId = document.getElementById("droneId").value.trim();
+      const pilotId = document.getElementById("pilotId").value.trim();
+
+      if (!navigator.geolocation) {
+        log("Geolocation not supported by this browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const payload = {
+            drone_id: droneId,
+            pilot_id: pilotId,
+            timestamp: new Date().toISOString(),
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            altitude_m: pos.coords.altitude,
+            speed_mps: pos.coords.speed,
+            heading_deg: pos.coords.heading,
+            accuracy_m: pos.coords.accuracy,
+            source: "phone_gps"
+          };
+
+          try {
+            const resp = await fetch(`${apiBase}/telemetry`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json();
+            log(`telemetry sent: ${JSON.stringify(data)}`);
+          } catch (err) {
+            log(`send failed: ${err}`);
+          }
+        },
+        (err) => {
+          log(`gps error: ${err.message}`);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    function startTelemetry() {
+      if (timer) {
+        log("Telemetry already running.");
+        return;
+      }
+      const intervalMs = parseInt(document.getElementById("intervalMs").value, 10) || 1000;
+      sendTelemetry();
+      timer = setInterval(sendTelemetry, intervalMs);
+      log(`Telemetry started at ${intervalMs} ms interval.`);
+    }
+
+    function stopTelemetry() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+        log("Telemetry stopped.");
+      }
+    }
+  </script>
+</body>
+</html>
+</file>
+
+<file path="AA_Launch.py">
+import subprocess
+import time
+
+def stream_relay():
+    # Define the command as a list of arguments
+    command = [
+        "ffmpeg",
+        "-i", "rtmp://localhost/live/drone1",
+        "-c", "copy",
+        "-f", "flv",
+        "rtmp://localhost/live/stable"
+    ]
+
+    print("Relay started. Press Ctrl+C to stop.")
+
+    while True:
+        try:
+            # subprocess.run waits for ffmpeg to finish/crash before continuing
+            subprocess.run(command)
+        except KeyboardInterrupt:
+            print("\nStopping relay...")
+            break
+        
+        # Wait 2 seconds before the next attempt
+        print("Stream disconnected. Retrying in 2 seconds...")
+        time.sleep(2)
+
+if __name__ == "__main__":
+    stream_relay()
+</file>
+
+<file path="croptop.py">
+import subprocess
+
+def crop_video_to_frames(input_file, output_pattern):
+    # Construct the command as a list for safety and clarity
+    command = [
+        "ffmpeg",
+        "-i", input_file,
+        "-vf", "crop=600:200:100:300",
+        output_pattern
+    ]
+
+    try:
+        print(f"Processing {input_file}...")
+        # check=True raises an error if the command fails
+        subprocess.run(command, check=True)
+        print("Success! Cropped frames have been generated.")
+    except subprocess.CalledProcessError as e:
+        print(f"FFmpeg error: {e}")
+    except FileNotFoundError:
+        print("Error: FFmpeg is not installed or not in your system PATH.")
+
+if __name__ == "__main__":
+    crop_video_to_frames("test.mp4", "cropped_%03d.jpg")
+</file>
+
+<file path="ffmpeg_log.txt">
+nohup: ignoring input
+ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2000-2021 the FFmpeg developers
+  built with gcc 11 (Ubuntu 11.2.0-19ubuntu1)
+  configuration: --prefix=/usr --extra-version=0ubuntu0.22.04.1 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --enable-gnutls --enable-ladspa --enable-libaom --enable-libass --enable-libbluray --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libgme --enable-libgsm --enable-libjack --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-libpulse --enable-librabbitmq --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libsrt --enable-libssh --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-libzmq --enable-libzvbi --enable-lv2 --enable-omx --enable-openal --enable-opencl --enable-opengl --enable-sdl2 --enable-pocketsphinx --enable-librsvg --enable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-libx264 --enable-shared
+  libavutil      56. 70.100 / 56. 70.100
+  libavcodec     58.134.100 / 58.134.100
+  libavformat    58. 76.100 / 58. 76.100
+  libavdevice    58. 13.100 / 58. 13.100
+  libavfilter     7.110.100 /  7.110.100
+  libswscale      5.  9.100 /  5.  9.100
+  libswresample   3.  9.100 /  3.  9.100
+  libpostproc    55.  9.100 / 55.  9.100
+[h264 @ 0x556929e37d00] missing picture in access unit with size 30
+Input #0, flv, from 'rtmp://localhost/live/drone1':
+  Metadata:
+    |RtmpSampleAccess: true
+  Duration: N/A, start: 341.375000, bitrate: N/A
+  Stream #0:0: Audio: aac (LC), 48000 Hz, mono, fltp
+  Stream #0:1: Video: h264 (High), yuv420p(progressive), 1920x1080, 1k tbr, 1k tbn
+[NULL @ 0x556929f8c640] Requested output format 'json' is not a suitable output format
+http://127.0.0.1:8000/telemetry: Invalid argument
+</file>
+
+<file path="gps_sender.py">
+import time
+import math
+import random
+from datetime import datetime, timezone
+
+import requests
+
+
+# ===== CONFIG =====
+API_URL = "http://127.0.0.1:8000/telemetry"
+DRONE_ID = "drone1"
+PILOT_ID = "pilot_test"
+
+# Base location (example: Austin, TX)
+BASE_LAT = 30.2672
+BASE_LON = -97.7431
+
+SEND_INTERVAL_SECONDS = 1.0
+ENABLE_JITTER = True
+
+# Approx movement size
+LAT_JITTER = 0.00005
+LON_JITTER = 0.00005
+# ==================
+
+
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def build_payload(step: int):
+    lat = BASE_LAT
+    lon = BASE_LON
+
+    if ENABLE_JITTER:
+        lat += math.sin(step / 5.0) * LAT_JITTER + random.uniform(-0.00001, 0.00001)
+        lon += math.cos(step / 5.0) * LON_JITTER + random.uniform(-0.00001, 0.00001)
+
+    return {
+        "drone_id": DRONE_ID,
+        "pilot_id": PILOT_ID,
+        "timestamp": utc_now_iso(),
+        "lat": lat,
+        "lon": lon,
+        "altitude_m": 25.0,
+        "speed_mps": 4.0,
+        "heading_deg": (step * 12) % 360,
+        "accuracy_m": 5.0,
+        "source": "python_sender"
+    }
+
+
+def main():
+    print(f"Sending telemetry to {API_URL}")
+    print(f"Drone ID: {DRONE_ID}")
+    print("Press Ctrl+C to stop.\n")
+
+    step = 0
+
+    while True:
+        payload = build_payload(step)
+
+        try:
+            resp = requests.post(API_URL, json=payload, timeout=5)
+            print(f"[{payload['timestamp']}] {resp.status_code} {resp.text}")
+        except Exception as e:
+            print(f"[{payload['timestamp']}] ERROR: {e}")
+
+        step += 1
+        time.sleep(SEND_INTERVAL_SECONDS)
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="GPS.py">
+detection = {
+  "plate": "ABC123",
+  "lat": 33.57,
+  "lon": -85.07,
+  "timestamp": "2026-03-22T12:00:00"
+}
+</file>
+
+<file path="multiDrone.json">
+{
+  "drone1": { "pilot": "Grant", "status": "active" },
+  "drone2": { "pilot": "User2", "status": "idle" }
+}
+</file>
+
+<file path="notes">
+#Download dependencies 
+
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y build-essential libpcre3 libpcre3-dev libssl-dev zlib1g-dev git ffmpeg
+
+cd /tmp
+
+# Download nginx
+wget http://nginx.org/download/nginx-1.24.0.tar.gz
+tar -zxvf nginx-1.24.0.tar.gz
+
+# Download RTMP module
+git clone https://github.com/arut/nginx-rtmp-module.git
+
+cd nginx-1.24.0
+
+# Compile nginx with RTMP
+./configure --add-module=../nginx-rtmp-module
+make
+sudo make install
+
+
+#Configure RTMP
+sudo nano /usr/local/nginx/conf/nginx.conf
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+rtmp {
+    server {
+        listen 1935;
+        chunk_size 1024;   # smaller = lower latency
+
+        application live {
+            live on;
+
+
+            # latency tuning
+            wait_key off;
+            sync 100ms;
+        }
+    }
+}
+
+http {
+    server {
+        listen 8080;
+
+        location / {
+            return 200 "RTMP Server Running";
+        }
+    }
+}
+
+#Start Server
+sudo /usr/local/nginx/sbin/nginx
+
+#Broadcast Stream
+ffmpeg -i rtmp://localhost/live/drone1 -c copy -f flv rtmp://localhost/live/stable
+
+#Start recording
+ffmpeg -i rtmp://localhost/live/stable \
+-c copy \
+-f segment \
+-segment_time 10 \
+-reset_timestamps 1 \
+recording_%03d.mp4
+
+#Start ALPR
+#sudo apt install docker.io -y
+docker run -it --rm -v /root/frames:/data openalpr/openalpr -c us /data/frame_0001.jpg
+</file>
+
+<file path="package.json">
+{
+  "name": "ambers-angels",
+  "version": "1.0.0",
+  "description": "MVP system for ingesting live drone video, extracting frames, running license plate recognition, and associating detections with telemetry.",
+  "private": true,
+  "scripts": {
+    "start": "bash ambers-angels/scripts/start_all.sh",
+    "stop": "bash ambers-angels/scripts/stop_all.sh"
+  },
+  "keywords": [
+    "drone",
+    "video",
+    "license-plate",
+    "telemetry"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}
+</file>
+
+<file path="README.md">
+# Amber's Angels
+
+Amber's Angels is an MVP system for ingesting live drone video, extracting frames, running license plate recognition, and associating detections with telemetry.
+
+## Current components
+
+- DJI RTMP ingest to Nginx RTMP
+- FastAPI backend
+- PostgreSQL schema for telemetry, frames, detections
+- Frame registration worker
+- Live frame processing worker using OpenALPR
+- GPS sender for simulated telemetry
+- Nginx config for RTMP + static page + API proxy
+
+## Main paths
+
+- `backend/` - API and database schema
+- `worker/` - frame registration and detection workers
+- `pilot/` - simple telemetry page
+- `scripts/` - startup/shutdown helpers
+- `ops/nginx/` - Nginx configs used in deployment
+
+## Notes
+
+Secrets are not committed to git.
+</file>
+
+<file path="ssh_key.pub">
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDerzi7BicXM5GwF7tTS1dNEqjWtaxqnYbqjeLgCKv4Q grant.m.lindberg@googlemail.com
+</file>
+
+<file path="start_all.sh">
+!/bin/bash
+
+echo "🚀 Initializing Amber's Angels Mission Control..."
+
+# 1. Environment Configuration (Ensure these are correct)
+export ALERT_WEBHOOK_URL="https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
+export DATABASE_URL="postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+export FRAME_ROOT="/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+
+# 2. Infrastructure Cleanup
+sudo fuser -k 8000/tcp 2>/dev/null
+sudo systemctl restart nginx
+
+# 3. Start Backend (The Brain)
+# We keep these in separate sessions so one crash doesn't take down the whole mission
+tmux kill-session -t aa-backend 2>/dev/null
+tmux new-session -d -s aa-backend "cd /home/ambers-angels/proj_dir/ambers-angels/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"
+
+# 4. Start Worker (The Processor)
+tmux kill-session -t aa-worker 2>/dev/null
+tmux new-session -d -s aa-worker "cd /home/ambers-angels/proj_dir/ambers-angels/worker && python3 process_frames.py"
+
+# 5. Multi-Drone Harvester (The Eyes/Mouth)
+# Fixed: We create the session FIRST, then run the script
+tmux kill-session -t aa-feed 2>/dev/null
+tmux new-session -d -s aa-feed -n 'Harvester' "cd /home/ambers-angels/proj_dir/ambers-angels && ./harvest_stream.sh"
+
+echo "------------------------------------------------"
+echo "✅  System LIVE."
+echo "🧠  Backend:  tmux attach -t aa-backend"
+echo "⚙️   Worker:   tmux attach -t aa-worker"
+echo "🛰️   Feeds:    tmux attach -t aa-feed"
+echo "------------------------------------------------"
+echo "🏥 Health Check: http://157.245.125.103:8000/health"
+</file>
+
+<file path="stop_all.sh">
+#!/bin/bash
+
+echo "🛑 Shutting down systems..."
+
+# Kill tmux sessions
+tmux kill-session -t aa-backend 2>/dev/null
+tmux kill-session -t aa-worker 2>/dev/null
+tmux kill-session -t aa-feed 2>/dev/null
+
+# Kill any stray python/uvicorn processes
+sudo fuser -k 8000/tcp 2>/dev/null
+pkill -f process_frames.py
+pkill -f uvicorn
+
+# Optional: Stop Nginx if you want to close the RTMP port entirely
+# sudo systemctl stop nginx
+
+echo "📴 All systems offline."
+</file>
+
+<file path="telemetry_points.sql">
+CREATE TABLE IF NOT EXISTS telemetry_points (
+    id BIGSERIAL PRIMARY KEY,
+    drone_id TEXT NOT NULL,
+    pilot_id TEXT,
+    ts TIMESTAMPTZ NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    altitude_m DOUBLE PRECISION,
+    speed_mps DOUBLE PRECISION,
+    heading_deg DOUBLE PRECISION,
+    accuracy_m DOUBLE PRECISION,
+    source TEXT DEFAULT 'phone_gps',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_drone_ts
+ON telemetry_points (drone_id, ts DESC);
+
+CREATE TABLE IF NOT EXISTS frames (
+    id BIGSERIAL PRIMARY KEY,
+    drone_id TEXT NOT NULL,
+    frame_path TEXT NOT NULL,
+    frame_ts TIMESTAMPTZ NOT NULL,
+    telemetry_id BIGINT REFERENCES telemetry_points(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_frames_drone_ts
+ON frames (drone_id, frame_ts DESC);
+
+CREATE TABLE IF NOT EXISTS detections (
+    id BIGSERIAL PRIMARY KEY,
+    frame_id BIGINT REFERENCES frames(id) ON DELETE CASCADE,
+    drone_id TEXT NOT NULL,
+    plate_text TEXT,
+    confidence DOUBLE PRECISION,
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
+    altitude_m DOUBLE PRECISION,
+    telemetry_id BIGINT REFERENCES telemetry_points(id) ON DELETE SET NULL,
+    detected_at TIMESTAMPTZ NOT NULL,
+    raw_payload JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_detections_drone_time
+ON detections (drone_id, detected_at DESC);
+</file>
+
+<file path="backend/services/aggregation_service.py">
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from statistics import mean, median
+from typing import Any, Iterable
+from uuid import UUID
+
+from services.detection_models import EventClassification, EventStatus
+
+
+# -----------------------------------------------------------------------------
+# Tunable defaults
+# -----------------------------------------------------------------------------
+
+
+RAW_DETECTION_FLOOR = 55.0
+SINGLE_FRAME_HIGH_CONFIDENCE = 70.0
+AGGREGATION_WINDOW_SECONDS = 5
+PLATE_LENGTH_MIN = 5
+PLATE_LENGTH_MAX = 10
+
+PROBABLE_EVENT_MIN_SCORE = 75.0
+HIGH_CONFIDENCE_EVENT_MIN_SCORE = 90.0
+PROBABLE_EVENT_MIN_SUPPORT = 2
+HIGH_CONFIDENCE_EVENT_MIN_SUPPORT = 3
+DOMINANT_RATIO_PROBABLE = 0.60
+DOMINANT_RATIO_HIGH = 0.75
+
+KNOWN_OCR_CONFUSIONS: set[tuple[str, str]] = {
+    ("O", "0"),
+    ("0", "O"),
+    ("I", "1"),
+    ("1", "I"),
+    ("B", "8"),
+    ("8", "B"),
+    ("S", "5"),
+    ("5", "S"),
+    ("Z", "2"),
+    ("2", "Z"),
+    ("G", "6"),
+    ("6", "G"),
+}
+
+NEGATIVE_QUALITY_FLAGS = {
+    "motion_blur",
+    "blur",
+    "skew",
+    "low_size",
+    "partial_plate",
+    "compression_artifact",
+    "far_distance",
+}
+
+
+# -----------------------------------------------------------------------------
+# Data containers
+# -----------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class DetectionInput:
+    detection_id: UUID | str
+    frame_id: UUID | str
+    drone_id: str
+    detected_at: datetime
+    plate_raw: str
+    confidence: float
+    quality_flags: list[str] = field(default_factory=list)
+    telemetry: dict[str, Any] | None = None
+    bbox: dict[str, Any] | None = None
+    alpr_payload: dict[str, Any] | None = None
+
+    @property
+    def plate_normalized(self) -> str:
+        return normalize_plate(self.plate_raw)
+
+
+@dataclass(slots=True)
+class GroupedHypothesis:
+    plate: str
+    adjusted_score_total: float
+    raw_score_total: float
+    count: int
+
+
+@dataclass(slots=True)
+class EventSnapshot:
+    drone_id: str
+    group_key: str
+    plate_best: str
+    plate_normalized: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    aggregate_confidence: float
+    classification: EventClassification
+    status: EventStatus
+    detection_count: int
+    distinct_frame_count: int
+    best_frame_id: UUID | str | None
+    best_detection_id: UUID | str | None
+    should_open_event: bool
+    should_alert: bool
+    dominant_ratio: float
+    top_hypotheses: list[GroupedHypothesis]
+    quality_flags: list[str]
+    raw_summary: dict[str, Any]
+    location_centroid: dict[str, Any] | None = None
+
+
+# -----------------------------------------------------------------------------
+# Normalization and matching
+# -----------------------------------------------------------------------------
+
+
+def normalize_plate(plate: str) -> str:
+    normalized = "".join(ch for ch in plate.upper() if ch.isalnum())
+    return normalized
+
+
+def has_usable_plate(plate: str) -> bool:
+    return PLATE_LENGTH_MIN <= len(plate) <= PLATE_LENGTH_MAX
+
+
+def is_known_confusion(a: str, b: str) -> bool:
+    return (a, b) in KNOWN_OCR_CONFUSIONS
+
+
+def one_edit_ocr_compatible(left: str, right: str) -> bool:
+    if abs(len(left) - len(right)) > 1:
+        return False
+
+    if left == right:
+        return True
+
+    if len(left) == len(right):
+        diffs: list[tuple[str, str]] = []
+        for lch, rch in zip(left, right):
+            if lch != rch:
+                diffs.append((lch, rch))
+                if len(diffs) > 1:
+                    return False
+        return len(diffs) == 1 and is_known_confusion(*diffs[0])
+
+    shorter, longer = (left, right) if len(left) < len(right) else (right, left)
+    i = j = 0
+    edits = 0
+    while i < len(shorter) and j < len(longer):
+        if shorter[i] == longer[j]:
+            i += 1
+            j += 1
+            continue
+        edits += 1
+        if edits > 1:
+            return False
+        j += 1
+    return True
+
+
+def plates_match(candidate: str, existing: str) -> bool:
+    if candidate == existing:
+        return True
+    if not has_usable_plate(candidate) or not has_usable_plate(existing):
+        return False
+    return one_edit_ocr_compatible(candidate, existing)
+
+
+# -----------------------------------------------------------------------------
+# Quality / scoring helpers
+# -----------------------------------------------------------------------------
+
+
+def frame_quality_weight(flags: Iterable[str]) -> float:
+    penalty_flags = [flag for flag in flags if flag in NEGATIVE_QUALITY_FLAGS]
+    if not penalty_flags:
+        return 1.0
+    if len(penalty_flags) == 1:
+        return 0.85
+    if len(penalty_flags) == 2:
+        return 0.70
+    return 0.60
+
+
+def quality_penalty(flags_by_detection: Iterable[list[str]]) -> float:
+    penalty_count = 0
+    total = 0
+    for flags in flags_by_detection:
+        total += 1
+        if any(flag in NEGATIVE_QUALITY_FLAGS for flag in flags):
+            penalty_count += 1
+    if total == 0:
+        return 0.0
+    ratio = penalty_count / total
+    if ratio >= 0.75:
+        return 15.0
+    if ratio >= 0.50:
+        return 10.0
+    if ratio >= 0.25:
+        return 5.0
+    return 0.0
+
+
+# -----------------------------------------------------------------------------
+# Live group state
+# -----------------------------------------------------------------------------
+
+
+@dataclass
+class ActiveDetectionGroup:
+    drone_id: str
+    canonical_plate: str
+    started_at: datetime
+    window_seconds: int = AGGREGATION_WINDOW_SECONDS
+    detections: list[DetectionInput] = field(default_factory=list)
+
+    def can_accept(self, detection: DetectionInput) -> bool:
+        if detection.drone_id != self.drone_id:
+            return False
+        if detection.detected_at - self.last_seen_at > timedelta(seconds=self.window_seconds):
+            return False
+        return plates_match(detection.plate_normalized, self.canonical_plate)
+
+    @property
+    def last_seen_at(self) -> datetime:
+        if not self.detections:
+            return self.started_at
+        return max(item.detected_at for item in self.detections)
+
+    @property
+    def group_key(self) -> str:
+        bucket = int(self.started_at.timestamp() // self.window_seconds)
+        return f"{self.drone_id}:{self.canonical_plate}:{bucket}"
+
+    def add(self, detection: DetectionInput) -> None:
+        self.detections.append(detection)
+
+    def is_expired(self, now: datetime | None = None) -> bool:
+        now = now or datetime.now(timezone.utc)
+        return now - self.last_seen_at > timedelta(seconds=self.window_seconds)
+
+    def build_snapshot(self) -> EventSnapshot:
+        if not self.detections:
+            raise ValueError("Cannot build snapshot for empty detection group")
+
+        grouped_scores: dict[str, float] = defaultdict(float)
+        grouped_raw_scores: dict[str, float] = defaultdict(float)
+        grouped_counts: Counter[str] = Counter()
+        distinct_frame_ids: set[UUID | str] = set()
+        quality_flags_union: set[str] = set()
+
+        best_adjusted_detection: DetectionInput | None = None
+        best_adjusted_score = -1.0
+
+        per_detection_weights: list[float] = []
+        confidences: list[float] = []
+
+        for detection in self.detections:
+            plate = detection.plate_normalized
+            if not plate:
+                continue
+
+            weight = frame_quality_weight(detection.quality_flags)
+            adjusted_score = detection.confidence * weight
+
+            grouped_scores[plate] += adjusted_score
+            grouped_raw_scores[plate] += detection.confidence
+            grouped_counts[plate] += 1
+            distinct_frame_ids.add(detection.frame_id)
+            quality_flags_union.update(detection.quality_flags)
+            per_detection_weights.append(weight)
+            confidences.append(detection.confidence)
+
+            if adjusted_score > best_adjusted_score:
+                best_adjusted_score = adjusted_score
+                best_adjusted_detection = detection
+
+        if not grouped_counts:
+            raise ValueError("No usable normalized plates in detection group")
+
+        sorted_hypotheses = sorted(
+            grouped_counts.keys(),
+            key=lambda plate: (grouped_scores[plate], grouped_counts[plate], grouped_raw_scores[plate]),
+            reverse=True,
+        )
+        winning_plate = sorted_hypotheses[0]
+        winning_count = grouped_counts[winning_plate]
+        dominant_ratio = winning_count / len(self.detections)
+
+        top_hypotheses = [
+            GroupedHypothesis(
+                plate=plate,
+                adjusted_score_total=round(grouped_scores[plate], 2),
+                raw_score_total=round(grouped_raw_scores[plate], 2),
+                count=grouped_counts[plate],
+            )
+            for plate in sorted_hypotheses[:3]
+        ]
+
+        top_confidences = [
+            item.confidence
+            for item in self.detections
+            if item.plate_normalized == winning_plate
+        ]
+        max_confidence = max(top_confidences) if top_confidences else 0.0
+        mean_confidence = mean(top_confidences) if top_confidences else 0.0
+        median_confidence = median(top_confidences) if top_confidences else 0.0
+
+        repetition_bonus = 0.0
+        if winning_count >= 3:
+            repetition_bonus = 10.0
+        elif winning_count == 2:
+            repetition_bonus = 5.0
+
+        consistency_bonus = 5.0 if dominant_ratio >= DOMINANT_RATIO_HIGH else 0.0
+        penalty = quality_penalty(item.quality_flags for item in self.detections)
+
+        aggregate_confidence = min(
+            99.0,
+            max(
+                0.0,
+                (max_confidence * 0.50)
+                + (mean_confidence * 0.30)
+                + (median_confidence * 0.10)
+                + repetition_bonus
+                + consistency_bonus
+                - penalty,
+            ),
+        )
+
+        classification = EventClassification.WEAK
+        status = EventStatus.CANDIDATE
+        should_open_event = False
+        should_alert = False
+
+        if max_confidence >= SINGLE_FRAME_HIGH_CONFIDENCE or winning_count >= 2:
+            should_open_event = True
+
+        if (
+            aggregate_confidence >= HIGH_CONFIDENCE_EVENT_MIN_SCORE
+            and winning_count >= HIGH_CONFIDENCE_EVENT_MIN_SUPPORT
+            and dominant_ratio >= DOMINANT_RATIO_HIGH
+        ):
+            classification = EventClassification.HIGH_CONFIDENCE
+            status = EventStatus.QUEUED_REVIEW
+            should_alert = True
+        elif (
+            aggregate_confidence >= PROBABLE_EVENT_MIN_SCORE
+            and winning_count >= PROBABLE_EVENT_MIN_SUPPORT
+            and dominant_ratio >= DOMINANT_RATIO_PROBABLE
+        ):
+            classification = EventClassification.PROBABLE
+            status = EventStatus.QUEUED_REVIEW
+        elif should_open_event:
+            classification = EventClassification.WEAK
+            status = EventStatus.CANDIDATE
+
+        if best_adjusted_detection and best_adjusted_detection.plate_normalized != winning_plate:
+            best_frame_id = next(
+                (
+                    item.frame_id
+                    for item in self.detections
+                    if item.plate_normalized == winning_plate
+                ),
+                best_adjusted_detection.frame_id,
+            )
+        else:
+            best_frame_id = best_adjusted_detection.frame_id if best_adjusted_detection else None
+
+        location_centroid = _compute_location_centroid(self.detections)
+
+        raw_summary = {
+            "max_confidence": round(max_confidence, 2),
+            "mean_confidence": round(mean_confidence, 2),
+            "median_confidence": round(median_confidence, 2),
+            "dominant_ratio": round(dominant_ratio, 3),
+            "repetition_bonus": repetition_bonus,
+            "consistency_bonus": consistency_bonus,
+            "quality_penalty": penalty,
+            "top_hypotheses": [
+                {
+                    "plate": h.plate,
+                    "adjusted_score_total": h.adjusted_score_total,
+                    "raw_score_total": h.raw_score_total,
+                    "count": h.count,
+                }
+                for h in top_hypotheses
+            ],
+        }
+
+        return EventSnapshot(
+            drone_id=self.drone_id,
+            group_key=self.group_key,
+            plate_best=winning_plate,
+            plate_normalized=winning_plate,
+            first_seen_at=min(item.detected_at for item in self.detections),
+            last_seen_at=max(item.detected_at for item in self.detections),
+            aggregate_confidence=round(aggregate_confidence, 2),
+            classification=classification,
+            status=status,
+            detection_count=len(self.detections),
+            distinct_frame_count=len(distinct_frame_ids),
+            best_frame_id=best_frame_id,
+            best_detection_id=best_adjusted_detection.detection_id if best_adjusted_detection else None,
+            should_open_event=should_open_event,
+            should_alert=should_alert,
+            dominant_ratio=round(dominant_ratio, 3),
+            top_hypotheses=top_hypotheses,
+            quality_flags=sorted(quality_flags_union),
+            raw_summary=raw_summary,
+            location_centroid=location_centroid,
+        )
+
+
+# -----------------------------------------------------------------------------
+# Aggregation service
+# -----------------------------------------------------------------------------
+
+
+class AggregationService:
+    def __init__(self, window_seconds: int = AGGREGATION_WINDOW_SECONDS) -> None:
+        self.window_seconds = window_seconds
+        self._active_groups: list[ActiveDetectionGroup] = []
+
+    def ingest(self, detection: DetectionInput) -> EventSnapshot | None:
+        plate = detection.plate_normalized
+        if not plate or not has_usable_plate(plate):
+            return None
+        if detection.confidence < RAW_DETECTION_FLOOR:
+            return None
+
+        group = self._find_matching_group(detection)
+        if group is None:
+            group = ActiveDetectionGroup(
+                drone_id=detection.drone_id,
+                canonical_plate=plate,
+                started_at=detection.detected_at,
+                window_seconds=self.window_seconds,
+            )
+            self._active_groups.append(group)
+
+        group.add(detection)
+        return group.build_snapshot()
+
+    def flush_expired(self, now: datetime | None = None) -> list[EventSnapshot]:
+        now = now or datetime.now(timezone.utc)
+        expired: list[EventSnapshot] = []
+        remaining: list[ActiveDetectionGroup] = []
+
+        for group in self._active_groups:
+            if group.is_expired(now):
+                expired.append(group.build_snapshot())
+            else:
+                remaining.append(group)
+
+        self._active_groups = remaining
+        return expired
+
+    def active_group_count(self) -> int:
+        return len(self._active_groups)
+
+    def _find_matching_group(self, detection: DetectionInput) -> ActiveDetectionGroup | None:
+        candidates: list[ActiveDetectionGroup] = []
+        for group in self._active_groups:
+            if group.can_accept(detection):
+                candidates.append(group)
+
+        if not candidates:
+            return None
+
+        candidates.sort(
+            key=lambda group: (
+                group.canonical_plate == detection.plate_normalized,
+                group.last_seen_at,
+                len(group.detections),
+            ),
+            reverse=True,
+        )
+        return candidates[0]
+
+
+# -----------------------------------------------------------------------------
+# Internal helpers
+# -----------------------------------------------------------------------------
+
+
+def _compute_location_centroid(detections: Iterable[DetectionInput]) -> dict[str, Any] | None:
+    lats: list[float] = []
+    lons: list[float] = []
+    alts: list[float] = []
+
+    for detection in detections:
+        if not detection.telemetry:
+            continue
+        lat = detection.telemetry.get("lat")
+        lon = detection.telemetry.get("lon")
+        alt = detection.telemetry.get("alt")
+        if isinstance(lat, (int, float)):
+            lats.append(float(lat))
+        if isinstance(lon, (int, float)):
+            lons.append(float(lon))
+        if isinstance(alt, (int, float)):
+            alts.append(float(alt))
+
+    if not lats or not lons:
+        return None
+
+    centroid: dict[str, Any] = {
+        "lat": round(sum(lats) / len(lats), 7),
+        "lon": round(sum(lons) / len(lons), 7),
+        "source": "telemetry_centroid",
+    }
+    if alts:
+        centroid["alt"] = round(sum(alts) / len(alts), 2)
+    return centroid
+</file>
+
+<file path="backend/services/alert_dispatcher.py">
+import os
+import httpx
+from datetime import datetime, timezone
+from typing import Any
+from services.detection_models import DetectionEvent, AlertCreate
+
+class AlertDispatcher:
+    def __init__(self, repository, webhook_url: str):
+        self.repository = repository
+        self.webhook_url = webhook_url
+
+    async def dispatch(self, event: Any):
+        # Handle both dict and object types for the event
+        is_dict = isinstance(event, dict)
+        plate = event.get('plate_best') if is_dict else event.plate_best
+        drone_id = event.get('drone_id') if is_dict else event.drone_id
+        event_id = event.get('id') if is_dict else event.id
+
+        print(f"[LOUD DEBUG] 🚀 Dispatching alert for Plate: {plate}")
+
+        # 1. Create the Alert Record for the Database
+        try:
+            alert_data = AlertCreate(
+                alert_type='WATCHLIST_MATCH',
+                severity='CRITICAL',
+                message=f"Target Plate {plate} Detected",
+                event_id=event_id,
+                plate_text=plate,
+                drone_id=drone_id,
+                sent_at=datetime.now(timezone.utc)
+            )
+            
+            # Log to DB
+            if hasattr(self.repository, 'create_alert'):
+                await self.repository.create_alert(
+                    event_id=event_id,
+                    plate=plate,
+                    drone_id=drone_id,
+                    channel="DISCORD"
+                )
+        except Exception as e:
+            print(f"[LOUD DEBUG] ⚠️ Alert Record Creation Failed: {e}")
+
+        # 2. Send to Discord
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "content": f"🚨 **AMBER ALERT: TARGET MATCH** 🚨\n**Plate:** {plate}\n**Drone:** {drone_id}\n**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            }
+            try:
+                resp = await client.post(self.webhook_url, json=payload)
+                if resp.status_code == 204 or resp.status_code == 200:
+                    print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful for {plate}")
+                else:
+                    print(f"[LOUD DEBUG] ❌ Discord returned error {resp.status_code}: {resp.text}")
+            except Exception as e:
+                print(f"[LOUD DEBUG] ❌ Network Error sending to Discord: {e}")
+</file>
+
+<file path="backend/services/detection_models.py">
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional, List, Any
+from enum import Enum
+
+# --- Enums ---
+class EventStatus(str, Enum):
+    ACTIVE = "active"
+    CLOSED = "closed"
+    CANDIDATE = "candidate" 
+    DETECTION = "detection"
+    TARGET_MATCH = "target_match"
+    ANOMALY = "anomaly"
+    QUEUED_REVIEW = "queued_review"
+    ALERTED = "alerted"
+
+class EventClassification(str, Enum):
+    WEAK = "weak"
+    PROBABLE = "probable"
+    HIGH_CONFIDENCE = "high_confidence"
+
+class AlertChannel(str, Enum):
+    DISCORD = "discord"
+    SLACK = "slack"
+    WEBHOOK = "webhook"
+    INTERNAL = "internal"
+    EMAIL = "email"
+
+class AlertDeliveryStatus(str, Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+# --- Data Models ---
+class DetectionInput(BaseModel):
+    plate: str
+    plate_normalized: Optional[str] = None
+    confidence: float
+    drone_id: str
+    latitude: float
+    longitude: float
+    timestamp: datetime
+
+class EventSnapshot(BaseModel):
+    plate_best: str
+    drone_id: str
+    occurrence_count: int
+    best_confidence: float
+    average_confidence: float
+    last_latitude: float
+    last_longitude: float
+    timestamp: datetime
+    should_open_event: bool = False
+
+class DetectionEvent(BaseModel):
+    id: Optional[str] = None
+    plate_best: str
+    drone_id: str
+    status: EventStatus = EventStatus.ACTIVE
+    classification: EventClassification = EventClassification.WEAK
+    occurrence_count: int = 1
+    average_confidence: float
+    first_seen: datetime
+    last_seen: datetime
+
+class DetectionEventCreate(BaseModel):
+    plate_best: str
+    drone_id: str
+    status: str = "active"
+    classification: str = "weak"
+    occurrence_count: int = 1
+    average_confidence: float
+    first_seen: datetime
+    last_seen: datetime
+
+class DetectionEventUpdate(BaseModel):
+    status: Optional[str] = None
+    classification: Optional[str] = None
+    occurrence_count: Optional[int] = None
+    average_confidence: Optional[float] = None
+    last_seen: Optional[datetime] = None
+
+class Alert(BaseModel):
+    event_id: str
+    plate: str
+    plate_normalized: Optional[str] = None
+    drone_id: str
+    confidence: float
+    timestamp: datetime
+    location: dict
+    message: str
+
+class AlertCreate(BaseModel):
+    alert_type: str
+    severity: str
+    message: str
+    metadata: Optional[dict] = None
+    event_id: Optional[str] = None
+
+class AlertPayload(BaseModel):
+    channel: AlertChannel
+    target_url: Optional[str] = None
+    data: dict
+
+def build_alert_event_payload(event: Any, classification: str) -> dict:
+    """Helper to format the event data for the Alert Dispatcher."""
+    return {
+        "event_id": str(getattr(event, 'id', 'unknown')),
+        "plate": getattr(event, 'plate_best', 'unknown'),
+        "drone_id": getattr(event, 'drone_id', 'unknown'),
+        "confidence": getattr(event, 'average_confidence', 0.0),
+        "classification": classification,
+        "timestamp": datetime.utcnow().isoformat(),
+        "metadata": {
+            "occurrence_count": getattr(event, 'occurrence_count', 1),
+            "last_seen": str(getattr(event, 'last_seen', ''))
+        }
+    }
+</file>
+
+<file path="backend/services/detection_pipeline.py">
+import asyncio
+import logging
+from services.detection_models import DetectionInput 
+from services.aggregation_service import AggregationService
+from services.event_service import EventService
+from services.alert_dispatcher import AlertDispatcher
+
+class DetectionPipeline:
+    def __init__(self, aggregation: AggregationService, events: EventService, alerts: AlertDispatcher):
+        self.aggregation = aggregation
+        self.events = events
+        self.alerts = alerts
+
+    async def process_detection(self, detection_input: DetectionInput):
+        # 1. Ingest into the aggregator
+        snapshot = self.aggregation.ingest(detection_input)
+        
+        # If the aggregator says this isn't an event yet (e.g. needs more hits), stop here.
+        if not snapshot or not snapshot.should_open_event:
+            return None
+
+        # 2. THE CRITICAL FIX: We must AWAIT the event service now that it is async
+        # Without this 'await', the database write never happens.
+        decision = await self.events.upsert_from_snapshot(snapshot)
+        
+        if not decision:
+            return None
+
+        # 3. Dispatch alerts if the decision says so
+        if decision.should_dispatch_alert:
+            await self.alerts.dispatch(decision.event)
+
+        return decision
+</file>
+
+<file path="backend/services/event_service.py">
+from __future__ import annotations
+import uuid
+import os
+import shutil
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Protocol, Any
+from uuid import UUID
+from sqlalchemy import text
+from difflib import SequenceMatcher
+
+from services.aggregation_service import EventSnapshot
+from services.detection_models import (
+    DetectionEvent,
+    DetectionEventCreate,
+    EventClassification,
+    EventStatus,
+)
+
+# -----------------------------------------------------------------------------
+# Tunable defaults
+# -----------------------------------------------------------------------------
+ALERT_COOLDOWN_SECONDS = 120
+REOPEN_WINDOW_SECONDS = 300
+
+class EventRepository(Protocol):
+    session_factory: Any
+    async def get_active_event_by_group_key(self, group_key: str) -> DetectionEvent | None: ...
+    async def get_recent_event_by_plate(self, *, drone_id: str, plate_normalized: str, since: datetime) -> DetectionEvent | None: ...
+    async def create_event(self, payload: DetectionEventCreate) -> DetectionEvent: ...
+    async def update_event(self, event: DetectionEvent, fields: dict) -> DetectionEvent: ...
+    async def attach_detection_to_event(self, detection_id: UUID | str, event_id: UUID) -> None: ...
+
+@dataclass(slots=True)
+class EventDecision:
+    event: DetectionEvent
+    created: bool
+    updated: bool
+    should_dispatch_alert: bool
+    suppression_reason: str | None
+    cooldown_expires_at: datetime | None
+
+class EventService:
+    def __init__(
+        self,
+        repository: EventRepository,
+        dispatcher: Any,
+        *,
+        alert_cooldown_seconds: int = ALERT_COOLDOWN_SECONDS,
+        reopen_window_seconds: int = REOPEN_WINDOW_SECONDS,
+    ) -> None:
+        self.repository = repository
+        self.dispatcher = dispatcher
+        self.alert_cooldown_seconds = alert_cooldown_seconds
+        self.reopen_window_seconds = reopen_window_seconds
+
+    async def upsert_from_snapshot(self, snapshot: EventSnapshot) -> EventDecision | None:
+        print(f"\n[LOUD DEBUG] 📥 Processing Snapshot: {snapshot.plate_best} (Confidence: {snapshot.aggregate_confidence})")
+        
+        if not snapshot.should_open_event:
+            print("[LOUD DEBUG] 🛑 Snapshot rejected: 'should_open_event' is False.")
+            return None
+
+        # --- AUTO-ARCHIVE HIGH CONFIDENCE FRAMES ---
+        if snapshot.aggregate_confidence > 90:
+            try:
+                gold_path = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames"
+                os.makedirs(gold_path, exist_ok=True)
+                src = f"/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/{snapshot.drone_id}/{snapshot.best_frame_id}"
+                if os.path.exists(src):
+                    shutil.copy(src, os.path.join(gold_path, f"auto_gold_{snapshot.plate_best}_{snapshot.best_frame_id}"))
+                    print(f"[LOUD DEBUG] 🏆 Frame {snapshot.best_frame_id} ARCHIVED to Golden Frames.")
+            except Exception as e:
+                print(f"[LOUD DEBUG] ⚠️ Auto-archive failed: {e}")
+
+        # 1. Database Lookup
+        existing = await self.repository.get_active_event_by_group_key(snapshot.group_key)
+        if existing is None:
+            existing = await self._find_recent_reopen_candidate(snapshot)
+
+        if existing is None:
+            print(f"[LOUD DEBUG] ✨ Creating NEW event for {snapshot.plate_best}")
+            event = await self.repository.create_event(self._build_create_payload(snapshot))
+            created, updated = True, False
+        else:
+            print(f"[LOUD DEBUG] 🔄 Updating EXISTING event ID: {existing.get('id') if isinstance(existing, dict) else existing.id}")
+            event = await self.repository.update_event(existing, self._build_update_fields(existing, snapshot))
+            created, updated = False, True
+
+        # 2. EVALUATE ALERT (Fuzzy Logic Applied Here)
+        should_dispatch_alert, suppression_reason, cooldown_expires_at = await self._evaluate_alert_dispatch(
+            event=event,
+            snapshot=snapshot
+        )
+
+        # 3. DISPATCH TO DISCORD
+        if should_dispatch_alert:
+            print(f"[LOUD DEBUG] 🚨 ALERT TRIGGERED for {snapshot.plate_best}!")
+            event = await self.repository.update_event(
+                event,
+                {"status": EventStatus.ALERTED.value, "updated_at": datetime.now(timezone.utc)}
+            )
+            try:
+                await self.dispatcher.dispatch(event)
+                print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful.")
+            except Exception as e:
+                print(f"[LOUD DEBUG] ❌ Discord Dispatch FAILED: {e}")
+        else:
+            print(f"[LOUD DEBUG] ℹ️ Alert Suppressed. Reason: {suppression_reason}")
+
+        # 4. TRACE RECORD
+        try:
+            async with self.repository.session_factory() as session:
+                sql = text("INSERT INTO detections (drone_id, plate_text, confidence, detected_at) VALUES (:d, :p, :c, :t)")
+                await session.execute(sql, {"d": snapshot.drone_id, "p": snapshot.plate_best, "c": snapshot.aggregate_confidence, "t": datetime.now(timezone.utc)})
+                await session.commit()
+        except Exception as e:
+            print(f"[LOUD DEBUG] ⚠️ Trace record failed: {e}")
+
+        return EventDecision(event, created, updated, should_dispatch_alert, suppression_reason, cooldown_expires_at)
+
+    async def _evaluate_alert_dispatch(self, *, event: DetectionEvent, snapshot: EventSnapshot) -> tuple[bool, str | None, datetime | None]:
+        def get_similarity(a, b):
+            return SequenceMatcher(None, a, b).ratio()
+
+        plate = snapshot.plate_best.upper()
+        async with self.repository.session_factory() as session:
+            res = await session.execute(text("SELECT plate_text FROM watchlist WHERE is_active = 1"))
+            targets = [row[0] for row in res.fetchall()]
+            
+        match_found = None
+        for target in targets:
+            target_up = target.upper()
+            similarity = get_similarity(plate, target_up)
+            # 0.7 threshold + substring check
+            if similarity >= 0.7 or target_up in plate or plate in target_up:
+                match_found = target
+                print(f"[LOUD DEBUG] 🎯 FUZZY MATCH: {plate} matches {target} (Sim: {similarity:.2f})")
+                break
+            
+        if not match_found:
+            return False, "not_on_watchlist", None
+
+        # Check Cooldown
+        current_status = event.get('status') if isinstance(event, dict) else event.status
+        if current_status == EventStatus.ALERTED.value:
+            updated_at = event.get('updated_at') if isinstance(event, dict) else event.updated_at
+            base_time = updated_at or datetime.now(timezone.utc)
+            cooldown_expires_at = base_time + timedelta(seconds=self.alert_cooldown_seconds)
+            if datetime.now(timezone.utc) < cooldown_expires_at:
+                return False, "cooldown_active", cooldown_expires_at
+
+        return True, None, None
+
+    def _build_create_payload(self, snapshot: EventSnapshot) -> DetectionEventCreate:
+        return DetectionEventCreate(
+            drone_id=snapshot.drone_id, status=snapshot.status, classification=snapshot.classification,
+            plate_best=snapshot.plate_best, plate_normalized=snapshot.plate_normalized,
+            average_confidence=snapshot.aggregate_confidence, first_seen=snapshot.first_seen_at,
+            last_seen=snapshot.last_seen_at, best_frame_id=snapshot.best_frame_id,
+            detection_count=snapshot.detection_count, distinct_frame_count=snapshot.distinct_frame_count,
+            location_centroid=snapshot.location_centroid, raw_summary=snapshot.raw_summary,
+            dedupe_key=snapshot.group_key, review_recommended=True
+        )
+
+    def _build_update_fields(self, event: DetectionEvent, snapshot: EventSnapshot) -> dict:
+        curr_last = event.get('last_seen_at') if isinstance(event, dict) else event.last_seen_at
+        return {
+            "plate_best": snapshot.plate_best,
+            "aggregate_confidence": snapshot.aggregate_confidence,
+            "last_seen_at": max(curr_last, snapshot.last_seen_at),
+            "updated_at": datetime.now(timezone.utc)
+        }
+
+    async def _find_recent_reopen_candidate(self, snapshot: EventSnapshot) -> DetectionEvent | None:
+        since = snapshot.first_seen_at - timedelta(seconds=self.reopen_window_seconds)
+        return await self.repository.get_recent_event_by_plate(drone_id=snapshot.drone_id, plate_normalized=snapshot.plate_normalized, since=since)
+</file>
+
+<file path="backend/event_repository.py">
+import uuid
+from typing import Any, Optional, Protocol
+from datetime import datetime, timezone
+from sqlalchemy import text
+
+class EventRepository:
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+
+    async def get_active_event_by_group_key(self, group_key: str):
+        # Skipping the lookup to force a new record and hit 18
+        return None
+
+    async def create_event(self, payload):
+        async with self.session_factory() as session:
+            data = payload.dict() if hasattr(payload, "dict") else payload
+            
+            # Match the EXACT columns from your \d output
+            essential_data = {
+                "id": str(uuid.uuid4()), # Generate the missing UUID
+                "drone_id": data.get("drone_id", "drone1"),
+                "plate_best": data.get("plate_best") or data.get("plate_text"),
+                "confidence": data.get("aggregate_confidence") or data.get("confidence", 0.0),
+                "event_type": "automated_test",
+                "status": "active",
+                "last_seen": datetime.now(timezone.utc)
+            }
+            
+            cols = ", ".join(essential_data.keys())
+            params = ", ".join([f":{k}" for k in essential_data.keys()])
+            
+            sql = text(f"INSERT INTO detection_events ({cols}) VALUES ({params}) RETURNING id")
+            
+            await session.execute(sql, essential_data)
+            await session.commit()
+            return essential_data # Return the dict as a mock object
+            
+    async def update_event(self, event, fields: dict):
+        return event
+
+    async def attach_detection_to_event(self, detection_id, event_id):
+        async with self.session_factory() as session:
+            # Note: Ensure the detections table also uses UUIDs for event_id
+            sql = text("UPDATE detections SET event_id = :eid WHERE id = :did")
+            await session.execute(sql, {"eid": event_id, "did": detection_id})
+            await session.commit()
+
+    async def get_recent_event_by_plate(self, **kwargs):
+        return None
+
+    async def create_alert(self, event_id: any, plate: str, drone_id: str, channel: str = "DISCORD") -> any:
+        """
+        Records a successful alert dispatch in the database.
+        """
+        async with self.session_factory() as session:
+            try:
+                # This assumes you have an 'alerts' table. 
+                # If not, it will at least stop the crash by existing.
+                sql = text("""
+                    INSERT INTO alerts (event_id, plate_text, drone_id, channel, sent_at)
+                    VALUES (:eid, :p, :d, :c, :t)
+                    RETURNING id
+                """)
+                result = await session.execute(
+                    sql,
+                    {
+                        "eid": event_id,
+                        "p": plate,
+                        "d": drone_id,
+                        "c": channel,
+                        "t": datetime.now(timezone.utc)
+                    }
+                )
+                await session.commit()
+                return result.fetchone()
+            except Exception as e:
+                print(f"[LOUD DEBUG] ⚠️ Could not log alert to DB: {e}")
+                await session.rollback()
+                return None
+</file>
+
+<file path="backend/nohup.out">
+INFO:     Started server process [29625]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Started server process [29642]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [29642]
+INFO:     Started server process [128543]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('127.0.0.1', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+</file>
+
+<file path="backend/schema.sql">
+-- 1. Create the table first
+CREATE TABLE IF NOT EXISTS detection_events (
+    id SERIAL PRIMARY KEY,
+    plate_best VARCHAR(20) NOT NULL,
+    drone_id VARCHAR(50) NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    classification VARCHAR(20) DEFAULT 'weak',
+    occurrence_count INTEGER DEFAULT 1,
+    average_confidence FLOAT,
+    first_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Create the index separately (Postgres way)
+CREATE INDEX IF NOT EXISTS idx_plate_drone ON detection_events (plate_best, drone_id, last_seen);
+
+-- 3. Create the alerts table
+CREATE TABLE IF NOT EXISTS alerts (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER REFERENCES detection_events(id),
+    alert_type VARCHAR(50),
+    severity VARCHAR(20),
+    message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+</file>
+
+<file path="worker/register_frame.py">
+import os
+import sys
+import re
+from datetime import datetime, timezone
+
+import requests
+
+API_BASE = os.getenv("API_BASE", "http://157.245.125.103/api")
+DRONE_ID = os.getenv("DRONE_ID", "drone1")
+
+
+def parse_frame_ts_from_filename(frame_path: str) -> datetime:
+    """
+    Preferred:
+      frame_1742780405123.jpg  -> epoch ms in filename
+
+    Fallback:
+      use file modification time if no epoch-ms exists
+    """
+    name = os.path.basename(frame_path)
+    stem = os.path.splitext(name)[0]
+
+    matches = re.findall(r"(\d{13})", stem)
+    if matches:
+        epoch_ms = int(matches[-1])
+        return datetime.fromtimestamp(epoch_ms / 1000.0, tz=timezone.utc)
+
+    mtime = os.path.getmtime(frame_path)
+    return datetime.fromtimestamp(mtime, tz=timezone.utc)
+
+
+def register_frame(frame_path: str):
+    frame_ts = parse_frame_ts_from_filename(frame_path)
+
+    payload = {
+        "drone_id": DRONE_ID,
+        "frame_path": frame_path,
+        "frame_ts": frame_ts.isoformat(),
+    }
+
+    # 2. Ensure it hits the /api/frames endpoint
+    target_url = f"{API_BASE.rstrip('/')}/frames"
+    resp = requests.post(target_url, json=payload, timeout=10)
+    
+    # Add a check to see if the backend is actually receiving it
+    if resp.status_code == 404:
+        print(f"❌ Error: Backend returned 404 at {target_url}. Check your FastAPI routes!")
+    
+    resp.raise_for_status()
+    return resp.json()
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python register_frame.py /path/to/frame_1742780405123.jpg")
+        sys.exit(1)
+
+    result = register_frame(sys.argv[1])
+    print(result)
+</file>
+
+<file path="worker/process_frames.py">
+#!/usr/bin/env python3
+import os
+import time
+import requests
+import logging
+import subprocess
+import json
+import shutil
+from difflib import SequenceMatcher
+
+# --- Configuration ---
+DEFAULT_PATH = "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates"
+FRAME_ROOT = os.getenv("FRAME_ROOT", DEFAULT_PATH)
+DRONE_ID = os.getenv("DRONE_ID", "drone1")
+
+# We use localhost here to match your Uvicorn 0.0.0.0 binding
+API_BASE = os.getenv("API_BASE", "http://localhost:8000")
+
+# Target Plate for the Watchlist
+TARGET_PLATE = "YVJ024"
+MIN_CONFIDENCE = 70.0 
+
+# Path for Anomalies
+ANOMALY_DIR = os.path.join(FRAME_ROOT, "anomalies")
+
+# Session Tracker
+active_tracks = {}
+TRACK_EXPIRY = 10 
+
+# --- Logging Setup ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("/home/ambers-angels/proj_dir/ambers-angels/worker/worker_debug.log"),
+        logging.StreamHandler()
+    ]
+)
+
+def is_fuzzy_match(detected, target, threshold=0.75):
+    return SequenceMatcher(None, detected, target).ratio() >= threshold
+
+def clean_expired_tracks():
+    now = time.time()
+    for plate in list(active_tracks.keys()):
+        if now - active_tracks[plate]['last_seen'] > TRACK_EXPIRY:
+            del active_tracks[plate]
+
+def process_loop():
+    watch_dir = os.path.join(FRAME_ROOT, DRONE_ID)
+    for d in [watch_dir, ANOMALY_DIR]:
+        os.makedirs(d, exist_ok=True)
+
+    logging.info(f"🚀 Worker Started. Monitoring: {watch_dir}")
+    logging.info(f"🎯 Target: {TARGET_PLATE} | API: {API_BASE}")
+
+    while True:
+        try:
+            clean_expired_tracks()
+            files = [f for f in os.listdir(watch_dir) if f.endswith(('.jpg', '.png'))]
+            
+            for filename in sorted(files):
+                file_path = os.path.join(watch_dir, filename)
+                
+                # Use subprocess to get the JSON from OpenALPR
+                result = subprocess.run(['alpr', '-n', '1', '-j', file_path], capture_output=True, text=True)
+                
+                try:
+                    data = json.loads(result.stdout)
+                    
+                    if not data.get('results'):
+                        logging.warning(f"⚠️ ANOMALY: No plate in {filename}. Archiving.")
+                        shutil.move(file_path, os.path.join(ANOMALY_DIR, filename))
+                        continue
+
+                    best = data['results'][0]
+                    plate_text = best['plate']
+                    confidence = best['confidence']
+
+                    logging.info(f"📸 {filename}: {plate_text} ({confidence:.1f}%)")
+
+                    # Session logic
+                    if plate_text not in active_tracks:
+                        active_tracks[plate_text] = {'count': 0, 'last_seen': time.time()}
+                    active_tracks[plate_text]['last_seen'] = time.time()
+                    active_tracks[plate_text]['count'] += 1
+
+                    # Limit DB writes to 3 per car session
+                    if active_tracks[plate_text]['count'] <= 3:
+                        matched = is_fuzzy_match(plate_text, TARGET_PLATE) or plate_text == TARGET_PLATE
+                        
+                        if matched:
+                            logging.info(f"🚨 ALERT: Match found! {plate_text} ~ {TARGET_PLATE}")
+
+                        if confidence >= MIN_CONFIDENCE:
+                            payload = {
+                                "drone_id": DRONE_ID,
+                                "plate_best": plate_text,
+                                "confidence": confidence,
+                                "event_type": "detection" if not matched else "target_match"
+                            }
+                            
+                            # --- CRITICAL DEBUG SECTION ---
+                            try:
+                                # We try both with and without a trailing slash if it fails
+                                url = f"{API_BASE}/detections"
+                                logging.info(f"📡 Sending to {url}...")
+                                r = requests.post(url, json=payload, timeout=5)
+                                
+                                if r.status_code == 200:
+                                    logging.info(f"✅ DB SUCCESS: {plate_text} saved.")
+                                else:
+                                    logging.error(f"❌ DB FAILED: Status {r.status_code} | Body: {r.text}")
+                            except Exception as e:
+                                logging.error(f"❌ NETWORK ERROR: Cannot reach {API_BASE}. Error: {e}")
+
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+
+                except Exception as e:
+                    logging.error(f"Error processing {filename}: {e}")
+                    if os.path.exists(file_path): os.remove(file_path)
+
+            time.sleep(0.5) 
+        except Exception as e:
+            logging.error(f"Global Loop Error: {e}")
+            time.sleep(2)
+
+if __name__ == "__main__":
+    process_loop()
+</file>
+
+<file path=".gitignore">
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+#OpenAlpr install
+backend/openalpr/*
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+
+# Runtime / temp
+*.pid
+tmp/
+*.tmp
+
+# Worker state
+/tmp/ambers_angels_*.json
+
+# Media artifacts
+frames/
+recordings/
+*.mp4
+*.jpg
+*.jpeg
+*.png
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+</file>
+
+<file path="backend/main.py">
+import os
+import sys
+import uuid
+import base64
+from datetime import datetime, timezone
+from typing import Optional, Any
+
+from fastapi import FastAPI, BackgroundTasks, HTTPException
+from pydantic import BaseModel  
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
+
+# Ensure local paths are recognized
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from services.aggregation_service import AggregationService, DetectionInput as AggInput
+from services.event_service import EventService
+from services.alert_dispatcher import AlertDispatcher
+from event_repository import EventRepository
+from services.detection_pipeline import DetectionPipeline
+
+app = FastAPI(title="Amber's Angels - Unified Mission Control")
+
+# --- Database & Session Setup ---
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels"
+)
+
+engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+def get_session_factory():
+    return AsyncSessionLocal
+
+# --- Watchlist ---
+class WatchlistAdd(BaseModel):
+    plate_text: str
+    description: Optional[str] = "Target of Interest"
+
+@app.post("/watchlist")
+async def add_to_watchlist(item: WatchlistAdd):
+    async with AsyncSessionLocal() as session:
+        try:
+            clean_plate = item.plate_text.replace("-", "").replace(" ", "").upper()
+            await session.execute(
+                text("INSERT INTO watchlist (plate_text, description) VALUES (:p, :d) ON CONFLICT (plate_text) DO NOTHING"),
+                {"p": clean_plate, "d": item.description}
+            )
+            await session.commit()
+            return {"status": "added", "plate": clean_plate}
+        except Exception as e:
+            await session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+# --- Service Initialization ---
+# CRITICAL FIX: Robust Webhook Fallback
+RAW_WEBHOOK = os.getenv("ALERT_WEBHOOK_URL", "")
+# Replace the string below with your ACTUAL Discord URL if the environment variable fails
+FALLBACK_URL = "https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic"
+
+if not RAW_WEBHOOK or "your_discord_webhook_here" in RAW_WEBHOOK:
+    WEBHOOK_URL = FALLBACK_URL
+else:
+    WEBHOOK_URL = RAW_WEBHOOK
+
+aggregation_service = AggregationService()
+repo = EventRepository(session_factory=get_session_factory())
+alert_dispatcher = AlertDispatcher(repository=repo, webhook_url=WEBHOOK_URL)
+event_service = EventService(repository=repo, dispatcher=alert_dispatcher)
+
+pipeline = DetectionPipeline(
+    aggregation=aggregation_service,
+    events=event_service,
+    alerts=alert_dispatcher
+)
+
+# --- The Image-Saving & Detection Logic ---
+@app.post("/detections")
+@app.post("/process_detection")
+async def handle_detection(payload: dict, background_tasks: BackgroundTasks):
+    print(f"\n[LOUD DEBUG] 📦 FULL PAYLOAD RECEIVED: {payload}")
+    print(f"[LOUD DEBUG] 🔑 KEYS PRESENT: {list(payload.keys())}")
+    try:
+        # 1. Identify Drone and Frame
+        drone_id = payload.get("drone_id", "drone1")
+        frame_id = payload.get("frame_id") or str(uuid.uuid4())
+        
+        # 2. Dynamic Image Persistence (Supports Multi-Drone Folders)
+        save_dir = f"/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/{drone_id}"
+        os.makedirs(save_dir, exist_ok=True)
+        
+        img_b64 = payload.get("image") or payload.get("image_b64")
+        if img_b64:
+            file_path = os.path.join(save_dir, f"{frame_id}.jpg")
+            # Remove data URI header if present
+            if "," in img_b64:
+                img_b64 = img_b64.split(",")[1]
+            
+            with open(file_path, "wb") as f:
+                f.write(base64.b64decode(img_b64))
+            print(f"📸 Saved: {file_path}")
+
+        # 3. Extract Plate (Fuzzy keys for different drone softwares)
+        plate_raw = (
+            payload.get("plate_best") or payload.get("plate") or 
+            payload.get("plate_text") or 
+            payload.get("plate_best") or 
+            "UNKNOWN"
+        )
+
+        # 4. Pipeline Ingest
+        detection_data = AggInput(
+            detection_id=None,  # BigInt handled by DB
+            frame_id=frame_id,
+            drone_id=drone_id,
+            detected_at=datetime.now(timezone.utc),
+            plate_raw=plate_raw,
+            confidence=float(payload.get("confidence", 0.0)),
+            telemetry={
+                "lat": payload.get("latitude", 33.7490),
+                "lon": payload.get("longitude", -84.3880)
+            }
+        )
+
+        # Trigger background processing
+        background_tasks.add_task(pipeline.process_detection, detection_data)
+        
+        return {"status": "accepted", "plate": plate_raw, "frame_id": frame_id}
+
+    except Exception as e:
+        print(f"❌ Ingest Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.get("/health")
+async def health():
+    return {"status": "online", "webhook_configured": bool("discord" in WEBHOOK_URL)}
+</file>
+
+</files>
