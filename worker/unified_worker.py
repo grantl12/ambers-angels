@@ -62,16 +62,19 @@ def _save_to_golden(frame_path: str, plate_text: str) -> None:
 # Frame processing
 # ---------------------------------------------------------------------------
 
-def process_frame(frame_path: str) -> None:
+def process_frame(frame_path: str) -> bool:
+    """Process a single frame. Returns True if fully handled (success or no plates found),
+    False if the API was unreachable so the frame should be retried."""
     try:
         results = alpr.recognize_file(frame_path)
     except Exception as e:
         print(f"[Worker] ❌ ALPR error on {frame_path}: {e}")
-        return
+        return True  # ALPR error is permanent — don't retry
 
     if not results or not results.get("results"):
-        return
+        return True  # no plates found — mark done
 
+    api_ok = True
     for plate_result in results["results"]:
         plate_text  = plate_result.get("plate", "")
         confidence  = plate_result.get("confidence", 0.0)
@@ -100,13 +103,35 @@ def process_frame(frame_path: str) -> None:
                 print(f"[Worker] ⚠️  API returned {resp.status_code} for {plate_text}")
         except requests.exceptions.RequestException as e:
             print(f"[Worker] ❌ API post failed for {plate_text}: {e}")
+            api_ok = False  # transient — let watch loop retry this frame
+
+    return api_ok
 
 
 # ---------------------------------------------------------------------------
 # Watch loop
 # ---------------------------------------------------------------------------
 
+def wait_for_backend(timeout: int = 60) -> None:
+    """Block until the backend API is reachable, or exit if timeout exceeded."""
+    health_url = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/health"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = requests.get(health_url, timeout=2)
+            if r.status_code == 200:
+                print("[Worker] ✅ Backend is up.")
+                return
+        except requests.exceptions.RequestException:
+            pass
+        print("[Worker] ⏳ Waiting for backend...")
+        time.sleep(2)
+    print(f"[Worker] ❌ Backend not reachable after {timeout}s. Exiting.")
+    sys.exit(1)
+
+
 def watch_frames() -> None:
+    wait_for_backend()
     print(f"[Worker] 👁  Monitoring {FRAME_DIR} for new frames (drone: {DRONE_ID})...")
     processed: set[str] = set()
 
@@ -126,8 +151,9 @@ def watch_frames() -> None:
             if full_path not in processed:
                 # Small delay to ensure FFmpeg has finished writing the file
                 time.sleep(0.1)
-                process_frame(full_path)
-                processed.add(full_path)
+                ok = process_frame(full_path)
+                if ok:
+                    processed.add(full_path)  # only skip on success; retry if API was down
 
         time.sleep(0.5)
 

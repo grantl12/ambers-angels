@@ -4,6 +4,7 @@ Amber's Angels — FastAPI entry point.
 """
 import sys
 import os
+import uuid
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
@@ -21,10 +22,15 @@ import database
 import schemas
 from services.detection_models import EventStatus, EventClassification
 from services.event_service import EventService
+from services.aggregation_service import AggregationService, DetectionInput as AggDetectionInput
 from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
 from services.fema_connector import fema_background_loop, poll_fema_ipaws
 from routers.read_api import router as read_router
+
+# Module-level singleton — must persist across requests to maintain the
+# 5-second aggregation window and active group state
+_aggregation_service = AggregationService()
 
 GOLDEN_DIR = os.getenv(
     "GOLDEN_DIR",
@@ -117,47 +123,37 @@ async def create_detection(
     db: Session = Depends(get_db),
 ):
     """
-    Accepts a raw detection from the worker or bridge, runs it through
-    the event service (which handles deduplication, watchlist checking,
-    and alert dispatch).
-    """
-    # Build the repo with the async session factory for this request
-    repo = EventRepository(database.AsyncSessionLocal)
+    Accepts a raw detection from the worker, runs it through the full pipeline:
+      AggregationService (buffer + score) → EventService (DB upsert + alert dispatch)
 
-    # Wire the dispatcher to the repo so DB alert logging works
+    The aggregation service is a process-level singleton so it can maintain the
+    5-second grouping window across successive frames of the same plate.
+    """
+    det_input = AggDetectionInput(
+        detection_id=str(uuid.uuid4()),
+        frame_id=detection.best_frame_id or str(uuid.uuid4()),
+        drone_id=detection.drone_id,
+        detected_at=detection.detected_at or datetime.now(timezone.utc),
+        plate_raw=detection.plate_text,
+        confidence=detection.confidence,
+        quality_flags=[],
+        telemetry=None,
+        bbox=None,
+        alpr_payload=detection.raw_payload,
+    )
+
+    snapshot = _aggregation_service.ingest(det_input)
+
+    if not snapshot or not snapshot.should_open_event:
+        # Detection is buffered or filtered (low confidence / too short)
+        return {"status": "buffering", "plate": detection.plate_text, "alert_triggered": False}
+
+    repo = EventRepository(database.AsyncSessionLocal)
     dispatcher = AlertDispatcher(
         repository=repo,
         webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
     )
-
     service = EventService(repository=repo, dispatcher=dispatcher)
-
-    # Build an EventSnapshot directly from the incoming detection
-    # (bypasses the aggregation layer for single-detection ingress)
-    from services.aggregation_service import EventSnapshot as AggSnapshot
-
-    snapshot = AggSnapshot(
-        drone_id=detection.drone_id,
-        group_key=f"{detection.drone_id}_{detection.plate_text.upper().replace(' ', '')}",
-        plate_best=detection.plate_text.upper().replace(" ", ""),
-        plate_normalized=detection.plate_text.upper().replace(" ", ""),
-        first_seen_at=datetime.now(timezone.utc),
-        last_seen_at=datetime.now(timezone.utc),
-        aggregate_confidence=detection.confidence,
-        classification=EventClassification.PROBABLE,
-        status=EventStatus.CANDIDATE,
-        detection_count=1,
-        distinct_frame_count=1,
-        best_frame_id=detection.best_frame_id or "unknown.jpg",
-        best_detection_id=None,
-        should_open_event=True,
-        should_alert=False,   # event_service will evaluate this via watchlist
-        dominant_ratio=1.0,
-        top_hypotheses=[],
-        quality_flags=[],
-        raw_summary={},
-        location_centroid=None,
-    )
 
     decision = await service.upsert_from_snapshot(snapshot)
 
