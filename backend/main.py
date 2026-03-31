@@ -6,13 +6,15 @@ import sys
 import os
 import uuid
 import asyncio
+import tempfile
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from sqlalchemy import text
+from typing import Optional
 
 # Ensure the backend directory is on the path regardless of working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -129,6 +131,40 @@ async def create_detection(
     The aggregation service is a process-level singleton so it can maintain the
     5-second grouping window across successive frames of the same plate.
     """
+    # Build telemetry dict from native app fields (None when RTMP worker)
+    telemetry = None
+    if detection.lat is not None and detection.lng is not None:
+        telemetry = {
+            "lat":      detection.lat,
+            "lon":      detection.lng,
+            "alt":      detection.altitude,
+            "heading":  detection.heading,
+            "speed":    detection.speed,
+        }
+        # Write a telemetry_point so the drone dot moves on the map
+        try:
+            async with database.AsyncSessionLocal() as session:
+                await session.execute(text("""
+                    INSERT INTO telemetry_points
+                        (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source)
+                    VALUES
+                        (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source)
+                """), {
+                    "drone_id": detection.drone_id,
+                    "pilot_id": None,
+                    "ts":       detection.detected_at or datetime.now(timezone.utc),
+                    "lat":      detection.lat,
+                    "lon":      detection.lng,
+                    "alt":      detection.altitude,
+                    "heading":  detection.heading,
+                    "speed":    detection.speed,
+                    "accuracy": detection.accuracy,
+                    "source":   detection.source or "dji_app",
+                })
+                await session.commit()
+        except Exception as e:
+            print(f"[detections] ⚠️ telemetry_point write failed: {e}")
+
     det_input = AggDetectionInput(
         detection_id=str(uuid.uuid4()),
         frame_id=detection.best_frame_id or str(uuid.uuid4()),
@@ -137,7 +173,7 @@ async def create_detection(
         plate_raw=detection.plate_text,
         confidence=detection.confidence,
         quality_flags=[],
-        telemetry=None,
+        telemetry=telemetry,
         bbox=None,
         alpr_payload=detection.raw_payload,
     )
@@ -168,3 +204,162 @@ async def create_detection(
         "plate": plate,
         "alert_triggered": decision.should_dispatch_alert,
     }
+
+
+@app.post("/telemetry")
+async def post_telemetry(point: schemas.TelemetryCreate):
+    """
+    Position-only update from the native app. Called every ~1s during flight
+    so the drone dot on the mission map tracks in real time.
+    Independent of detections — no ALPR involved.
+    """
+    try:
+        async with database.AsyncSessionLocal() as session:
+            await session.execute(text("""
+                INSERT INTO telemetry_points
+                    (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source)
+                VALUES
+                    (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source)
+            """), {
+                "drone_id": point.drone_id,
+                "pilot_id": point.pilot_id,
+                "ts":       point.ts or datetime.now(timezone.utc),
+                "lat":      point.lat,
+                "lon":      point.lng,
+                "alt":      point.altitude,
+                "heading":  point.heading,
+                "speed":    point.speed,
+                "accuracy": point.accuracy,
+                "source":   point.source or "dji_telemetry",
+            })
+            await session.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ingest/frame")
+async def ingest_frame(
+    file:      UploadFile = File(...),
+    drone_id:  str        = Form(...),
+    lat:       Optional[float] = Form(None),
+    lng:       Optional[float] = Form(None),
+    altitude:  Optional[float] = Form(None),
+    heading:   Optional[float] = Form(None),
+    speed:     Optional[float] = Form(None),
+    accuracy:  Optional[float] = Form(None),
+    pilot_id:  Optional[str]  = Form(None),
+    source:    Optional[str]  = Form(None),
+    detected_at: Optional[str] = Form(None),
+):
+    """
+    Raw JPEG frame ingestion from native app (DJI SDK or phone camera).
+    Runs OpenALPR server-side, then feeds each result into the same
+    AggregationService → EventService pipeline as the RTMP worker.
+
+    Multipart form fields:
+        file       JPEG frame
+        drone_id   pilot's drone identifier
+        lat/lng    GPS at moment of capture (optional but strongly recommended)
+        altitude   metres AGL (optional)
+        heading    degrees (optional)
+        speed      m/s (optional)
+        accuracy   GPS accuracy radius in metres (optional)
+        pilot_id   pilot identifier (optional)
+        source     "dji_app" | "phone_gps" (optional, defaults to "dji_app")
+    """
+    from openalpr import Alpr
+
+    ts = datetime.now(timezone.utc)
+    if detected_at:
+        try:
+            from datetime import datetime as _dt
+            ts = _dt.fromisoformat(detected_at.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+
+    # Save frame to a temp file for OpenALPR
+    suffix = os.path.splitext(file.filename or "frame.jpg")[1] or ".jpg"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        alpr = Alpr(
+            os.getenv("ALPR_COUNTRY", "us"),
+            os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf"),
+            os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data"),
+        )
+        if not alpr.is_loaded():
+            raise HTTPException(status_code=500, detail="OpenALPR failed to load")
+        alpr.set_top_n(5)
+
+        results = alpr.recognize_file(tmp_path)
+        alpr.unload()
+    finally:
+        os.unlink(tmp_path)
+
+    if not results or not results.get("results"):
+        return {"status": "no_plates", "plates": []}
+
+    telemetry = None
+    if lat is not None and lng is not None:
+        telemetry = {"lat": lat, "lon": lng, "alt": altitude, "heading": heading, "speed": speed}
+        try:
+            async with database.AsyncSessionLocal() as session:
+                await session.execute(text("""
+                    INSERT INTO telemetry_points
+                        (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source)
+                    VALUES
+                        (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source)
+                """), {
+                    "drone_id": drone_id, "pilot_id": pilot_id, "ts": ts,
+                    "lat": lat, "lon": lng, "alt": altitude,
+                    "heading": heading, "speed": speed, "accuracy": accuracy,
+                    "source": source or "dji_app",
+                })
+                await session.commit()
+        except Exception as e:
+            print(f"[ingest/frame] ⚠️ telemetry_point write failed: {e}")
+
+    frame_id = str(uuid.uuid4())
+    outcomes = []
+
+    repo       = EventRepository(database.AsyncSessionLocal)
+    dispatcher = AlertDispatcher(repository=repo, webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""))
+    service    = EventService(repository=repo, dispatcher=dispatcher)
+
+    for plate_result in results["results"]:
+        plate_text = plate_result.get("plate", "")
+        confidence = plate_result.get("confidence", 0.0)
+        if not plate_text:
+            continue
+
+        det_input = AggDetectionInput(
+            detection_id=str(uuid.uuid4()),
+            frame_id=frame_id,
+            drone_id=drone_id,
+            detected_at=ts,
+            plate_raw=plate_text,
+            confidence=confidence,
+            quality_flags=[],
+            telemetry=telemetry,
+            bbox=None,
+            alpr_payload=plate_result,
+        )
+
+        snapshot = _aggregation_service.ingest(det_input)
+        if not snapshot or not snapshot.should_open_event:
+            outcomes.append({"plate": plate_text, "confidence": confidence, "status": "buffering"})
+            continue
+
+        decision = await service.upsert_from_snapshot(snapshot)
+        if decision:
+            outcomes.append({
+                "plate":           snapshot.plate_best,
+                "confidence":      snapshot.aggregate_confidence,
+                "status":          "processed",
+                "alert_triggered": decision.should_dispatch_alert,
+            })
+
+    return {"status": "ok", "plates": outcomes}
