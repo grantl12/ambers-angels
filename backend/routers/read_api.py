@@ -191,6 +191,36 @@ def get_detections_feed(
 
 
 # ---------------------------------------------------------------------------
+# Flock cameras — populated by external scraper, read-only here
+# ---------------------------------------------------------------------------
+
+@router.get("/flock/cameras")
+def get_flock_cameras():
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT id, lat, lng, heading, road, agency, scraped_at
+            FROM flock_cameras
+            ORDER BY id
+        """)).fetchall()
+
+        return [
+            {
+                "id":         r[0],
+                "lat":        r[1],
+                "lng":        r[2],
+                "heading":    r[3],
+                "road":       r[4],
+                "agency":     r[5],
+                "scrapedAt":  r[6].isoformat() if r[6] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
 # Watchlist — for the event feed to badge alert plates
 # ---------------------------------------------------------------------------
 

@@ -14,7 +14,18 @@ CREATE TABLE IF NOT EXISTS detection_events (
 -- 2. Create the index separately (Postgres way)
 CREATE INDEX IF NOT EXISTS idx_plate_drone ON detection_events (plate_best, drone_id, last_seen);
 
--- 3. Create the alerts table
+-- 3. Flock ALPR camera locations (populated by scraper)
+CREATE TABLE IF NOT EXISTS flock_cameras (
+    id          VARCHAR(20) PRIMARY KEY,
+    lat         DOUBLE PRECISION NOT NULL,
+    lng         DOUBLE PRECISION NOT NULL,
+    heading     INTEGER,
+    road        TEXT,
+    agency      TEXT,
+    scraped_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Create the alerts table
 CREATE TABLE IF NOT EXISTS alerts (
     id SERIAL PRIMARY KEY,
     event_id INTEGER REFERENCES detection_events(id),

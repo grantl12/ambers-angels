@@ -1,16 +1,38 @@
+"use client"
+
+import { useState } from "react"
 import { MapLoader } from "@/components/map/map-loader"
 import { MissionSidebar } from "@/components/mission/mission-sidebar"
 import { EventFeed } from "@/components/mission/event-feed"
 import { TopBar } from "@/components/layout/top-bar"
 
+export type LayerState = {
+  flock: boolean
+  coverage: boolean
+  drones: boolean
+  heat: boolean
+  hits: boolean
+}
+
 export default function MapPage() {
+  const [layers, setLayers] = useState<LayerState>({
+    flock: true,
+    coverage: true,
+    drones: true,
+    heat: true,
+    hits: true,
+  })
+
+  const toggleLayer = (key: keyof LayerState) =>
+    setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
+
   return (
     <main className="flex h-screen w-screen flex-col bg-neutral-950">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
-        <MissionSidebar />
+        <MissionSidebar layers={layers} onToggleLayer={toggleLayer} />
         <div className="flex-1">
-          <MapLoader />
+          <MapLoader layers={layers} />
         </div>
         <EventFeed />
       </div>

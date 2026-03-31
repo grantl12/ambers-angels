@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Amber's Angels — Pilot Registration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #f8f9fc;
+    --surface:  #ffffff;
+    --border:   #e2e8f0;
+    --border-focus: #f59e0b;
+    --text:     #1a202c;
+    --muted:    #64748b;
+    --amber:    #f59e0b;
+    --amber-lt: #fef3c7;
+    --amber-dk: #d97706;
+    --danger:   #ef4444;
+    --success:  #10b981;
+    --radius:   10px;
+    --shadow:   0 4px 24px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+
+  /* ── HEADER ── */
+  .page-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--amber); }
+  .tagline {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 520px;
+    padding: 36px 40px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+  .step-bubble {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 1;
+  }
+  .step-bubble.active {
+    border-color: var(--amber);
+    background: var(--amber);
+    color: white;
+  }
+  .step-bubble.done {
+    border-color: var(--success);
+    background: var(--success);
+    color: white;
+  }
+  .step-connector {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .step-connector.done { background: var(--success); }
+  .step-label {
+    position: absolute;
+    top: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .step-bubble.active .step-label { color: var(--amber-dk); }
+  .step-bubble.done .step-label { color: var(--success); }
+
+  /* ── STEP CONTENT ── */
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .step-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .step-sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--amber);
+  }
+  .field input::placeholder { color: var(--muted); }
+
+  /* ── SSO BUTTONS ── */
+  .sso-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .sso-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: white;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text);
+  }
+  .sso-btn:hover {
+    border-color: var(--amber);
+    background: var(--amber-lt);
+  }
+  .sso-icon { font-size: 17px; line-height: 1; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .divider::before,
+  .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── PASSWORD STRENGTH ── */
+  .strength-wrap { margin-top: 8px; }
+  .strength-bars {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .strength-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+  .strength-label {
+    font-size: 11px;
+    color: var(--muted);
+    height: 14px;
+  }
+
+  /* ── TOGGLE SWITCH ── */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s;
+  }
+  .toggle-row:hover { border-color: var(--amber); }
+  .toggle-row.on { border-color: var(--amber); background: var(--amber-lt); }
+  .toggle-info { flex: 1; }
+  .toggle-info strong { font-size: 14px; font-weight: 600; display: block; }
+  .toggle-info span { font-size: 12px; color: var(--muted); }
+  .toggle-pill {
+    width: 40px;
+    height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    margin-left: 14px;
+  }
+  .toggle-pill.on { background: var(--amber); }
+  .toggle-pill::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-pill.on::after { left: 21px; }
+
+  /* ── CERT FIELD (hidden until toggle) ── */
+  #cert-field { display: none; margin-top: 14px; }
+
+  /* ── DRONE CHIPS ── */
+  .chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .chip {
+    padding: 7px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--muted);
+    user-select: none;
+    background: white;
+  }
+  .chip:hover { border-color: var(--amber); color: var(--amber-dk); }
+  .chip.selected {
+    border-color: var(--amber);
+    background: var(--amber-lt);
+    color: var(--amber-dk);
+  }
+
+  /* ── REVIEW SECTION ── */
+  .review-section {
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .review-heading {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .review-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 10px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .review-row:last-child { border-bottom: none; }
+  .review-key { color: var(--muted); flex-shrink: 0; }
+  .review-val { font-weight: 500; text-align: right; word-break: break-word; }
+
+  /* ── NAVIGATION BUTTONS ── */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-back {
+    background: transparent;
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-back:hover { border-color: var(--amber); color: var(--amber-dk); }
+  .btn-next {
+    background: var(--amber);
+    color: white;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.35);
+  }
+  .btn-next:hover { background: var(--amber-dk); }
+
+  /* ── SUCCESS SCREEN ── */
+  #success-screen {
+    display: none;
+    text-align: center;
+    padding: 12px 0;
+  }
+  .success-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(16,185,129,0.12);
+    border: 2px solid var(--success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 20px;
+  }
+  #success-screen h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  #success-screen p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 6px; }
+  .success-note {
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: var(--amber-lt);
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--amber-dk);
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  /* ── VALIDATION ── */
+  .field input.error { border-color: var(--danger); }
+  .field-error { font-size: 11px; color: var(--danger); margin-top: 4px; display: none; }
+  .field input.error + .field-error { display: block; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="logo">Amber's <span>Angels</span></div>
+  <div class="tagline">Volunteer Drone ALPR Network — Pilot Registration</div>
+</div>
+
+<div class="card">
+
+  <!-- PROGRESS -->
+  <div class="progress-row" id="progress-row">
+    <div class="step-bubble active" id="bubble-1" style="position:relative">
+      1
+      <div class="step-label">Account</div>
+    </div>
+    <div class="step-connector" id="conn-1"></div>
+    <div class="step-bubble" id="bubble-2" style="position:relative">
+      2
+      <div class="step-label">Contact</div>
+    </div>
+    <div class="step-connector" id="conn-2"></div>
+    <div class="step-bubble" id="bubble-3" style="position:relative">
+      3
+      <div class="step-label">Pilot</div>
+    </div>
+    <div class="step-connector" id="conn-3"></div>
+    <div class="step-bubble" id="bubble-4" style="position:relative">
+      4
+      <div class="step-label">Review</div>
+    </div>
+  </div>
+
+  <!-- STEP 1: Account -->
+  <div class="step active" id="step-1">
+    <div class="step-title">Create your account</div>
+    <div class="step-sub">Join the network in seconds</div>
+
+    <div class="sso-row">
+      <button class="sso-btn" onclick="handleSSO('google')">
+        <span class="sso-icon">🇬</span> Continue with Google
+      </button>
+      <button class="sso-btn" onclick="handleSSO('apple')">
+        <span class="sso-icon">🍎</span> Continue with Apple
+      </button>
+    </div>
+
+    <div class="divider">or sign up with email</div>
+
+    <div class="field">
+      <label>Full name</label>
+      <input type="text" id="f-name" placeholder="Jane Smith" autocomplete="name"/>
+      <div class="field-error">Please enter your name</div>
+    </div>
+    <div class="field">
+      <label>Email address</label>
+      <input type="email" id="f-email" placeholder="jane@example.com" autocomplete="email"/>
+      <div class="field-error">Please enter a valid email</div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="f-password" placeholder="At least 8 characters" oninput="checkStrength(this.value)" autocomplete="new-password"/>
+      <div class="strength-wrap">
+        <div class="strength-bars">
+          <div class="strength-bar" id="sb1"></div>
+          <div class="strength-bar" id="sb2"></div>
+          <div class="strength-bar" id="sb3"></div>
+          <div class="strength-bar" id="sb4"></div>
+        </div>
+        <div class="strength-label" id="strength-label"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-next" onclick="goNext(1)">Continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Contact -->
+  <div class="step" id="step-2">
+    <div class="step-title">Contact & service area</div>
+    <div class="step-sub">Help us match you to local missions</div>
+
+    <div class="field">
+      <label>Phone number</label>
+      <input type="tel" id="f-phone" placeholder="+1 (555) 000-0000" autocomplete="tel"/>
+      <div class="field-error">Please enter a valid phone number</div>
+    </div>
+    <div class="field">
+      <label>City / Primary area</label>
+      <input type="text" id="f-city" placeholder="Carrollton, GA" autocomplete="address-level2"/>
+      <div class="field-error">Please enter your city</div>
+    </div>
+    <div class="field">
+      <label>Service radius</label>
+      <select id="f-radius">
+        <option value="">Select a radius</option>
+        <option value="5">Within 5 miles</option>
+        <option value="10">Within 10 miles</option>
+        <option value="25">Within 25 miles</option>
+        <option value="50">Within 50 miles</option>
+        <option value="100">Within 100 miles</option>
+        <option value="anywhere">Anywhere — I'll travel</option>
+      </select>
+      <div class="field-error">Please select your service radius</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="goBack(2)">← Back</button>
+      <button class="btn btn-next" onclick="goNext(2)">Continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Pilot Details -->
+  <div class="step" id="step-3">
+    <div class="step-title">Pilot details</div>
+    <div class="step-sub">Tell us about your gear and certifications</div>
+
+    <div class="field">
+      <label>Drone models you operate <span style="font-weight:400;color:var(--muted)">(select all that apply)</span></label>
+      <div class="chip-grid" id="drone-chips">
+        <div class="chip" data-val="DJI Mini 4 Pro"  onclick="toggleChip(this)">DJI Mini 4 Pro</div>
+        <div class="chip" data-val="DJI Mavic 3"     onclick="toggleChip(this)">DJI Mavic 3</div>
+        <div class="chip" data-val="DJI Air 3"       onclick="toggleChip(this)">DJI Air 3</div>
+        <div class="chip" data-val="Autel EVO II"    onclick="toggleChip(this)">Autel EVO II</div>
+        <div class="chip" data-val="Skydio 2+"       onclick="toggleChip(this)">Skydio 2+</div>
+        <div class="chip" data-val="Parrot Anafi"    onclick="toggleChip(this)">Parrot Anafi</div>
+        <div class="chip" data-val="Fixed wing"      onclick="toggleChip(this)">Fixed wing</div>
+        <div class="chip" data-val="Other"           onclick="toggleChip(this)">Other</div>
+      </div>
+      <div class="field-error" id="drone-error" style="display:none">Please select at least one drone model</div>
+    </div>
+
+    <div class="toggle-row" id="cert-toggle" onclick="toggleCert()">
+      <div class="toggle-info">
+        <strong>FAA Part 107 Certified</strong>
+        <span>Licensed Remote Pilot Certificate</span>
+      </div>
+      <div class="toggle-pill" id="cert-pill"></div>
+    </div>
+
+    <div id="cert-field" class="field">
+      <label>Certificate number</label>
+      <input type="text" id="f-cert" placeholder="FA3XXXXXXXX"/>
+      <div class="field-error">Please enter your certificate number</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="goBack(3)">← Back</button>
+      <button class="btn btn-next" onclick="goNext(3)">Review →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Review -->
+  <div class="step" id="step-4">
+    <div class="step-title">Review &amp; submit</div>
+    <div class="step-sub">Double-check your info before joining</div>
+
+    <div class="review-section">
+      <div class="review-heading">Account</div>
+      <div class="review-row">
+        <span class="review-key">Name</span>
+        <span class="review-val" id="rv-name">—</span>
+      </div>
+      <div class="review-row">
+        <span class="review-key">Email</span>
+        <span class="review-val" id="rv-email">—</span>
+      </div>
+    </div>
+
+    <div class="review-section">
+      <div class="review-heading">Contact &amp; Area</div>
+      <div class="review-row">
+        <span class="review-key">Phone</span>
+        <span class="review-val" id="rv-phone">—</span>
+      </div>
+      <div class="review-row">
+        <span class="review-key">City</span>
+        <span class="review-val" id="rv-city">—</span>
+      </div>
+      <div class="review-row">
+        <span class="review-key">Radius</span>
+        <span class="review-val" id="rv-radius">—</span>
+      </div>
+    </div>
+
+    <div class="review-section">
+      <div class="review-heading">Pilot Details</div>
+      <div class="review-row">
+        <span class="review-key">Drones</span>
+        <span class="review-val" id="rv-drones">—</span>
+      </div>
+      <div class="review-row">
+        <span class="review-key">Part 107</span>
+        <span class="review-val" id="rv-cert">—</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="goBack(4)">← Back</button>
+      <button class="btn btn-next" onclick="submitForm()">Join the Network ✓</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div id="success-screen">
+    <div class="success-icon">✓</div>
+    <h2>You're in!</h2>
+    <p>Welcome to Amber's Angels. Your pilot profile has been submitted for review.</p>
+    <p>We'll reach out within 24 hours with mission access details.</p>
+    <div class="success-note">
+      📋 <strong>Next steps:</strong> Check your email for a verification link. Once verified, you'll be added to the mission dispatch list for your area.
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let currentStep = 1
+let certOn      = false
+let selectedDrones = []
+
+// ── STEP NAVIGATION ───────────────────────────────────────────────────────────
+function goNext(from) {
+  if (!validateStep(from)) return
+  if (from === 3) populateReview()
+  setStep(from + 1)
+}
+function goBack(from) { setStep(from - 1) }
+
+function setStep(n) {
+  document.getElementById('step-' + currentStep).classList.remove('active')
+  document.getElementById('step-' + n).classList.add('active')
+
+  // Update bubbles
+  for (let i = 1; i <= 4; i++) {
+    const b = document.getElementById('bubble-' + i)
+    b.classList.remove('active', 'done')
+    if (i < n)      b.classList.add('done')
+    else if (i === n) b.classList.add('active')
+  }
+  // Update connectors
+  for (let i = 1; i <= 3; i++) {
+    const c = document.getElementById('conn-' + i)
+    c.classList.toggle('done', i < n)
+  }
+
+  currentStep = n
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// ── VALIDATION ────────────────────────────────────────────────────────────────
+function validateStep(step) {
+  let ok = true
+
+  if (step === 1) {
+    ok = requireField('f-name') && ok
+    ok = requireEmail('f-email') && ok
+    ok = requireMinLen('f-password', 8) && ok
+  }
+  if (step === 2) {
+    ok = requireField('f-phone') && ok
+    ok = requireField('f-city') && ok
+    ok = requireSelect('f-radius') && ok
+  }
+  if (step === 3) {
+    if (selectedDrones.length === 0) {
+      document.getElementById('drone-error').style.display = 'block'
+      ok = false
+    } else {
+      document.getElementById('drone-error').style.display = 'none'
+    }
+    if (certOn) ok = requireField('f-cert') && ok
+  }
+
+  return ok
+}
+
+function requireField(id) {
+  const el = document.getElementById(id)
+  const bad = !el.value.trim()
+  el.classList.toggle('error', bad)
+  return !bad
+}
+function requireEmail(id) {
+  const el = document.getElementById(id)
+  const bad = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value.trim())
+  el.classList.toggle('error', bad)
+  return !bad
+}
+function requireMinLen(id, len) {
+  const el = document.getElementById(id)
+  const bad = el.value.length < len
+  el.classList.toggle('error', bad)
+  return !bad
+}
+function requireSelect(id) {
+  const el = document.getElementById(id)
+  const bad = !el.value
+  el.classList.toggle('error', bad)
+  return !bad
+}
+
+// ── PASSWORD STRENGTH ─────────────────────────────────────────────────────────
+function checkStrength(val) {
+  let score = 0
+  if (val.length >= 8)              score++
+  if (/[A-Z]/.test(val))           score++
+  if (/[0-9]/.test(val))           score++
+  if (/[^A-Za-z0-9]/.test(val))   score++
+
+  const colors = ['', '#ef4444', '#f97316', '#eab308', '#10b981']
+  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong']
+
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('sb' + i).style.background =
+      i <= score ? colors[score] : 'var(--border)'
+  }
+  const lbl = document.getElementById('strength-label')
+  lbl.textContent = val.length ? labels[score] : ''
+  lbl.style.color = colors[score] || 'var(--muted)'
+}
+
+// ── DRONE CHIPS ───────────────────────────────────────────────────────────────
+function toggleChip(el) {
+  const val = el.dataset.val
+  const idx = selectedDrones.indexOf(val)
+  if (idx === -1) { selectedDrones.push(val); el.classList.add('selected') }
+  else            { selectedDrones.splice(idx, 1); el.classList.remove('selected') }
+  if (selectedDrones.length) document.getElementById('drone-error').style.display = 'none'
+}
+
+// ── CERT TOGGLE ───────────────────────────────────────────────────────────────
+function toggleCert() {
+  certOn = !certOn
+  const row  = document.getElementById('cert-toggle')
+  const pill = document.getElementById('cert-pill')
+  const fld  = document.getElementById('cert-field')
+  row.classList.toggle('on', certOn)
+  pill.classList.toggle('on', certOn)
+  fld.style.display = certOn ? 'block' : 'none'
+  if (!certOn) document.getElementById('f-cert').classList.remove('error')
+}
+
+// ── REVIEW ─────────────────────────────────────────────────────────────────────
+function populateReview() {
+  const radiusMap = {
+    '5':'Within 5 miles','10':'Within 10 miles','25':'Within 25 miles',
+    '50':'Within 50 miles','100':'Within 100 miles','anywhere':'Anywhere — I\'ll travel'
+  }
+  setText('rv-name',   document.getElementById('f-name').value)
+  setText('rv-email',  document.getElementById('f-email').value)
+  setText('rv-phone',  document.getElementById('f-phone').value)
+  setText('rv-city',   document.getElementById('f-city').value)
+  setText('rv-radius', radiusMap[document.getElementById('f-radius').value] || '—')
+  setText('rv-drones', selectedDrones.join(', ') || '—')
+  const certVal = certOn
+    ? `Yes — ${document.getElementById('f-cert').value || '(no number entered)'}`
+    : 'Not certified (recreational / hobbyist)'
+  setText('rv-cert', certVal)
+}
+function setText(id, val) {
+  document.getElementById(id).textContent = val || '—'
+}
+
+// ── SUBMIT ─────────────────────────────────────────────────────────────────────
+function submitForm() {
+  // In production: POST to /pilots/register with collected data
+  document.getElementById('progress-row').style.display = 'none'
+  for (let i = 1; i <= 4; i++) document.getElementById('step-' + i).style.display = 'none'
+  document.getElementById('success-screen').style.display = 'block'
+}
+
+// ── SSO (placeholder) ─────────────────────────────────────────────────────────
+function handleSSO(provider) {
+  alert(`${provider === 'google' ? 'Google' : 'Apple'} SSO not yet connected. Use email/password registration for now.`)
+}
+</script>
+</body>
+</html>

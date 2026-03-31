@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Amber's Angels — Mission Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+  :root {
+    --bg:       #060a0f;
+    --panel:    #0b1118;
+    --border:   #1a2a3a;
+    --accent:   #00d4ff;
+    --amber:    #ffaa00;
+    --danger:   #ff3355;
+    --green:    #00ff88;
+    --flock:    #ff6b35;
+    --drone:    #7b61ff;
+    --text:     #c8dce8;
+    --muted:    #4a6070;
+    --glow:     0 0 20px rgba(0,212,255,0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Exo 2', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    height: 52px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1000;
+  }
+
+  .logo {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--amber); }
+
+  .logo-divider {
+    width: 1px; height: 28px;
+    background: var(--border);
+  }
+
+  .mission-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+  .stat-pill .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-amber  { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .dot-danger { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; }
+    50%      { opacity:0.4; }
+  }
+
+  .clock {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 260px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+
+  .section-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* Layer toggles */
+  .layer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+    cursor: pointer;
+  }
+  .layer-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    font-weight: 400;
+    user-select: none;
+  }
+  .layer-swatch {
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .toggle {
+    width: 34px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: white;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: left 0.2s;
+  }
+  .toggle.on::after { left: 19px; }
+
+  /* Active drones list */
+  .drone-list { display: flex; flex-direction: column; gap: 6px; }
+  .drone-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(123,97,255,0.08);
+    border: 1px solid rgba(123,97,255,0.2);
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .drone-item:hover {
+    background: rgba(123,97,255,0.18);
+    border-color: var(--drone);
+  }
+  .drone-icon { font-size: 16px; }
+  .drone-info { flex: 1; min-width: 0; }
+  .drone-id { color: var(--drone); font-weight: 600; }
+  .drone-coords { color: var(--muted); font-size: 10px; margin-top: 2px; }
+  .drone-status {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(0,255,136,0.15);
+    color: var(--green);
+    border: 1px solid rgba(0,255,136,0.3);
+  }
+
+  /* Recent hits */
+  .hits-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px;
+  }
+  .hits-list::-webkit-scrollbar { width: 4px; }
+  .hits-list::-webkit-scrollbar-track { background: transparent; }
+  .hits-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .hit-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(26,42,58,0.6);
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .hit-item:hover { opacity: 0.75; }
+  .hit-plate {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+    font-weight: 600;
+    flex-shrink: 0;
+    min-width: 80px;
+  }
+  .hit-meta { flex: 1; min-width: 0; }
+  .hit-drone { font-size: 11px; color: var(--muted); }
+  .hit-time  { font-size: 10px; color: var(--muted); font-family: 'Share Tech Mono', monospace; margin-top: 2px; }
+  .hit-conf  {
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .hit-conf.high { background: rgba(255,51,85,0.2); color: var(--danger); border: 1px solid rgba(255,51,85,0.4); }
+  .hit-conf.med  { background: rgba(255,170,0,0.15); color: var(--amber);  border: 1px solid rgba(255,170,0,0.3); }
+
+  /* ── MAP ── */
+  #map {
+    flex: 1;
+    position: relative;
+  }
+
+  /* ── DETAIL PANEL (slides up from bottom-right) ── */
+  .detail-panel {
+    position: absolute;
+    bottom: 20px; right: 20px;
+    width: 300px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    z-index: 900;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: all 0.25s ease;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+  .detail-panel.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+  }
+  .detail-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .detail-close {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .detail-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(26,42,58,0.5); }
+  .detail-key { color: var(--muted); }
+  .detail-val { color: var(--text); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 900;
+    display: flex;
+    gap: 6px;
+    background: rgba(11,17,24,0.92);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px;
+    backdrop-filter: blur(8px);
+  }
+  .filter-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .filter-btn.active.flock  { background: var(--flock);  border-color: var(--flock); }
+  .filter-btn.active.drone  { background: var(--drone);  border-color: var(--drone); }
+  .filter-btn.active.heat   { background: var(--amber);  border-color: var(--amber); }
+
+  /* ── LEGEND ── */
+  .map-legend {
+    position: absolute;
+    bottom: 20px; left: 20px;
+    z-index: 900;
+    background: rgba(11,17,24,0.92);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 11px;
+    backdrop-filter: blur(8px);
+    min-width: 160px;
+  }
+  .legend-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-line { width: 18px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Leaflet overrides */
+  .leaflet-container { background: #060a0f !important; }
+  .leaflet-tile { filter: brightness(0.85) saturate(0.6) hue-rotate(195deg); }
+  .leaflet-control-zoom a {
+    background: var(--panel) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  .leaflet-control-attribution { display: none !important; }
+
+  /* Custom popup */
+  .leaflet-popup-content-wrapper {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    box-shadow: var(--glow) !important;
+    color: var(--text) !important;
+    font-family: 'Share Tech Mono', monospace !important;
+    font-size: 12px !important;
+  }
+  .leaflet-popup-tip { background: var(--panel) !important; }
+  .leaflet-popup-close-button { color: var(--muted) !important; }
+
+  .popup-title { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+  .popup-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+  .popup-key { color: var(--muted); }
+  .popup-val { color: var(--text); }
+  .popup-alert { color: var(--danger); margin-top: 6px; font-weight: 600; letter-spacing: 1px; }
+
+  /* Deconflict badge */
+  .deconflict-banner {
+    position: absolute;
+    top: 60px; right: 20px;
+    z-index: 900;
+    background: rgba(255,107,53,0.12);
+    border: 1px solid rgba(255,107,53,0.4);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--flock);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(8px);
+    max-width: 220px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">AMBER'S <span>ANGELS</span></div>
+  <div class="logo-divider"></div>
+  <div class="mission-label">MISSION CONTROL · CARROLLTON, GA</div>
+  <div class="topbar-right">
+    <div class="stat-pill"><div class="dot dot-green"></div><span id="stat-drones">3 DRONES ACTIVE</span></div>
+    <div class="stat-pill"><div class="dot dot-danger"></div><span id="stat-hits">7 HITS TODAY</span></div>
+    <div class="stat-pill"><div class="dot dot-amber"></div><span id="stat-flock">12 FLOCK CAMS</span></div>
+    <div class="clock" id="clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Layer Controls -->
+    <div class="sidebar-section">
+      <div class="section-title">Map Layers</div>
+
+      <div class="layer-row" onclick="toggleLayer('flock')">
+        <div class="layer-label">
+          <div class="layer-swatch" style="background:var(--flock)"></div>
+          Flock ALPR Cameras
+        </div>
+        <div class="toggle on" id="tog-flock"></div>
+      </div>
+
+      <div class="layer-row" onclick="toggleLayer('coverage')">
+        <div class="layer-label">
+          <div class="layer-swatch" style="background:rgba(255,107,53,0.4); border:1px dashed var(--flock)"></div>
+          Coverage Ellipses
+        </div>
+        <div class="toggle on" id="tog-coverage"></div>
+      </div>
+
+      <div class="layer-row" onclick="toggleLayer('drones')">
+        <div class="layer-label">
+          <div class="layer-swatch" style="background:var(--drone)"></div>
+          Active Drones
+        </div>
+        <div class="toggle on" id="tog-drones"></div>
+      </div>
+
+      <div class="layer-row" onclick="toggleLayer('heat')">
+        <div class="layer-label">
+          <div class="layer-swatch" style="background: linear-gradient(90deg, #00ff88, #ffaa00, #ff3355)"></div>
+          Detection Heatmap
+        </div>
+        <div class="toggle on" id="tog-heat"></div>
+      </div>
+
+      <div class="layer-row" onclick="toggleLayer('hits')">
+        <div class="layer-label">
+          <div class="layer-swatch" style="background:var(--amber)"></div>
+          Watchlist Hits
+        </div>
+        <div class="toggle on" id="tog-hits"></div>
+      </div>
+    </div>
+
+    <!-- Active Drones -->
+    <div class="sidebar-section">
+      <div class="section-title">Active Drones</div>
+      <div class="drone-list" id="drone-list"></div>
+    </div>
+
+    <!-- Recent Hits -->
+    <div class="section-title" style="padding: 14px 16px 4px; font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600; letter-spacing:3px; color:var(--muted); text-transform:uppercase;">Recent Hits</div>
+    <div class="hits-list" id="hits-list"></div>
+
+  </div>
+
+  <!-- MAP CONTAINER -->
+  <div id="map" style="position:relative;">
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="setTimeFilter('all', this)">ALL TIME</button>
+      <button class="filter-btn" onclick="setTimeFilter('24h', this)">24H</button>
+      <button class="filter-btn" onclick="setTimeFilter('7d', this)">7 DAYS</button>
+      <button class="filter-btn" onclick="setTimeFilter('30d', this)">30 DAYS</button>
+    </div>
+
+    <!-- Deconflict tip -->
+    <div class="deconflict-banner">
+      ⚡ <span>Flock-dark zones highlighted — suggest pilots prioritize these areas</span>
+    </div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="legend-title">Legend</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--flock)"></div><span>Flock ALPR Camera</span></div>
+      <div class="legend-row"><div class="legend-line" style="background:rgba(255,107,53,0.5); border:1px dashed var(--flock)"></div><span>Coverage Ellipse (~1000ft)</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--drone)"></div><span>Active Drone</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--amber)"></div><span>Watchlist Hit</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--danger)"></div><span>High Confidence Hit</span></div>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-title">
+        <span id="dp-title">—</span>
+        <span class="detail-close" onclick="closeDetail()">×</span>
+      </div>
+      <div id="dp-body"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// SEED DATA — replace with live API calls
+// Carrollton, GA area: 33.5801, -85.0766
+// ─────────────────────────────────────────────
+
+const CENTER = [33.5801, -85.0766];
+
+// Simulated Flock cameras around Carrollton, GA
+// In production: fetch from your backend which seeds from DeFlock/FOIA data
+const FLOCK_CAMERAS = [
+  { id:'FLK-001', lat:33.5840, lon:-85.0820, heading:90,  road:'Bankhead Hwy & N Park St', agency:'Carrollton PD' },
+  { id:'FLK-002', lat:33.5760, lon:-85.0710, heading:180, road:'US-27 & Dixie St',          agency:'Carrollton PD' },
+  { id:'FLK-003', lat:33.5910, lon:-85.0650, heading:270, road:'GA-16 E entrance',           agency:'Carroll County SO' },
+  { id:'FLK-004', lat:33.5720, lon:-85.0900, heading:45,  road:'Newnan Rd & Maple St',       agency:'Carrollton PD' },
+  { id:'FLK-005', lat:33.5680, lon:-85.0600, heading:135, road:'US-27 ALT & Bradley St',     agency:'Carroll County SO' },
+  { id:'FLK-006', lat:33.6010, lon:-85.0750, heading:0,   road:'Canton Rd & Hospital Dr',    agency:'Carrollton PD' },
+  { id:'FLK-007', lat:33.5820, lon:-85.0520, heading:90,  road:'Cleburne St & UWG entrance', agency:'UWG Campus PD' },
+  { id:'FLK-008', lat:33.5650, lon:-85.0780, heading:225, road:'Sandhill Rd checkpoint',     agency:'Carroll County SO' },
+  { id:'FLK-009', lat:33.5950, lon:-85.0880, heading:315, road:'Villa Rica Hwy N bound',     agency:'Carroll County SO' },
+  { id:'FLK-010', lat:33.5710, lon:-85.0490, heading:60,  road:'Stripling Chapel Rd',        agency:'Carrollton PD' },
+  { id:'FLK-011', lat:33.5870, lon:-85.0960, heading:150, road:'Ga-166 W outbound',          agency:'GDOT' },
+  { id:'FLK-012', lat:33.5590, lon:-85.0690, heading:270, road:'S Park St & Carroll St',     agency:'Carrollton PD' },
+];
+
+// Active drones
+const DRONES = [
+  { id:'ANGEL-01', lat:33.5901, lon:-85.0821, alt:120, battery:78, drone:'DJI Mini 4 Pro',   speed:'12 kts', status:'ACTIVE' },
+  { id:'ANGEL-02', lat:33.5685, lon:-85.0554, alt:95,  battery:61, drone:'DJI Mavic 3',      speed:'8 kts',  status:'ACTIVE' },
+  { id:'ANGEL-03', lat:33.5740, lon:-85.0830, alt:150, battery:44, drone:'Autel EVO II',     speed:'15 kts', status:'ACTIVE' },
+];
+
+// Detection history (for heatmap + pins)
+const DETECTIONS = [
+  { id:'D001', plate:'GFH2841', lat:33.5880, lon:-85.0800, conf:97.2, drone:'ANGEL-01', ts:'09:14:32', watchlist:true  },
+  { id:'D002', plate:'RXK4499', lat:33.5720, lon:-85.0600, conf:88.5, drone:'ANGEL-02', ts:'08:55:11', watchlist:false },
+  { id:'D003', plate:'AMB3R1',  lat:33.5960, lon:-85.0750, conf:94.1, drone:'ANGEL-01', ts:'08:42:07', watchlist:true  },
+  { id:'D004', plate:'JKL7723', lat:33.5650, lon:-85.0880, conf:76.3, drone:'ANGEL-03', ts:'08:30:45', watchlist:false },
+  { id:'D005', plate:'PQR5512', lat:33.5800, lon:-85.0500, conf:91.8, drone:'ANGEL-02', ts:'08:18:22', watchlist:false },
+  { id:'D006', plate:'TGV9901', lat:33.5820, lon:-85.0820, conf:85.4, drone:'ANGEL-03', ts:'08:05:03', watchlist:false },
+  { id:'D007', plate:'XBT3381', lat:33.5750, lon:-85.0710, conf:99.0, drone:'ANGEL-01', ts:'07:50:14', watchlist:true  },
+  // Density clusters for heatmap
+  { id:'H001', plate:'—', lat:33.5870, lon:-85.0790, conf:80, drone:'—', ts:'07:30', watchlist:false },
+  { id:'H002', plate:'—', lat:33.5860, lon:-85.0810, conf:80, drone:'—', ts:'07:28', watchlist:false },
+  { id:'H003', plate:'—', lat:33.5880, lon:-85.0795, conf:80, drone:'—', ts:'07:25', watchlist:false },
+  { id:'H004', plate:'—', lat:33.5690, lon:-85.0570, conf:80, drone:'—', ts:'06:55', watchlist:false },
+  { id:'H005', plate:'—', lat:33.5700, lon:-85.0580, conf:80, drone:'—', ts:'06:52', watchlist:false },
+  { id:'H006', plate:'—', lat:33.5950, lon:-85.0760, conf:80, drone:'—', ts:'06:40', watchlist:false },
+];
+
+// ─────────────────────────────────────────────
+// MAP INIT
+// ─────────────────────────────────────────────
+const map = L.map('map', {
+  center: CENTER,
+  zoom: 13,
+  zoomControl: true,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+// Layer groups
+const layerFlock    = L.layerGroup().addTo(map);
+const layerCoverage = L.layerGroup().addTo(map);
+const layerDrones   = L.layerGroup().addTo(map);
+const layerHits     = L.layerGroup().addTo(map);
+let   heatLayer     = null;
+
+const layerMap = {
+  flock:    layerFlock,
+  coverage: layerCoverage,
+  drones:   layerDrones,
+  hits:     layerHits,
+};
+const layerState = { flock:true, coverage:true, drones:true, hits:true, heat:true };
+
+// ─────────────────────────────────────────────
+// ICONS
+// ─────────────────────────────────────────────
+function svgIcon(svg, size=[28,28], anchor=null) {
+  return L.divIcon({
+    html: svg,
+    iconSize: size,
+    iconAnchor: anchor || [size[0]/2, size[1]/2],
+    className: '',
+    popupAnchor: [0, -size[1]/2],
+  });
+}
+
+const flockIcon = svgIcon(`
+  <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="4" y="2" width="16" height="18" rx="3" fill="#ff6b35" opacity="0.9"/>
+    <rect x="7" y="5" width="10" height="8" rx="1" fill="#060a0f"/>
+    <circle cx="12" cy="9" r="3" fill="#ff6b35"/>
+    <circle cx="12" cy="9" r="1.5" fill="#060a0f"/>
+    <polygon points="12,22 7,20 17,20" fill="#ff6b35" opacity="0.9"/>
+    <line x1="12" y1="22" x2="12" y2="28" stroke="#ff6b35" stroke-width="2"/>
+  </svg>
+`, [24,28], [12,28]);
+
+function droneIcon(id) {
+  return svgIcon(`
+    <div style="position:relative;width:36px;height:36px;">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="16" fill="rgba(123,97,255,0.15)" stroke="#7b61ff" stroke-width="1.5"/>
+        <polygon points="18,8 26,26 18,22 10,26" fill="#7b61ff"/>
+        <circle cx="18" cy="18" r="2.5" fill="#060a0f" stroke="#7b61ff" stroke-width="1"/>
+      </svg>
+      <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);
+        background:#7b61ff;color:#060a0f;font-size:8px;font-family:'Rajdhani',sans-serif;
+        font-weight:700;padding:1px 4px;border-radius:2px;white-space:nowrap;letter-spacing:1px;">
+        ${id}
+      </div>
+    </div>
+  `, [36,44], [18,36]);
+}
+
+function hitIcon(high) {
+  const c = high ? '#ff3355' : '#ffaa00';
+  return svgIcon(`
+    <svg width="22" height="28" viewBox="0 0 22 28" fill="none">
+      <path d="M11 0 C5 0 0 5 0 11 C0 19 11 28 11 28 C11 28 22 19 22 11 C22 5 17 0 11 0Z" fill="${c}" opacity="0.9"/>
+      <circle cx="11" cy="11" r="5" fill="#060a0f"/>
+      <circle cx="11" cy="11" r="2.5" fill="${c}"/>
+    </svg>
+  `, [22,28], [11,28]);
+}
+
+// ─────────────────────────────────────────────
+// RENDER FLOCK CAMERAS
+// ─────────────────────────────────────────────
+function renderFlock() {
+  layerFlock.clearLayers();
+  layerCoverage.clearLayers();
+
+  FLOCK_CAMERAS.forEach(cam => {
+    // Pin
+    const m = L.marker([cam.lat, cam.lon], { icon: flockIcon });
+    m.bindPopup(`
+      <div class="popup-title">🎥 ${cam.id}</div>
+      <div class="popup-row"><span class="popup-key">Road</span><span class="popup-val">${cam.road}</span></div>
+      <div class="popup-row"><span class="popup-key">Agency</span><span class="popup-val">${cam.agency}</span></div>
+      <div class="popup-row"><span class="popup-key">Heading</span><span class="popup-val">${cam.heading}°</span></div>
+      <div class="popup-row"><span class="popup-key">Coverage</span><span class="popup-val">~1,000 ft</span></div>
+    `);
+    m.addTo(layerFlock);
+
+    // Coverage ellipse — directional, ~1000ft radius oriented to heading
+    // We approximate as a slightly stretched circle (Leaflet doesn't do true ellipses natively)
+    const coverageCircle = L.circle([cam.lat, cam.lon], {
+      radius: 200,   // metres ≈ 650ft, adjust per Flock spec
+      color: '#ff6b35',
+      fillColor: '#ff6b35',
+      fillOpacity: 0.07,
+      weight: 1,
+      dashArray: '4,4',
+      opacity: 0.5,
+    });
+    coverageCircle.addTo(layerCoverage);
+
+    // Direction indicator line
+    const rad = (cam.heading - 90) * Math.PI / 180;
+    const len = 0.0025; // roughly 200m in degrees
+    const endLat = cam.lat + Math.sin(cam.heading * Math.PI / 180) * len;
+    const endLon = cam.lon + Math.cos(cam.heading * Math.PI / 180) * len;
+    L.polyline([[cam.lat, cam.lon], [endLat, endLon]], {
+      color: '#ff6b35',
+      weight: 2,
+      opacity: 0.7,
+      dashArray: '6,3',
+    }).addTo(layerCoverage);
+  });
+}
+
+// ─────────────────────────────────────────────
+// RENDER DRONES
+// ─────────────────────────────────────────────
+function renderDrones() {
+  layerDrones.clearLayers();
+  const list = document.getElementById('drone-list');
+  list.innerHTML = '';
+
+  DRONES.forEach(d => {
+    const m = L.marker([d.lat, d.lon], { icon: droneIcon(d.id) });
+    m.bindPopup(`
+      <div class="popup-title">✈ ${d.id}</div>
+      <div class="popup-row"><span class="popup-key">Model</span><span class="popup-val">${d.drone}</span></div>
+      <div class="popup-row"><span class="popup-key">Altitude</span><span class="popup-val">${d.alt}m AGL</span></div>
+      <div class="popup-row"><span class="popup-key">Speed</span><span class="popup-val">${d.speed}</span></div>
+      <div class="popup-row"><span class="popup-key">Battery</span><span class="popup-val">${d.battery}%</span></div>
+    `);
+    m.on('click', () => showDetail('drone', d));
+    m.addTo(layerDrones);
+
+    // Sidebar entry
+    const el = document.createElement('div');
+    el.className = 'drone-item';
+    el.innerHTML = `
+      <div class="drone-icon">✈</div>
+      <div class="drone-info">
+        <div class="drone-id">${d.id}</div>
+        <div class="drone-coords">${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</div>
+      </div>
+      <div class="drone-status">${d.battery}%</div>
+    `;
+    el.onclick = () => map.flyTo([d.lat, d.lon], 15);
+    list.appendChild(el);
+  });
+}
+
+// ─────────────────────────────────────────────
+// RENDER HITS
+// ─────────────────────────────────────────────
+function renderHits() {
+  layerHits.clearLayers();
+  const list = document.getElementById('hits-list');
+  list.innerHTML = '';
+
+  const watchlistOnly = DETECTIONS.filter(d => d.watchlist);
+
+  watchlistOnly.forEach(d => {
+    const m = L.marker([d.lat, d.lon], { icon: hitIcon(d.conf > 90) });
+    m.bindPopup(`
+      <div class="popup-title">🚨 ${d.plate}</div>
+      <div class="popup-row"><span class="popup-key">Confidence</span><span class="popup-val">${d.conf}%</span></div>
+      <div class="popup-row"><span class="popup-key">Drone</span><span class="popup-val">${d.drone}</span></div>
+      <div class="popup-row"><span class="popup-key">Time</span><span class="popup-val">${d.ts} UTC</span></div>
+      <div class="popup-alert">⚠ WATCHLIST MATCH</div>
+    `);
+    m.on('click', () => showDetail('hit', d));
+    m.addTo(layerHits);
+
+    // Sidebar entry
+    const el = document.createElement('div');
+    el.className = 'hit-item';
+    el.innerHTML = `
+      <div class="hit-plate">${d.plate}</div>
+      <div class="hit-meta">
+        <div class="hit-drone">${d.drone}</div>
+        <div class="hit-time">${d.ts} UTC</div>
+      </div>
+      <div class="hit-conf ${d.conf > 90 ? 'high' : 'med'}">${d.conf.toFixed(0)}%</div>
+    `;
+    el.onclick = () => map.flyTo([d.lat, d.lon], 16);
+    list.appendChild(el);
+  });
+}
+
+// ─────────────────────────────────────────────
+// HEATMAP
+// ─────────────────────────────────────────────
+function renderHeat() {
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  const pts = DETECTIONS.map(d => [d.lat, d.lon, d.conf / 100]);
+  heatLayer = L.heatLayer(pts, {
+    radius: 30,
+    blur: 25,
+    maxZoom: 17,
+    gradient: { 0.2: '#00ff88', 0.5: '#ffaa00', 0.8: '#ff3355' }
+  }).addTo(map);
+}
+
+// ─────────────────────────────────────────────
+// LAYER TOGGLE
+// ─────────────────────────────────────────────
+function toggleLayer(name) {
+  layerState[name] = !layerState[name];
+  const tog = document.getElementById('tog-' + name);
+  if (tog) tog.classList.toggle('on', layerState[name]);
+
+  if (name === 'heat') {
+    if (layerState.heat) renderHeat();
+    else if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    return;
+  }
+
+  const lg = layerMap[name];
+  if (!lg) return;
+  if (layerState[name]) map.addLayer(lg);
+  else map.removeLayer(lg);
+}
+
+// ─────────────────────────────────────────────
+// TIME FILTER (UI only for now)
+// ─────────────────────────────────────────────
+function setTimeFilter(range, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // In production: re-fetch /map/data?range=24h and re-render layers
+  console.log('Filter:', range);
+}
+
+// ─────────────────────────────────────────────
+// DETAIL PANEL
+// ─────────────────────────────────────────────
+function showDetail(type, data) {
+  const panel = document.getElementById('detail-panel');
+  const title = document.getElementById('dp-title');
+  const body  = document.getElementById('dp-body');
+
+  if (type === 'drone') {
+    title.textContent = `✈ ${data.id}`;
+    body.innerHTML = `
+      <div class="detail-row"><span class="detail-key">Model</span><span class="detail-val">${data.drone}</span></div>
+      <div class="detail-row"><span class="detail-key">Altitude</span><span class="detail-val">${data.alt}m AGL</span></div>
+      <div class="detail-row"><span class="detail-key">Speed</span><span class="detail-val">${data.speed}</span></div>
+      <div class="detail-row"><span class="detail-key">Battery</span><span class="detail-val">${data.battery}%</span></div>
+      <div class="detail-row"><span class="detail-key">Lat/Lon</span><span class="detail-val">${data.lat.toFixed(5)}, ${data.lon.toFixed(5)}</span></div>
+      <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val" style="color:var(--green)">${data.status}</span></div>
+    `;
+  } else if (type === 'hit') {
+    title.textContent = `🚨 ${data.plate}`;
+    body.innerHTML = `
+      <div class="detail-row"><span class="detail-key">Confidence</span><span class="detail-val">${data.conf}%</span></div>
+      <div class="detail-row"><span class="detail-key">Drone</span><span class="detail-val">${data.drone}</span></div>
+      <div class="detail-row"><span class="detail-key">Time</span><span class="detail-val">${data.ts} UTC</span></div>
+      <div class="detail-row"><span class="detail-key">Lat/Lon</span><span class="detail-val">${data.lat.toFixed(5)}, ${data.lon.toFixed(5)}</span></div>
+      <div class="detail-row"><span class="detail-key">Watchlist</span><span class="detail-val" style="color:var(--danger)">⚠ MATCH</span></div>
+    `;
+  }
+
+  panel.classList.add('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('visible');
+}
+
+// ─────────────────────────────────────────────
+// CLOCK
+// ─────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2,'0');
+  const m = String(now.getUTCMinutes()).padStart(2,'0');
+  const s = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─────────────────────────────────────────────
+// DRONE SIMULATION — moves drones slightly each tick
+// ─────────────────────────────────────────────
+function simulateDrones() {
+  DRONES.forEach(d => {
+    d.lat += (Math.random() - 0.5) * 0.0008;
+    d.lon += (Math.random() - 0.5) * 0.0008;
+    d.battery = Math.max(5, d.battery - 0.05);
+  });
+  renderDrones();
+}
+setInterval(simulateDrones, 3000);
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+renderFlock();
+renderDrones();
+renderHits();
+renderHeat();
+
+// Flock count badge
+document.getElementById('stat-flock').textContent = `${FLOCK_CAMERAS.length} FLOCK CAMS`;
+</script>
+</body>
+</html>

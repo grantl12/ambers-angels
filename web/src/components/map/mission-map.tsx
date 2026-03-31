@@ -6,21 +6,32 @@ import { useMemo, useState } from "react"
 import { env } from "@/lib/env"
 import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
+import { useFlockCameras } from "@/features/flock/api"
+import type { FlockCamera } from "@/features/flock/api"
 import type { Detection } from "@/features/detections/types"
+import type { LayerState } from "@/app/map/page"
 
-export function MissionMap() {
+type TimeRange = "all" | "24h" | "7d" | "30d"
+
+type Props = { layers: LayerState }
+
+export function MissionMap({ layers }: Props) {
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null)
+  const [selectedFlock, setSelectedFlock]         = useState<FlockCamera | null>(null)
+  const [timeRange, setTimeRange]                 = useState<TimeRange>("all")
 
-  const { data: drones = [] }     = useLatestTelemetry()
-  const { data: trail }           = useTelemetryTrail("drone1", 30)
-  const { data: detections = [] } = useDetectionsFeed(100)
-  const { data: watchlist = [] }  = useWatchlist()
+  const { data: drones = [] }        = useLatestTelemetry()
+  const { data: trail }              = useTelemetryTrail("drone1", 30)
+  const { data: detections = [] }    = useDetectionsFeed(100)
+  const { data: watchlist = [] }     = useWatchlist()
+  const { data: flockCameras = [] }  = useFlockCameras()
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
     [watchlist]
   )
 
+  // Flight trail GeoJSON
   const trailGeoJson = useMemo(() => ({
     type: "Feature" as const,
     geometry: {
@@ -30,93 +41,310 @@ export function MissionMap() {
     properties: {},
   }), [trail])
 
-  const center = drones[0]
-    ? { longitude: drones[0].lng, latitude: drones[0].lat }
-    : { longitude: -97.7431, latitude: 30.2672 }
+  // Flock camera coverage circles GeoJSON
+  const flockCoverageGeoJson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: flockCameras.map((cam) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [cam.lng, cam.lat] },
+      properties: { id: cam.id },
+    })),
+  }), [flockCameras])
+
+  // Heatmap GeoJSON from detections with GPS
+  const heatmapGeoJson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: detections
+      .filter((d) => d.lat != null && d.lng != null)
+      .map((d) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [d.lng!, d.lat!] },
+        properties: { weight: (d.confidence ?? 80) / 100 },
+      })),
+  }), [detections])
+
+  // Always open on Carrollton, GA — drones appear as markers wherever they are
+  const center = { longitude: -85.0766, latitude: 33.5801 }
 
   const mappable = detections.filter((d) => d.lat != null && d.lng != null)
 
   return (
-    <Map
-      initialViewState={{ ...center, zoom: 14 }}
-      mapStyle="mapbox://styles/mapbox/dark-v11"
-      mapboxAccessToken={env.mapboxToken}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <NavigationControl position="top-right" />
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <Map
+        initialViewState={{ ...center, zoom: 13 }}
+        mapStyle="mapbox://styles/mapbox/dark-v11"
+        mapboxAccessToken={env.mapboxToken}
+        style={{ width: "100%", height: "100%" }}
+        onClick={() => { setSelectedDetection(null); setSelectedFlock(null) }}
+      >
+        <NavigationControl position="top-right" />
 
-      {/* Flight trail */}
-      <Source id="trail" type="geojson" data={trailGeoJson}>
-        <Layer
-          id="trail-line"
-          type="line"
-          paint={{
-            "line-color": "#38bdf8",
-            "line-width": 2,
-            "line-opacity": 0.6,
-          }}
-        />
-      </Source>
+        {/* Flight trail */}
+        <Source id="trail" type="geojson" data={trailGeoJson}>
+          <Layer
+            id="trail-line"
+            type="line"
+            paint={{
+              "line-color": "#38bdf8",
+              "line-width": 2,
+              "line-opacity": 0.6,
+            }}
+          />
+        </Source>
 
-      {/* Drone markers */}
-      {drones.map((drone) => (
-        <Marker key={drone.droneId} longitude={drone.lng} latitude={drone.lat} anchor="center">
-          <div className="relative flex items-center justify-center">
-            <div className="h-4 w-4 rounded-full border-2 border-white bg-sky-400 shadow-lg" />
-            <div className="absolute h-8 w-8 rounded-full bg-sky-400/20 animate-ping" />
-          </div>
-        </Marker>
-      ))}
+        {/* Flock coverage circles */}
+        {layers.coverage && (
+          <Source id="flock-coverage" type="geojson" data={flockCoverageGeoJson}>
+            <Layer
+              id="flock-coverage-fill"
+              type="circle"
+              paint={{
+                "circle-radius": 36,
+                "circle-color": "#ff6b35",
+                "circle-opacity": 0.07,
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#ff6b35",
+                "circle-stroke-opacity": 0.4,
+              }}
+            />
+          </Source>
+        )}
 
-      {/* Detection markers */}
-      {mappable.map((detection) => {
-        const isAlert = watchlistPlates.has((detection.plateText ?? "").toUpperCase())
-        return (
+        {/* Detection heatmap */}
+        {layers.heat && heatmapGeoJson.features.length > 0 && (
+          <Source id="heatmap" type="geojson" data={heatmapGeoJson}>
+            <Layer
+              id="heatmap-layer"
+              type="heatmap"
+              paint={{
+                "heatmap-weight": ["get", "weight"],
+                "heatmap-intensity": 1,
+                "heatmap-radius": 30,
+                "heatmap-opacity": 0.7,
+                "heatmap-color": [
+                  "interpolate", ["linear"], ["heatmap-density"],
+                  0,    "rgba(0,255,136,0)",
+                  0.2,  "#00ff88",
+                  0.5,  "#ffaa00",
+                  0.8,  "#ff3355",
+                  1,    "#ff0040",
+                ],
+              }}
+            />
+          </Source>
+        )}
+
+        {/* Flock camera markers */}
+        {layers.flock && flockCameras.map((cam) => (
           <Marker
-            key={detection.id}
-            longitude={detection.lng!}
-            latitude={detection.lat!}
+            key={cam.id}
+            longitude={cam.lng}
+            latitude={cam.lat}
             anchor="center"
             onClick={(e) => {
               e.originalEvent.stopPropagation()
-              setSelectedDetection(detection)
+              setSelectedFlock(cam)
+              setSelectedDetection(null)
             }}
           >
             <div
-              className={`h-3 w-3 cursor-pointer rounded-full border border-white shadow transition-transform hover:scale-125 ${
-                isAlert ? "bg-red-500" : "bg-amber-400"
-              }`}
-            />
+              title={cam.id}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 3,
+                background: "#ff6b35",
+                border: "1.5px solid rgba(255,107,53,0.8)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                fontSize: 11,
+              }}
+            >
+              📷
+            </div>
           </Marker>
-        )
-      })}
+        ))}
 
-      {/* Popup */}
-      {selectedDetection?.lat != null && selectedDetection?.lng != null && (
-        <Popup
-          longitude={selectedDetection.lng!}
-          latitude={selectedDetection.lat!}
-          anchor="top"
-          onClose={() => setSelectedDetection(null)}
-        >
-          <div className="min-w-[140px] text-sm text-neutral-900">
-            <div className="font-semibold text-base">
-              {selectedDetection.plateText || "Unknown plate"}
+        {/* Flock popup */}
+        {selectedFlock && (
+          <Popup
+            longitude={selectedFlock.lng}
+            latitude={selectedFlock.lat}
+            anchor="top"
+            onClose={() => setSelectedFlock(null)}
+          >
+            <div className="min-w-[160px] text-sm text-neutral-900">
+              <div className="font-semibold text-base text-orange-600">{selectedFlock.id}</div>
+              <div className="mt-1 text-neutral-600">{selectedFlock.road}</div>
+              <div className="text-neutral-500 text-xs">{selectedFlock.agency}</div>
+              <div className="text-neutral-500 text-xs">Heading: {selectedFlock.heading}°</div>
             </div>
-            {watchlistPlates.has((selectedDetection.plateText ?? "").toUpperCase()) && (
-              <div className="mt-1 text-xs font-bold text-red-600">WATCHLIST HIT</div>
-            )}
-            <div className="mt-1 text-neutral-600">Drone: {selectedDetection.droneId}</div>
-            <div className="text-neutral-600">
-              Confidence:{" "}
-              {selectedDetection.confidence != null
-                ? `${selectedDetection.confidence.toFixed(1)}%`
-                : "n/a"}
+          </Popup>
+        )}
+
+        {/* Drone markers */}
+        {layers.drones && drones.map((drone) => (
+          <Marker key={drone.droneId} longitude={drone.lng} latitude={drone.lat} anchor="center">
+            <div className="relative flex items-center justify-center">
+              <div className="h-4 w-4 rounded-full border-2 border-white bg-violet-400 shadow-lg" />
+              <div className="absolute h-8 w-8 rounded-full bg-violet-400/20 animate-ping" />
             </div>
-            <div className="text-neutral-600">Status: {selectedDetection.status}</div>
+          </Marker>
+        ))}
+
+        {/* Detection markers */}
+        {layers.hits && mappable.map((detection) => {
+          const isAlert = watchlistPlates.has((detection.plateText ?? "").toUpperCase())
+          return (
+            <Marker
+              key={detection.id}
+              longitude={detection.lng!}
+              latitude={detection.lat!}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation()
+                setSelectedDetection(detection)
+                setSelectedFlock(null)
+              }}
+            >
+              <div
+                className={`h-3 w-3 cursor-pointer rounded-full border border-white shadow transition-transform hover:scale-125 ${
+                  isAlert ? "bg-red-500" : "bg-amber-400"
+                }`}
+              />
+            </Marker>
+          )
+        })}
+
+        {/* Detection popup */}
+        {selectedDetection?.lat != null && selectedDetection?.lng != null && (
+          <Popup
+            longitude={selectedDetection.lng!}
+            latitude={selectedDetection.lat!}
+            anchor="top"
+            onClose={() => setSelectedDetection(null)}
+          >
+            <div className="min-w-[140px] text-sm text-neutral-900">
+              <div className="font-semibold text-base">
+                {selectedDetection.plateText || "Unknown plate"}
+              </div>
+              {watchlistPlates.has((selectedDetection.plateText ?? "").toUpperCase()) && (
+                <div className="mt-1 text-xs font-bold text-red-600">WATCHLIST HIT</div>
+              )}
+              <div className="mt-1 text-neutral-600">Drone: {selectedDetection.droneId}</div>
+              <div className="text-neutral-600">
+                Confidence:{" "}
+                {selectedDetection.confidence != null
+                  ? `${selectedDetection.confidence.toFixed(1)}%`
+                  : "n/a"}
+              </div>
+              <div className="text-neutral-600">Status: {selectedDetection.status}</div>
+            </div>
+          </Popup>
+        )}
+      </Map>
+
+      {/* ── FILTER BAR ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10,
+          display: "flex",
+          gap: 4,
+          background: "rgba(10,15,22,0.88)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 6,
+          padding: 5,
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {(["all", "24h", "7d", "30d"] as TimeRange[]).map((range) => (
+          <button
+            key={range}
+            onClick={() => setTimeRange(range)}
+            style={{
+              fontFamily: "inherit",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "1.5px",
+              textTransform: "uppercase",
+              padding: "4px 10px",
+              borderRadius: 4,
+              border: "1px solid",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              background: timeRange === range ? "#38bdf8" : "transparent",
+              borderColor: timeRange === range ? "#38bdf8" : "rgba(255,255,255,0.15)",
+              color: timeRange === range ? "#060a0f" : "rgba(255,255,255,0.4)",
+            }}
+          >
+            {range === "all" ? "ALL TIME" : range.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* ── DECONFLICT BANNER ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 52,
+          zIndex: 10,
+          background: "rgba(255,107,53,0.1)",
+          border: "1px solid rgba(255,107,53,0.35)",
+          borderRadius: 6,
+          padding: "7px 12px",
+          fontSize: 11,
+          color: "#ff6b35",
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          backdropFilter: "blur(8px)",
+          maxWidth: 220,
+          lineHeight: 1.4,
+        }}
+      >
+        ⚡ Flock-dark zones highlighted — prioritize these areas
+      </div>
+
+      {/* ── LEGEND ── */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 28,
+          left: 12,
+          zIndex: 10,
+          background: "rgba(10,15,22,0.88)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 6,
+          padding: "10px 14px",
+          fontSize: 11,
+          backdropFilter: "blur(8px)",
+          minWidth: 160,
+          color: "rgba(200,220,232,0.85)",
+        }}
+      >
+        <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 8 }}>
+          Legend
+        </div>
+        {[
+          { color: "#ff6b35", label: "Flock ALPR Camera" },
+          { color: "#7b61ff", label: "Active Drone" },
+          { color: "#ffaa00", label: "Detection" },
+          { color: "#ff3355", label: "Watchlist Hit" },
+          { color: "#38bdf8", label: "Flight Trail" },
+        ].map(({ color, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            <span>{label}</span>
           </div>
-        </Popup>
-      )}
-    </Map>
+        ))}
+      </div>
+    </div>
   )
 }

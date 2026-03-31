@@ -4,6 +4,7 @@ import { useActiveMissions } from "@/features/missions/api"
 import { useLatestTelemetry } from "@/features/telemetry/api"
 import { useDetectionsFeed } from "@/features/detections/api"
 import { env } from "@/lib/env"
+import { useEffect, useState } from "react"
 
 export function TopBar() {
   const { data: missions = [] }   = useActiveMissions()
@@ -12,6 +13,21 @@ export function TopBar() {
 
   const mission    = missions[0]
   const alertCount = detections.filter((d) => d.status === "alerted").length
+
+  const [utcTime, setUtcTime] = useState("")
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      setUtcTime(
+        `${String(now.getUTCHours()).padStart(2, "0")}:` +
+        `${String(now.getUTCMinutes()).padStart(2, "0")}:` +
+        `${String(now.getUTCSeconds()).padStart(2, "0")} UTC`
+      )
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-black/80 px-4 backdrop-blur-sm">
@@ -35,6 +51,9 @@ export function TopBar() {
           <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-400">
             {alertCount} alert{alertCount !== 1 ? "s" : ""}
           </span>
+        )}
+        {utcTime && (
+          <span className="font-mono text-white/30">{utcTime}</span>
         )}
       </div>
     </header>
