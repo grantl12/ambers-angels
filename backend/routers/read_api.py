@@ -127,6 +127,136 @@ def get_active_missions():
         db.close()
 
 
+@router.get("/missions/all")
+def get_all_missions():
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT id::text, title, status, started_at, ended_at
+            FROM missions
+            ORDER BY started_at DESC
+        """)).fetchall()
+
+        return [
+            {
+                "id":        r[0],
+                "title":     r[1],
+                "status":    r[2],
+                "startedAt": r[3].isoformat() if r[3] else None,
+                "endedAt":   r[4].isoformat() if r[4] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+@router.get("/missions/{mission_id}/debrief")
+def get_mission_debrief(mission_id: str):
+    db = database.SessionLocal()
+    try:
+        # Mission info
+        mission_row = db.execute(text("""
+            SELECT id::text, title, status, started_at, ended_at
+            FROM missions
+            WHERE id = :mission_id
+        """), {"mission_id": mission_id}).fetchone()
+
+        if mission_row is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Mission not found")
+
+        mid, title, status, started_at, ended_at = mission_row
+
+        now = datetime.now(timezone.utc)
+        window_end = ended_at if ended_at else now
+
+        if started_at:
+            duration_minutes = int((window_end - started_at).total_seconds() / 60)
+        else:
+            duration_minutes = 0
+
+        # Total detections within mission window
+        total_detections = db.execute(text("""
+            SELECT COUNT(*)
+            FROM detections
+            WHERE detected_at >= :start AND detected_at <= :end
+        """), {"start": started_at, "end": window_end}).scalar() or 0
+
+        # Watchlist hits — alerted events with last_seen within mission window
+        watchlist_hits = db.execute(text("""
+            SELECT COUNT(*)
+            FROM detection_events
+            WHERE status = 'alerted'
+              AND last_seen >= :start AND last_seen <= :end
+        """), {"start": started_at, "end": window_end}).scalar() or 0
+
+        # Drones active
+        drone_rows = db.execute(text("""
+            SELECT DISTINCT drone_id
+            FROM telemetry_points
+            WHERE ts >= :start AND ts <= :end
+            ORDER BY drone_id
+        """), {"start": started_at, "end": window_end}).fetchall()
+        drones_active = [r[0] for r in drone_rows]
+
+        # Pilots active (filter nulls)
+        pilot_rows = db.execute(text("""
+            SELECT DISTINCT pilot_id
+            FROM telemetry_points
+            WHERE ts >= :start AND ts <= :end
+              AND pilot_id IS NOT NULL
+            ORDER BY pilot_id
+        """), {"start": started_at, "end": window_end}).fetchall()
+        pilots_active = [r[0] for r in pilot_rows]
+
+        # Plates scanned (distinct plate_text)
+        plates_scanned = db.execute(text("""
+            SELECT COUNT(DISTINCT plate_text)
+            FROM detections
+            WHERE detected_at >= :start AND detected_at <= :end
+        """), {"start": started_at, "end": window_end}).scalar() or 0
+
+        # Top 5 plates by occurrence
+        top_plate_rows = db.execute(text("""
+            SELECT plate_text, COUNT(*) AS cnt
+            FROM detections
+            WHERE detected_at >= :start AND detected_at <= :end
+            GROUP BY plate_text
+            ORDER BY cnt DESC
+            LIMIT 5
+        """), {"start": started_at, "end": window_end}).fetchall()
+        top_plates = [{"plate": r[0], "count": r[1]} for r in top_plate_rows]
+
+        # Alerts by type — watchlist entries joined via plate_text
+        alert_type_rows = db.execute(text("""
+            SELECT w.alert_type, COUNT(*) AS cnt
+            FROM detection_events de
+            JOIN watchlist w ON w.plate_text = de.plate_best
+            WHERE de.status = 'alerted'
+              AND de.last_seen >= :start AND de.last_seen <= :end
+            GROUP BY w.alert_type
+        """), {"start": started_at, "end": window_end}).fetchall()
+        alerts_by_type = {r[0] or "amber": r[1] for r in alert_type_rows}
+
+        return {
+            "missionId":       mid,
+            "title":           title,
+            "startedAt":       started_at.isoformat() if started_at else None,
+            "endedAt":         ended_at.isoformat() if ended_at else None,
+            "durationMinutes": duration_minutes,
+            "totalDetections": total_detections,
+            "watchlistHits":   watchlist_hits,
+            "dronesActive":    drones_active,
+            "pilotsActive":    pilots_active,
+            "platesScanned":   plates_scanned,
+            "topPlates":       top_plates,
+            "alertsByType":    alerts_by_type,
+        }
+    finally:
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # Telemetry — latest position per drone
 # ---------------------------------------------------------------------------
@@ -356,6 +486,67 @@ def get_fema_alerts():
                 "centroidLng":   r[8],
                 "addedAt":       r[9].isoformat() if r[9] else None,
                 "expiresAt":     r[10].isoformat() if r[10] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Pilot leaderboard — per-pilot aggregated stats
+# ---------------------------------------------------------------------------
+
+@router.get("/pilots/leaderboard")
+def get_pilot_leaderboard():
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT
+                COALESCE(tp.pilot_id, d.drone_id)           AS pilot_id,
+                COALESCE(tp.drone_id, d.drone_id)           AS drone_id,
+                COALESCE(d.total_detections, 0)             AS total_detections,
+                COALESCE(de.watchlist_hits, 0)              AS watchlist_hits,
+                COALESCE(tp.flight_minutes, 0)              AS flight_minutes,
+                tp.last_seen
+            FROM (
+                SELECT
+                    pilot_id,
+                    drone_id,
+                    COUNT(*)                                 AS flight_rows,
+                    ROUND((COUNT(*) / 60.0)::numeric, 1)    AS flight_minutes,
+                    MAX(ts)                                  AS last_seen
+                FROM telemetry_points
+                GROUP BY pilot_id, drone_id
+            ) tp
+            FULL OUTER JOIN (
+                SELECT
+                    COALESCE(pilot_id, drone_id)            AS pilot_id,
+                    drone_id,
+                    COUNT(*)                                 AS total_detections
+                FROM detections
+                GROUP BY COALESCE(pilot_id, drone_id), drone_id
+            ) d ON COALESCE(tp.pilot_id, tp.drone_id) = d.pilot_id
+              AND tp.drone_id = d.drone_id
+            LEFT JOIN (
+                SELECT
+                    drone_id,
+                    COUNT(*)                                 AS watchlist_hits
+                FROM detection_events
+                WHERE status = 'alerted'
+                GROUP BY drone_id
+            ) de ON COALESCE(tp.drone_id, d.drone_id) = de.drone_id
+            ORDER BY total_detections DESC
+        """)).fetchall()
+
+        return [
+            {
+                "pilotId":         r[0],
+                "droneId":         r[1],
+                "totalDetections": int(r[2]),
+                "watchlistHits":   int(r[3]),
+                "flightMinutes":   float(r[4]),
+                "lastSeen":        r[5].isoformat() if r[5] else None,
             }
             for r in rows
         ]

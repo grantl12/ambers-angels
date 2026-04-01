@@ -5,6 +5,7 @@ import { useLatestTelemetry } from "@/features/telemetry/api"
 import { useDetectionsFeed } from "@/features/detections/api"
 import { env } from "@/lib/env"
 import { useEffect, useState } from "react"
+import Link from "next/link"
 
 export function TopBar() {
   const { data: missions = [] }   = useActiveMissions()
@@ -52,6 +53,18 @@ export function TopBar() {
             {alertCount} alert{alertCount !== 1 ? "s" : ""}
           </span>
         )}
+        <Link
+          href="/leaderboard"
+          className="text-white/40 hover:text-white/80 transition-colors"
+        >
+          Leaderboard
+        </Link>
+        <Link
+          href="/debrief"
+          className="text-white/40 hover:text-white/80 transition-colors"
+        >
+          Debrief
+        </Link>
         {utcTime && (
           <span className="font-mono text-white/30">{utcTime}</span>
         )}
