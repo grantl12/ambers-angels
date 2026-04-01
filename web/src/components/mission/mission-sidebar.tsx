@@ -3,8 +3,18 @@
 import { useActiveMissions } from "@/features/missions/api"
 import { useLatestTelemetry } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import type { LayerState } from "@/app/map/page"
+
+function useUsername() {
+  const [name, setName] = useState("Pilot")
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("aa_username") : null
+    if (stored) setName(stored)
+  }, [])
+  return name
+}
 
 type Props = {
   layers: LayerState
@@ -26,6 +36,19 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
   const { data: drones = [] }      = useLatestTelemetry()
   const { data: detections = [] }  = useDetectionsFeed(50)
   const { data: watchlist = [] }   = useWatchlist()
+  const username = useUsername()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [menuOpen])
 
   const mission = missions[0]
   const alertCount = detections.filter((d) => d.status === "alerted").length
@@ -209,6 +232,37 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
             })
           )}
         </div>
+      </div>
+
+      {/* Pilot account — anchored to bottom, dropdown opens upward */}
+      <div ref={menuRef} className="relative shrink-0 border-t border-white/10 px-4 py-3">
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          className="flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <span className="h-6 w-6 rounded-full bg-sky-500/30 text-sky-300 text-[11px] flex items-center justify-center font-bold select-none shrink-0">
+            {username[0]?.toUpperCase() ?? "P"}
+          </span>
+          <span className="flex-1 text-left truncate">{username}</span>
+          <svg className={`h-3 w-3 text-white/40 transition-transform shrink-0 ${menuOpen ? "rotate-180" : ""}`} viewBox="0 0 12 12" fill="none">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {menuOpen && (
+          <div className="absolute left-4 right-4 bottom-full mb-1 rounded-lg border border-white/10 bg-neutral-900 shadow-xl z-50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-white/10 text-xs text-white/40">
+              Signed in as <span className="text-white/70">{username}</span>
+            </div>
+            <Link
+              href="/settings"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              Settings &amp; Notifications
+            </Link>
+          </div>
+        )}
       </div>
     </aside>
   )

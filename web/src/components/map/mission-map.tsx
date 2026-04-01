@@ -19,7 +19,7 @@ function buildPieSlice(
   cx: number,
   cy: number,
   heading: number | null,
-  radiusM = 120,
+  radiusM = 500,
   spanDeg = 60,
   steps   = 20,
 ): [number, number][] {
