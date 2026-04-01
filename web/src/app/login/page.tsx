@@ -13,6 +13,7 @@ function LoginForm() {
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [pending,  setPending]  = useState(false)
+  const welcome = searchParams.get("welcome") === "1"
 
   // If already logged in, bounce to map
   useEffect(() => {
@@ -77,6 +78,12 @@ function LoginForm() {
   return (
     <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
+
+        {welcome && (
+          <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-400">
+            Account created! Sign in to access the dashboard.
+          </div>
+        )}
 
         {/* Logo */}
         <div className="text-center mb-8">

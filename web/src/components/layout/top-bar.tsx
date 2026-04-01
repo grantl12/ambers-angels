@@ -20,6 +20,7 @@ export function TopBar() {
 
   const [utcTime,   setUtcTime]   = useState("")
   const [authLabel, setAuthLabel] = useState<string | null>(null)
+  const [isAdmin,   setIsAdmin]   = useState(false)
 
   useEffect(() => {
     const tick = () => {
@@ -37,7 +38,10 @@ export function TopBar() {
 
   useEffect(() => {
     const state = getAuthState()
-    if (state) setAuthLabel(state.fullName ?? state.username)
+    if (state) {
+      setAuthLabel(state.fullName ?? state.username)
+      setIsAdmin(state.role === "admin")
+    }
   }, [])
 
   function handleLogout() {
@@ -80,6 +84,14 @@ export function TopBar() {
         >
           Debrief
         </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="text-amber-500/70 hover:text-amber-400 transition-colors"
+          >
+            Admin
+          </Link>
+        )}
         {utcTime && (
           <span className="font-mono text-white/30">{utcTime}</span>
         )}

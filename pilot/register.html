@@ -807,21 +807,15 @@ async function submitForm() {
       return
     }
 
-    // Store token and redirect if auto-approved (first admin), else show pending screen
-    if (data.status === 'approved') {
-      localStorage.setItem('aa_token',    data.access_token)
-      localStorage.setItem('aa_username', data.username)
-      document.cookie = `aa_token=${data.access_token}; path=/; max-age=${60*60*24*30}; SameSite=Lax`
-    }
-
     document.getElementById('progress-row').style.display = 'none'
     for (let i = 1; i <= 4; i++) document.getElementById('step-' + i).style.display = 'none'
     const success = document.getElementById('success-screen')
     success.style.display = 'block'
 
     if (data.status === 'approved') {
-      success.querySelector('p').textContent = 'Your account is ready. Redirecting to the mission dashboard…'
-      setTimeout(() => { window.location.href = '/map' }, 2000)
+      success.querySelector('p').textContent = 'Your account is ready. Redirecting to sign in…'
+      // Redirect to login with welcome flag — login form completes the full auth setup
+      setTimeout(() => { window.location.href = '/login?from=/map&welcome=1' }, 2000)
     }
   } catch (err) {
     btn.disabled = false
