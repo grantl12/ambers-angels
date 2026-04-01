@@ -3,7 +3,7 @@
 import { useActiveMissions } from "@/features/missions/api"
 import { useLatestTelemetry } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import type { LayerState } from "@/app/map/page"
 
 type Props = {
@@ -21,6 +21,7 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
 ]
 
 export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
+  const [collapsed, setCollapsed] = useState(false)
   const { data: missions = [] }    = useActiveMissions()
   const { data: drones = [] }      = useLatestTelemetry()
   const { data: detections = [] }  = useDetectionsFeed(50)
@@ -42,11 +43,32 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
     [detections, watchlistPlates]
   )
 
+  if (collapsed) {
+    return (
+      <aside className="flex h-full w-8 shrink-0 flex-col items-center border-r border-white/10 bg-black/60 text-white backdrop-blur-sm">
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Expand sidebar"
+          className="mt-3 text-white/40 hover:text-white transition-colors text-lg leading-none"
+        >
+          ›
+        </button>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-white/10 bg-black/60 text-white backdrop-blur-sm overflow-hidden">
+    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-white/10 bg-black/60 text-white backdrop-blur-sm overflow-hidden">
 
       {/* Mission header */}
       <div className="px-4 pt-4 pb-3 border-b border-white/10 shrink-0">
+        <button
+          onClick={() => setCollapsed(true)}
+          title="Collapse sidebar"
+          className="float-right text-white/30 hover:text-white transition-colors text-base leading-none mt-0.5"
+        >
+          ‹
+        </button>
         <div className="flex items-center gap-2 mb-1">
           <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs uppercase tracking-widest text-white/50">Live Mission</span>
@@ -161,9 +183,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
                 <div
                   key={hit.id}
                   onClick={() => hasGps && onFlyTo?.(hit.lat!, hit.lng!)}
-                  className={`rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-sm ${
-                    hasGps ? "cursor-pointer hover:border-red-400/60 hover:bg-red-500/20 transition-colors" : ""
-                  }`}
+                  className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-sm cursor-pointer hover:border-red-400/60 hover:bg-red-500/20 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono font-semibold tracking-wider text-amber-400">
@@ -182,6 +202,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
                   <div className="mt-1 text-xs text-white/40 flex gap-2">
                     {hit.droneId && <span>{hit.droneId}</span>}
                     {time && <span>{time}</span>}
+                    {hasGps ? <span className="text-sky-400/60">GPS ↗</span> : <span className="text-white/20">no GPS</span>}
                   </div>
                 </div>
               )

@@ -6,6 +6,8 @@ import { useMemo, useState } from "react"
 import { env } from "@/lib/env"
 import type { Detection } from "@/features/detections/types"
 
+
+
 // Badge styling per alert type — matches the ALERT_REGISTRY in fema_connector.py
 const ALERT_BADGE: Record<string, { label: string; className: string }> = {
   amber:   { label: "AMBER",   className: "bg-amber-500 text-black" },
@@ -22,6 +24,7 @@ type Props = {
 }
 
 export function EventFeed({ onFlyTo }: Props) {
+  const [collapsed, setCollapsed] = useState(false)
   const { data: detections = [], dataUpdatedAt } = useDetectionsFeed(50)
   const { data: watchlist = [] } = useWatchlist()
   const [lightbox, setLightbox] = useState<Detection | null>(null)
@@ -38,9 +41,23 @@ export function EventFeed({ onFlyTo }: Props) {
     ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
     : null
 
+  if (collapsed) {
+    return (
+      <aside className="flex h-full w-8 shrink-0 flex-col items-center border-l border-white/10 bg-black/60 text-white backdrop-blur-sm">
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Expand feed"
+          className="mt-3 text-white/40 hover:text-white transition-colors text-lg leading-none"
+        >
+          ‹
+        </button>
+      </aside>
+    )
+  }
+
   return (
     <>
-      <aside className="flex h-full w-72 flex-col border-l border-white/10 bg-black/60 text-white backdrop-blur-sm">
+      <aside className="flex h-full w-72 shrink-0 flex-col border-l border-white/10 bg-black/60 text-white backdrop-blur-sm">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div>
@@ -52,7 +69,16 @@ export function EventFeed({ onFlyTo }: Props) {
               <div className="text-xs text-white/30 mt-0.5">Updated {lastUpdated}</div>
             )}
           </div>
-          <div className="text-xs text-white/40">{detections.length} events</div>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-white/40">{detections.length} events</div>
+            <button
+              onClick={() => setCollapsed(true)}
+              title="Collapse feed"
+              className="text-white/30 hover:text-white transition-colors text-base leading-none"
+            >
+              ›
+            </button>
+          </div>
         </div>
 
         {/* Feed */}
@@ -82,11 +108,11 @@ export function EventFeed({ onFlyTo }: Props) {
                 <div
                   key={detection.id}
                   onClick={() => hasGps && onFlyTo?.(detection.lat!, detection.lng!)}
-                  className={`rounded-lg border text-sm transition-colors ${
+                  className={`rounded-lg border text-sm transition-colors cursor-pointer ${
                     isAlert
-                      ? "border-red-500/40 bg-red-500/10"
-                      : "border-white/10 bg-white/5"
-                  } ${hasGps ? "cursor-pointer hover:border-sky-500/50 hover:bg-white/10" : ""}`}
+                      ? "border-red-500/40 bg-red-500/10 hover:border-red-400/60 hover:bg-red-500/20"
+                      : "border-white/10 bg-white/5 hover:border-sky-500/50 hover:bg-white/10"
+                  }`}
                 >
                   {/* Thumbnail — alert vehicles only */}
                   {thumbUrl && (
@@ -139,7 +165,7 @@ export function EventFeed({ onFlyTo }: Props) {
                       {detection.confidence != null && detection.confidence > 0 && (
                         <span>{detection.confidence.toFixed(1)}%</span>
                       )}
-                      {detection.lat != null && <span>GPS</span>}
+                      {hasGps ? <span className="text-sky-400/60">GPS ↗</span> : <span className="text-white/20">no GPS</span>}
                       {time && <span>{time}</span>}
                     </div>
                   </div>

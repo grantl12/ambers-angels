@@ -12,48 +12,42 @@ import type { FlockCamera } from "@/features/flock/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
 
-// Build a road-strip polygon for a camera's coverage zone.
-// Projects a narrow rectangle (lengthM long, widthM wide) in the camera's
-// heading direction — visually reads as "this road segment is already watched."
+// Build a pie-slice (cone) polygon for a camera's field of view.
+// Centered on the camera, pointing in the heading direction, 60° arc.
 // Cameras with null heading fall back to a small circle.
-function buildCoverageRing(
+function buildPieSlice(
   cx: number,
   cy: number,
   heading: number | null,
-  lengthM = 300,
-  widthM  = 16,
+  radiusM = 120,
+  spanDeg = 60,
+  steps   = 20,
 ): [number, number][] {
   const degPerM_lat = 1 / 111_320
   const degPerM_lng = 1 / (111_320 * Math.cos((cy * Math.PI) / 180))
 
   if (heading == null) {
-    // Small circle fallback when no heading is available
-    const r = widthM * 2
+    // Full circle fallback when no heading is available
     return Array.from({ length: 37 }, (_, i) => {
       const a = (i / 36) * 2 * Math.PI
-      return [cx + r * degPerM_lng * Math.cos(a), cy + r * degPerM_lat * Math.sin(a)] as [number, number]
+      return [cx + radiusM * degPerM_lng * Math.cos(a), cy + radiusM * degPerM_lat * Math.sin(a)] as [number, number]
     })
   }
 
-  // Compass bearing → trig components
-  // heading 0° (north): fwd=(0,+1), rgt=(+1,0) in (Δlng, Δlat)
-  const hr     = (heading * Math.PI) / 180
-  const fwdLng = Math.sin(hr) * degPerM_lng
-  const fwdLat = Math.cos(hr) * degPerM_lat
-  const rgtLng = Math.cos(hr) * degPerM_lng
-  const rgtLat = -Math.sin(hr) * degPerM_lat
+  const halfSpan = spanDeg / 2
+  const arc: [number, number][] = []
+  for (let i = 0; i <= steps; i++) {
+    const bearing = heading - halfSpan + (i / steps) * spanDeg
+    const rad = (bearing * Math.PI) / 180
+    // compass bearing: sin → east (lng), cos → north (lat)
+    arc.push([
+      cx + Math.sin(rad) * radiusM * degPerM_lng,
+      cy + Math.cos(rad) * radiusM * degPerM_lat,
+    ])
+  }
 
-  const hw   = widthM / 2   // half-width offset
-  const tail = 20           // metres behind camera for a small tail
-
-  // Rectangle corners: back-left → back-right → front-right → front-left → close
-  return [
-    [cx - rgtLng * hw - fwdLng * tail,   cy - rgtLat * hw - fwdLat * tail],
-    [cx + rgtLng * hw - fwdLng * tail,   cy + rgtLat * hw - fwdLat * tail],
-    [cx + rgtLng * hw + fwdLng * lengthM, cy + rgtLat * hw + fwdLat * lengthM],
-    [cx - rgtLng * hw + fwdLng * lengthM, cy - rgtLat * hw + fwdLat * lengthM],
-    [cx - rgtLng * hw - fwdLng * tail,   cy - rgtLat * hw - fwdLat * tail],  // close
-  ]
+  // pie slice: center → arc → back to center (closed ring)
+  return [[cx, cy], ...arc, [cx, cy]]
 }
 
 type TimeRange = "all" | "24h" | "7d" | "30d"
@@ -98,7 +92,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
       type: "Feature" as const,
       geometry: {
         type: "Polygon" as const,
-        coordinates: [buildCoverageRing(cam.lng, cam.lat, cam.heading)],
+        coordinates: [buildPieSlice(cam.lng, cam.lat, cam.heading)],
       },
       properties: { id: cam.id },
     })),
