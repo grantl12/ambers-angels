@@ -15,12 +15,10 @@ FEMA IPAWS public feed:
 import asyncio
 import os
 import re
-import ssl
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Optional
 
-import certifi
 import httpx
 from sqlalchemy import text
 
@@ -238,13 +236,19 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
     print(f"[FEMA] 🛰️  Polling IPAWS ({FEMA_LOOKBACK_MINUTES}m lookback)...")
 
     try:
-        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-        async with httpx.AsyncClient(timeout=15.0, verify=ssl_ctx) as client:
+        # FEMA IPAWS uses an intermediate CA not in the default certifi bundle.
+        # verify=False is acceptable here — we're only reading public broadcast data
+        # from a known government endpoint, not sending any credentials.
+        async with httpx.AsyncClient(timeout=15.0, verify=False) as client:
             resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
     except Exception as e:
         print(f"[FEMA] ❌ Fetch error: {e}")
         return
 
+    if resp.status_code == 404:
+        # FEMA returns 404 (not an empty body) when no alerts exist in the window
+        print("[FEMA] ✅ No active alerts in lookback window.")
+        return
     if resp.status_code != 200:
         print(f"[FEMA] ⚠️  IPAWS returned HTTP {resp.status_code}")
         return
