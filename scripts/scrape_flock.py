@@ -12,12 +12,16 @@ DeFlock uses a tile-based CDN:
   3. Each tile is a JSON array of { id, lat, lon, tags: { direction, operator, ... } }
 
 Usage:
-    python3 scripts/scrape_flock.py
+    python3 scripts/scrape_flock.py [--south S --north N --west W --east E]
 
-Env vars (same as backend):
+    CLI args override env vars; env vars override the Carrollton, GA default.
+
+Env vars:
+    FLOCK_BBOX_SOUTH, FLOCK_BBOX_NORTH, FLOCK_BBOX_WEST, FLOCK_BBOX_EAST
     DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
 """
 
+import argparse
 import math
 import os
 import sys
@@ -25,14 +29,38 @@ import requests
 import psycopg2
 from psycopg2.extras import execute_values
 
-# ── Bounding box to scrape ─────────────────────────────────────────────────────
-# Extend this as the operation area grows
-BBOX = {
+# ── Bounding box defaults (Carrollton, GA) ─────────────────────────────────────
+_DEFAULT_BBOX = {
     "south": 33.45,
     "north": 33.70,
     "west":  -85.25,
     "east":  -84.95,
 }
+
+def _parse_bbox() -> dict:
+    parser = argparse.ArgumentParser(description="Scrape Flock/DeFlock cameras for a bounding box.")
+    parser.add_argument("--south", type=float, default=None)
+    parser.add_argument("--north", type=float, default=None)
+    parser.add_argument("--west",  type=float, default=None)
+    parser.add_argument("--east",  type=float, default=None)
+    args = parser.parse_args()
+
+    def _get(key: str, arg_val):
+        if arg_val is not None:
+            return arg_val
+        env = os.environ.get(f"FLOCK_BBOX_{key.upper()}")
+        if env is not None:
+            return float(env)
+        return _DEFAULT_BBOX[key]
+
+    return {
+        "south": _get("south", args.south),
+        "north": _get("north", args.north),
+        "west":  _get("west",  args.west),
+        "east":  _get("east",  args.east),
+    }
+
+BBOX = _parse_bbox()
 
 INDEX_URL = "https://cdn.deflock.me/regions/index.json"
 HEADERS   = {"User-Agent": "AmberAngels-mission-scraper/1.0"}
@@ -117,6 +145,7 @@ def upsert_cameras(conn, cameras):
 
 
 def main():
+    print(f"BBOX: south={BBOX['south']} north={BBOX['north']} west={BBOX['west']} east={BBOX['east']}")
     print("Fetching DeFlock index...")
     index = fetch_index()
     tile_size = index["tile_size_degrees"]

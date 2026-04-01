@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -128,6 +129,35 @@ export default function SettingsScreen() {
           </Text>
         </Section>
 
+        <Section title="Alert Range">
+          <Text style={styles.label}>Miles outside FEMA search polygon</Text>
+          <View style={styles.rangeRow}>
+            {[5, 10, 15, 25, 50, 100].map((mi) => (
+              <TouchableOpacity
+                key={mi}
+                style={[styles.rangeBtn, settings.alertRangeMiles === mi && styles.rangeBtnActive]}
+                onPress={() => update("alertRangeMiles", mi)}
+              >
+                <Text style={[styles.rangeBtnText, settings.alertRangeMiles === mi && styles.rangeBtnTextActive]}>
+                  {mi} mi
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Show out-of-range warning</Text>
+              <Text style={styles.hint}>Banner on map when drone exceeds alert range from active search area</Text>
+            </View>
+            <Switch
+              value={settings.notifOutsidePolygon}
+              onValueChange={(v) => update("notifOutsidePolygon", v)}
+              trackColor={{ false: "rgba(255,255,255,0.1)", true: "#38bdf8" }}
+              thumbColor="#fff"
+            />
+          </View>
+        </Section>
+
         <TouchableOpacity
           style={[styles.saveBtn, saved && styles.saveBtnSaved]}
           onPress={handleSave}
@@ -192,6 +222,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#fff",
   },
+  rangeRow:          { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  rangeBtn: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  rangeBtnActive:     { borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.15)" },
+  rangeBtnText:       { color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: "600" },
+  rangeBtnTextActive: { color: "#38bdf8" },
+  toggleRow:          { flexDirection: "row", alignItems: "center", gap: 12 },
   testBtn: {
     borderWidth: 1,
     borderColor: "rgba(56,189,248,0.4)",

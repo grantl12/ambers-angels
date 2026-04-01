@@ -9,6 +9,8 @@ export type AppSettings = {
   droneId: string
   pilotId: string
   captureIntervalSec: number  // seconds between frame captures
+  alertRangeMiles: number
+  notifOutsidePolygon: boolean
 }
 
 const DEFAULTS: AppSettings = {
@@ -16,6 +18,8 @@ const DEFAULTS: AppSettings = {
   droneId: "phone-1",
   pilotId: "",
   captureIntervalSec: 5,
+  alertRangeMiles: 25,
+  notifOutsidePolygon: true,
 }
 
 const KEY = "aa_settings"

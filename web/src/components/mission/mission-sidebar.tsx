@@ -25,6 +25,15 @@ function useAlertRange() {
   return miles
 }
 
+function useOutsidePolygonNotif() {
+  const [enabled, setEnabled] = useState(true)
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("aa_notif_outside_polygon") : null
+    if (stored !== null) setEnabled(stored !== "0")
+  }, [])
+  return enabled
+}
+
 // ---------------------------------------------------------------------------
 // Polygon distance helpers
 // ---------------------------------------------------------------------------
@@ -132,9 +141,10 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
   const { data: drones = [] }      = useLatestTelemetry()
   const { data: detections = [] }  = useDetectionsFeed(50)
   const { data: watchlist = [] }   = useWatchlist()
-  const { data: femaAlerts = [] }  = useFemaAlerts()
-  const username   = useUsername()
-  const alertRange = useAlertRange()
+  const { data: femaAlerts = [] }    = useFemaAlerts()
+  const username            = useUsername()
+  const alertRange          = useAlertRange()
+  const outsidePolygonNotif = useOutsidePolygonNotif()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -258,7 +268,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
           <div className="space-y-2">
             {drones.map((drone) => {
               const nearest =
-                femaAlerts.length > 0 && drone.lat != null && drone.lng != null
+                outsidePolygonNotif && femaAlerts.length > 0 && drone.lat != null && drone.lng != null
                   ? closestAlertDistance(drone.lat, drone.lng, femaAlerts)
                   : null
               const outsideBy =

@@ -9,6 +9,7 @@ type Settings = {
   notifSoundWatchlist: boolean
   notifSoundFema: boolean
   notifSoundAmber: boolean
+  notifOutsidePolygon: boolean
   alertRangeMiles: number
 }
 
@@ -18,6 +19,7 @@ const DEFAULTS: Settings = {
   notifSoundWatchlist: true,
   notifSoundFema: true,
   notifSoundAmber: true,
+  notifOutsidePolygon: true,
   alertRangeMiles: 25,
 }
 
@@ -32,6 +34,7 @@ function loadSettings(): Settings {
       notifSoundWatchlist: localStorage.getItem("aa_notif_sound_watchlist") !== "0",
       notifSoundFema:      localStorage.getItem("aa_notif_sound_fema")      !== "0",
       notifSoundAmber:     localStorage.getItem("aa_notif_sound_amber")     !== "0",
+      notifOutsidePolygon: localStorage.getItem("aa_notif_outside_polygon") !== "0",
       alertRangeMiles:     parseInt(localStorage.getItem("aa_alert_range_miles") ?? "25", 10),
     }
   } catch {
@@ -45,6 +48,7 @@ function saveSettings(s: Settings) {
   localStorage.setItem("aa_notif_sound_watchlist",  s.notifSoundWatchlist ? "1" : "0")
   localStorage.setItem("aa_notif_sound_fema",       s.notifSoundFema      ? "1" : "0")
   localStorage.setItem("aa_notif_sound_amber",      s.notifSoundAmber     ? "1" : "0")
+  localStorage.setItem("aa_notif_outside_polygon",  s.notifOutsidePolygon ? "1" : "0")
   localStorage.setItem("aa_alert_range_miles",      String(s.alertRangeMiles))
 }
 
@@ -154,6 +158,12 @@ export default function SettingsPage() {
               description="Separate alert tone for AMBER-specific alerts"
               enabled={settings.notifSoundAmber}
               onToggle={() => update("notifSoundAmber", !settings.notifSoundAmber)}
+            />
+            <NotifRow
+              label="Outside search area warning"
+              description="Show a banner when your drone is beyond your alert range from the active FEMA search polygon"
+              enabled={settings.notifOutsidePolygon}
+              onToggle={() => update("notifOutsidePolygon", !settings.notifOutsidePolygon)}
             />
           </div>
         </section>
