@@ -33,8 +33,13 @@ Polls the FEMA public IPAWS feed every 5 minutes and monitors all national missi
 | **EMA** | Endangered Missing Advisory |
 
 - Extracts suspect plate numbers from CAP XML and adds them to the watchlist automatically
-- Notifies pilots via Discord even when the alert contains no plate — just a description
-- Deduplicated: each alert ID is only ingested once
+- Extracts vehicle profile (color, body type, make) from alert text even when no plate is present
+- Stores the full CAP search polygon for each alert — used for drone proximity checks
+- Fires a Discord notification for every new alert, with or without a plate
+- Deduplicated: each alert ID is only ingested once per server run
+
+### Vehicle Target Matching
+When YOLO detects a vehicle on a drone feed, it is cross-referenced against active FEMA vehicle targets (partial-profile alerts with no plate). A Discord alert fires if color and body type match, with a 10-minute per-drone cooldown to prevent notification spam.
 
 ### Mission Map
 Live Mapbox dark-mode map showing the full operational picture:
@@ -42,7 +47,8 @@ Live Mapbox dark-mode map showing the full operational picture:
 - **Flight trail** — last 30 telemetry points rendered as a polyline
 - **Detection markers** — amber dots for detections, red for watchlist hits; click to see plate, vehicle info, confidence, and status
 - **Detection heatmap** — density layer showing where activity is concentrated
-- **Flock ALPR cameras** — fixed camera positions with oriented road-strip coverage polygons showing the direction each camera watches
+- **FEMA alert polygons** — active search area boundaries rendered on the map with alert type color coding
+- **Flock ALPR cameras** — fixed camera positions with oriented road-strip coverage polygons showing the direction each camera watches; live-fetched from the DeFlock CDN for any area the pilot flies to
 - **Click-to-fly** — clicking any detection in the event feed or sidebar flies the map to that GPS coordinate
 - **Layer toggles** — independently toggle drones, flight trail, Flock cameras, coverage polygons, heatmap, and detection markers
 
@@ -57,24 +63,29 @@ Right-side panel with a live-updating stream of every detection:
 Left panel with full situational awareness:
 - Active mission name, start time, and live stats
 - Drone list with altitude, heading, and speed — click any drone to fly the map to it
+- **Out-of-range warning** — orange banner under any drone that is flying more than the pilot's configured alert range (miles) outside the nearest active FEMA search polygon boundary; uses point-to-polygon haversine distance, not centroid
 - Watchlist hits panel — click any hit with GPS to fly the map to that location
+- Alert range shown in the pilot account dropdown
 
 ### Alerts & Notifications
-- **Discord webhooks** — instant notification on any watchlist plate match or new FEMA alert
+- **Discord webhooks** — instant notification on any watchlist plate match, new FEMA alert, or vehicle target match
 - **Browser push notifications** — toggle in Settings (requests OS permission)
 - **Sound alerts** — separate toggles for watchlist hits, FEMA alerts, and AMBER-specific alerts
 
 ### User Settings
 - Display name / callsign (shown in the top bar, no account required)
-- Per-category notification toggles, persisted in `localStorage`
-- Accessible from the account dropdown in the top bar
+- Alert range in miles — used for the out-of-range polygon warning (5 / 10 / 15 / 25 / 50 / 100 mi)
+- Per-category notification toggles, all persisted in `localStorage`
 
-### Native App (Phase 1 — in development)
-Expo (bare workflow) + TypeScript + EAS Build for cloud iOS compilation (no Mac required):
+### Native Mobile App (Phase 1 — in development)
+Expo bare workflow + TypeScript + EAS Build (cloud compilation, no Mac required):
 - Phone camera capture at configurable interval → `POST /ingest/frame`
 - GPS telemetry at ~1 Hz → `POST /telemetry`
 - Plate detections with lat/lng/altitude/heading → `POST /detections/`
-- Map tab, Feed tab, Settings tab
+- Map tab showing all active drone positions (Google Maps hybrid, Android)
+- Feed tab with live detections
+- Settings tab
+- EAS build profile configured for Android internal distribution and iOS internal distribution
 - Phase 2: DJI MSDK v5 bindings for Mavic 3, Mini 4 Pro, Air 3, Autel EVO II
 
 ### Pilot Portal
@@ -115,11 +126,13 @@ Drone (RTMP stream)
        |
        v
   web/ (Next.js dashboard)
+  mobile/ (Expo Android/iOS app)
 
   FEMA IPAWS poller (async background task)
        |
-       v
-  Watchlist DB + Discord pilot alert
+       +---> Watchlist DB + Discord pilot alert
+       +---> vehicle_targets DB (polygon, vehicle profile)
+       +---> Vehicle target match check (post-YOLO)
 ```
 
 ---
@@ -133,12 +146,12 @@ ambers-angels/
 │   ├── database.py               # Async + sync SQLAlchemy sessions
 │   ├── event_repository.py       # DB reads/writes for detection events
 │   ├── schemas.py                # Pydantic models
-│   ├── schema.sql                # PostgreSQL schema
+│   ├── schema.sql                # PostgreSQL schema (additive migrations included)
 │   ├── recover_anomalies.py      # Re-scan stored frames through ALPR
 │   ├── routers/
-│   │   └── read_api.py           # GET endpoints for the dashboard
+│   │   └── read_api.py           # GET endpoints: detections, telemetry, flock, FEMA, watchlist
 │   └── services/
-│       ├── fema_connector.py     # FEMA IPAWS alert poller
+│       ├── fema_connector.py     # FEMA IPAWS poller, vehicle target matching, Discord alerts
 │       ├── aggregation_service.py# Wires ALPR + YOLO + Plate Recognizer
 │       ├── detection_pipeline.py # Frame-level detection orchestration
 │       ├── vehicle_classifier.py # YOLOv8 body type + color extraction
@@ -157,8 +170,17 @@ ambers-angels/
 │       ├── components/
 │       │   ├── map/              # MissionMap, MapLoader
 │       │   ├── layout/           # TopBar with username dropdown
-│       │   └── mission/          # EventFeed, MissionSidebar
-│       └── features/             # TanStack Query hooks (detections, telemetry, flock, missions)
+│       │   └── mission/          # EventFeed, MissionSidebar (with polygon distance warning)
+│       └── features/             # TanStack Query hooks (detections, telemetry, flock, fema, missions)
+│
+├── mobile/                       # Expo bare-workflow app
+│   ├── src/
+│   │   ├── screens/              # CameraScreen, MapScreen, FeedScreen, SettingsScreen
+│   │   ├── api/                  # API client, telemetry, detections, ingest
+│   │   ├── hooks/                # Shared React hooks
+│   │   └── navigation/           # Bottom tab navigator
+│   ├── app.json                  # Expo config (Android + iOS permissions, EAS project)
+│   └── eas.json                  # EAS build profiles (development, preview, production)
 │
 ├── pilot/                        # Pilot registration portal (static HTML)
 ├── start_all.sh                  # Launch everything (sources .env)
@@ -199,7 +221,7 @@ FEMA_LOOKBACK_MINUTES=60
 pip3 install -r backend/requirements.txt
 ```
 
-### 3. Frontend
+### 3. Web dashboard
 
 ```bash
 cd web
@@ -221,6 +243,8 @@ NEXT_PUBLIC_API_BASE_URL=http://YOUR_SERVER_IP:8000
 psql -U postgres ambersangels < backend/schema.sql
 ```
 
+Schema uses `IF NOT EXISTS` and `ADD COLUMN IF NOT EXISTS` throughout — safe to re-run against an existing database.
+
 ### 5. Launch
 
 ```bash
@@ -233,19 +257,44 @@ Starts:
 - `aa-feed` — FFmpeg RTMP harvester
 - `ambers-angels-web` — Next.js dashboard on port 3000
 
+### 6. Mobile app (Android)
+
+Requires an Expo account and EAS CLI:
+
+```bash
+cd mobile
+npm install
+npx eas-cli login
+npx eas-cli build --profile development --platform android
+```
+
+EAS builds in the cloud — no Android SDK or Mac required. When the build finishes, scan the QR code or open the download link on your Android device and sideload the APK (allow "Install unknown apps" for your browser). Then start the dev server:
+
+```bash
+npm start
+```
+
+The dev client on your phone will connect to the server automatically.
+
 ---
 
-## Routes
+## API routes
 
 | Route | Description |
 |---|---|
-| `/map` | Live mission map dashboard |
-| `/settings` | User settings and notification preferences |
-| `/pilot/` | Pilot registration portal |
-| `:8000/health` | Backend health check |
-| `:8000/fema/test` | Manually trigger a FEMA poll |
-| `:8000/detections/feed` | Raw detections JSON |
-| `:8000/telemetry/latest` | Current drone positions |
+| `GET /map` | Live mission map dashboard |
+| `GET /settings` | User settings and notification preferences |
+| `GET /pilot/` | Pilot registration portal |
+| `GET :8000/health` | Backend health check |
+| `GET :8000/fema/alerts` | Active FEMA vehicle targets with polygons |
+| `GET :8000/fema/test` | Manually trigger a FEMA poll |
+| `GET :8000/detections/feed` | Detection event stream |
+| `GET :8000/telemetry/latest` | Current drone positions |
+| `GET :8000/telemetry/trail` | Flight trail for a drone |
+| `GET :8000/flock/cameras` | Flock ALPR camera locations (bbox param triggers live fetch) |
+| `GET :8000/watchlist` | Active watchlist with alert type metadata |
+| `POST :8000/ingest/frame` | Submit a camera frame for processing |
+| `POST :8000/telemetry` | Submit a drone GPS telemetry point |
 
 ---
 
@@ -278,4 +327,4 @@ pm2 logs ambers-angels-web   # Next.js logs
 
 ## Security note
 
-Secrets are never committed. All credentials live in `backend/.env` and `web/.env.local`. The backend has no authentication layer yet — deploy behind a firewall or VPN until auth is added.
+Secrets are never committed. All credentials live in `backend/.env` and `web/.env.local`. API keys embedded in `mobile/app.json` (Google Maps) should be restricted to the app package `com.ambersangels.app` in Google Cloud Console. The backend has no authentication layer yet — deploy behind a firewall or VPN until auth is added.
