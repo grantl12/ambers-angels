@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS flock_cameras (
     scraped_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 5. Watchlist — plates from FEMA alerts
+-- alert_type  = registry key (amber | matties | silver | blue | purple | mipa | ema)
+-- source_program = human-readable program name from the alert headline
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS alert_type     VARCHAR(30) DEFAULT 'amber';
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS source_program TEXT;
+
 -- 4. Create the alerts table
 CREATE TABLE IF NOT EXISTS alerts (
     id SERIAL PRIMARY KEY,

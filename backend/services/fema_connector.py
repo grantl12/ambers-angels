@@ -1,9 +1,14 @@
 """
 backend/services/fema_connector.py
 
-Polls FEMA IPAWS for Amber Alert (CAE) events, extracts suspect vehicle
+Polls FEMA IPAWS for missing/endangered person alerts, extracts suspect vehicle
 plate numbers from the CAP XML, adds them to the watchlist, and fires a
 pilot notification via Discord.
+
+Supported alert programs (all flow through FEMA IPAWS):
+  CAE  — Amber Alert / Levi's Call (child abduction)
+  CEM  — Mattie's Call, Silver Alert, Purple Alert, MIPA, EMA (keyed by headline keywords)
+  LEW  — Blue Alert (threat to / missing law enforcement officer)
 
 Runs as a FastAPI background task (asyncio loop). Polls every POLL_INTERVAL_SECONDS.
 
@@ -25,33 +30,120 @@ from sqlalchemy import text
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-POLL_INTERVAL_SECONDS = int(os.getenv("FEMA_POLL_INTERVAL", "300"))   # 5 minutes
-FEMA_LOOKBACK_MINUTES = int(os.getenv("FEMA_LOOKBACK_MINUTES", "60")) # how far back to fetch
+POLL_INTERVAL_SECONDS = int(os.getenv("FEMA_POLL_INTERVAL", "300"))
+FEMA_LOOKBACK_MINUTES = int(os.getenv("FEMA_LOOKBACK_MINUTES", "60"))
 
-# FEMA IPAWS public endpoint — returns all recent CAP alerts (CAE = Amber Alert)
 FEMA_URL = (
     "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/cmas/get/recent/"
     f"{FEMA_LOOKBACK_MINUTES}"
 )
 
-# CAP XML namespace
 CAP_NS = "urn:oasis:names:tc:emergency:cap:1.2"
 
-# Regex patterns to extract plate numbers from Amber Alert descriptions.
-# Amber Alerts commonly say: "CA plate 7ABC123", "license plate: ABC 123", etc.
-_PLATE_PATTERNS = [
-    re.compile(r"\bplate[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
-    re.compile(r"\blicense\s+plate[:\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
-    re.compile(r"\b([A-Z]{1,3}[0-9]{1,4}[A-Z0-9]{0,3})\b"),  # generic plate-shaped token
+# ---------------------------------------------------------------------------
+# Alert type registry
+# Each entry defines a missing-person alert program we monitor.
+# Classification checks cap_codes first, then scans keywords (case-insensitive)
+# against the combined headline + description text.
+# Priority: lower number = checked first; first match wins.
+# CEM with empty keywords = catch-all only reached if no specific program matched.
+# ---------------------------------------------------------------------------
+ALERT_REGISTRY: list[dict] = [
+    {
+        "key":        "amber",
+        "name":       "Amber Alert",
+        "short":      "AMBER",
+        "cap_codes":  ["CAE"],
+        "keywords":   [],           # CAE is always Amber — no keyword check needed
+        "require_kw": False,        # accept any CAE regardless of text
+        "emoji":      "🟠",
+        "cta":        "Active child abduction — check your area immediately.",
+        "priority":   1,
+    },
+    {
+        "key":        "matties",
+        "name":       "Mattie's Call",
+        "short":      "MATTIE'S",
+        "cap_codes":  ["CEM"],
+        "keywords":   ["mattie", "mattie's call", "matties call"],
+        "require_kw": True,
+        "emoji":      "🔴",
+        "cta":        "Missing endangered adult — check your area.",
+        "priority":   2,
+    },
+    {
+        "key":        "silver",
+        "name":       "Silver Alert",
+        "short":      "SILVER",
+        "cap_codes":  ["CEM"],
+        "keywords":   ["silver alert", "gray alert", "grey alert",
+                       "elderly", "alzheimer", "dementia", "memory"],
+        "require_kw": True,
+        "emoji":      "⚪",
+        "cta":        "Missing elderly person — check your area.",
+        "priority":   3,
+    },
+    {
+        "key":        "blue",
+        "name":       "Blue Alert",
+        "short":      "BLUE",
+        "cap_codes":  ["LEW", "CEM"],
+        "keywords":   ["blue alert", "law enforcement", "officer missing", "officer abducted"],
+        "require_kw": True,
+        "emoji":      "🔵",
+        "cta":        "Missing or endangered law enforcement officer.",
+        "priority":   4,
+    },
+    {
+        "key":        "purple",
+        "name":       "Purple Alert",
+        "short":      "PURPLE",
+        "cap_codes":  ["CEM"],
+        "keywords":   ["purple alert", "developmental disabilit", "intellectual disabilit", "autism"],
+        "require_kw": True,
+        "emoji":      "🟣",
+        "cta":        "Missing person with developmental disability — check your area.",
+        "priority":   5,
+    },
+    {
+        "key":        "mipa",
+        "name":       "Missing Indigenous Person Alert",
+        "short":      "MIPA",
+        "cap_codes":  ["CEM"],
+        "keywords":   ["indigenous", "mipa", "missing indigenous", "native"],
+        "require_kw": True,
+        "emoji":      "🟡",
+        "cta":        "Missing Indigenous person — check your area.",
+        "priority":   6,
+    },
+    {
+        "key":        "ema",
+        "name":       "Endangered Missing Alert",
+        "short":      "EMA",
+        "cap_codes":  ["CEM"],
+        "keywords":   ["endangered missing", "missing and endangered",
+                       "endangered adult", "mepa", "ema alert"],
+        "require_kw": True,
+        "emoji":      "🟡",
+        "cta":        "Missing endangered person — check your area.",
+        "priority":   7,
+    },
 ]
 
+# CAP event codes we care about — anything else is silently skipped
+_MONITORED_CODES = {code for entry in ALERT_REGISTRY for code in entry["cap_codes"]}
 
 # ---------------------------------------------------------------------------
 # Plate extraction
 # ---------------------------------------------------------------------------
+_PLATE_PATTERNS = [
+    re.compile(r"\bplate[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    re.compile(r"\blicense\s+plate[:\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    re.compile(r"\b([A-Z]{1,3}[0-9]{1,4}[A-Z0-9]{0,3})\b"),
+]
+
 
 def _extract_plates(text_blob: str) -> list[str]:
-    """Return a deduplicated list of plate candidates found in text_blob."""
     found: list[str] = []
     for pattern in _PLATE_PATTERNS:
         for m in pattern.finditer(text_blob):
@@ -62,21 +154,64 @@ def _extract_plates(text_blob: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Alert classification
+# ---------------------------------------------------------------------------
+
+def _classify_alert(event_codes: list[str], combined_text: str) -> dict | None:
+    """
+    Return the matching ALERT_REGISTRY entry, or None if this alert isn't a
+    missing/endangered person event we monitor.
+    """
+    text_lower = combined_text.lower()
+
+    for entry in sorted(ALERT_REGISTRY, key=lambda e: e["priority"]):
+        # Does this entry's CAP code appear in the alert?
+        if not any(code in event_codes for code in entry["cap_codes"]):
+            continue
+
+        # If keywords are required, at least one must appear in the text
+        if entry["require_kw"]:
+            if not any(kw in text_lower for kw in entry["keywords"]):
+                continue
+
+        return entry
+
+    return None
+
+
+def _extract_source_program(headline: str, alert_type: dict) -> str:
+    """
+    Try to pull the exact program name from the headline (e.g. "Mattie's Call
+    Issued for John Doe" → "Mattie's Call"). Falls back to the registry name.
+    """
+    hl = headline.strip()
+    # If headline starts with one of our known program names, use that verbatim
+    for entry in ALERT_REGISTRY:
+        if hl.lower().startswith(entry["name"].lower()):
+            # Grab just the program portion (up to first dash/colon/for)
+            short = re.split(r"[\-–:|]| for | issued", hl, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+            return short
+    return alert_type["name"]
+
+
+# ---------------------------------------------------------------------------
 # CAP XML parsing
 # ---------------------------------------------------------------------------
 
 def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
     """
-    Parse a CAP XML feed and return a list of dicts for CAE (Amber Alert) entries.
+    Parse CAP XML and return alert dicts for any monitored missing-person event.
 
     Each dict contains:
-        identifier  - unique CAP identifier
-        sent        - ISO datetime string
-        headline    - short headline
-        description - full alert description
-        area        - geographic area description string
-        polygon     - raw polygon string (if present) or None
-        plates      - list of extracted plate candidates
+        identifier    — unique CAP identifier
+        sent          — ISO datetime string
+        headline      — short headline
+        description   — full alert description
+        area          — geographic area description
+        polygon       — raw polygon string or None
+        plates        — list of extracted plate candidates
+        alert_type    — ALERT_REGISTRY entry dict
+        source_program — human-readable program name extracted from headline
     """
     try:
         root = ET.fromstring(xml_bytes)
@@ -87,21 +222,20 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
     alerts: list[dict] = []
     ns = {"cap": CAP_NS}
 
-    # The feed may be a <feed> wrapper containing multiple <alert> elements,
-    # or a bare <alert>. Handle both.
     alert_nodes = root.findall(".//cap:alert", ns)
     if not alert_nodes:
-        # Try without namespace (some FEMA responses omit it)
         alert_nodes = root.findall(".//alert")
 
     for alert in alert_nodes:
-        # Filter to CAE (Child Abduction Emergency = Amber Alert) only
         event_codes = [
             e.text for e in alert.findall(".//cap:eventCode/cap:value", ns)
         ] + [
             e.text for e in alert.findall(".//eventCode/value")
         ]
-        if "CAE" not in event_codes:
+        event_codes = [c for c in event_codes if c]
+
+        # Skip anything that isn't even in a monitored category
+        if not any(code in _MONITORED_CODES for code in event_codes):
             continue
 
         def find_text(tag: str) -> str:
@@ -110,22 +244,28 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
 
         identifier  = find_text("identifier")
         sent        = find_text("sent")
-        headline    = find_text("headline") or alert.findtext(".//cap:headline", namespaces=ns) or ""
-        description = alert.findtext(".//cap:description", namespaces=ns) or alert.findtext(".//description") or ""
-        area_desc   = alert.findtext(".//cap:areaDesc", namespaces=ns) or alert.findtext(".//areaDesc") or ""
-        polygon     = alert.findtext(".//cap:polygon", namespaces=ns) or alert.findtext(".//polygon")
+        headline    = alert.findtext(".//cap:headline",     namespaces=ns) or alert.findtext(".//headline")    or ""
+        description = alert.findtext(".//cap:description",  namespaces=ns) or alert.findtext(".//description") or ""
+        area_desc   = alert.findtext(".//cap:areaDesc",     namespaces=ns) or alert.findtext(".//areaDesc")    or ""
+        polygon     = alert.findtext(".//cap:polygon",      namespaces=ns) or alert.findtext(".//polygon")
 
-        combined_text = f"{headline} {description}"
-        plates = _extract_plates(combined_text)
+        combined = f"{headline} {description}"
+        alert_type = _classify_alert(event_codes, combined)
+
+        if alert_type is None:
+            # Has a monitored code but no keyword match — not a missing person alert
+            continue
 
         alerts.append({
-            "identifier":  identifier,
-            "sent":        sent,
-            "headline":    headline,
-            "description": description,
-            "area":        area_desc,
-            "polygon":     polygon,
-            "plates":      plates,
+            "identifier":     identifier,
+            "sent":           sent,
+            "headline":       headline.strip(),
+            "description":    description.strip(),
+            "area":           area_desc.strip(),
+            "polygon":        polygon,
+            "plates":         _extract_plates(combined),
+            "alert_type":     alert_type,
+            "source_program": _extract_source_program(headline, alert_type),
         })
 
     return alerts
@@ -135,22 +275,31 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
 # Watchlist insertion
 # ---------------------------------------------------------------------------
 
-async def _add_to_watchlist(session_factory, plate: str, description: str) -> bool:
+async def _add_to_watchlist(
+    session_factory,
+    plate: str,
+    description: str,
+    alert_type: str,
+    source_program: str,
+) -> bool:
     """
-    Insert plate into watchlist. Returns True if newly inserted, False if already present.
-    Uses INSERT ... ON CONFLICT DO NOTHING so existing plates are untouched.
+    Insert plate into watchlist with alert type metadata.
+    ON CONFLICT DO NOTHING — existing entries are not overwritten.
+    Returns True if newly inserted.
     """
     async with session_factory() as session:
         try:
             result = await session.execute(
                 text("""
-                    INSERT INTO watchlist (plate_text, description, added_at)
-                    VALUES (:plate, :desc, :now)
+                    INSERT INTO watchlist (plate_text, description, alert_type, source_program, added_at)
+                    VALUES (:plate, :desc, :atype, :prog, :now)
                     ON CONFLICT (plate_text) DO NOTHING
                 """),
                 {
                     "plate": plate,
                     "desc":  description,
+                    "atype": alert_type,
+                    "prog":  source_program,
                     "now":   datetime.now(timezone.utc),
                 },
             )
@@ -163,63 +312,55 @@ async def _add_to_watchlist(session_factory, plate: str, description: str) -> bo
 
 
 # ---------------------------------------------------------------------------
-# Discord pilot notification
+# Discord notifications
 # ---------------------------------------------------------------------------
 
-async def _notify_national_alert(webhook_url: str, alert: dict) -> None:
-    """Fire when an Amber Alert is detected but no plate could be extracted."""
+async def _post_discord(webhook_url: str, content: str) -> None:
     if not webhook_url:
         return
-    payload = {
-        "content": (
-            f"🔔 **AMBER ALERT DETECTED — FEMA IPAWS** 🔔\n"
-            f"**Headline:** {alert['headline']}\n"
-            f"**Area:** {alert['area']}\n"
-            f"**Issued:** {alert['sent']}\n"
-            f"⚠️ No plate number found in alert text. Monitor manually.\n"
-            f"📋 Details: {alert['description'][:300]}{'...' if len(alert['description']) > 300 else ''}"
-        )
-    }
-    async with httpx.AsyncClient(timeout=5.0, verify=certifi.where()) as client:
-        try:
-            resp = await client.post(webhook_url, json=payload)
-            if resp.status_code in (200, 204):
-                print(f"[FEMA] ✅ National alert notification sent.")
-            else:
-                print(f"[FEMA] ❌ Discord returned {resp.status_code}")
-        except Exception as e:
-            print(f"[FEMA] ❌ Notification error: {e}")
+    try:
+        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+            resp = await client.post(webhook_url, json={"content": content})
+        if resp.status_code not in (200, 204):
+            print(f"[FEMA] ❌ Discord returned {resp.status_code}")
+    except Exception as e:
+        print(f"[FEMA] ❌ Discord error: {e}")
 
 
-async def _notify_pilots(webhook_url: str, alert: dict, new_plates: list[str]) -> None:
-    if not webhook_url or not new_plates:
+async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
+    """Notify pilots when an alert fires but no plate was found in the text."""
+    atype = alert["alert_type"]
+    content = (
+        f"{atype['emoji']} **{atype['short']} — {alert['source_program'].upper()}** {atype['emoji']}\n"
+        f"**Headline:** {alert['headline']}\n"
+        f"**Area:** {alert['area']}\n"
+        f"**Issued:** {alert['sent']}\n"
+        f"⚠️ No plate number found in alert text — monitor manually.\n"
+        f"📋 {alert['description'][:300]}{'...' if len(alert['description']) > 300 else ''}"
+    )
+    await _post_discord(webhook_url, content)
+
+
+async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -> None:
+    """Notify pilots when new plates are added to the watchlist."""
+    if not new_plates:
         return
-
+    atype      = alert["alert_type"]
     plates_fmt = ", ".join(f"`{p}`" for p in new_plates)
-    payload = {
-        "content": (
-            f"🚨 **AMBER ALERT — PLATES ON WATCHLIST** 🚨\n"
-            f"**Headline:** {alert['headline']}\n"
-            f"**Area:** {alert['area']}\n"
-            f"**Plates added to watchlist:** {plates_fmt}\n"
-            f"**Issued:** {alert['sent']}\n"
-            f"⚡ Drones: check your area — active rescue mission nearby."
-        )
-    }
-
-    async with httpx.AsyncClient(timeout=5.0, verify=certifi.where()) as client:
-        try:
-            resp = await client.post(webhook_url, json=payload)
-            if resp.status_code in (200, 204):
-                print(f"[FEMA] ✅ Pilot notification sent for plates: {new_plates}")
-            else:
-                print(f"[FEMA] ❌ Discord returned {resp.status_code}")
-        except Exception as e:
-            print(f"[FEMA] ❌ Notification error: {e}")
+    content = (
+        f"{atype['emoji']} **{atype['short']} — PLATES ON WATCHLIST** {atype['emoji']}\n"
+        f"**Program:** {alert['source_program']}\n"
+        f"**Headline:** {alert['headline']}\n"
+        f"**Area:** {alert['area']}\n"
+        f"**Plates added:** {plates_fmt}\n"
+        f"**Issued:** {alert['sent']}\n"
+        f"⚡ {atype['cta']}"
+    )
+    await _post_discord(webhook_url, content)
 
 
 # ---------------------------------------------------------------------------
-# Seen-identifier cache (in-memory; resets on restart, fine for our use case)
+# Seen-identifier cache
 # ---------------------------------------------------------------------------
 _seen_identifiers: set[str] = set()
 
@@ -229,16 +370,9 @@ _seen_identifiers: set[str] = set()
 # ---------------------------------------------------------------------------
 
 async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) -> None:
-    """
-    Single poll cycle. Fetches FEMA IPAWS, processes CAE alerts,
-    adds new plates to watchlist, notifies pilots.
-    """
     print(f"[FEMA] 🛰️  Polling IPAWS ({FEMA_LOOKBACK_MINUTES}m lookback)...")
 
     try:
-        # FEMA IPAWS uses an intermediate CA not in the default certifi bundle.
-        # verify=False is acceptable here — we're only reading public broadcast data
-        # from a known government endpoint, not sending any credentials.
         async with httpx.AsyncClient(timeout=15.0, verify=False) as client:
             resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
     except Exception as e:
@@ -246,7 +380,6 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
         return
 
     if resp.status_code == 404:
-        # FEMA returns 404 (not an empty body) when no alerts exist in the window
         print("[FEMA] ✅ No active alerts in lookback window.")
         return
     if resp.status_code != 200:
@@ -256,51 +389,55 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
     alerts = _parse_cap_alerts(resp.content)
 
     if not alerts:
-        print("[FEMA] ✅ No active Amber Alerts found.")
+        print("[FEMA] ✅ No monitored alerts found.")
         return
 
     for alert in alerts:
         ident = alert["identifier"]
         if ident in _seen_identifiers:
-            continue  # already processed this alert
+            continue
 
         _seen_identifiers.add(ident)
-        print(f"[FEMA] 🚨 Amber Alert detected: {alert['headline']} | Area: {alert['area']}")
+        atype = alert["alert_type"]
+        print(
+            f"[FEMA] {atype['emoji']} {atype['short']} detected: "
+            f"{alert['source_program']} | {alert['headline']} | Area: {alert['area']}"
+        )
 
         if not alert["plates"]:
-            print(f"[FEMA] ⚠️  No plate found in alert text — sending national alert.")
-            print(f"[FEMA]    Description: {alert['description'][:200]}")
+            print(f"[FEMA] ⚠️  No plate found — sending no-plate notification.")
             if webhook_url:
-                await _notify_national_alert(webhook_url, alert)
+                await _notify_no_plate(webhook_url, alert)
             continue
 
         new_plates: list[str] = []
         for plate in alert["plates"]:
             desc = (
-                f"FEMA Amber Alert | {alert['headline']} | Area: {alert['area']} | "
-                f"Issued: {alert['sent']} | ID: {ident}"
+                f"{alert['source_program']} | {alert['headline']} | "
+                f"Area: {alert['area']} | Issued: {alert['sent']} | ID: {ident}"
             )
-            inserted = await _add_to_watchlist(session_factory, plate, desc)
+            inserted = await _add_to_watchlist(
+                session_factory, plate, desc,
+                alert_type=atype["key"],
+                source_program=alert["source_program"],
+            )
             if inserted:
                 new_plates.append(plate)
-                print(f"[FEMA] ✅ Added to watchlist: {plate}")
+                print(f"[FEMA] ✅ Watchlist: {plate} ({atype['short']})")
             else:
                 print(f"[FEMA] ℹ️  {plate} already on watchlist.")
 
         if new_plates and webhook_url:
-            await _notify_pilots(webhook_url, alert, new_plates)
+            await _notify_plates(webhook_url, alert, new_plates)
 
 
 # ---------------------------------------------------------------------------
-# Background loop (called from FastAPI lifespan)
+# Background loop
 # ---------------------------------------------------------------------------
 
 async def fema_background_loop(session_factory, webhook_url: Optional[str] = None) -> None:
-    """
-    Runs forever, polling FEMA IPAWS on POLL_INTERVAL_SECONDS cadence.
-    Designed to be launched with asyncio.create_task().
-    """
     print(f"[FEMA] 🟢 Connector started. Poll interval: {POLL_INTERVAL_SECONDS}s")
+    print(f"[FEMA] 👁  Monitoring: {', '.join(e['short'] for e in ALERT_REGISTRY)}")
     while True:
         try:
             await poll_fema_ipaws(session_factory, webhook_url)

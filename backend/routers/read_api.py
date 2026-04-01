@@ -237,16 +237,18 @@ def get_watchlist():
     db = database.SessionLocal()
     try:
         rows = db.execute(text("""
-            SELECT plate_text, description, added_at
+            SELECT plate_text, description, added_at, alert_type, source_program
             FROM watchlist
             ORDER BY added_at DESC
         """)).fetchall()
 
         return [
             {
-                "plateText":   r[0],
-                "description": r[1],
-                "addedAt":     r[2].isoformat() if r[2] else None,
+                "plateText":     r[0],
+                "description":   r[1],
+                "addedAt":       r[2].isoformat() if r[2] else None,
+                "alertType":     r[3] or "amber",
+                "sourceProgram": r[4],
             }
             for r in rows
         ]

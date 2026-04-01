@@ -11,8 +11,16 @@ export function useDetectionsFeed(limit = 50) {
   })
 }
 
+export type WatchlistEntry = {
+  plateText:     string
+  description:   string
+  addedAt:       string
+  alertType:     string   // amber | matties | silver | blue | purple | mipa | ema
+  sourceProgram: string | null
+}
+
 export function useWatchlist() {
-  return useQuery<{ plateText: string; description: string; addedAt: string }[]>({
+  return useQuery<WatchlistEntry[]>({
     queryKey: ["watchlist"],
     queryFn: () => apiGet("/watchlist"),
     refetchInterval: 60_000,

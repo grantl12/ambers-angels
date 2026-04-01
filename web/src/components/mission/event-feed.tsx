@@ -1,19 +1,34 @@
 "use client"
 
 import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
+import type { WatchlistEntry } from "@/features/detections/api"
 import { useMemo, useState } from "react"
 import { env } from "@/lib/env"
 import type { Detection } from "@/features/detections/types"
+
+// Badge styling per alert type — matches the ALERT_REGISTRY in fema_connector.py
+const ALERT_BADGE: Record<string, { label: string; className: string }> = {
+  amber:   { label: "AMBER",   className: "bg-amber-500 text-black" },
+  matties: { label: "MATTIE'S", className: "bg-red-600 text-white" },
+  silver:  { label: "SILVER",  className: "bg-slate-300 text-black" },
+  blue:    { label: "BLUE",    className: "bg-blue-600 text-white" },
+  purple:  { label: "PURPLE",  className: "bg-purple-600 text-white" },
+  mipa:    { label: "MIPA",    className: "bg-yellow-500 text-black" },
+  ema:     { label: "EMA",     className: "bg-yellow-600 text-black" },
+}
 
 export function EventFeed() {
   const { data: detections = [], dataUpdatedAt } = useDetectionsFeed(50)
   const { data: watchlist = [] } = useWatchlist()
   const [lightbox, setLightbox] = useState<Detection | null>(null)
 
-  const watchlistPlates = useMemo(
-    () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
+  // Map plate → watchlist entry so we can show the specific alert type
+  const watchlistMap = useMemo(
+    () => new Map<string, WatchlistEntry>(watchlist.map((w) => [w.plateText.toUpperCase(), w])),
     [watchlist]
   )
+
+  const watchlistPlates = useMemo(() => new Set(watchlistMap.keys()), [watchlistMap])
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -42,8 +57,11 @@ export function EventFeed() {
             <div className="text-sm text-white/30 text-center mt-8">No detections yet</div>
           ) : (
             detections.map((detection) => {
-              const isAlert = watchlistPlates.has((detection.plateText ?? "").toUpperCase())
-              const isFema  = detection.source === "fema"
+              const plateKey   = (detection.plateText ?? "").toUpperCase()
+              const isAlert    = watchlistPlates.has(plateKey)
+              const wlEntry    = watchlistMap.get(plateKey)
+              const alertBadge = isAlert ? (ALERT_BADGE[wlEntry?.alertType ?? ""] ?? ALERT_BADGE.amber) : null
+              const isFema     = detection.source === "fema"
               const time    = detection.timestamp
                 ? new Date(detection.timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -84,12 +102,12 @@ export function EventFeed() {
                         {detection.plateText || "—"}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        {isAlert && (
-                          <span className="rounded-sm bg-red-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
-                            Alert
+                        {alertBadge && (
+                          <span className={`rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase ${alertBadge.className}`}>
+                            {alertBadge.label}
                           </span>
                         )}
-                        {isFema && (
+                        {isFema && !isAlert && (
                           <span className="rounded-sm bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                             FEMA
                           </span>
