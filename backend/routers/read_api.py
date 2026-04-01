@@ -503,12 +503,13 @@ def get_pilot_leaderboard():
     try:
         rows = db.execute(text("""
             SELECT
-                COALESCE(tp.pilot_id, d.drone_id)           AS pilot_id,
+                COALESCE(tp.pilot_id, d.pilot_id)           AS pilot_id,
                 COALESCE(tp.drone_id, d.drone_id)           AS drone_id,
                 COALESCE(d.total_detections, 0)             AS total_detections,
                 COALESCE(de.watchlist_hits, 0)              AS watchlist_hits,
                 COALESCE(tp.flight_minutes, 0)              AS flight_minutes,
-                tp.last_seen
+                tp.last_seen,
+                p.full_name
             FROM (
                 SELECT
                     pilot_id,
@@ -536,6 +537,7 @@ def get_pilot_leaderboard():
                 WHERE status = 'alerted'
                 GROUP BY drone_id
             ) de ON COALESCE(tp.drone_id, d.drone_id) = de.drone_id
+            LEFT JOIN pilots p ON p.username = COALESCE(tp.pilot_id, d.pilot_id)
             ORDER BY total_detections DESC
         """)).fetchall()
 
@@ -547,6 +549,7 @@ def get_pilot_leaderboard():
                 "watchlistHits":   int(r[3]),
                 "flightMinutes":   float(r[4]),
                 "lastSeen":        r[5].isoformat() if r[5] else None,
+                "fullName":        r[6],
             }
             for r in rows
         ]

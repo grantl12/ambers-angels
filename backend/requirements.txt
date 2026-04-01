@@ -10,3 +10,5 @@ httpx
 opencv-python
 numpy
 ultralytics
+passlib[bcrypt]
+python-jose[cryptography]

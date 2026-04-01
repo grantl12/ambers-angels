@@ -766,11 +766,68 @@ function setText(id, val) {
 }
 
 // ── SUBMIT ─────────────────────────────────────────────────────────────────────
-function submitForm() {
-  // In production: POST to /pilots/register with collected data
-  document.getElementById('progress-row').style.display = 'none'
-  for (let i = 1; i <= 4; i++) document.getElementById('step-' + i).style.display = 'none'
-  document.getElementById('success-screen').style.display = 'block'
+async function submitForm() {
+  const btn = document.querySelector('#step-4 .btn-next')
+  btn.disabled = true
+  btn.textContent = 'Submitting…'
+
+  const radiusVal = document.getElementById('f-radius').value
+  const radiusInt = radiusVal === 'anywhere' ? 999 : (parseInt(radiusVal) || null)
+
+  const payload = {
+    username:             document.getElementById('f-email').value.trim().split('@')[0].replace(/[^a-z0-9]/gi,'').toLowerCase(),
+    email:                document.getElementById('f-email').value.trim(),
+    password:             document.getElementById('f-password').value,
+    full_name:            document.getElementById('f-name').value.trim(),
+    phone:                document.getElementById('f-phone').value.trim(),
+    city:                 document.getElementById('f-city').value.trim(),
+    service_radius_miles: radiusInt,
+    drones:               selectedDrones,
+    part107:              certOn,
+    cert_number:          certOn ? document.getElementById('f-cert').value.trim() : null,
+  }
+
+  // Derive API base URL — same origin as dashboard, port 8000
+  const apiBase = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : `${window.location.protocol}//${window.location.hostname}:8000`
+
+  try {
+    const res = await fetch(`${apiBase}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json()
+
+    if (!res.ok) {
+      btn.disabled = false
+      btn.textContent = 'Join the Network ✓'
+      alert(data.detail || 'Registration failed. Please try again.')
+      return
+    }
+
+    // Store token and redirect if auto-approved (first admin), else show pending screen
+    if (data.status === 'approved') {
+      localStorage.setItem('aa_token',    data.access_token)
+      localStorage.setItem('aa_username', data.username)
+      document.cookie = `aa_token=${data.access_token}; path=/; max-age=${60*60*24*30}; SameSite=Lax`
+    }
+
+    document.getElementById('progress-row').style.display = 'none'
+    for (let i = 1; i <= 4; i++) document.getElementById('step-' + i).style.display = 'none'
+    const success = document.getElementById('success-screen')
+    success.style.display = 'block'
+
+    if (data.status === 'approved') {
+      success.querySelector('p').textContent = 'Your account is ready. Redirecting to the mission dashboard…'
+      setTimeout(() => { window.location.href = '/map' }, 2000)
+    }
+  } catch (err) {
+    btn.disabled = false
+    btn.textContent = 'Join the Network ✓'
+    alert('Network error. Please check your connection and try again.')
+  }
 }
 
 // ── SSO (placeholder) ─────────────────────────────────────────────────────────

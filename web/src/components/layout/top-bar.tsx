@@ -4,18 +4,23 @@ import { useActiveMissions } from "@/features/missions/api"
 import { useLatestTelemetry } from "@/features/telemetry/api"
 import { useDetectionsFeed } from "@/features/detections/api"
 import { env } from "@/lib/env"
+import { getAuthState, clearAuth } from "@/lib/auth"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 export function TopBar() {
   const { data: missions = [] }   = useActiveMissions()
   const { data: drones = [] }     = useLatestTelemetry()
   const { data: detections = [] } = useDetectionsFeed(50)
+  const router = useRouter()
 
   const mission    = missions[0]
   const alertCount = detections.filter((d) => d.status === "alerted").length
 
-  const [utcTime, setUtcTime] = useState("")
+  const [utcTime,   setUtcTime]   = useState("")
+  const [authLabel, setAuthLabel] = useState<string | null>(null)
+
   useEffect(() => {
     const tick = () => {
       const now = new Date()
@@ -29,6 +34,16 @@ export function TopBar() {
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    const state = getAuthState()
+    if (state) setAuthLabel(state.fullName ?? state.username)
+  }, [])
+
+  function handleLogout() {
+    clearAuth()
+    router.push("/login")
+  }
 
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-black/80 px-4 backdrop-blur-sm">
@@ -67,6 +82,18 @@ export function TopBar() {
         </Link>
         {utcTime && (
           <span className="font-mono text-white/30">{utcTime}</span>
+        )}
+        {authLabel && (
+          <>
+            <span className="text-white/20">|</span>
+            <span className="text-white/50">{authLabel}</span>
+            <button
+              onClick={handleLogout}
+              className="text-white/30 hover:text-red-400 transition-colors text-xs"
+            >
+              Sign out
+            </button>
+          </>
         )}
       </div>
     </header>

@@ -31,6 +31,7 @@ from services.fema_connector import fema_background_loop, poll_fema_ipaws, check
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from routers.read_api import router as read_router
+from routers.auth import router as auth_router
 
 # Module-level singleton — must persist across requests to maintain the
 # 5-second aggregation window and active group state
@@ -72,6 +73,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Amber's Angels API", lifespan=lifespan)
 app.include_router(read_router)
+app.include_router(auth_router)
 
 # Serve golden_frames as static files — thumbnails for alert detections
 os.makedirs(GOLDEN_DIR, exist_ok=True)

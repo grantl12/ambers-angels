@@ -18,6 +18,7 @@ export type LeaderboardEntry = {
   watchlistHits: number
   flightMinutes: number
   lastSeen: string | null
+  fullName: string | null
 }
 
 export function useLeaderboard() {

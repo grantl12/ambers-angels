@@ -64,6 +64,28 @@ ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS polygon      TEXT;
 ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS centroid_lat DOUBLE PRECISION;
 ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS centroid_lng DOUBLE PRECISION;
 
+-- 7. Pilots — registered volunteer drone operators
+CREATE TABLE IF NOT EXISTS pilots (
+    id              SERIAL PRIMARY KEY,
+    username        VARCHAR(50)  UNIQUE NOT NULL,
+    email           VARCHAR(255) UNIQUE NOT NULL,
+    password_hash   TEXT         NOT NULL,
+    full_name       TEXT,
+    phone           TEXT,
+    city            TEXT,
+    service_radius_miles INTEGER,
+    drones          TEXT[],
+    part107         BOOLEAN      DEFAULT FALSE,
+    cert_number     TEXT,
+    status          VARCHAR(20)  DEFAULT 'pending',   -- pending | approved | suspended
+    role            VARCHAR(20)  DEFAULT 'pilot',     -- pilot | admin
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    approved_at     TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_pilots_username ON pilots (username);
+CREATE INDEX IF NOT EXISTS idx_pilots_status   ON pilots (status);
+
 -- 4. Create the alerts table
 CREATE TABLE IF NOT EXISTS alerts (
     id SERIAL PRIMARY KEY,
