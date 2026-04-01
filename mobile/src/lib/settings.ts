@@ -1,0 +1,35 @@
+/**
+ * Persistent user settings using AsyncStorage.
+ * Keeps API URL, pilot identity, and capture preferences across app restarts.
+ */
+import AsyncStorage from "@react-native-async-storage/async-storage"
+
+export type AppSettings = {
+  apiBaseUrl: string
+  droneId: string
+  pilotId: string
+  captureIntervalSec: number  // seconds between frame captures
+}
+
+const DEFAULTS: AppSettings = {
+  apiBaseUrl: "http://192.168.1.100:8000",
+  droneId: "phone-1",
+  pilotId: "",
+  captureIntervalSec: 5,
+}
+
+const KEY = "aa_settings"
+
+export async function loadSettings(): Promise<AppSettings> {
+  try {
+    const json = await AsyncStorage.getItem(KEY)
+    if (!json) return DEFAULTS
+    return { ...DEFAULTS, ...JSON.parse(json) }
+  } catch {
+    return DEFAULTS
+  }
+}
+
+export async function saveSettings(settings: AppSettings): Promise<void> {
+  await AsyncStorage.setItem(KEY, JSON.stringify(settings))
+}

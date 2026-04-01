@@ -1,0 +1,36 @@
+import { getApiBaseUrl } from "./client"
+
+export type FramePayload = {
+  uri: string
+  droneId: string
+  pilotId?: string
+  lat?: number
+  lng?: number
+  altitude?: number
+  heading?: number
+  speed?: number
+  accuracy?: number
+}
+
+export async function postFrame(payload: FramePayload): Promise<void> {
+  const form = new FormData()
+  form.append("file", {
+    uri: payload.uri,
+    type: "image/jpeg",
+    name: "frame.jpg",
+  } as unknown as Blob)
+  form.append("drone_id", payload.droneId)
+  form.append("source", "phone_gps")
+  if (payload.pilotId)  form.append("pilot_id",  payload.pilotId)
+  if (payload.lat  != null) form.append("lat",      String(payload.lat))
+  if (payload.lng  != null) form.append("lng",      String(payload.lng))
+  if (payload.altitude != null) form.append("altitude", String(payload.altitude))
+  if (payload.heading  != null) form.append("heading",  String(payload.heading))
+  if (payload.speed    != null) form.append("speed",    String(payload.speed))
+  if (payload.accuracy != null) form.append("accuracy", String(payload.accuracy))
+
+  await fetch(`${getApiBaseUrl()}/ingest/frame`, {
+    method: "POST",
+    body: form,
+  })
+}

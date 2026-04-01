@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Amber's Angels",
+    "slug": "ambers-angels",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.ambersangels.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used to capture frames for license plate recognition.",
+        "NSLocationWhenInUseUsageDescription": "Location is used to tag detections and update your drone position on the mission map.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Location is used in the background to keep your drone position live during a mission."
+      }
+    },
+    "android": {
+      "package": "com.ambersangels.app",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Amber's Angels to access your camera for license plate capture."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Amber's Angels to use your location during missions."
+        }
+      ]
+    ]
+  }
+}
