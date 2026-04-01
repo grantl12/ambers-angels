@@ -71,6 +71,10 @@ class DetectionInput:
     telemetry: dict[str, Any] | None = None
     bbox: dict[str, Any] | None = None
     alpr_payload: dict[str, Any] | None = None
+    vehicle_color: str | None = None
+    vehicle_type:  str | None = None
+    vehicle_make:  str | None = None
+    vehicle_model: str | None = None
 
     @property
     def plate_normalized(self) -> str:
@@ -107,6 +111,10 @@ class EventSnapshot:
     quality_flags: list[str]
     raw_summary: dict[str, Any]
     location_centroid: dict[str, Any] | None = None
+    vehicle_color: str | None = None
+    vehicle_type:  str | None = None
+    vehicle_make:  str | None = None
+    vehicle_model: str | None = None
 
 
 # -----------------------------------------------------------------------------
@@ -369,6 +377,20 @@ class ActiveDetectionGroup:
 
         location_centroid = _compute_location_centroid(self.detections)
 
+        # Vehicle attributes — take from the best-scoring detection that has them.
+        # Prefer make/model from Plate Recognizer; fall back to YOLO color/type.
+        vehicle_color = vehicle_type = vehicle_make = vehicle_model = None
+        for det in sorted(self.detections, key=lambda d: d.confidence, reverse=True):
+            if vehicle_make is None and det.vehicle_make:
+                vehicle_make  = det.vehicle_make
+                vehicle_model = det.vehicle_model
+            if vehicle_color is None and det.vehicle_color:
+                vehicle_color = det.vehicle_color
+            if vehicle_type is None and det.vehicle_type:
+                vehicle_type = det.vehicle_type
+            if all([vehicle_color, vehicle_type, vehicle_make]):
+                break
+
         raw_summary = {
             "max_confidence": round(max_confidence, 2),
             "mean_confidence": round(mean_confidence, 2),
@@ -409,6 +431,10 @@ class ActiveDetectionGroup:
             quality_flags=sorted(quality_flags_union),
             raw_summary=raw_summary,
             location_centroid=location_centroid,
+            vehicle_color=vehicle_color,
+            vehicle_type=vehicle_type,
+            vehicle_make=vehicle_make,
+            vehicle_model=vehicle_model,
         )
 
 

@@ -8,8 +8,18 @@ CREATE TABLE IF NOT EXISTS detection_events (
     occurrence_count INTEGER DEFAULT 1,
     average_confidence FLOAT,
     first_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    vehicle_color  VARCHAR(30),
+    vehicle_type   VARCHAR(20),
+    vehicle_make   VARCHAR(40),
+    vehicle_model  VARCHAR(40)
 );
+
+-- Additive migration for existing deployments
+ALTER TABLE detection_events ADD COLUMN IF NOT EXISTS vehicle_color  VARCHAR(30);
+ALTER TABLE detection_events ADD COLUMN IF NOT EXISTS vehicle_type   VARCHAR(20);
+ALTER TABLE detection_events ADD COLUMN IF NOT EXISTS vehicle_make   VARCHAR(40);
+ALTER TABLE detection_events ADD COLUMN IF NOT EXISTS vehicle_model  VARCHAR(40);
 
 -- 2. Create the index separately (Postgres way)
 CREATE INDEX IF NOT EXISTS idx_plate_drone ON detection_events (plate_best, drone_id, last_seen);

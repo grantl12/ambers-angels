@@ -96,6 +96,19 @@ export function EventFeed() {
                         )}
                       </div>
                     </div>
+                    {/* Vehicle description line */}
+                    {(detection.vehicleColor || detection.vehicleType || detection.vehicleMake) && (
+                      <div className="mt-1 text-xs text-white/60 capitalize">
+                        {[
+                          detection.vehicleColor,
+                          detection.vehicleMake,
+                          detection.vehicleModel,
+                          detection.vehicleType,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </div>
+                    )}
                     <div className="mt-1.5 flex flex-wrap gap-x-3 text-xs text-white/40">
                       {detection.droneId && <span>{detection.droneId}</span>}
                       {detection.confidence != null && detection.confidence > 0 && (

@@ -9,3 +9,4 @@ requests
 httpx
 opencv-python
 numpy
+ultralytics

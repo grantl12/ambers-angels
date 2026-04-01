@@ -33,6 +33,12 @@ class DetectionCreate(BaseModel):
     accuracy: Optional[float] = None   # GPS accuracy radius, metres
     source:   Optional[str]  = None    # "rtmp_drone" | "dji_app" | "phone_gps"
 
+    # Vehicle attributes — populated by YOLOv8 locally and/or Plate Recognizer
+    vehicle_color: Optional[str] = None   # e.g. "blue", "silver"
+    vehicle_type:  Optional[str] = None   # car | truck | motorcycle | bus
+    vehicle_make:  Optional[str] = None   # e.g. "honda"
+    vehicle_model: Optional[str] = None   # e.g. "civic"
+
 
 class TelemetryCreate(BaseModel):
     """

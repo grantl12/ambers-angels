@@ -11,6 +11,50 @@ import type { FlockCamera } from "@/features/flock/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
 
+// Build a road-strip polygon for a camera's coverage zone.
+// Projects a narrow rectangle (lengthM long, widthM wide) in the camera's
+// heading direction — visually reads as "this road segment is already watched."
+// Cameras with null heading fall back to a small circle.
+function buildCoverageRing(
+  cx: number,
+  cy: number,
+  heading: number | null,
+  lengthM = 300,
+  widthM  = 16,
+): [number, number][] {
+  const degPerM_lat = 1 / 111_320
+  const degPerM_lng = 1 / (111_320 * Math.cos((cy * Math.PI) / 180))
+
+  if (heading == null) {
+    // Small circle fallback when no heading is available
+    const r = widthM * 2
+    return Array.from({ length: 37 }, (_, i) => {
+      const a = (i / 36) * 2 * Math.PI
+      return [cx + r * degPerM_lng * Math.cos(a), cy + r * degPerM_lat * Math.sin(a)] as [number, number]
+    })
+  }
+
+  // Compass bearing → trig components
+  // heading 0° (north): fwd=(0,+1), rgt=(+1,0) in (Δlng, Δlat)
+  const hr     = (heading * Math.PI) / 180
+  const fwdLng = Math.sin(hr) * degPerM_lng
+  const fwdLat = Math.cos(hr) * degPerM_lat
+  const rgtLng = Math.cos(hr) * degPerM_lng
+  const rgtLat = -Math.sin(hr) * degPerM_lat
+
+  const hw   = widthM / 2   // half-width offset
+  const tail = 20           // metres behind camera for a small tail
+
+  // Rectangle corners: back-left → back-right → front-right → front-left → close
+  return [
+    [cx - rgtLng * hw - fwdLng * tail,   cy - rgtLat * hw - fwdLat * tail],
+    [cx + rgtLng * hw - fwdLng * tail,   cy + rgtLat * hw - fwdLat * tail],
+    [cx + rgtLng * hw + fwdLng * lengthM, cy + rgtLat * hw + fwdLat * lengthM],
+    [cx - rgtLng * hw + fwdLng * lengthM, cy - rgtLat * hw + fwdLat * lengthM],
+    [cx - rgtLng * hw - fwdLng * tail,   cy - rgtLat * hw - fwdLat * tail],  // close
+  ]
+}
+
 type TimeRange = "all" | "24h" | "7d" | "30d"
 
 type Props = { layers: LayerState }
@@ -41,12 +85,16 @@ export function MissionMap({ layers }: Props) {
     properties: {},
   }), [trail])
 
-  // Flock camera coverage circles GeoJSON
+  // Flock camera coverage — road strip oriented in camera heading direction.
+  // All cameras are always included so pilots can plan around existing coverage.
   const flockCoverageGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: flockCameras.map((cam) => ({
       type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [cam.lng, cam.lat] },
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: [buildCoverageRing(cam.lng, cam.lat, cam.heading)],
+      },
       properties: { id: cam.id },
     })),
   }), [flockCameras])
@@ -92,19 +140,25 @@ export function MissionMap({ layers }: Props) {
           />
         </Source>
 
-        {/* Flock coverage circles */}
+        {/* Flock coverage sectors (pie slices oriented by heading) */}
         {layers.coverage && (
           <Source id="flock-coverage" type="geojson" data={flockCoverageGeoJson}>
             <Layer
               id="flock-coverage-fill"
-              type="circle"
+              type="fill"
               paint={{
-                "circle-radius": 36,
-                "circle-color": "#ff6b35",
-                "circle-opacity": 0.07,
-                "circle-stroke-width": 1,
-                "circle-stroke-color": "#ff6b35",
-                "circle-stroke-opacity": 0.4,
+                "fill-color": "#ff6b35",
+                "fill-opacity": 0.10,
+              }}
+            />
+            <Layer
+              id="flock-coverage-outline"
+              type="line"
+              paint={{
+                "line-color": "#ff6b35",
+                "line-opacity": 0.45,
+                "line-width": 1,
+                "line-dasharray": [4, 3],
               }}
             />
           </Source>
@@ -232,6 +286,16 @@ export function MissionMap({ layers }: Props) {
               </div>
               {watchlistPlates.has((selectedDetection.plateText ?? "").toUpperCase()) && (
                 <div className="mt-1 text-xs font-bold text-red-600">WATCHLIST HIT</div>
+              )}
+              {(selectedDetection.vehicleColor || selectedDetection.vehicleMake || selectedDetection.vehicleType) && (
+                <div className="mt-1 text-neutral-700 capitalize text-xs">
+                  {[
+                    selectedDetection.vehicleColor,
+                    selectedDetection.vehicleMake,
+                    selectedDetection.vehicleModel,
+                    selectedDetection.vehicleType,
+                  ].filter(Boolean).join(" ")}
+                </div>
               )}
               <div className="mt-1 text-neutral-600">Drone: {selectedDetection.droneId}</div>
               <div className="text-neutral-600">

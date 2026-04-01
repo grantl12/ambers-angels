@@ -24,10 +24,12 @@ import database
 import schemas
 from services.detection_models import EventStatus, EventClassification
 from services.event_service import EventService
-from services.aggregation_service import AggregationService, DetectionInput as AggDetectionInput
+from services.aggregation_service import AggregationService, DetectionInput as AggDetectionInput, SINGLE_FRAME_HIGH_CONFIDENCE
 from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
 from services.fema_connector import fema_background_loop, poll_fema_ipaws
+from services.vehicle_classifier import classify as classify_vehicles
+from services.plate_recognizer import recognize_async as pr_recognize
 from routers.read_api import router as read_router
 
 # Module-level singleton — must persist across requests to maintain the
@@ -176,6 +178,10 @@ async def create_detection(
         telemetry=telemetry,
         bbox=None,
         alpr_payload=detection.raw_payload,
+        vehicle_color=detection.vehicle_color,
+        vehicle_type=detection.vehicle_type,
+        vehicle_make=detection.vehicle_make,
+        vehicle_model=detection.vehicle_model,
     )
 
     snapshot = _aggregation_service.ingest(det_input)
@@ -278,10 +284,11 @@ async def ingest_frame(
         except ValueError:
             pass
 
-    # Save frame to a temp file for OpenALPR
+    # Read frame bytes once — needed for both OpenALPR (file) and Plate Recognizer (bytes)
+    frame_bytes = await file.read()
     suffix = os.path.splitext(file.filename or "frame.jpg")[1] or ".jpg"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(await file.read())
+        tmp.write(frame_bytes)
         tmp_path = tmp.name
 
     try:
@@ -296,6 +303,19 @@ async def ingest_frame(
 
         results = alpr.recognize_file(tmp_path)
         alpr.unload()
+
+        # --- Vehicle classification (always local, never blocking) ---
+        yolo_vehicles = classify_vehicles(tmp_path)
+        yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
+
+        # --- Plate Recognizer (cloud, only on high-confidence frames) ---
+        max_conf = max((r.get("confidence", 0.0) for r in (results or {}).get("results", [])), default=0.0)
+        pr_by_plate: dict[str, object] = {}
+        if max_conf >= SINGLE_FRAME_HIGH_CONFIDENCE:
+            pr_list = await pr_recognize(frame_bytes, regions=["us"])
+            for pr in pr_list:
+                if pr.plate:
+                    pr_by_plate[pr.plate.upper()] = pr
     finally:
         os.unlink(tmp_path)
 
@@ -335,6 +355,8 @@ async def ingest_frame(
         if not plate_text:
             continue
 
+        # Merge vehicle attributes: PR make/model takes priority; YOLO fills color/type
+        pr = pr_by_plate.get(plate_text.upper())
         det_input = AggDetectionInput(
             detection_id=str(uuid.uuid4()),
             frame_id=frame_id,
@@ -346,6 +368,10 @@ async def ingest_frame(
             telemetry=telemetry,
             bbox=None,
             alpr_payload=plate_result,
+            vehicle_color=(pr.color  if pr else None) or (yolo_primary.color     if yolo_primary else None),
+            vehicle_type= (pr.body_type if pr else None) or (yolo_primary.body_type if yolo_primary else None),
+            vehicle_make= pr.make  if pr else None,
+            vehicle_model=pr.model if pr else None,
         )
 
         snapshot = _aggregation_service.ingest(det_input)

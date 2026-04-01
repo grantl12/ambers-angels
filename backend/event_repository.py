@@ -14,33 +14,37 @@ class EventRepository:
     async def create_event(self, payload):
         async with self.session_factory() as session:
             data = payload.dict() if hasattr(payload, "dict") else payload
-            
-            # Match the EXACT columns from your \d output
+
             essential_data = {
-                "id": str(uuid.uuid4()), # Generate the missing UUID
-                "drone_id": data.get("drone_id", "drone1"),
-                "plate_best": data.get("plate_best") or data.get("plate_text"),
-                "confidence": data.get("aggregate_confidence") or data.get("average_confidence") or data.get("confidence", 0.0),
-                "event_type": "automated_test",
-                "status": "active",
-                "last_seen": datetime.now(timezone.utc)
+                "id":            str(uuid.uuid4()),
+                "drone_id":      data.get("drone_id", "drone1"),
+                "plate_best":    data.get("plate_best") or data.get("plate_text"),
+                "confidence":    data.get("aggregate_confidence") or data.get("average_confidence") or data.get("confidence", 0.0),
+                "event_type":    "automated_test",
+                "status":        "active",
+                "last_seen":     datetime.now(timezone.utc),
+                "vehicle_color": data.get("vehicle_color"),
+                "vehicle_type":  data.get("vehicle_type"),
+                "vehicle_make":  data.get("vehicle_make"),
+                "vehicle_model": data.get("vehicle_model"),
             }
-            
-            cols = ", ".join(essential_data.keys())
+
+            cols   = ", ".join(essential_data.keys())
             params = ", ".join([f":{k}" for k in essential_data.keys()])
-            
+
             sql = text(f"INSERT INTO detection_events ({cols}) VALUES ({params}) RETURNING id")
-            
+
             await session.execute(sql, essential_data)
             await session.commit()
-            return essential_data # Return the dict as a mock object
+            return essential_data
             
     async def update_event(self, event, fields: dict):
         event_id = event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
         if not event_id or not fields:
             return event
         # Only update columns that actually exist in the table
-        allowed = {"status", "frame_url", "confidence", "plate_best", "drone_id"}
+        allowed = {"status", "frame_url", "confidence", "plate_best", "drone_id",
+                   "vehicle_color", "vehicle_type", "vehicle_make", "vehicle_model"}
         safe_fields = {k: v for k, v in fields.items() if k in allowed}
         if not safe_fields:
             return event

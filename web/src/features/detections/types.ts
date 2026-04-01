@@ -9,4 +9,8 @@ export type Detection = {
   status: string
   frameUrl?: string | null
   source?: "fema" | "drone"
+  vehicleColor?: string | null
+  vehicleType?:  string | null
+  vehicleMake?:  string | null
+  vehicleModel?: string | null
 }

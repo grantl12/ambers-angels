@@ -14,6 +14,11 @@ import requests
 from openalpr import Alpr
 from dotenv import load_dotenv
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+from services.vehicle_classifier import classify as classify_vehicles
+from services.plate_recognizer import recognize_sync as pr_recognize
+from services.aggregation_service import SINGLE_FRAME_HIGH_CONFIDENCE
+
 load_dotenv()
 
 # ---------------------------------------------------------------------------
@@ -74,6 +79,19 @@ def process_frame(frame_path: str) -> bool:
     if not results or not results.get("results"):
         return True  # no plates found — mark done
 
+    # --- Vehicle classification (local, runs on every frame with plates) ---
+    yolo_vehicles = classify_vehicles(frame_path)
+    yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
+
+    # --- Plate Recognizer (cloud, only on high-confidence frames) ---
+    max_conf = max((r.get("confidence", 0.0) for r in results["results"]), default=0.0)
+    pr_by_plate: dict[str, object] = {}
+    if max_conf >= SINGLE_FRAME_HIGH_CONFIDENCE:
+        pr_list = pr_recognize(frame_path, regions=["us"])
+        for pr in pr_list:
+            if pr.plate:
+                pr_by_plate[pr.plate.upper()] = pr
+
     api_ok = True
     for plate_result in results["results"]:
         plate_text  = plate_result.get("plate", "")
@@ -83,11 +101,16 @@ def process_frame(frame_path: str) -> bool:
         if not plate_text:
             continue
 
+        pr = pr_by_plate.get(plate_text.upper())
         payload = {
             "plate_text":    plate_text,
             "confidence":    confidence,
             "drone_id":      DRONE_ID,
             "best_frame_id": frame_name,
+            "vehicle_color": (pr.color     if pr else None) or (yolo_primary.color     if yolo_primary else None),
+            "vehicle_type":  (pr.body_type if pr else None) or (yolo_primary.body_type if yolo_primary else None),
+            "vehicle_make":  pr.make  if pr else None,
+            "vehicle_model": pr.model if pr else None,
         }
 
         try:

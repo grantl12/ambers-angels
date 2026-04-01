@@ -156,7 +156,11 @@ def get_detections_feed(
                 de.last_seen,
                 de.frame_url,
                 d.lat,
-                d.lon
+                d.lon,
+                de.vehicle_color,
+                de.vehicle_type,
+                de.vehicle_make,
+                de.vehicle_model
             FROM detection_events de
             LEFT JOIN LATERAL (
                 SELECT lat, lon
@@ -174,15 +178,19 @@ def get_detections_feed(
 
         return [
             {
-                "id":         r[0],
-                "plateText":  r[1],
-                "droneId":    r[2],
-                "status":     r[3],
-                "confidence": r[4],
-                "timestamp":  r[5].isoformat() if r[5] else None,
-                "frameUrl":   r[6],
-                "lat":        r[7],
-                "lng":        r[8],
+                "id":           r[0],
+                "plateText":    r[1],
+                "droneId":      r[2],
+                "status":       r[3],
+                "confidence":   r[4],
+                "timestamp":    r[5].isoformat() if r[5] else None,
+                "frameUrl":     r[6],
+                "lat":          r[7],
+                "lng":          r[8],
+                "vehicleColor": r[9],
+                "vehicleType":  r[10],
+                "vehicleMake":  r[11],
+                "vehicleModel": r[12],
             }
             for r in rows
         ]
