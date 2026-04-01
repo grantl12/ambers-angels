@@ -17,7 +17,11 @@ const ALERT_BADGE: Record<string, { label: string; className: string }> = {
   ema:     { label: "EMA",     className: "bg-yellow-600 text-black" },
 }
 
-export function EventFeed() {
+type Props = {
+  onFlyTo?: (lat: number, lng: number) => void
+}
+
+export function EventFeed({ onFlyTo }: Props) {
   const { data: detections = [], dataUpdatedAt } = useDetectionsFeed(50)
   const { data: watchlist = [] } = useWatchlist()
   const [lightbox, setLightbox] = useState<Detection | null>(null)
@@ -72,14 +76,17 @@ export function EventFeed() {
                 ? `${env.apiBaseUrl}${detection.frameUrl}`
                 : null
 
+              const hasGps = detection.lat != null && detection.lng != null
+
               return (
                 <div
                   key={detection.id}
+                  onClick={() => hasGps && onFlyTo?.(detection.lat!, detection.lng!)}
                   className={`rounded-lg border text-sm transition-colors ${
                     isAlert
                       ? "border-red-500/40 bg-red-500/10"
                       : "border-white/10 bg-white/5"
-                  }`}
+                  } ${hasGps ? "cursor-pointer hover:border-sky-500/50 hover:bg-white/10" : ""}`}
                 >
                   {/* Thumbnail — alert vehicles only */}
                   {thumbUrl && (

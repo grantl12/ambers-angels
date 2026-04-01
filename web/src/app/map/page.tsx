@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { MapLoader } from "@/components/map/map-loader"
 import { MissionSidebar } from "@/components/mission/mission-sidebar"
 import { EventFeed } from "@/components/mission/event-feed"
@@ -23,18 +23,24 @@ export default function MapPage() {
     hits: true,
   })
 
+  const flyToRef = useRef<((lat: number, lng: number) => void) | null>(null)
+
   const toggleLayer = (key: keyof LayerState) =>
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
+
+  function flyTo(lat: number, lng: number) {
+    flyToRef.current?.(lat, lng)
+  }
 
   return (
     <main className="flex h-screen w-screen flex-col bg-neutral-950">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
-        <MissionSidebar layers={layers} onToggleLayer={toggleLayer} />
+        <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={flyTo} />
         <div className="flex-1">
-          <MapLoader layers={layers} />
+          <MapLoader layers={layers} onMapReady={(fn) => { flyToRef.current = fn }} />
         </div>
-        <EventFeed />
+        <EventFeed onFlyTo={flyTo} />
       </div>
     </main>
   )

@@ -1,8 +1,9 @@
 "use client"
 
 import Map, { Marker, NavigationControl, Popup, Source, Layer } from "react-map-gl/mapbox"
+import type { MapRef } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useRef, useEffect } from "react"
 import { env } from "@/lib/env"
 import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
@@ -57,9 +58,13 @@ function buildCoverageRing(
 
 type TimeRange = "all" | "24h" | "7d" | "30d"
 
-type Props = { layers: LayerState }
+type Props = {
+  layers: LayerState
+  onMapReady?: (flyTo: (lat: number, lng: number) => void) => void
+}
 
-export function MissionMap({ layers }: Props) {
+export function MissionMap({ layers, onMapReady }: Props) {
+  const mapRef = useRef<MapRef>(null)
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null)
   const [selectedFlock, setSelectedFlock]         = useState<FlockCamera | null>(null)
   const [timeRange, setTimeRange]                 = useState<TimeRange>("all")
@@ -116,13 +121,21 @@ export function MissionMap({ layers }: Props) {
 
   const mappable = detections.filter((d) => d.lat != null && d.lng != null)
 
+  function handleMapLoad() {
+    onMapReady?.((lat, lng) => {
+      mapRef.current?.flyTo({ center: [lng, lat], zoom: 16, duration: 1200 })
+    })
+  }
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <Map
+        ref={mapRef}
         initialViewState={{ ...center, zoom: 13 }}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         mapboxAccessToken={env.mapboxToken}
         style={{ width: "100%", height: "100%" }}
+        onLoad={handleMapLoad}
         onClick={() => { setSelectedDetection(null); setSelectedFlock(null) }}
       >
         <NavigationControl position="top-right" />

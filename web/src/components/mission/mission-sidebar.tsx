@@ -9,6 +9,7 @@ import type { LayerState } from "@/app/map/page"
 type Props = {
   layers: LayerState
   onToggleLayer: (key: keyof LayerState) => void
+  onFlyTo?: (lat: number, lng: number) => void
 }
 
 const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = [
@@ -19,7 +20,7 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
   { key: "hits",     label: "Watchlist Hits",      color: "bg-red-400" },
 ]
 
-export function MissionSidebar({ layers, onToggleLayer }: Props) {
+export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
   const { data: missions = [] }    = useActiveMissions()
   const { data: drones = [] }      = useLatestTelemetry()
   const { data: detections = [] }  = useDetectionsFeed(50)
@@ -115,7 +116,9 @@ export function MissionSidebar({ layers, onToggleLayer }: Props) {
             {drones.map((drone) => (
               <div
                 key={drone.droneId}
-                className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
+                onClick={() => onFlyTo?.(drone.lat, drone.lng)}
+                className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm cursor-pointer hover:border-violet-400/50 hover:bg-violet-400/10 transition-colors"
+                title="Click to center map on drone"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{drone.droneId}</span>
@@ -153,10 +156,14 @@ export function MissionSidebar({ layers, onToggleLayer }: Props) {
                   })
                 : null
               const isHigh = (hit.confidence ?? 0) > 90
+              const hasGps = hit.lat != null && hit.lng != null
               return (
                 <div
                   key={hit.id}
-                  className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-sm"
+                  onClick={() => hasGps && onFlyTo?.(hit.lat!, hit.lng!)}
+                  className={`rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-sm ${
+                    hasGps ? "cursor-pointer hover:border-red-400/60 hover:bg-red-500/20 transition-colors" : ""
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono font-semibold tracking-wider text-amber-400">
