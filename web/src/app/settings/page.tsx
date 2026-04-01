@@ -9,6 +9,7 @@ type Settings = {
   notifSoundWatchlist: boolean
   notifSoundFema: boolean
   notifSoundAmber: boolean
+  alertRangeMiles: number
 }
 
 const DEFAULTS: Settings = {
@@ -17,7 +18,10 @@ const DEFAULTS: Settings = {
   notifSoundWatchlist: true,
   notifSoundFema: true,
   notifSoundAmber: true,
+  alertRangeMiles: 25,
 }
+
+const RANGE_OPTIONS = [5, 10, 15, 25, 50, 100]
 
 function loadSettings(): Settings {
   if (typeof window === "undefined") return DEFAULTS
@@ -28,6 +32,7 @@ function loadSettings(): Settings {
       notifSoundWatchlist: localStorage.getItem("aa_notif_sound_watchlist") !== "0",
       notifSoundFema:      localStorage.getItem("aa_notif_sound_fema")      !== "0",
       notifSoundAmber:     localStorage.getItem("aa_notif_sound_amber")     !== "0",
+      alertRangeMiles:     parseInt(localStorage.getItem("aa_alert_range_miles") ?? "25", 10),
     }
   } catch {
     return DEFAULTS
@@ -40,6 +45,7 @@ function saveSettings(s: Settings) {
   localStorage.setItem("aa_notif_sound_watchlist",  s.notifSoundWatchlist ? "1" : "0")
   localStorage.setItem("aa_notif_sound_fema",       s.notifSoundFema      ? "1" : "0")
   localStorage.setItem("aa_notif_sound_amber",      s.notifSoundAmber     ? "1" : "0")
+  localStorage.setItem("aa_alert_range_miles",      String(s.alertRangeMiles))
 }
 
 function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
@@ -150,6 +156,32 @@ export default function SettingsPage() {
               onToggle={() => update("notifSoundAmber", !settings.notifSoundAmber)}
             />
           </div>
+        </section>
+
+        {/* Alert range */}
+        <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
+          <h2 className="text-xs uppercase tracking-widest text-white/40 mb-4">Alert Range</h2>
+          <label className="block text-sm text-white/70 mb-3">
+            Notify pilots within this distance of an active alert
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {RANGE_OPTIONS.map((miles) => (
+              <button
+                key={miles}
+                onClick={() => update("alertRangeMiles", miles)}
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                  settings.alertRangeMiles === miles
+                    ? "border-sky-500 bg-sky-500/20 text-sky-300"
+                    : "border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-white/30"
+                }`}
+              >
+                {miles} mi
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-white/30">
+            Location services required for range-based filtering. Setting is saved now and applied when location is available.
+          </p>
         </section>
 
         {/* Save */}

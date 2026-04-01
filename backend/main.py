@@ -27,7 +27,7 @@ from services.event_service import EventService
 from services.aggregation_service import AggregationService, DetectionInput as AggDetectionInput, SINGLE_FRAME_HIGH_CONFIDENCE
 from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
-from services.fema_connector import fema_background_loop, poll_fema_ipaws
+from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from routers.read_api import router as read_router
@@ -307,6 +307,14 @@ async def ingest_frame(
         # --- Vehicle classification (always local, never blocking) ---
         yolo_vehicles = classify_vehicles(tmp_path)
         yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
+
+        # --- Vehicle target matching against active FEMA alerts ---
+        await check_vehicle_targets(
+            database.AsyncSessionLocal,
+            drone_id,
+            yolo_vehicles,
+            os.getenv("ALERT_WEBHOOK_URL", ""),
+        )
 
         # --- Plate Recognizer (cloud, only on high-confidence frames) ---
         max_conf = max((r.get("confidence", 0.0) for r in (results or {}).get("results", [])), default=0.0)

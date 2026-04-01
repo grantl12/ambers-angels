@@ -41,6 +41,21 @@ CREATE TABLE IF NOT EXISTS flock_cameras (
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS alert_type     VARCHAR(30) DEFAULT 'amber';
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS source_program TEXT;
 
+-- 6. Vehicle targets from FEMA alerts — partial profiles for no-plate alerts
+CREATE TABLE IF NOT EXISTS vehicle_targets (
+    id              SERIAL PRIMARY KEY,
+    fema_identifier TEXT UNIQUE NOT NULL,
+    alert_type      VARCHAR(30),
+    source_program  TEXT,
+    headline        TEXT,
+    area            TEXT,
+    color           VARCHAR(30),
+    body_type       VARCHAR(30),
+    make            VARCHAR(40),
+    added_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at      TIMESTAMP WITH TIME ZONE
+);
+
 -- 4. Create the alerts table
 CREATE TABLE IF NOT EXISTS alerts (
     id SERIAL PRIMARY KEY,
