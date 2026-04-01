@@ -787,10 +787,8 @@ async function submitForm() {
     cert_number:          certOn ? document.getElementById('f-cert').value.trim() : null,
   }
 
-  // Derive API base URL — same origin as dashboard, port 8000
-  const apiBase = window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : `${window.location.protocol}//${window.location.hostname}:8000`
+  // API goes through nginx /api/ → FastAPI
+  const apiBase = window.location.origin + '/api'
 
   try {
     const res = await fetch(`${apiBase}/auth/register`, {
