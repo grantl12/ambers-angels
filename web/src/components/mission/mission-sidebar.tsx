@@ -2,7 +2,7 @@
 
 import { useActiveMissions } from "@/features/missions/api"
 import { useLatestTelemetry } from "@/features/telemetry/api"
-import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
+import { useDetectionsFeed, useFemaAlerts, useWatchlist, type FemaAlert } from "@/features/detections/api"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import type { LayerState } from "@/app/map/page"
@@ -25,6 +25,93 @@ function useAlertRange() {
   return miles
 }
 
+// ---------------------------------------------------------------------------
+// Polygon distance helpers
+// ---------------------------------------------------------------------------
+
+const _DEG_TO_RAD = Math.PI / 180
+const _EARTH_MILES = 3958.8
+
+function _haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLat = (lat2 - lat1) * _DEG_TO_RAD
+  const dLon = (lon2 - lon1) * _DEG_TO_RAD
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * _DEG_TO_RAD) * Math.cos(lat2 * _DEG_TO_RAD) * Math.sin(dLon / 2) ** 2
+  return _EARTH_MILES * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function _parsePolygon(polyStr: string): [number, number][] {
+  return polyStr
+    .trim()
+    .split(/\s+/)
+    .map((pair) => {
+      const [lat, lon] = pair.split(",").map(Number)
+      return [lat, lon] as [number, number]
+    })
+}
+
+function _pointInPolygon(lat: number, lon: number, poly: [number, number][]): boolean {
+  let inside = false
+  const n = poly.length
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [yi, xi] = poly[i]
+    const [yj, xj] = poly[j]
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+function _ptToSegMiles(
+  lat: number,
+  lon: number,
+  a: [number, number],
+  b: [number, number],
+): number {
+  const cosLat = Math.cos(lat * _DEG_TO_RAD)
+  const px = lon * cosLat,  py = lat
+  const ax = a[1] * cosLat, ay = a[0]
+  const bx = b[1] * cosLat, by = b[0]
+  const dx = bx - ax,       dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  const t = lenSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq)) : 0
+  return _haversineMiles(lat, lon, a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
+}
+
+/** Returns miles from point to polygon boundary; 0 if inside; null if no valid polygon. */
+function distToPolygonMiles(lat: number, lon: number, polyStr: string | null): number | null {
+  if (!polyStr) return null
+  const poly = _parsePolygon(polyStr)
+  if (poly.length < 3) return null
+  if (_pointInPolygon(lat, lon, poly)) return 0
+  let minDist = Infinity
+  const n = poly.length
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const d = _ptToSegMiles(lat, lon, poly[j], poly[i])
+    if (d < minDist) minDist = d
+  }
+  return minDist
+}
+
+/** For a drone position, find the closest active FEMA alert and return miles outside (0 = inside). */
+function closestAlertDistance(
+  lat: number,
+  lon: number,
+  alerts: FemaAlert[],
+): { miles: number; alert: FemaAlert } | null {
+  let best: { miles: number; alert: FemaAlert } | null = null
+  for (const alert of alerts) {
+    const d = distToPolygonMiles(lat, lon, alert.polygon)
+    if (d === null) continue
+    if (best === null || d < best.miles) best = { miles: d, alert }
+  }
+  return best
+}
+
+// ---------------------------------------------------------------------------
+
 type Props = {
   layers: LayerState
   onToggleLayer: (key: keyof LayerState) => void
@@ -45,6 +132,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
   const { data: drones = [] }      = useLatestTelemetry()
   const { data: detections = [] }  = useDetectionsFeed(50)
   const { data: watchlist = [] }   = useWatchlist()
+  const { data: femaAlerts = [] }  = useFemaAlerts()
   const username   = useUsername()
   const alertRange = useAlertRange()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -168,24 +256,46 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
           <div className="text-sm text-white/30">No drones online</div>
         ) : (
           <div className="space-y-2">
-            {drones.map((drone) => (
-              <div
-                key={drone.droneId}
-                onClick={() => onFlyTo?.(drone.lat, drone.lng)}
-                className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm cursor-pointer hover:border-violet-400/50 hover:bg-violet-400/10 transition-colors"
-                title="Click to center map on drone"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{drone.droneId}</span>
-                  <span className="text-xs text-emerald-400">online</span>
+            {drones.map((drone) => {
+              const nearest =
+                femaAlerts.length > 0 && drone.lat != null && drone.lng != null
+                  ? closestAlertDistance(drone.lat, drone.lng, femaAlerts)
+                  : null
+              const outsideBy =
+                nearest !== null && nearest.miles > alertRange ? nearest.miles : null
+
+              return (
+                <div key={drone.droneId}>
+                  <div
+                    onClick={() => onFlyTo?.(drone.lat, drone.lng)}
+                    className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm cursor-pointer hover:border-violet-400/50 hover:bg-violet-400/10 transition-colors"
+                    title="Click to center map on drone"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{drone.droneId}</span>
+                      <span className="text-xs text-emerald-400">online</span>
+                    </div>
+                    <div className="mt-1 text-xs text-white/40">
+                      {drone.altitude != null ? `${drone.altitude}m` : "—"}
+                      {drone.heading != null ? ` · ${Math.round(drone.heading)}°` : ""}
+                      {drone.speed != null ? ` · ${drone.speed.toFixed(1)}m/s` : ""}
+                    </div>
+                  </div>
+                  {outsideBy !== null && nearest && (
+                    <div className="mt-1 rounded-lg border border-orange-500/40 bg-orange-500/10 px-2.5 py-2 text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-orange-300">
+                        <span>⚠</span>
+                        <span>{outsideBy.toFixed(1)} mi outside search area</span>
+                      </div>
+                      <div className="mt-0.5 text-orange-400/70 truncate">
+                        {nearest.alert.sourceProgram ?? nearest.alert.alertType.toUpperCase()}
+                        {nearest.alert.area ? ` · ${nearest.alert.area}` : ""}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-1 text-xs text-white/40">
-                  {drone.altitude != null ? `${drone.altitude}m` : "—"}
-                  {drone.heading != null ? ` · ${Math.round(drone.heading)}°` : ""}
-                  {drone.speed != null ? ` · ${drone.speed.toFixed(1)}m/s` : ""}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -134,6 +134,32 @@ ALERT_REGISTRY: list[dict] = [
 _MONITORED_CODES = {code for entry in ALERT_REGISTRY for code in entry["cap_codes"]}
 
 # ---------------------------------------------------------------------------
+# Polygon → centroid
+# ---------------------------------------------------------------------------
+
+def _polygon_to_centroid(polygon: str | None) -> tuple[float, float] | None:
+    """
+    Parse a CAP polygon string (space-separated "lat,lon" pairs) and return
+    the arithmetic centroid as (lat, lng).  Returns None on any parse failure.
+    """
+    if not polygon:
+        return None
+    try:
+        coords = []
+        for pair in polygon.strip().split():
+            lat_s, lon_s = pair.split(",", 1)
+            coords.append((float(lat_s), float(lon_s)))
+        if not coords:
+            return None
+        return (
+            sum(c[0] for c in coords) / len(coords),
+            sum(c[1] for c in coords) / len(coords),
+        )
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Plate extraction
 # ---------------------------------------------------------------------------
 _PLATE_PATTERNS = [
@@ -402,28 +428,35 @@ async def _add_vehicle_target(session_factory, alert: dict) -> bool:
         return False
 
     from datetime import timedelta
+    centroid = _polygon_to_centroid(alert.get("polygon"))
+
     async with session_factory() as session:
         try:
             result = await session.execute(
                 text("""
                     INSERT INTO vehicle_targets
                         (fema_identifier, alert_type, source_program, headline,
-                         area, color, body_type, make, expires_at)
+                         area, color, body_type, make,
+                         polygon, centroid_lat, centroid_lng, expires_at)
                     VALUES
                         (:fema_id, :atype, :prog, :headline,
-                         :area, :color, :body_type, :make, :expires_at)
+                         :area, :color, :body_type, :make,
+                         :polygon, :centroid_lat, :centroid_lng, :expires_at)
                     ON CONFLICT (fema_identifier) DO NOTHING
                 """),
                 {
-                    "fema_id":   alert["identifier"],
-                    "atype":     alert["alert_type"]["key"],
-                    "prog":      alert["source_program"],
-                    "headline":  alert["headline"],
-                    "area":      alert["area"],
-                    "color":     profile.get("color"),
-                    "body_type": profile.get("yolo_body_type"),
-                    "make":      profile.get("make"),
-                    "expires_at": datetime.now(timezone.utc) + timedelta(hours=24),
+                    "fema_id":      alert["identifier"],
+                    "atype":        alert["alert_type"]["key"],
+                    "prog":         alert["source_program"],
+                    "headline":     alert["headline"],
+                    "area":         alert["area"],
+                    "color":        profile.get("color"),
+                    "body_type":    profile.get("yolo_body_type"),
+                    "make":         profile.get("make"),
+                    "polygon":      alert.get("polygon"),
+                    "centroid_lat": centroid[0] if centroid else None,
+                    "centroid_lng": centroid[1] if centroid else None,
+                    "expires_at":   datetime.now(timezone.utc) + timedelta(hours=24),
                 },
             )
             await session.commit()

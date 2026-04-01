@@ -13,7 +13,79 @@ from fastapi import APIRouter, Query
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import math
+import requests as _requests
 import database
+
+_DEFLOCK_INDEX_URL = "https://cdn.deflock.me/regions/index.json"
+_DEFLOCK_HEADERS   = {"User-Agent": "AmberAngels-mission-scraper/1.0"}
+
+
+def _fetch_flock_for_bbox(db, south: float, north: float, west: float, east: float) -> None:
+    """
+    Pull cameras from the DeFlock CDN tile API for the given bbox and upsert
+    them into flock_cameras.  Called when a pilot flies to an area that has no
+    cached cameras yet.
+    """
+    try:
+        idx = _requests.get(_DEFLOCK_INDEX_URL, headers=_DEFLOCK_HEADERS, timeout=10).json()
+        tile_size: float = idx["tile_size_degrees"]
+        tile_url: str    = idx["tile_url"]
+    except Exception as exc:
+        print(f"[FLOCK] DeFlock index fetch failed: {exc}")
+        return
+
+    lat_min = math.floor(south / tile_size) * tile_size
+    lat_max = math.floor(north / tile_size) * tile_size
+    lon_min = math.floor(west  / tile_size) * tile_size
+    lon_max = math.floor(east  / tile_size) * tile_size
+
+    rows: list[dict] = []
+    lat = lat_min
+    while lat <= lat_max + 1e-9:
+        lon = lon_min
+        while lon <= lon_max + 1e-9:
+            url = tile_url.replace("{lat}/{lon}", f"{lat}/{lon}")
+            try:
+                cameras = _requests.get(url, headers=_DEFLOCK_HEADERS, timeout=15).json()
+            except Exception:
+                lon += tile_size
+                continue
+            for c in cameras:
+                if south <= c["lat"] <= north and west <= c["lon"] <= east:
+                    tags = c.get("tags", {})
+                    heading_raw = tags.get("direction")
+                    heading_int = None
+                    if heading_raw is not None:
+                        try:
+                            parts = [int(x) for x in str(heading_raw).split("-") if x.strip()]
+                            heading_int = sum(parts) // len(parts)
+                        except (ValueError, ZeroDivisionError):
+                            pass
+                    rows.append({
+                        "id":      str(c["id"]),
+                        "lat":     c["lat"],
+                        "lng":     c["lon"],
+                        "heading": heading_int,
+                        "road":    None,
+                        "agency":  tags.get("operator"),
+                    })
+            lon = round(lon + tile_size, 10)
+        lat = round(lat + tile_size, 10)
+
+    if rows:
+        db.execute(text("""
+            INSERT INTO flock_cameras (id, lat, lng, heading, road, agency)
+            VALUES (:id, :lat, :lng, :heading, :road, :agency)
+            ON CONFLICT (id) DO UPDATE SET
+                lat        = EXCLUDED.lat,
+                lng        = EXCLUDED.lng,
+                heading    = EXCLUDED.heading,
+                agency     = EXCLUDED.agency,
+                scraped_at = NOW()
+        """), rows)
+        db.commit()
+        print(f"[FLOCK] Live-fetched {len(rows)} cameras for bbox")
 
 router = APIRouter()
 
@@ -199,28 +271,91 @@ def get_detections_feed(
 
 
 # ---------------------------------------------------------------------------
-# Flock cameras — populated by external scraper, read-only here
+# Flock cameras
+# Without bbox params → return all cached cameras (default view).
+# With bbox params    → filter by bbox; if <3 cached, live-fetch from DeFlock.
 # ---------------------------------------------------------------------------
 
 @router.get("/flock/cameras")
-def get_flock_cameras():
+def get_flock_cameras(
+    south: Optional[float] = Query(None),
+    north: Optional[float] = Query(None),
+    west:  Optional[float] = Query(None),
+    east:  Optional[float] = Query(None),
+):
+    db = database.SessionLocal()
+    try:
+        has_bbox = all(v is not None for v in [south, north, west, east])
+
+        if has_bbox:
+            existing_count = db.execute(text("""
+                SELECT COUNT(*) FROM flock_cameras
+                WHERE lat BETWEEN :south AND :north
+                  AND lng BETWEEN :west  AND :east
+            """), {"south": south, "north": north, "west": west, "east": east}).scalar()
+
+            if existing_count < 3:
+                _fetch_flock_for_bbox(db, south, north, west, east)
+
+            rows = db.execute(text("""
+                SELECT id, lat, lng, heading, road, agency, scraped_at
+                FROM flock_cameras
+                WHERE lat BETWEEN :south AND :north
+                  AND lng BETWEEN :west  AND :east
+                ORDER BY id
+            """), {"south": south, "north": north, "west": west, "east": east}).fetchall()
+        else:
+            rows = db.execute(text("""
+                SELECT id, lat, lng, heading, road, agency, scraped_at
+                FROM flock_cameras
+                ORDER BY id
+            """)).fetchall()
+
+        return [
+            {
+                "id":        r[0],
+                "lat":       r[1],
+                "lng":       r[2],
+                "heading":   r[3],
+                "road":      r[4],
+                "agency":    r[5],
+                "scrapedAt": r[6].isoformat() if r[6] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# FEMA alerts — active vehicle targets with polygon / centroid
+# ---------------------------------------------------------------------------
+
+@router.get("/fema/alerts")
+def get_fema_alerts():
     db = database.SessionLocal()
     try:
         rows = db.execute(text("""
-            SELECT id, lat, lng, heading, road, agency, scraped_at
-            FROM flock_cameras
-            ORDER BY id
+            SELECT id, fema_identifier, alert_type, source_program, headline,
+                   area, polygon, centroid_lat, centroid_lng, added_at, expires_at
+            FROM vehicle_targets
+            WHERE expires_at IS NULL OR expires_at > NOW()
+            ORDER BY added_at DESC
         """)).fetchall()
 
         return [
             {
-                "id":         r[0],
-                "lat":        r[1],
-                "lng":        r[2],
-                "heading":    r[3],
-                "road":       r[4],
-                "agency":     r[5],
-                "scrapedAt":  r[6].isoformat() if r[6] else None,
+                "id":            r[0],
+                "femaIdentifier": r[1],
+                "alertType":     r[2] or "amber",
+                "sourceProgram": r[3],
+                "headline":      r[4],
+                "area":          r[5],
+                "polygon":       r[6],
+                "centroidLat":   r[7],
+                "centroidLng":   r[8],
+                "addedAt":       r[9].isoformat() if r[9] else None,
+                "expiresAt":     r[10].isoformat() if r[10] else None,
             }
             for r in rows
         ]

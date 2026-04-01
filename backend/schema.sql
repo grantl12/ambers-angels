@@ -52,9 +52,17 @@ CREATE TABLE IF NOT EXISTS vehicle_targets (
     color           VARCHAR(30),
     body_type       VARCHAR(30),
     make            VARCHAR(40),
+    polygon         TEXT,
+    centroid_lat    DOUBLE PRECISION,
+    centroid_lng    DOUBLE PRECISION,
     added_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at      TIMESTAMP WITH TIME ZONE
 );
+
+-- Additive migration for existing deployments
+ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS polygon      TEXT;
+ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS centroid_lat DOUBLE PRECISION;
+ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS centroid_lng DOUBLE PRECISION;
 
 -- 4. Create the alerts table
 CREATE TABLE IF NOT EXISTS alerts (
