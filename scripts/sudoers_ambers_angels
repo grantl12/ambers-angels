@@ -1,0 +1,1 @@
+ambers-angels ALL=(ALL) NOPASSWD: /usr/sbin/service nginx start, /usr/sbin/service nginx stop, /usr/sbin/service nginx restart, /bin/fuser -k 8000/tcp, /usr/bin/fuser -k 8000/tcp, /usr/bin/systemctl start nginx, /usr/bin/systemctl stop nginx, /usr/bin/systemctl restart nginx

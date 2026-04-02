@@ -9,13 +9,16 @@ GET /telemetry/trail
 GET /detections/feed
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 import math
+import uuid
 import requests as _requests
 import database
+from routers.auth import require_admin
 
 _DEFLOCK_INDEX_URL = "https://cdn.deflock.me/regions/index.json"
 _DEFLOCK_HEADERS   = {"User-Agent": "AmberAngels-mission-scraper/1.0"}
@@ -581,5 +584,134 @@ def get_watchlist():
             }
             for r in rows
         ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin — manual test alert
+# ---------------------------------------------------------------------------
+
+class ManualAlertRequest(BaseModel):
+    # Plate (watchlist entry)
+    plate:        Optional[str] = None
+    # Vehicle description (vehicle_targets entry)
+    color:        Optional[str] = None
+    body_type:    Optional[str] = None
+    make:         Optional[str] = None
+    area:         Optional[str] = None
+    # Shared
+    alert_type:   str = "amber"
+    description:  Optional[str] = None
+    expires_hours: int = 24
+
+
+@router.post("/admin/manual-alert", dependencies=[Depends(require_admin)])
+def create_manual_alert(req: ManualAlertRequest):
+    db = database.SessionLocal()
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(hours=req.expires_hours)
+    created = []
+
+    try:
+        if req.plate:
+            plate = req.plate.strip().upper()
+            db.execute(text("""
+                INSERT INTO watchlist (plate_text, description, alert_type, source_program)
+                VALUES (:plate, :desc, :atype, 'manual')
+                ON CONFLICT (plate_text) DO UPDATE
+                  SET description  = EXCLUDED.description,
+                      alert_type   = EXCLUDED.alert_type,
+                      source_program = 'manual'
+            """), {
+                "plate": plate,
+                "desc":  req.description or f"Manual test — {req.alert_type.upper()} alert",
+                "atype": req.alert_type,
+            })
+            created.append(f"watchlist:{plate}")
+
+        if any([req.color, req.body_type, req.make]):
+            fema_id = f"manual-{uuid.uuid4().hex[:8]}"
+            headline = " ".join(filter(None, [req.color, req.body_type, req.make])).strip()
+            db.execute(text("""
+                INSERT INTO vehicle_targets
+                    (fema_identifier, alert_type, source_program, headline,
+                     area, color, body_type, make, expires_at)
+                VALUES
+                    (:fid, :atype, 'manual', :headline,
+                     :area, :color, :body_type, :make, :expires)
+            """), {
+                "fid":       fema_id,
+                "atype":     req.alert_type,
+                "headline":  headline or req.description or "Manual test vehicle",
+                "area":      req.area,
+                "color":     req.color,
+                "body_type": req.body_type,
+                "make":      req.make,
+                "expires":   expires,
+            })
+            created.append(f"vehicle_target:{fema_id}")
+
+        db.commit()
+        return {"created": created, "expires_at": expires.isoformat()}
+    finally:
+        db.close()
+
+
+@router.get("/admin/manual-alerts", dependencies=[Depends(require_admin)])
+def list_manual_alerts():
+    db = database.SessionLocal()
+    try:
+        plates = db.execute(text("""
+            SELECT plate_text, description, alert_type, added_at
+            FROM watchlist WHERE source_program = 'manual'
+            ORDER BY added_at DESC
+        """)).fetchall()
+
+        vehicles = db.execute(text("""
+            SELECT id, headline, color, body_type, make, area, alert_type, expires_at
+            FROM vehicle_targets WHERE source_program = 'manual'
+            ORDER BY added_at DESC
+        """)).fetchall()
+
+        return {
+            "plates": [
+                {"plate": r[0], "description": r[1], "alertType": r[2],
+                 "addedAt": r[3].isoformat() if r[3] else None}
+                for r in plates
+            ],
+            "vehicles": [
+                {"id": r[0], "headline": r[1], "color": r[2], "bodyType": r[3],
+                 "make": r[4], "area": r[5], "alertType": r[6],
+                 "expiresAt": r[7].isoformat() if r[7] else None}
+                for r in vehicles
+            ],
+        }
+    finally:
+        db.close()
+
+
+@router.delete("/admin/manual-alert/plate/{plate}", dependencies=[Depends(require_admin)])
+def delete_manual_plate(plate: str):
+    db = database.SessionLocal()
+    try:
+        db.execute(text(
+            "DELETE FROM watchlist WHERE plate_text = :p AND source_program = 'manual'"
+        ), {"p": plate.upper()})
+        db.commit()
+        return {"deleted": plate.upper()}
+    finally:
+        db.close()
+
+
+@router.delete("/admin/manual-alert/vehicle/{alert_id}", dependencies=[Depends(require_admin)])
+def delete_manual_vehicle(alert_id: int):
+    db = database.SessionLocal()
+    try:
+        db.execute(text(
+            "DELETE FROM vehicle_targets WHERE id = :id AND source_program = 'manual'"
+        ), {"id": alert_id})
+        db.commit()
+        return {"deleted": alert_id}
     finally:
         db.close()

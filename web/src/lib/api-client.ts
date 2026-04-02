@@ -22,6 +22,18 @@ export async function apiGet<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "DELETE",
+    headers: { ...authHeaders() },
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(err.detail ?? `API request failed: ${response.status}`)
+  }
+  return response.json() as Promise<T>
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     method: "POST",

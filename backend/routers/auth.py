@@ -185,7 +185,7 @@ def login(req: LoginRequest):
     db = database.SessionLocal()
     try:
         row = db.execute(
-            text("SELECT username, password_hash, full_name, status, role FROM pilots WHERE username = :u"),
+            text("SELECT username, password_hash, full_name, status, role FROM pilots WHERE username = :u OR email = :u"),
             {"u": req.username.strip().lower()},
         ).fetchone()
 
