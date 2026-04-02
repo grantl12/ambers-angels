@@ -84,11 +84,11 @@ export function TopBar() {
         >
           Debrief
         </Link>
+        <Link href="/missions" className="text-white/40 hover:text-white/80 transition-colors">
+          Missions
+        </Link>
         {isAdmin && (
-          <Link
-            href="/admin"
-            className="text-amber-500/70 hover:text-amber-400 transition-colors"
-          >
+          <Link href="/admin" className="text-amber-500/70 hover:text-amber-400 transition-colors">
             Admin
           </Link>
         )}

@@ -17,8 +17,11 @@ import {
 } from "react-native"
 import { loadSettings, saveSettings, type AppSettings } from "../lib/settings"
 import { setApiBaseUrl } from "../api/client"
+import { clearAuth } from "../lib/auth"
 
-export default function SettingsScreen() {
+type Props = { username: string | null; onSignOut: () => void }
+
+export default function SettingsScreen({ username, onSignOut }: Props) {
   const [settings, setSettings] = useState<AppSettings>({
     apiBaseUrl: "http://192.168.1.100:8000",
     droneId: "phone-1",
@@ -42,6 +45,16 @@ export default function SettingsScreen() {
     setApiBaseUrl(trimmed.apiBaseUrl)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleSignOut() {
+    Alert.alert("Sign out", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out", style: "destructive",
+        onPress: async () => { await clearAuth(); onSignOut() },
+      },
+    ])
   }
 
   async function handleTest() {
@@ -166,6 +179,15 @@ export default function SettingsScreen() {
             {saved ? "Saved!" : "Save Settings"}
           </Text>
         </TouchableOpacity>
+
+        {username && (
+          <View style={styles.accountRow}>
+            <Text style={styles.accountLabel}>Signed in as <Text style={styles.accountName}>{username}</Text></Text>
+            <TouchableOpacity onPress={handleSignOut}>
+              <Text style={styles.signOutText}>Sign out</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -253,4 +275,13 @@ const styles = StyleSheet.create({
   saveBtnSaved:     { backgroundColor: "rgba(34,197,94,0.15)", borderWidth: 1, borderColor: "rgba(34,197,94,0.4)" },
   saveBtnText:      { color: "#060a0f", fontWeight: "800", fontSize: 15 },
   saveBtnTextSaved: { color: "#22c55e" },
+  accountRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 16, paddingVertical: 12, marginTop: 4,
+  },
+  accountLabel:  { fontSize: 13, color: "rgba(255,255,255,0.4)" },
+  accountName:   { color: "rgba(255,255,255,0.7)", fontWeight: "600" },
+  signOutText:   { fontSize: 13, color: "#f87171", fontWeight: "600" },
 })

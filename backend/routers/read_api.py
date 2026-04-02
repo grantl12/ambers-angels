@@ -130,6 +130,42 @@ def get_active_missions():
         db.close()
 
 
+class CreateMissionRequest(BaseModel):
+    title: str
+    area:  Optional[str] = None
+
+@router.post("/missions", dependencies=[Depends(require_admin)])
+def create_mission(req: CreateMissionRequest):
+    db = database.SessionLocal()
+    try:
+        row = db.execute(text("""
+            INSERT INTO missions (title, status, area)
+            VALUES (:title, 'active', :area::jsonb)
+            RETURNING id::text, title, status, started_at
+        """), {"title": req.title.strip(), "area": req.area}).fetchone()
+        db.commit()
+        return {"id": row[0], "title": row[1], "status": row[2],
+                "startedAt": row[3].isoformat() if row[3] else None, "endedAt": None}
+    finally:
+        db.close()
+
+@router.post("/missions/{mission_id}/end", dependencies=[Depends(require_admin)])
+def end_mission(mission_id: str):
+    db = database.SessionLocal()
+    try:
+        result = db.execute(text("""
+            UPDATE missions SET status = 'completed', ended_at = NOW()
+            WHERE id = :id AND status = 'active'
+            RETURNING id::text, title, ended_at
+        """), {"id": mission_id})
+        db.commit()
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Mission not found or already ended")
+        return {"id": row[0], "title": row[1], "endedAt": row[2].isoformat()}
+    finally:
+        db.close()
+
 @router.get("/missions/all")
 def get_all_missions():
     db = database.SessionLocal()
