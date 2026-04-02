@@ -600,6 +600,42 @@ def get_pilot_leaderboard():
 # Watchlist — for the event feed to badge alert plates
 # ---------------------------------------------------------------------------
 
+@router.get("/alerts/history")
+def get_alert_history(limit: int = Query(200, le=500)):
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT
+                a.id, a.plate_text, a.drone_id, a.channel, a.sent_at,
+                de.vehicle_color, de.vehicle_type, de.vehicle_make, de.vehicle_model,
+                de.confidence, w.alert_type, w.description
+            FROM alerts a
+            LEFT JOIN detection_events de ON de.id::text = a.event_id
+            LEFT JOIN watchlist w ON w.plate_text = a.plate_text
+            ORDER BY a.sent_at DESC
+            LIMIT :limit
+        """), {"limit": limit}).fetchall()
+        return [
+            {
+                "id":           r[0],
+                "plate":        r[1],
+                "droneId":      r[2],
+                "channel":      r[3],
+                "sentAt":       r[4].isoformat() if r[4] else None,
+                "vehicleColor": r[5],
+                "vehicleType":  r[6],
+                "vehicleMake":  r[7],
+                "vehicleModel": r[8],
+                "confidence":   round(r[9], 1) if r[9] else None,
+                "alertType":    r[10] or "amber",
+                "description":  r[11],
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
 @router.get("/watchlist")
 def get_watchlist():
     db = database.SessionLocal()

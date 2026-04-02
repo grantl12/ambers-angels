@@ -12,3 +12,4 @@ numpy
 ultralytics
 passlib[bcrypt]
 python-jose[cryptography]
+slowapi

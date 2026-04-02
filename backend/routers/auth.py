@@ -15,17 +15,45 @@ at least one account that can approve others.
 """
 
 import os
+import smtplib
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy import text
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 import database
+
+limiter = Limiter(key_func=get_remote_address)
+
+# ---------------------------------------------------------------------------
+# Email helper
+# ---------------------------------------------------------------------------
+
+def _send_email(to: str, subject: str, body: str) -> None:
+    """Best-effort email — silently skips if SMTP env vars are not set."""
+    host = os.getenv("SMTP_HOST")
+    if not host:
+        return
+    try:
+        msg = MIMEText(body, "plain")
+        msg["Subject"] = subject
+        msg["From"]    = os.getenv("SMTP_FROM", "noreply@ambersangels.org")
+        msg["To"]      = to
+        port = int(os.getenv("SMTP_PORT", "587"))
+        with smtplib.SMTP(host, port) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
+            s.send_message(msg)
+    except Exception as e:
+        print(f"[email] send failed: {e}")
 
 # ---------------------------------------------------------------------------
 # Config
@@ -181,7 +209,8 @@ def register(req: RegisterRequest):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(req: LoginRequest):
+@limiter.limit("10/minute")
+def login(request: Request, req: LoginRequest):
     db = database.SessionLocal()
     try:
         row = db.execute(
@@ -235,17 +264,31 @@ def me(payload: dict = Depends(get_current_pilot)):
 def approve_pilot(username: str, _: dict = Depends(require_admin)):
     db = database.SessionLocal()
     try:
-        result = db.execute(
+        row = db.execute(
             text("""
                 UPDATE pilots
                 SET status = 'approved', approved_at = :now
                 WHERE username = :u AND status = 'pending'
+                RETURNING email, full_name
             """),
             {"u": username.lower(), "now": datetime.now(timezone.utc)},
-        )
+        ).fetchone()
         db.commit()
-        if result.rowcount == 0:
+        if not row:
             raise HTTPException(status_code=404, detail="Pilot not found or already approved")
+        # Send approval email (best-effort, non-blocking)
+        _send_email(
+            to=row[0],
+            subject="You're approved — Amber's Angels",
+            body=(
+                f"Hi {row[1] or username},\n\n"
+                "Your Amber's Angels pilot account has been approved!\n\n"
+                "Sign in at: http://157.245.125.103/login\n\n"
+                "Thank you for volunteering your time and equipment to help bring "
+                "missing children home.\n\n"
+                "— The Amber's Angels Team"
+            ),
+        )
         return {"status": "approved", "username": username}
     finally:
         db.close()
@@ -272,6 +315,45 @@ def list_pending(payload: dict = Depends(require_admin)):
             }
             for r in rows
         ]
+    finally:
+        db.close()
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name:            Optional[str] = None
+    phone:                Optional[str] = None
+    city:                 Optional[str] = None
+    service_radius_miles: Optional[int] = None
+    drones:               Optional[list[str]] = None
+    part107:              Optional[bool] = None
+    cert_number:          Optional[str] = None
+
+@router.patch("/me")
+def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pilot)):
+    db = database.SessionLocal()
+    try:
+        db.execute(text("""
+            UPDATE pilots SET
+                full_name            = COALESCE(:full_name, full_name),
+                phone                = COALESCE(:phone, phone),
+                city                 = COALESCE(:city, city),
+                service_radius_miles = COALESCE(:radius, service_radius_miles),
+                drones               = COALESCE(:drones, drones),
+                part107              = COALESCE(:part107, part107),
+                cert_number          = COALESCE(:cert_number, cert_number)
+            WHERE username = :u
+        """), {
+            "u":           payload["sub"],
+            "full_name":   req.full_name,
+            "phone":       req.phone,
+            "city":        req.city,
+            "radius":      req.service_radius_miles,
+            "drones":      req.drones,
+            "part107":     req.part107,
+            "cert_number": req.cert_number,
+        })
+        db.commit()
+        return {"status": "updated"}
     finally:
         db.close()
 

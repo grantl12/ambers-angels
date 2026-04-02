@@ -95,10 +95,15 @@ export function TopBar() {
         {utcTime && (
           <span className="font-mono text-white/30">{utcTime}</span>
         )}
+        <Link href="/alerts" className="text-white/40 hover:text-white/80 transition-colors">
+          Alerts
+        </Link>
         {authLabel && (
           <>
             <span className="text-white/20">|</span>
-            <span className="text-white/50">{authLabel}</span>
+            <Link href="/profile" className="text-white/50 hover:text-white transition-colors">
+              {authLabel}
+            </Link>
             <button
               onClick={handleLogout}
               className="text-white/30 hover:text-red-400 transition-colors text-xs"
