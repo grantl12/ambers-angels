@@ -49,8 +49,12 @@ export default function PrivacyPage() {
 
         <Section title="Data retention">
           Telemetry data is retained for 90 days. Detection records are retained for 1 year.
-          Alert records are retained indefinitely for audit purposes. Pilot account data is
-          retained for as long as the account is active and deleted upon request.
+          Alert records are retained for 3 years for audit and accountability purposes. Pilot
+          account data is retained for the lifetime of the account and deleted upon request.
+          Camera frames are deleted immediately after processing and are never stored long-term.
+          See our full{" "}
+          <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>{" "}
+          for the complete schedule.
         </Section>
 
         <Section title="Your rights">
