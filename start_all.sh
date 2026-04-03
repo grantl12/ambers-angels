@@ -11,8 +11,11 @@ else
     echo "WARNING: .env not found at $BASE_DIR/.env — secrets will be missing"
 fi
 
-export PYTHONPATH="$BASE_DIR:$BASE_DIR/backend:$BASE_DIR/worker"
-export FRAMES_DIR="$BASE_DIR/backend/test_plates"
+# /usr/lib/python2.7/dist-packages is required — the openalpr ctypes binding lives there
+# and must come after backend/ so the real package (has __init__.py) wins over
+# the backend/openalpr/ source tree which Python 3 would otherwise treat as a namespace package.
+export PYTHONPATH="$BASE_DIR:$BASE_DIR/backend:$BASE_DIR/worker:/usr/lib/python2.7/dist-packages"
+export FRAMES_DIR="$BASE_DIR/backend/test_plates/$DRONE_ID"
 export DRONE_ID="${DRONE_ID:-drone1}"
 export API_BASE="http://127.0.0.1:8000"
 
