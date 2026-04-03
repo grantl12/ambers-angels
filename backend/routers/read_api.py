@@ -456,6 +456,33 @@ def get_flock_cameras(
     try:
         has_bbox = all(v is not None for v in [south, north, west, east])
 
+        if not has_bbox:
+            # Derive bbox from active FEMA alert polygons so the camera layer
+            # auto-populates for the current mission area without needing a
+            # map viewport bbox from the client.
+            alert_rows = db.execute(text("""
+                SELECT polygon FROM vehicle_targets
+                WHERE expires_at > NOW()
+                  AND polygon IS NOT NULL AND polygon <> ''
+            """)).fetchall()
+            if alert_rows:
+                all_lats, all_lons = [], []
+                for (poly,) in alert_rows:
+                    for pair in (poly or "").strip().split():
+                        try:
+                            lat_s, lon_s = pair.split(",", 1)
+                            all_lats.append(float(lat_s))
+                            all_lons.append(float(lon_s))
+                        except Exception:
+                            pass
+                if all_lats:
+                    PAD = 0.5
+                    south = min(all_lats) - PAD
+                    north = max(all_lats) + PAD
+                    west  = min(all_lons) - PAD
+                    east  = max(all_lons) + PAD
+                    has_bbox = True
+
         if has_bbox:
             existing_count = db.execute(text("""
                 SELECT COUNT(*) FROM flock_cameras
