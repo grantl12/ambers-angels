@@ -21,6 +21,11 @@ import { nearestAlert } from "../lib/polygon"
 
 const CARROLLTON = { latitude: 33.5801, longitude: -85.0766, latitudeDelta: 0.08, longitudeDelta: 0.08 }
 
+function volunteerEmoji(mode?: string): string {
+  if (mode === "phone") return "🚗"
+  return "🚁"
+}
+
 export default function MapScreen() {
   const [drones, setDrones] = useState<DronePosition[]>([])
   const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -96,7 +101,7 @@ export default function MapScreen() {
             pinColor="#a78bfa"
           >
             <View style={styles.droneMarker}>
-              <Text style={styles.droneEmoji}>🚁</Text>
+              <Text style={styles.droneEmoji}>{volunteerEmoji(drone.volunteerMode)}</Text>
             </View>
             <Callout tooltip>
               <View style={styles.callout}>

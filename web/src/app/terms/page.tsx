@@ -15,25 +15,33 @@ export default function TermsPage() {
         <Section title="Eligibility">
           <ul className="list-disc pl-5 space-y-1 text-sm">
             <li>You must be at least 18 years of age.</li>
-            <li>You must hold or be supervised by someone holding a valid FAA Remote Pilot Certificate (Part 107) where required by law.</li>
-            <li>You must comply with all applicable federal, state, and local laws governing drone operation.</li>
             <li>You must receive administrator approval before gaining mission access.</li>
+            <li>You must comply with all applicable federal, state, and local laws governing your participation — whether operating a drone, a vehicle, or a phone camera.</li>
+            <li>If you operate an unmanned aircraft (drone), you are responsible for ensuring your operations comply with FAA regulations. An FAA Remote Pilot Certificate (Part 107) is strongly encouraged for drone operators and required where mandated by law.</li>
+            <li>Vehicle-mounted phone camera volunteers must comply with all applicable traffic laws, including laws prohibiting handheld device use while driving. Phone operation must be hands-free and must not distract the driver.</li>
           </ul>
         </Section>
 
         <Section title="Volunteer status">
-          All pilots are unpaid volunteers. Participation does not create an employment,
+          All volunteers are unpaid. Participation does not create an employment,
           contractor, or agency relationship with Amber's Angels. You are solely responsible
           for your own actions, equipment, and compliance with applicable law.
         </Section>
 
         <Section title="Safe and lawful operation">
+          <p className="mb-2">For drone operators:</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+            <li>Fly within FAA airspace rules, including altitude limits and restricted zones.</li>
+            <li>Do not fly over people, moving vehicles, or private property without permission unless responding to an active sanctioned mission.</li>
+            <li>Do not interfere with law enforcement, emergency responders, or active search operations.</li>
+            <li>Cease operations immediately if directed by law enforcement or air traffic control.</li>
+            <li>Carry your Remote Pilot Certificate or recreational registration when flying.</li>
+          </ul>
+          <p className="mb-2">For vehicle-mounted phone camera volunteers:</p>
           <ul className="list-disc pl-5 space-y-1 text-sm">
-            <li>You must fly within FAA airspace rules, including altitude limits and restricted zones.</li>
-            <li>You must not fly over people, moving vehicles, or private property without permission unless responding to an active sanctioned mission.</li>
-            <li>You must not interfere with law enforcement, emergency responders, or active search operations.</li>
-            <li>You must immediately cease operations if directed by law enforcement or air traffic control.</li>
-            <li>You must carry your Remote Pilot Certificate or recreational registration when flying.</li>
+            <li>The phone must be mounted in a fixed holder — never held in hand while the vehicle is in motion.</li>
+            <li>You must obey all traffic laws at all times. The mission does not override road safety.</li>
+            <li>Do not enter private property or violate trespassing laws in the course of a search.</li>
           </ul>
         </Section>
 

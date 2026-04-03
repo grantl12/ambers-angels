@@ -306,21 +306,22 @@ def get_latest_telemetry(mission_id: Optional[str] = None):
     try:
         rows = db.execute(text("""
             SELECT DISTINCT ON (drone_id)
-                drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps
+                drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, volunteer_mode
             FROM telemetry_points
             ORDER BY drone_id, ts DESC
         """)).fetchall()
 
         return [
             {
-                "droneId":   r[0],
-                "pilotId":   r[1],
-                "timestamp": r[2].isoformat() if r[2] else None,
-                "lat":       r[3],
-                "lng":       r[4],
-                "altitude":  r[5],
-                "heading":   r[6],
-                "speed":     r[7],
+                "droneId":       r[0],
+                "pilotId":       r[1],
+                "timestamp":     r[2].isoformat() if r[2] else None,
+                "lat":           r[3],
+                "lng":           r[4],
+                "altitude":      r[5],
+                "heading":       r[6],
+                "speed":         r[7],
+                "volunteerMode": r[8],
             }
             for r in rows
         ]

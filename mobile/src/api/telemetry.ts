@@ -10,6 +10,7 @@ export type TelemetryPayload = {
   accuracy?: number
   pilot_id?: string
   source?: string
+  volunteerMode?: string
 }
 
 export type DronePosition = {
@@ -19,13 +20,14 @@ export type DronePosition = {
   altitude?: number
   heading?: number
   speed?: number
+  volunteerMode?: string
 }
 
 export async function postTelemetry(payload: TelemetryPayload): Promise<void> {
   await fetch(`${getApiBaseUrl()}/telemetry`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, source: payload.source ?? "phone_gps" }),
+    body: JSON.stringify({ ...payload, source: payload.source ?? "phone_gps", volunteer_mode: payload.volunteerMode }),
   })
 }
 

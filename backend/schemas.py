@@ -54,6 +54,7 @@ class TelemetryCreate(BaseModel):
     accuracy:  Optional[float]   = None
     pilot_id:  Optional[str]    = None
     source:    Optional[str]    = None   # "dji_telemetry" | "phone_gps"
+    volunteer_mode: Optional[str] = None  # "phone" | "drone" | "both"
     ts:        Optional[datetime] = None
 
 

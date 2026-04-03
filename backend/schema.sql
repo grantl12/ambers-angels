@@ -64,6 +64,9 @@ ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS polygon      TEXT;
 ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS centroid_lat DOUBLE PRECISION;
 ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS centroid_lng DOUBLE PRECISION;
 
+-- Additive migration for telemetry_points
+ALTER TABLE telemetry_points ADD COLUMN IF NOT EXISTS volunteer_mode VARCHAR(10);
+
 -- 7. Pilots — registered volunteer drone operators
 CREATE TABLE IF NOT EXISTS pilots (
     id              SERIAL PRIMARY KEY,

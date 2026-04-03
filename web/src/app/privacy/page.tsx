@@ -15,19 +15,21 @@ export default function PrivacyPage() {
 
         <Section title="What we collect">
           <ul className="list-disc pl-5 space-y-1 text-sm">
-            <li><strong className="text-white/80">Pilot accounts:</strong> name, email address, phone number, city, and FAA certification number if provided voluntarily during registration.</li>
-            <li><strong className="text-white/80">Drone telemetry:</strong> GPS coordinates, altitude, heading, and speed transmitted during active missions.</li>
-            <li><strong className="text-white/80">Detection data:</strong> license plate text, confidence scores, associated vehicle attributes (color, make, type), and frame timestamps.</li>
+            <li><strong className="text-white/80">Volunteer accounts:</strong> name, email address, phone number, city, FAA certification number (if applicable), and equipment type — provided voluntarily during registration.</li>
+            <li><strong className="text-white/80">Location data:</strong> GPS coordinates, altitude, heading, and speed transmitted during active missions — whether from a drone or a vehicle-mounted phone. Location data is collected only while the app is in active mission mode.</li>
+            <li><strong className="text-white/80">Camera frames:</strong> JPEG images captured by drone cameras or vehicle-mounted phone cameras are transmitted to the server for processing. Frames are analyzed and immediately deleted — they are never stored in the database. See <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>.</li>
+            <li><strong className="text-white/80">Detection data:</strong> license plate text, confidence scores, associated vehicle attributes (color, make, type), and frame timestamps. No images are retained with detections.</li>
             <li><strong className="text-white/80">Usage data:</strong> login timestamps and mission participation records.</li>
           </ul>
         </Section>
 
         <Section title="What we do not collect">
           <ul className="list-disc pl-5 space-y-1 text-sm">
-            <li>We do not store raw video footage.</li>
-            <li>We do not retain camera frames after ALPR processing (frames are deleted from the processing queue immediately after analysis).</li>
+            <li>We do not store raw video footage or retain camera frames after ALPR processing.</li>
+            <li>We do not record or store audio.</li>
+            <li>We do not collect location data outside of active missions. The app does not run in the background when not in use.</li>
             <li>We do not sell, rent, or share personal data with advertisers or third parties for commercial purposes.</li>
-            <li>We do not track pilots outside of active missions.</li>
+            <li>We do not build persistent databases of license plates or vehicle sightings beyond what is required to match an active government-issued alert.</li>
           </ul>
         </Section>
 

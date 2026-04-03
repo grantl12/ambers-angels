@@ -110,14 +110,15 @@ export default function CameraScreen() {
 
       try {
         await postTelemetry({
-          drone_id: settings.droneId,
-          pilot_id: settings.pilotId || undefined,
-          lat:      loc.coords.latitude,
-          lng:      loc.coords.longitude,
-          altitude: loc.coords.altitude ?? undefined,
-          heading:  loc.coords.heading ?? undefined,
-          speed:    loc.coords.speed ?? undefined,
-          accuracy: loc.coords.accuracy ?? undefined,
+          drone_id:      settings.droneId,
+          pilot_id:      settings.pilotId || undefined,
+          lat:           loc.coords.latitude,
+          lng:           loc.coords.longitude,
+          altitude:      loc.coords.altitude ?? undefined,
+          heading:       loc.coords.heading ?? undefined,
+          speed:         loc.coords.speed ?? undefined,
+          accuracy:      loc.coords.accuracy ?? undefined,
+          volunteerMode: settings.volunteerMode,
         })
       } catch {
         // Non-fatal — don't stop the mission

@@ -15,6 +15,7 @@ type Pilot = {
   createdAt: string | null
   phone?:    string | null
   drones?:   string[] | null
+  watchAreas?: string[] | null
   part107?:  boolean
   serviceRadiusMiles?: number | null
   certNumber?: string | null
@@ -43,7 +44,9 @@ export default function ProfilePage() {
     full_name: "", phone: "", city: "",
     service_radius_miles: "" as string | number,
     drones: [] as string[], part107: false, cert_number: "",
+    watch_areas: [] as string[],
   })
+  const [watchInput, setWatchInput] = useState("")
 
   useEffect(() => {
     const auth = getAuthState()
@@ -58,6 +61,7 @@ export default function ProfilePage() {
         drones:               p.drones    ?? [],
         part107:              p.part107   ?? false,
         cert_number:          p.certNumber ?? "",
+        watch_areas:          p.watchAreas ?? [],
       })
     }).catch(() => router.replace("/login"))
 
@@ -87,6 +91,7 @@ export default function ProfilePage() {
         drones:               form.drones.length ? form.drones : null,
         part107:              form.part107,
         cert_number:          form.cert_number   || null,
+        watch_areas:          form.watch_areas,
       })
       // Update fullName in auth state so top bar refreshes
       const auth = getAuthState()
@@ -218,6 +223,48 @@ export default function ProfilePage() {
                     className="input" placeholder="FA3XXXXXXXX" />
                 </Row>
               )}
+              <Row label="Watch areas">
+                <p className="text-xs text-white/40">Get notified for alerts in these areas regardless of your current location.</p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {form.watch_areas.map((area) => (
+                    <span key={area}
+                      className="flex items-center gap-1 rounded-full border border-amber-500 bg-amber-500/15 px-3 py-1 text-xs text-amber-400">
+                      {area}
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, watch_areas: f.watch_areas.filter((a) => a !== area) }))}
+                        className="ml-0.5 leading-none hover:text-white transition-colors" aria-label={`Remove ${area}`}>✕</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    value={watchInput}
+                    onChange={(e) => setWatchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const val = watchInput.trim()
+                        if (val && !form.watch_areas.includes(val)) {
+                          setForm((f) => ({ ...f, watch_areas: [...f.watch_areas, val] }))
+                        }
+                        setWatchInput("")
+                      }
+                    }}
+                    className="input flex-1"
+                    placeholder="e.g. Atlanta, GA"
+                  />
+                  <button type="button"
+                    onClick={() => {
+                      const val = watchInput.trim()
+                      if (val && !form.watch_areas.includes(val)) {
+                        setForm((f) => ({ ...f, watch_areas: [...f.watch_areas, val] }))
+                      }
+                      setWatchInput("")
+                    }}
+                    className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/50 hover:text-white hover:border-white/25 transition-colors">
+                    Add
+                  </button>
+                </div>
+              </Row>
               <button onClick={save} disabled={saving}
                 className="w-full rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50 transition-colors">
                 {saving ? "Saving…" : "Save changes"}
@@ -231,6 +278,7 @@ export default function ProfilePage() {
               <InfoRow label="Radius"   value={radiusLabel[String((pilot as Pilot & { serviceRadiusMiles?: number }).serviceRadiusMiles)] ?? null} />
               <InfoRow label="Drones"   value={pilot.drones?.join(", ")} />
               <InfoRow label="Part 107" value={pilot.part107 ? `Yes${pilot.certNumber ? ` — ${pilot.certNumber}` : ""}` : "No"} />
+              <InfoRow label="Watch areas" value={pilot.watchAreas?.join(", ")} />
               <InfoRow label="Member since" value={pilot.createdAt ? new Date(pilot.createdAt).toLocaleDateString() : null} />
             </>
           )}

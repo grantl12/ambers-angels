@@ -156,20 +156,21 @@ async def create_detection(
             async with database.AsyncSessionLocal() as session:
                 await session.execute(text("""
                     INSERT INTO telemetry_points
-                        (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source)
+                        (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source, volunteer_mode)
                     VALUES
-                        (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source)
+                        (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source, :volunteer_mode)
                 """), {
-                    "drone_id": detection.drone_id,
-                    "pilot_id": None,
-                    "ts":       detection.detected_at or datetime.now(timezone.utc),
-                    "lat":      detection.lat,
-                    "lon":      detection.lng,
-                    "alt":      detection.altitude,
-                    "heading":  detection.heading,
-                    "speed":    detection.speed,
-                    "accuracy": detection.accuracy,
-                    "source":   detection.source or "dji_app",
+                    "drone_id":      detection.drone_id,
+                    "pilot_id":      None,
+                    "ts":            detection.detected_at or datetime.now(timezone.utc),
+                    "lat":           detection.lat,
+                    "lon":           detection.lng,
+                    "alt":           detection.altitude,
+                    "heading":       detection.heading,
+                    "speed":         detection.speed,
+                    "accuracy":      detection.accuracy,
+                    "source":        detection.source or "dji_app",
+                    "volunteer_mode": detection.volunteer_mode,
                 })
                 await session.commit()
         except Exception as e:
@@ -231,20 +232,21 @@ async def post_telemetry(point: schemas.TelemetryCreate):
         async with database.AsyncSessionLocal() as session:
             await session.execute(text("""
                 INSERT INTO telemetry_points
-                    (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source)
+                    (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source, volunteer_mode)
                 VALUES
-                    (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source)
+                    (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source, :volunteer_mode)
             """), {
-                "drone_id": point.drone_id,
-                "pilot_id": point.pilot_id,
-                "ts":       point.ts or datetime.now(timezone.utc),
-                "lat":      point.lat,
-                "lon":      point.lng,
-                "alt":      point.altitude,
-                "heading":  point.heading,
-                "speed":    point.speed,
-                "accuracy": point.accuracy,
-                "source":   point.source or "dji_telemetry",
+                "drone_id":      point.drone_id,
+                "pilot_id":      point.pilot_id,
+                "ts":            point.ts or datetime.now(timezone.utc),
+                "lat":           point.lat,
+                "lon":           point.lng,
+                "alt":           point.altitude,
+                "heading":       point.heading,
+                "speed":         point.speed,
+                "accuracy":      point.accuracy,
+                "source":        point.source or "dji_telemetry",
+                "volunteer_mode": point.volunteer_mode,
             })
             await session.commit()
         return {"status": "ok"}
