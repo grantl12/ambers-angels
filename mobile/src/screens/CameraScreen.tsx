@@ -10,6 +10,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   ActivityIndicator,
+  AppState,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -31,6 +33,11 @@ import {
   getDroneHeading,
   onDJIConnectionChanged,
 } from "../../modules/dji-camera"
+import {
+  startBackgroundScan,
+  stopBackgroundScan,
+  getScanFrameCount,
+} from "../../modules/phone-camera"
 
 // Show notifications even when the app is foregrounded
 Notifications.setNotificationHandler({
@@ -61,6 +68,7 @@ export default function CameraScreen() {
   const captureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const djiCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const telemetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const bgFrameTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const locationSubRef = useRef<Location.LocationSubscription | null>(null)
   const femaAlertsRef = useRef<FemaAlert[]>([])
   const wasOutsideRef = useRef(false)
@@ -103,11 +111,15 @@ export default function CameraScreen() {
     if (captureTimerRef.current)    clearInterval(captureTimerRef.current)
     if (djiCaptureTimerRef.current) clearInterval(djiCaptureTimerRef.current)
     if (telemetryTimerRef.current)  clearInterval(telemetryTimerRef.current)
+    if (bgFrameTimerRef.current)    clearInterval(bgFrameTimerRef.current)
     locationSubRef.current?.remove()
     captureTimerRef.current    = null
     djiCaptureTimerRef.current = null
     telemetryTimerRef.current  = null
+    bgFrameTimerRef.current    = null
     wasOutsideRef.current = false
+    // Stop the native background service on Android
+    if (Platform.OS === 'android') stopBackgroundScan().catch(() => {})
     setActive(false)
     setFrameCount(0)
     setRangeWarning(null)
@@ -180,32 +192,50 @@ export default function CameraScreen() {
       }
     }, 1000)
 
-    // Phone camera frame capture loop (volunteerMode: "phone" or "both")
+    // Phone camera frame capture
     if (settings.volunteerMode === "phone" || settings.volunteerMode === "both") {
-      captureTimerRef.current = setInterval(async () => {
-        if (!cameraRef.current) return
-        try {
-          const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true })
-          if (!photo) return
-          const loc = locationRef.current
-          await postFrame({
-            uri:      photo.uri,
-            droneId:  settings.droneId,
-            pilotId:  settings.pilotId || undefined,
-            source:   "phone_gps",
-            lat:      loc?.coords.latitude,
-            lng:      loc?.coords.longitude,
-            altitude: loc?.coords.altitude ?? undefined,
-            heading:  loc?.coords.heading ?? undefined,
-            speed:    loc?.coords.speed ?? undefined,
-            accuracy: loc?.coords.accuracy ?? undefined,
-          })
-          setFrameCount((n) => n + 1)
-          setError(null)
-        } catch {
-          setError("Frame post failed — check API URL in Settings")
-        }
-      }, settings.captureIntervalSec * 1000)
+      if (Platform.OS === "android") {
+        // Android: start a native Foreground Service so scanning survives backgrounding.
+        // The user can switch to Uber/Maps and frames keep uploading.
+        startBackgroundScan({
+          apiBase:    settings.apiBaseUrl,
+          droneId:    settings.droneId,
+          pilotId:    settings.pilotId || undefined,
+          intervalMs: settings.captureIntervalSec * 1000,
+        }).catch(() => setError("Could not start background scan"))
+
+        // Poll the native side for frame count to keep the HUD updated
+        bgFrameTimerRef.current = setInterval(async () => {
+          const n = await getScanFrameCount().catch(() => 0)
+          setFrameCount(n)
+        }, 2000)
+      } else {
+        // iOS: app must stay foregrounded — use expo-camera JS loop
+        captureTimerRef.current = setInterval(async () => {
+          if (!cameraRef.current) return
+          try {
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true })
+            if (!photo) return
+            const loc = locationRef.current
+            await postFrame({
+              uri:      photo.uri,
+              droneId:  settings.droneId,
+              pilotId:  settings.pilotId || undefined,
+              source:   "phone_gps",
+              lat:      loc?.coords.latitude,
+              lng:      loc?.coords.longitude,
+              altitude: loc?.coords.altitude ?? undefined,
+              heading:  loc?.coords.heading ?? undefined,
+              speed:    loc?.coords.speed ?? undefined,
+              accuracy: loc?.coords.accuracy ?? undefined,
+            })
+            setFrameCount((n) => n + 1)
+            setError(null)
+          } catch {
+            setError("Frame post failed — check API URL in Settings")
+          }
+        }, settings.captureIntervalSec * 1000)
+      }
     }
 
     // DJI drone frame capture loop (volunteerMode: "drone" or "both")
@@ -281,6 +311,9 @@ export default function CameraScreen() {
           )}
           {active && (
             <Text style={styles.hudSub}>{frameCount} frame{frameCount !== 1 ? "s" : ""} sent</Text>
+          )}
+          {active && Platform.OS === "android" && (
+            <Text style={[styles.hudSub, { color: "#34d399" }]}>running in background</Text>
           )}
           {error && (
             <Text style={[styles.hudSub, { color: "#f87171" }]}>{error}</Text>

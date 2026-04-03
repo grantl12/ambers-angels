@@ -46,6 +46,7 @@ module.exports = {
     },
     plugins: [
       "./modules/dji-camera/plugin",
+      "./modules/phone-camera/plugin",
       "expo-notifications",
       [
         "expo-camera",
