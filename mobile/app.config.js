@@ -1,21 +1,70 @@
-// Dynamic config — reads secrets from environment variables.
+// Single source of truth for Expo config.
 // For EAS Build, set GOOGLE_MAPS_API_KEY as an EAS secret:
 //   eas secret:create --scope project --name GOOGLE_MAPS_API_KEY --value <key>
 // For local dev, set it in mobile/.env (which is gitignored).
 
-const base = require("./app.json")
-
 module.exports = {
-  ...base,
   expo: {
-    ...base.expo,
+    name: "Amber's Angels",
+    slug: "ambers-angels",
+    version: "1.0.0",
+    orientation: "portrait",
+    userInterfaceStyle: "dark",
+    ios: {
+      bundleIdentifier: "com.ambersangels.app",
+      supportsTablet: false,
+      infoPlist: {
+        NSCameraUsageDescription:
+          "Camera is used to capture frames for license plate recognition.",
+        NSLocationWhenInUseUsageDescription:
+          "Location is used to tag detections and update your drone position on the mission map.",
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "Location is used in the background to keep your drone position live during a mission.",
+      },
+    },
     android: {
-      ...base.expo.android,
+      package: "com.ambersangels.app",
+      permissions: [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+      ],
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY ?? "",
         },
       },
     },
+    plugins: [
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          cameraPermission:
+            "Allow Amber's Angels to access your camera for license plate capture.",
+        },
+      ],
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission:
+            "Allow Amber's Angels to use your location during missions.",
+        },
+      ],
+    ],
+    extra: {
+      eas: {
+        projectId: "4f470b02-19e3-47a7-9f48-663dc49603bd",
+      },
+    },
+    owner: "ambersangels",
   },
 }
