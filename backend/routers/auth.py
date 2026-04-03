@@ -85,6 +85,7 @@ class RegisterRequest(BaseModel):
     part107:              bool = False
     cert_number:          Optional[str]  = None
     watch_areas:          Optional[list[str]] = None
+    notification_prefs:   Optional[list[str]] = None  # push | email — defaults to both
 
 class LoginRequest(BaseModel):
     username: str
@@ -165,11 +166,11 @@ def register(req: RegisterRequest):
             INSERT INTO pilots
                 (username, email, password_hash, full_name, phone, city,
                  service_radius_miles, drones, part107, cert_number,
-                 watch_areas, status, role, approved_at)
+                 watch_areas, notification_prefs, status, role, approved_at)
             VALUES
                 (:username, :email, :password_hash, :full_name, :phone, :city,
                  :radius, :drones, :part107, :cert_number,
-                 :watch_areas, :status, :role, :approved_at)
+                 :watch_areas, :notif_prefs, :status, :role, :approved_at)
         """), {
             "username":      username,
             "email":         req.email.strip().lower(),
@@ -182,6 +183,7 @@ def register(req: RegisterRequest):
             "part107":       req.part107,
             "cert_number":   req.cert_number,
             "watch_areas":   req.watch_areas or [],
+            "notif_prefs":   req.notification_prefs or ["push", "email"],
             "status":        pilot_status,
             "role":          pilot_role,
             "approved_at":   datetime.now(timezone.utc) if is_first else None,
@@ -245,21 +247,22 @@ def me(payload: dict = Depends(get_current_pilot)):
     db = database.SessionLocal()
     try:
         row = db.execute(
-            text("SELECT username, full_name, email, city, status, role, created_at, watch_areas, expo_push_token FROM pilots WHERE username = :u"),
+            text("SELECT username, full_name, email, city, status, role, created_at, watch_areas, expo_push_token, notification_prefs FROM pilots WHERE username = :u"),
             {"u": payload["sub"]},
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Pilot not found")
         return {
-            "username":      row[0],
-            "fullName":      row[1],
-            "email":         row[2],
-            "city":          row[3],
-            "status":        row[4],
-            "role":          row[5],
-            "createdAt":     row[6].isoformat() if row[6] else None,
-            "watchAreas":    row[7] or [],
-            "expoPushToken": row[8],
+            "username":          row[0],
+            "fullName":          row[1],
+            "email":             row[2],
+            "city":              row[3],
+            "status":            row[4],
+            "role":              row[5],
+            "createdAt":         row[6].isoformat() if row[6] else None,
+            "watchAreas":        row[7] or [],
+            "expoPushToken":     row[8],
+            "notificationPrefs": row[9] or ["push", "email"],
         }
     finally:
         db.close()
@@ -333,6 +336,7 @@ class UpdateProfileRequest(BaseModel):
     part107:              Optional[bool] = None
     cert_number:          Optional[str] = None
     watch_areas:          Optional[list[str]] = None
+    notification_prefs:   Optional[list[str]] = None
 
 @router.patch("/me")
 def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pilot)):
@@ -347,18 +351,20 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
                 drones               = COALESCE(:drones, drones),
                 part107              = COALESCE(:part107, part107),
                 cert_number          = COALESCE(:cert_number, cert_number),
-                watch_areas          = COALESCE(:watch_areas, watch_areas)
+                watch_areas          = COALESCE(:watch_areas, watch_areas),
+                notification_prefs   = COALESCE(:notif_prefs, notification_prefs)
             WHERE username = :u
         """), {
-            "u":           payload["sub"],
-            "full_name":   req.full_name,
-            "phone":       req.phone,
-            "city":        req.city,
-            "radius":      req.service_radius_miles,
-            "drones":      req.drones,
-            "part107":     req.part107,
-            "cert_number": req.cert_number,
-            "watch_areas": req.watch_areas,
+            "u":            payload["sub"],
+            "full_name":    req.full_name,
+            "phone":        req.phone,
+            "city":         req.city,
+            "radius":       req.service_radius_miles,
+            "drones":       req.drones,
+            "part107":      req.part107,
+            "cert_number":  req.cert_number,
+            "watch_areas":  req.watch_areas,
+            "notif_prefs":  req.notification_prefs,
         })
         db.commit()
         return {"status": "updated"}

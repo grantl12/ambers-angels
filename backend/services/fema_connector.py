@@ -561,7 +561,10 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     "Jefferson County, AL (Birmingham area)" even if they are currently in
     Carrollton, GA.
 
-    Notifications go to Expo push only — no email.
+    Notifications respect each pilot's notification_prefs:
+      - 'push' in prefs → Expo device push (if token registered)
+      - 'email' in prefs → email via SMTP
+    Default is both, so pilots who haven't set a preference get everything.
     """
     area_lower = alert["area"].lower()
     if not area_lower:
@@ -571,10 +574,9 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         async with session_factory() as session:
             rows = await session.execute(
                 text("""
-                    SELECT expo_push_token
+                    SELECT email, full_name, expo_push_token, notification_prefs
                     FROM pilots
                     WHERE status = 'approved'
-                      AND expo_push_token IS NOT NULL
                       AND watch_areas IS NOT NULL
                       AND array_length(watch_areas, 1) > 0
                       AND EXISTS (
@@ -595,8 +597,12 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     atype = alert["alert_type"]
     centroid = _polygon_to_centroid(alert.get("polygon"))
 
-    # ── Expo push (batch) ─────────────────────────────────────────────────────
-    push_tokens = [row[0] for row in matched if row[0]]
+    # Partition by preference
+    # row: (email, full_name, expo_push_token, notification_prefs)
+    push_tokens = [
+        row[2] for row in matched
+        if row[2] and "push" in (row[3] or ["push", "email"])
+    ]
     if push_tokens:
         push_title = f"🚨 {atype['short']} — {alert['area'] or 'Unknown area'}"
         push_body  = alert["headline"] or atype["cta"]
@@ -624,6 +630,46 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         except Exception as e:
             print(f"[FEMA] ❌ Expo push failed: {e}")
 
+    # ── Email ─────────────────────────────────────────────────────────────────
+    email_pilots = [
+        (row[0], row[1]) for row in matched
+        if "email" in (row[3] or ["push", "email"])
+    ]
+    if email_pilots:
+        import smtplib
+        from email.mime.text import MIMEText
+
+        smtp_host = os.getenv("SMTP_HOST")
+        if not smtp_host:
+            print(f"[FEMA] ⚠️  SMTP not configured — skipping {len(email_pilots)} watch-area email(s).")
+        else:
+            subject = f"[Amber's Angels] {atype['short']} alert in your watch area — {alert['area']}"
+            body_tpl = (
+                "Hi {name},\n\n"
+                f"A {atype['name']} has been issued in an area you're watching.\n\n"
+                f"Headline: {alert['headline']}\n"
+                f"Area:     {alert['area']}\n"
+                f"Issued:   {alert['sent']}\n\n"
+                f"{atype['cta']}\n\n"
+                "Sign in at: http://157.245.125.103/\n\n"
+                "— Amber's Angels\n"
+                "(You received this because this area matches your watch list. "
+                "Update notification preferences from your profile.)"
+            )
+            for email, full_name in email_pilots:
+                try:
+                    msg = MIMEText(body_tpl.format(name=full_name or email.split("@")[0]), "plain")
+                    msg["Subject"] = subject
+                    msg["From"]    = os.getenv("SMTP_FROM", "noreply@ambersangels.org")
+                    msg["To"]      = email
+                    port = int(os.getenv("SMTP_PORT", "587"))
+                    with smtplib.SMTP(smtp_host, port) as s:
+                        s.starttls()
+                        s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
+                        s.send_message(msg)
+                    print(f"[FEMA] 📧 Watch-area email sent to {email}")
+                except Exception as e:
+                    print(f"[FEMA] ❌ Watch-area email to {email} failed: {e}")
 
 
 # ---------------------------------------------------------------------------

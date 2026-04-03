@@ -32,12 +32,17 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   const [watchAreas, setWatchAreas] = useState<string[]>([])
   const [watchInput, setWatchInput] = useState("")
   const [watchSaving, setWatchSaving] = useState(false)
+  const [notifPrefs, setNotifPrefs] = useState<string[]>(["push", "email"])
+  const [notifSaving, setNotifSaving] = useState(false)
 
   useEffect(() => {
     loadSettings().then(setSettings)
-    apiGet<{ watchAreas?: string[] }>("/auth/me")
-      .then((data) => setWatchAreas(data.watchAreas ?? []))
-      .catch(() => {}) // not logged in yet or offline — silently skip
+    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[] }>("/auth/me")
+      .then((data) => {
+        setWatchAreas(data.watchAreas ?? [])
+        setNotifPrefs(data.notificationPrefs ?? ["push", "email"])
+      })
+      .catch(() => {})
   }, [])
 
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
@@ -76,6 +81,23 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
       Alert.alert("Error", "Could not save watch areas. Check connection.")
     } finally {
       setWatchSaving(false)
+    }
+  }
+
+  async function toggleNotifPref(pref: "push" | "email") {
+    const next = notifPrefs.includes(pref)
+      ? notifPrefs.filter((p) => p !== pref)
+      : [...notifPrefs, pref]
+    if (next.length === 0) return  // must keep at least one
+    setNotifPrefs(next)
+    setNotifSaving(true)
+    try {
+      await apiPatch("/auth/me", { notification_prefs: next })
+    } catch {
+      Alert.alert("Error", "Could not save notification preferences.")
+      setNotifPrefs(notifPrefs) // revert
+    } finally {
+      setNotifSaving(false)
     }
   }
 
@@ -243,6 +265,30 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
             <TouchableOpacity style={styles.watchAddBtn} onPress={addWatchArea}>
               <Text style={styles.watchAddBtnText}>Add</Text>
             </TouchableOpacity>
+          </View>
+        </Section>
+
+        <Section title={`Notifications${notifSaving ? " — saving…" : ""}`}>
+          <Text style={styles.hint}>
+            How you want to be reached when an alert fires in your watch areas.
+            At least one method must stay on.
+          </Text>
+          <View style={styles.modeRow}>
+            {(["push", "email"] as const).map((pref) => {
+              const active = notifPrefs.includes(pref)
+              const label = pref === "push" ? "📲 Push" : "✉️ Email"
+              return (
+                <TouchableOpacity
+                  key={pref}
+                  style={[styles.modeBtn, active && styles.modeBtnActive]}
+                  onPress={() => toggleNotifPref(pref)}
+                >
+                  <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
         </Section>
 

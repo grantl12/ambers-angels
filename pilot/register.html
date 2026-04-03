@@ -581,6 +581,24 @@
       <div class="chip-grid" id="watch-chips"></div>
     </div>
 
+    <div class="field">
+      <label>How do you want to be alerted?</label>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+        When an alert fires in your watch area, we can reach you by push notification, email, or both.
+      </p>
+      <div style="display:flex;gap:10px">
+        <button type="button" id="pref-push" onclick="toggleNotifPref('push')"
+          class="chip selected" style="flex:1;padding:11px;font-size:13px;font-weight:600;border-radius:var(--radius);cursor:pointer;text-align:center">
+          📲 Push notification
+        </button>
+        <button type="button" id="pref-email" onclick="toggleNotifPref('email')"
+          class="chip selected" style="flex:1;padding:11px;font-size:13px;font-weight:600;border-radius:var(--radius);cursor:pointer;text-align:center">
+          ✉️ Email
+        </button>
+      </div>
+      <div class="field-error" id="notif-pref-error" style="display:none">Please select at least one notification method</div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-back" onclick="goBack(2)">← Back</button>
       <button class="btn btn-next" onclick="goNext(2)">Continue →</button>
@@ -881,11 +899,12 @@
 
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────────
-let currentStep    = 1
-let certOn         = false
-let selectedDrones = []
+let currentStep      = 1
+let certOn           = false
+let selectedDrones   = []
 let selectedVolTypes = []
-let watchAreas = []
+let watchAreas       = []
+let notifPrefs       = ['push', 'email']  // both on by default
 
 // ── WATCH AREAS ───────────────────────────────────────────────────────────────
 function addWatchArea() {
@@ -910,6 +929,19 @@ function renderWatchChips() {
       <span onclick="removeWatchArea('${a.replace(/'/g, "\\'")}')" style="cursor:pointer;opacity:0.7;font-size:11px">✕</span>
     </div>`
   ).join('')
+}
+
+// ── NOTIFICATION PREFS ────────────────────────────────────────────────────────
+function toggleNotifPref(pref) {
+  const idx = notifPrefs.indexOf(pref)
+  if (idx === -1) {
+    notifPrefs.push(pref)
+    document.getElementById('pref-' + pref).classList.add('selected')
+  } else {
+    notifPrefs.splice(idx, 1)
+    document.getElementById('pref-' + pref).classList.remove('selected')
+  }
+  document.getElementById('notif-pref-error').style.display = 'none'
 }
 
 // ── STEP NAVIGATION ───────────────────────────────────────────────────────────
@@ -954,6 +986,10 @@ function validateStep(step) {
     ok = requireField('f-phone') && ok
     ok = requireField('f-city') && ok
     ok = requireSelect('f-radius') && ok
+    if (notifPrefs.length === 0) {
+      document.getElementById('notif-pref-error').style.display = 'block'
+      ok = false
+    }
   }
   if (step === 3) {
     if (selectedVolTypes.length === 0) {
@@ -1111,6 +1147,7 @@ async function submitForm() {
     part107:              certOn,
     cert_number:          certOn ? document.getElementById('f-cert').value.trim() : null,
     watch_areas:          watchAreas,
+    notification_prefs:   notifPrefs,
   }
 
   // API goes through nginx /api/ → FastAPI
