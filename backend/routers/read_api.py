@@ -715,10 +715,15 @@ _ZONE_HALF_DEG  = 0.05
 
 def _geocode(area: str) -> tuple[float, float] | None:
     """Return (lat, lng) for a location string via Nominatim, or None on failure."""
+    import re
+    query = area.strip()
+    # Bare US zip codes (5 digits) confuse Nominatim — append country hint
+    if re.fullmatch(r"\d{5}", query):
+        query = f"{query}, USA"
     try:
         resp = _requests.get(
             _NOMINATIM_URL,
-            params={"q": area, "format": "json", "limit": 1},
+            params={"q": query, "format": "json", "limit": 1, "countrycodes": "us"},
             headers={"User-Agent": _NOMINATIM_UA},
             timeout=8,
         )
@@ -938,5 +943,19 @@ def delete_manual_vehicle(alert_id: int):
         ), {"id": alert_id})
         db.commit()
         return {"deleted": alert_id}
+    finally:
+        db.close()
+
+
+@router.delete("/admin/test-data", dependencies=[Depends(require_admin)])
+def clear_test_data():
+    """Wipe all manual watchlist entries, manual vehicle targets, and detection events."""
+    db = database.SessionLocal()
+    try:
+        wl  = db.execute(text("DELETE FROM watchlist WHERE source_program = 'manual' RETURNING plate_text")).rowcount
+        vt  = db.execute(text("DELETE FROM vehicle_targets WHERE source_program = 'manual' RETURNING id")).rowcount
+        de  = db.execute(text("DELETE FROM detection_events")).rowcount
+        db.commit()
+        return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de}}
     finally:
         db.close()

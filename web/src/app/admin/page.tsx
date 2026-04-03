@@ -67,6 +67,26 @@ export default function AdminPage() {
     } catch { /* silent */ }
   }, [])
 
+  // test data clear
+  const [clearing, setClearing] = useState(false)
+  const [clearMsg, setClearMsg] = useState<string | null>(null)
+
+  async function clearTestData() {
+    if (!confirm("Delete all manual alerts, search zones, and detection events? This cannot be undone.")) return
+    setClearing(true)
+    setClearMsg(null)
+    try {
+      const res = await apiDelete<{ cleared: { watchlist: number; vehicle_targets: number; detection_events: number } }>("/admin/test-data")
+      setClearMsg(`Cleared — ${res.cleared.watchlist} watchlist, ${res.cleared.vehicle_targets} zones, ${res.cleared.detection_events} detections`)
+      loadManualAlerts()
+      loadHealth()
+    } catch (e: unknown) {
+      setClearMsg(e instanceof Error ? e.message : "Clear failed.")
+    } finally {
+      setClearing(false)
+    }
+  }
+
   // pilot approvals
   const [pilots,    setPilots]    = useState<PendingPilot[]>([])
   const [pilotsLoading, setPilotsLoading] = useState(true)
@@ -394,6 +414,26 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+        </section>
+
+        {/* ── Clear test data ── */}
+        <section className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-red-400">Clear Test Data</h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              Removes all manual alerts, search zones, and detection events. Use before a live mission.
+            </p>
+          </div>
+          {clearMsg && (
+            <div className="text-xs px-3 py-2 rounded-lg bg-white/5 text-white/60">{clearMsg}</div>
+          )}
+          <button
+            onClick={clearTestData}
+            disabled={clearing}
+            className="rounded-lg border border-red-500/40 px-4 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+          >
+            {clearing ? "Clearing…" : "Clear all test data"}
+          </button>
         </section>
 
         <div>
