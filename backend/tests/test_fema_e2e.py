@@ -8,10 +8,10 @@ Fakes a CAP XML payload and walks every stage:
   2. Watchlist insertion
   3. Vehicle target insertion
   4. Discord notification (plates + no-plate paths)
-  5. Watch-area pilot email
+  5. Watch-area pilot push notifications (Expo, no email)
   6. Full poll_fema_ipaws() — all of the above in one shot
 
-No real DB, HTTP, or SMTP connections are made.  All I/O is mocked.
+No real DB or HTTP connections are made.  All I/O is mocked.
 
 Run with:
     cd backend && pytest tests/test_fema_e2e.py -v
@@ -336,19 +336,19 @@ class TestDiscordNotification:
 
 
 # ---------------------------------------------------------------------------
-# 5. Watch-area pilot email
+# 5. Watch-area pilot push notifications
 # ---------------------------------------------------------------------------
 
 class TestWatchAreaNotification:
 
     @pytest.mark.asyncio
-    async def test_matching_pilot_receives_email(self):
+    async def test_matching_pilot_receives_push(self):
         alerts = _parse_cap_alerts(CAP_XML_WITH_PLATE)
         alert = alerts[0]   # area = "Carroll County, GA"
 
-        # Session returns one pilot who watches "Carroll"
+        # Session returns one pilot with a push token watching "Carroll"
         mock_result = MagicMock()
-        mock_result.fetchall.return_value = [("pilot@example.com", "Jane Pilot")]
+        mock_result.fetchall.return_value = [("ExponentPushToken[abc123]",)]
         mock_session = AsyncMock()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
@@ -356,40 +356,22 @@ class TestWatchAreaNotification:
         async def factory():
             yield mock_session
 
-        with patch.dict(os.environ, {"SMTP_HOST": "smtp.test", "SMTP_PORT": "587",
-                                      "SMTP_USER": "u", "SMTP_PASS": "p"}):
-            with patch("smtplib.SMTP") as mock_smtp_cls:
-                mock_smtp = MagicMock()
-                mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_smtp)
-                mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+        with patch("services.fema_connector.httpx.AsyncClient") as mock_cls:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=MagicMock(status_code=200))
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-                await _notify_watching_pilots(factory, alert)
+            await _notify_watching_pilots(factory, alert)
 
-        mock_smtp.send_message.assert_called_once()
-        msg = mock_smtp.send_message.call_args[0][0]
-        assert msg["To"] == "pilot@example.com"
-        assert "Carroll" in msg.get_payload(decode=True).decode()
-
-    @pytest.mark.asyncio
-    async def test_no_smtp_config_skips_email(self):
-        alerts = _parse_cap_alerts(CAP_XML_WITH_PLATE)
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [("pilot@example.com", "Jane")]
-        mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=mock_result)
-
-        @asynccontextmanager
-        async def factory():
-            yield mock_session
-
-        env = {k: "" for k in ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"]}
-        with patch.dict(os.environ, env):
-            with patch("smtplib.SMTP") as mock_smtp_cls:
-                await _notify_watching_pilots(factory, alerts[0])
-        mock_smtp_cls.assert_not_called()
+        mock_http.post.assert_called_once()
+        payload = mock_http.post.call_args.kwargs["json"]
+        assert len(payload) == 1
+        assert payload[0]["to"] == "ExponentPushToken[abc123]"
+        assert "AMBER" in payload[0]["title"]
 
     @pytest.mark.asyncio
-    async def test_no_matching_pilots_sends_no_email(self):
+    async def test_no_matching_pilots_sends_nothing(self):
         alerts = _parse_cap_alerts(CAP_XML_WITH_PLATE)
         mock_result = MagicMock()
         mock_result.fetchall.return_value = []   # nobody watching this area
@@ -400,9 +382,36 @@ class TestWatchAreaNotification:
         async def factory():
             yield mock_session
 
-        with patch("smtplib.SMTP") as mock_smtp_cls:
+        with patch("services.fema_connector.httpx.AsyncClient") as mock_cls:
             await _notify_watching_pilots(factory, alerts[0])
-        mock_smtp_cls.assert_not_called()
+        mock_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_push_includes_centroid_data(self):
+        """Notification payload must include centroid coords for map tap-to-navigate."""
+        alerts = _parse_cap_alerts(CAP_XML_WITH_PLATE)
+        alert = alerts[0]
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [("ExponentPushToken[xyz]",)]
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        @asynccontextmanager
+        async def factory():
+            yield mock_session
+
+        with patch("services.fema_connector.httpx.AsyncClient") as mock_cls:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=MagicMock(status_code=200))
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await _notify_watching_pilots(factory, alert)
+
+        msg = mock_http.post.call_args.kwargs["json"][0]
+        assert msg["data"]["centroidLat"] is not None
+        assert msg["data"]["centroidLng"] is not None
 
 
 # ---------------------------------------------------------------------------

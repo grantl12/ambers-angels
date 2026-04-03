@@ -554,12 +554,14 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
 
 async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     """
-    Email any approved pilots whose watch_areas list contains a string that
-    is a case-insensitive substring of the alert's area description.
+    Push-notify any approved pilots whose watch_areas list contains a string
+    that is a case-insensitive substring of the alert's area description.
 
     Example: a pilot watching "Birmingham" will match an alert with area
     "Jefferson County, AL (Birmingham area)" even if they are currently in
     Carrollton, GA.
+
+    Notifications go to Expo push only — no email.
     """
     area_lower = alert["area"].lower()
     if not area_lower:
@@ -569,9 +571,10 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         async with session_factory() as session:
             rows = await session.execute(
                 text("""
-                    SELECT email, full_name
+                    SELECT expo_push_token
                     FROM pilots
                     WHERE status = 'approved'
+                      AND expo_push_token IS NOT NULL
                       AND watch_areas IS NOT NULL
                       AND array_length(watch_areas, 1) > 0
                       AND EXISTS (
@@ -590,42 +593,37 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         return
 
     atype = alert["alert_type"]
-    subject = f"[Amber's Angels] {atype['short']} alert in your watch area — {alert['area']}"
-    body_tpl = (
-        "Hi {name},\n\n"
-        f"A {atype['name']} has been issued in an area you're watching.\n\n"
-        f"Headline: {alert['headline']}\n"
-        f"Area:     {alert['area']}\n"
-        f"Issued:   {alert['sent']}\n\n"
-        f"{atype['cta']}\n\n"
-        "Sign in at: http://157.245.125.103/\n\n"
-        "— Amber's Angels\n"
-        "(You received this because this area matches your watch list. "
-        "Update your watch areas from your profile.)"
-    )
+    centroid = _polygon_to_centroid(alert.get("polygon"))
 
-    import smtplib
-    from email.mime.text import MIMEText
-
-    smtp_host = os.getenv("SMTP_HOST")
-    if not smtp_host:
-        print(f"[FEMA] ⚠️  SMTP not configured — skipping {len(matched)} watch-area notification(s).")
-        return
-
-    for email, full_name in matched:
+    # ── Expo push (batch) ─────────────────────────────────────────────────────
+    push_tokens = [row[0] for row in matched if row[0]]
+    if push_tokens:
+        push_title = f"🚨 {atype['short']} — {alert['area'] or 'Unknown area'}"
+        push_body  = alert["headline"] or atype["cta"]
+        push_data  = {
+            "centroidLat": centroid[0] if centroid else None,
+            "centroidLng": centroid[1] if centroid else None,
+            "label":       alert["area"] or atype["name"],
+        }
+        messages = [
+            {"to": tok, "title": push_title, "body": push_body,
+             "data": push_data, "sound": "default", "priority": "high"}
+            for tok in push_tokens
+        ]
         try:
-            msg = MIMEText(body_tpl.format(name=full_name or email.split("@")[0]), "plain")
-            msg["Subject"] = subject
-            msg["From"]    = os.getenv("SMTP_FROM", "noreply@ambersangels.org")
-            msg["To"]      = email
-            port = int(os.getenv("SMTP_PORT", "587"))
-            with smtplib.SMTP(smtp_host, port) as s:
-                s.starttls()
-                s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
-                s.send_message(msg)
-            print(f"[FEMA] 📧 Watch-area alert sent to {email}")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    "https://exp.host/--/api/v2/push/send",
+                    json=messages,
+                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                )
+            if resp.status_code in (200, 204):
+                print(f"[FEMA] 📲 Expo push sent to {len(push_tokens)} device(s)")
+            else:
+                print(f"[FEMA] ⚠️  Expo push returned {resp.status_code}")
         except Exception as e:
-            print(f"[FEMA] ❌ Watch-area email to {email} failed: {e}")
+            print(f"[FEMA] ❌ Expo push failed: {e}")
+
 
 
 # ---------------------------------------------------------------------------

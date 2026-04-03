@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
-import { View, ActivityIndicator } from "react-native"
+import { Platform, View, ActivityIndicator } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
@@ -8,9 +8,41 @@ import * as Notifications from "expo-notifications"
 import { TabNavigator } from "./src/navigation/TabNavigator"
 import LoginScreen from "./src/screens/LoginScreen"
 import { loadSettings, saveSettings } from "./src/lib/settings"
-import { setApiBaseUrl } from "./src/api/client"
+import { setApiBaseUrl, apiPost } from "./src/api/client"
 import { getAuthState } from "./src/lib/auth"
 import { setPendingAlertTarget } from "./src/lib/alertTarget"
+
+// Expo project ID — must match app.json
+const EXPO_PROJECT_ID = "4f470b02-19e3-47a7-9f48-663dc49603bd"
+
+async function registerPushToken(): Promise<void> {
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync()
+    let finalStatus = existing
+    if (existing !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync()
+      finalStatus = status
+    }
+    if (finalStatus !== "granted") return
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#f59e0b",
+      })
+    }
+
+    const { data: token } = await Notifications.getExpoPushTokenAsync({
+      projectId: EXPO_PROJECT_ID,
+    })
+    await apiPost("/auth/push-token", { token })
+    console.log("[push] Token registered:", token)
+  } catch (e) {
+    console.warn("[push] Token registration failed:", e)
+  }
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +88,9 @@ export default function App() {
         if (auth.username && auth.username !== settings.pilotId) {
           await saveSettings({ ...settings, pilotId: auth.username })
         }
+
+        // Register/refresh push token so watch-area alerts reach this device
+        registerPushToken()
       }
       setReady(true)
     }
@@ -66,6 +101,8 @@ export default function App() {
     getAuthState().then((auth) => {
       if (auth) setUsername(auth.username)
       setAuthed(true)
+      // Register push token on fresh login too
+      registerPushToken()
     })
   }
 
