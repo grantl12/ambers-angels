@@ -1,0 +1,7 @@
+{
+  "name": "@ambersangels/phone-camera",
+  "version": "1.0.0",
+  "description": "Background phone camera scan service for Amber's Angels",
+  "private": true,
+  "react-native": "index.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "@ambersangels/dji-camera",
+  "version": "1.0.0",
+  "description": "DJI MSDK V5 native module for Amber's Angels",
+  "private": true,
+  "react-native": "index.ts"
+}
