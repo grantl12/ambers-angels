@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS pilots (
     approved_at     TIMESTAMP WITH TIME ZONE
 );
 
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS watch_areas TEXT[] DEFAULT '{}';
+
 CREATE INDEX IF NOT EXISTS idx_pilots_username ON pilots (username);
 CREATE INDEX IF NOT EXISTS idx_pilots_status   ON pilots (status);
 

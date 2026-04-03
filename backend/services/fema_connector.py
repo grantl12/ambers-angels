@@ -549,6 +549,86 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
 
 
 # ---------------------------------------------------------------------------
+# Watch-area pilot notifications
+# ---------------------------------------------------------------------------
+
+async def _notify_watching_pilots(session_factory, alert: dict) -> None:
+    """
+    Email any approved pilots whose watch_areas list contains a string that
+    is a case-insensitive substring of the alert's area description.
+
+    Example: a pilot watching "Birmingham" will match an alert with area
+    "Jefferson County, AL (Birmingham area)" even if they are currently in
+    Carrollton, GA.
+    """
+    area_lower = alert["area"].lower()
+    if not area_lower:
+        return
+
+    try:
+        async with session_factory() as session:
+            rows = await session.execute(
+                text("""
+                    SELECT email, full_name
+                    FROM pilots
+                    WHERE status = 'approved'
+                      AND watch_areas IS NOT NULL
+                      AND array_length(watch_areas, 1) > 0
+                      AND EXISTS (
+                          SELECT 1 FROM unnest(watch_areas) wa
+                          WHERE :area ILIKE '%' || wa || '%'
+                      )
+                """),
+                {"area": alert["area"]},
+            )
+            matched = rows.fetchall()
+    except Exception as e:
+        print(f"[FEMA] ❌ Watch-area query failed: {e}")
+        return
+
+    if not matched:
+        return
+
+    atype = alert["alert_type"]
+    subject = f"[Amber's Angels] {atype['short']} alert in your watch area — {alert['area']}"
+    body_tpl = (
+        "Hi {name},\n\n"
+        f"A {atype['name']} has been issued in an area you're watching.\n\n"
+        f"Headline: {alert['headline']}\n"
+        f"Area:     {alert['area']}\n"
+        f"Issued:   {alert['sent']}\n\n"
+        f"{atype['cta']}\n\n"
+        "Sign in at: http://157.245.125.103/\n\n"
+        "— Amber's Angels\n"
+        "(You received this because this area matches your watch list. "
+        "Update your watch areas from your profile.)"
+    )
+
+    import smtplib
+    from email.mime.text import MIMEText
+
+    smtp_host = os.getenv("SMTP_HOST")
+    if not smtp_host:
+        print(f"[FEMA] ⚠️  SMTP not configured — skipping {len(matched)} watch-area notification(s).")
+        return
+
+    for email, full_name in matched:
+        try:
+            msg = MIMEText(body_tpl.format(name=full_name or email.split("@")[0]), "plain")
+            msg["Subject"] = subject
+            msg["From"]    = os.getenv("SMTP_FROM", "noreply@ambersangels.org")
+            msg["To"]      = email
+            port = int(os.getenv("SMTP_PORT", "587"))
+            with smtplib.SMTP(smtp_host, port) as s:
+                s.starttls()
+                s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
+                s.send_message(msg)
+            print(f"[FEMA] 📧 Watch-area alert sent to {email}")
+        except Exception as e:
+            print(f"[FEMA] ❌ Watch-area email to {email} failed: {e}")
+
+
+# ---------------------------------------------------------------------------
 # Seen-identifier cache
 # ---------------------------------------------------------------------------
 _seen_identifiers: set[str] = set()
@@ -599,6 +679,9 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             profile = alert.get("vehicle_profile", {})
             vdesc = " ".join(filter(None, [profile.get("color"), profile.get("body_type"), profile.get("make")])).title()
             print(f"[FEMA] 🚗 Vehicle target stored: {vdesc or 'profile incomplete'}")
+
+        # Notify pilots watching this geographic area regardless of their location
+        await _notify_watching_pilots(session_factory, alert)
 
         if not alert["plates"]:
             print(f"[FEMA] ⚠️  No plate found — sending no-plate notification.")

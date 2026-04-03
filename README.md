@@ -1,14 +1,14 @@
 # Amber's Angels
 
-**A volunteer-driven public safety platform leveraging drone technology to help bring missing and abducted children home.**
+**A volunteer-driven public safety platform using cameras, license plate recognition, and real-time coordination to help bring missing and abducted children home.**
 
-Amber's Angels is a 501(c)(3) nonprofit (pending) that coordinates volunteer drone pilots in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, pilots in the affected area deploy drones equipped with license plate recognition and vehicle identification technology. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
+Amber's Angels is a 501(c)(3) nonprofit (pending) that coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Either way, the app streams frames to the server for live license plate recognition and vehicle identification. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
 
 ---
 
 ## Mission
 
-Every hour a child is missing, the chances of a safe recovery decline. Amber's Angels exists to close the gap between when an alert is issued and when boots — and rotors — are on the ground. Our volunteers are FAA-certified drone pilots who donate their time, equipment, and expertise because they believe technology can save lives when it is deployed responsibly, transparently, and in partnership with law enforcement.
+Every hour a child is missing, the chances of a safe recovery decline. Amber's Angels exists to close the gap between when an alert is issued and when boots — and rotors — are on the ground. Our volunteers donate their time, equipment, and expertise because they believe technology can save lives when it is deployed responsibly, transparently, and in partnership with law enforcement. Drone pilots with FAA Part 107 certification are welcome and encouraged, but a license is never a prerequisite — a smartphone and a car mount are all it takes to join a search.
 
 ---
 
@@ -25,13 +25,28 @@ Every hour a child is missing, the chances of a safe recovery decline. Amber's A
 
 1. **Alert ingestion** — The platform polls the FEMA IPAWS (Integrated Public Alert and Warning System) feed every five minutes. When a qualifying alert is issued, the suspect vehicle profile (plate, color, make, body type) and the search polygon are automatically extracted and loaded into the mission system.
 
-2. **Pilot dispatch** — Approved pilots in the affected area are notified. They launch and connect their drone or phone camera to the platform via the mobile app.
+2. **Volunteer dispatch** — Approved volunteers in the affected area are notified. They connect via the mobile app — whether launching a drone or simply mounting their phone in their car's dashboard holder and driving the search area.
 
-3. **Real-time detection** — Frames from the drone camera are processed locally on the server using OpenALPR (license plate recognition) and YOLOv8 (vehicle classification). Detected plates and vehicle types are compared against the active alert profile.
+3. **Real-time detection** — Frames from the camera (drone or phone) are processed locally on the server using OpenALPR (license plate recognition) and YOLOv8 (vehicle classification). Detected plates and vehicle types are compared against the active alert profile.
 
 4. **Coordinator notification** — On a match, a Discord alert fires instantly to the mission coordinator channel with plate text, vehicle description, confidence score, and GPS coordinates.
 
-5. **Mission debrief** — After the mission, coordinators and pilots review detection statistics, flight coverage, and alert history through the web dashboard.
+5. **Mission debrief** — After the mission, coordinators and volunteers review detection statistics, coverage, and alert history through the web dashboard.
+
+---
+
+## You Don't Need a Drone
+
+One of the most important design decisions we made: **the platform works with any camera that can run our mobile app.** You do not need an FAA license, a $1,500 drone, or technical expertise to contribute.
+
+If you have a smartphone and a car mount, you are already equipped. Mount your phone on your dashboard, open the Amber's Angels app, and drive the search area. The app streams frames from your phone's camera to the server, which processes them for license plate recognition in real time. Your GPS location is transmitted alongside every frame, so coordinators can see your coverage on the mission map.
+
+**Volunteer modes:**
+- 🚁 **Drone pilot** — aerial coverage, best for wide search areas and terrain that's hard to access by road
+- 🚗 **Vehicle-mounted phone** — ground-level coverage along roads and parking lots, no special equipment or certification required
+- 📱 **Both** — many of our volunteers do both depending on the mission
+
+This means a neighbor, a parent, or anyone who wants to help can be part of a search within minutes of an alert being issued. The barrier to entry is a phone and a willingness to drive.
 
 ---
 
@@ -270,7 +285,7 @@ If you represent a grant-making organization and would like a technical briefing
 
 ## Get Involved
 
-**Volunteer pilots** — Register at `/pilot/register.html` on the deployed platform. FAA Part 107 certification is preferred but not required for recreational-altitude operations.
+**Volunteer pilots and phone-camera volunteers** — Register at `/pilot/register.html` on the deployed platform. Drone pilots with FAA Part 107 certification are welcome and encouraged, but certification is not required — vehicle-mounted phone volunteers contribute meaningfully with no certification at all.
 
 **Developers** — Issues and pull requests welcome. See open issues for the current roadmap.
 

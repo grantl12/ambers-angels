@@ -15,8 +15,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
-import { loadSettings, saveSettings, type AppSettings } from "../lib/settings"
-import { setApiBaseUrl } from "../api/client"
+import { loadSettings, saveSettings, type AppSettings, type VolunteerMode } from "../lib/settings"
+import { setApiBaseUrl, apiGet, apiPatch } from "../api/client"
 import { clearAuth } from "../lib/auth"
 
 type Props = { username: string | null; onSignOut: () => void }
@@ -29,9 +29,15 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
     captureIntervalSec: 5,
   })
   const [saved, setSaved] = useState(false)
+  const [watchAreas, setWatchAreas] = useState<string[]>([])
+  const [watchInput, setWatchInput] = useState("")
+  const [watchSaving, setWatchSaving] = useState(false)
 
   useEffect(() => {
     loadSettings().then(setSettings)
+    apiGet<{ watchAreas?: string[] }>("/auth/me")
+      .then((data) => setWatchAreas(data.watchAreas ?? []))
+      .catch(() => {}) // not logged in yet or offline — silently skip
   }, [])
 
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
@@ -45,6 +51,32 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
     setApiBaseUrl(trimmed.apiBaseUrl)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function addWatchArea() {
+    const area = watchInput.trim()
+    if (!area || watchAreas.includes(area)) { setWatchInput(""); return }
+    const next = [...watchAreas, area]
+    setWatchAreas(next)
+    setWatchInput("")
+    await syncWatchAreas(next)
+  }
+
+  async function removeWatchArea(area: string) {
+    const next = watchAreas.filter((a) => a !== area)
+    setWatchAreas(next)
+    await syncWatchAreas(next)
+  }
+
+  async function syncWatchAreas(areas: string[]) {
+    setWatchSaving(true)
+    try {
+      await apiPatch("/auth/me", { watch_areas: areas })
+    } catch {
+      Alert.alert("Error", "Could not save watch areas. Check connection.")
+    } finally {
+      setWatchSaving(false)
+    }
   }
 
   async function handleSignOut() {
@@ -97,7 +129,22 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
         </Section>
 
         <Section title="Identity">
-          <Field label="Drone / Device ID" hint="Shown on the mission map">
+          <Field label="Volunteer mode" hint="How you're participating in this mission">
+            <View style={styles.modeRow}>
+              {(["phone", "drone", "both"] as VolunteerMode[]).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.modeBtn, settings.volunteerMode === m && styles.modeBtnActive]}
+                  onPress={() => update("volunteerMode", m)}
+                >
+                  <Text style={[styles.modeBtnText, settings.volunteerMode === m && styles.modeBtnTextActive]}>
+                    {m === "phone" ? "📱 Phone" : m === "drone" ? "🚁 Drone" : "📱+🚁 Both"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Field>
+          <Field label="Device ID" hint="Shown on the mission map">
             <TextInput
               style={styles.input}
               value={settings.droneId}
@@ -108,7 +155,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
               placeholderTextColor="rgba(255,255,255,0.2)"
             />
           </Field>
-          <Field label="Pilot ID" hint="Optional — your callsign or name">
+          <Field label="Callsign / name" hint="Optional — displayed to coordinators">
             <TextInput
               style={styles.input}
               value={settings.pilotId}
@@ -160,7 +207,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           <View style={styles.toggleRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Show out-of-range warning</Text>
-              <Text style={styles.hint}>Banner on map when drone exceeds alert range from active search area</Text>
+              <Text style={styles.hint}>Banner on map when you exceed the alert range from the active search area</Text>
             </View>
             <Switch
               value={settings.notifOutsidePolygon}
@@ -168,6 +215,34 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
               trackColor={{ false: "rgba(255,255,255,0.1)", true: "#38bdf8" }}
               thumbColor="#fff"
             />
+          </View>
+        </Section>
+
+        <Section title={`Watch Areas${watchSaving ? " — saving…" : ""}`}>
+          <Text style={styles.hint}>
+            Get notified when an alert fires in these areas even if you're not nearby.
+            Add cities, counties, or region names.
+          </Text>
+          <View style={styles.watchChips}>
+            {watchAreas.map((area) => (
+              <TouchableOpacity key={area} style={styles.watchChip} onPress={() => removeWatchArea(area)}>
+                <Text style={styles.watchChipText}>{area}  ✕</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.watchInputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={watchInput}
+              onChangeText={setWatchInput}
+              placeholder="e.g. Birmingham"
+              placeholderTextColor="rgba(255,255,255,0.2)"
+              onSubmitEditing={addWatchArea}
+              returnKeyType="done"
+            />
+            <TouchableOpacity style={styles.watchAddBtn} onPress={addWatchArea}>
+              <Text style={styles.watchAddBtnText}>Add</Text>
+            </TouchableOpacity>
           </View>
         </Section>
 
@@ -244,6 +319,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#fff",
   },
+  modeRow:           { flexDirection: "row", gap: 8 },
+  modeBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  modeBtnActive:     { borderColor: "#f59e0b", backgroundColor: "rgba(245,158,11,0.15)" },
+  modeBtnText:       { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "600" },
+  modeBtnTextActive: { color: "#f59e0b" },
   rangeRow:          { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   rangeBtn: {
     borderWidth: 1,
@@ -284,4 +371,23 @@ const styles = StyleSheet.create({
   accountLabel:  { fontSize: 13, color: "rgba(255,255,255,0.4)" },
   accountName:   { color: "rgba(255,255,255,0.7)", fontWeight: "600" },
   signOutText:   { fontSize: 13, color: "#f87171", fontWeight: "600" },
+  watchChips:    { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+  watchChip: {
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.5)",
+    backgroundColor: "rgba(245,158,11,0.1)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  watchChipText: { color: "#f59e0b", fontSize: 12, fontWeight: "600" },
+  watchInputRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  watchAddBtn: {
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.5)",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  watchAddBtnText: { color: "#f59e0b", fontWeight: "700", fontSize: 13 },
 })

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Amber's Angels — Pilot Registration</title>
+<title>Amber's Angels — Volunteer Registration</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -404,7 +404,7 @@
 
 <div class="page-header">
   <div class="logo">Amber's <span>Angels</span></div>
-  <div class="tagline">Volunteer Drone ALPR Network — Pilot Registration</div>
+  <div class="tagline">Volunteer Search Network — Join the Mission</div>
 </div>
 
 <div class="card">
@@ -506,44 +506,85 @@
       <div class="field-error">Please select your service radius</div>
     </div>
 
+    <div class="field">
+      <label>Watch areas <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+        Get notified for alerts in these areas even if you're outside your service radius.
+        Useful if you're willing to travel or want to monitor a specific city.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input type="text" id="f-watch-input" placeholder="e.g. Birmingham, AL"
+          style="flex:1;padding:10px 14px;font-size:14px;font-family:'Inter',sans-serif;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);outline:none;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addWatchArea()}"
+          onfocus="this.style.borderColor='var(--border-focus)'" onblur="this.style.borderColor='var(--border)'"/>
+        <button type="button" onclick="addWatchArea()"
+          style="padding:10px 16px;background:var(--amber-lt);border:1.5px solid var(--amber);border-radius:var(--radius);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;color:var(--amber-dk);cursor:pointer;">
+          Add
+        </button>
+      </div>
+      <div class="chip-grid" id="watch-chips"></div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-back" onclick="goBack(2)">← Back</button>
       <button class="btn btn-next" onclick="goNext(2)">Continue →</button>
     </div>
   </div>
 
-  <!-- STEP 3: Pilot Details -->
+  <!-- STEP 3: Volunteer Details -->
   <div class="step" id="step-3">
-    <div class="step-title">Pilot details</div>
-    <div class="step-sub">Tell us about your gear and certifications</div>
+    <div class="step-title">How will you help?</div>
+    <div class="step-sub">Select everything that applies — you can always do both</div>
 
     <div class="field">
-      <label>Drone models you operate <span style="font-weight:400;color:var(--muted)">(select all that apply)</span></label>
-      <div class="chip-grid" id="drone-chips">
-        <div class="chip" data-val="DJI Mini 4 Pro"  onclick="toggleChip(this)">DJI Mini 4 Pro</div>
-        <div class="chip" data-val="DJI Mavic 3"     onclick="toggleChip(this)">DJI Mavic 3</div>
-        <div class="chip" data-val="DJI Air 3"       onclick="toggleChip(this)">DJI Air 3</div>
-        <div class="chip" data-val="Autel EVO II"    onclick="toggleChip(this)">Autel EVO II</div>
-        <div class="chip" data-val="Skydio 2+"       onclick="toggleChip(this)">Skydio 2+</div>
-        <div class="chip" data-val="Parrot Anafi"    onclick="toggleChip(this)">Parrot Anafi</div>
-        <div class="chip" data-val="Fixed wing"      onclick="toggleChip(this)">Fixed wing</div>
-        <div class="chip" data-val="Other"           onclick="toggleChip(this)">Other</div>
+      <label>Volunteer type <span style="font-weight:400;color:var(--muted)">(select all that apply)</span></label>
+      <div class="chip-grid" id="vol-type-chips" style="margin-bottom:16px">
+        <div class="chip" data-val="drone"  onclick="toggleVolType(this)" style="font-size:14px">🚁 Drone pilot</div>
+        <div class="chip" data-val="phone"  onclick="toggleVolType(this)" style="font-size:14px">🚗 Phone in car</div>
       </div>
+      <div class="field-error" id="voltype-error" style="display:none">Please select at least one option</div>
+    </div>
+
+    <div id="drone-section">
+      <div class="field">
+        <label>Drone models <span style="font-weight:400;color:var(--muted)">(select all that apply)</span></label>
+        <div class="chip-grid" id="drone-chips">
+          <div class="chip" data-val="DJI Mini 4 Pro"  onclick="toggleChip(this)">DJI Mini 4 Pro</div>
+          <div class="chip" data-val="DJI Mavic 3"     onclick="toggleChip(this)">DJI Mavic 3</div>
+          <div class="chip" data-val="DJI Air 3"       onclick="toggleChip(this)">DJI Air 3</div>
+          <div class="chip" data-val="Autel EVO II"    onclick="toggleChip(this)">Autel EVO II</div>
+          <div class="chip" data-val="Skydio 2+"       onclick="toggleChip(this)">Skydio 2+</div>
+          <div class="chip" data-val="Parrot Anafi"    onclick="toggleChip(this)">Parrot Anafi</div>
+          <div class="chip" data-val="Fixed wing"      onclick="toggleChip(this)">Fixed wing</div>
+          <div class="chip" data-val="Other drone"     onclick="toggleChip(this)">Other</div>
+        </div>
+      </div>
+
+      <div class="toggle-row" id="cert-toggle" onclick="toggleCert()">
+        <div class="toggle-info">
+          <strong>FAA Part 107 Certified</strong>
+          <span>Licensed Remote Pilot Certificate</span>
+        </div>
+        <div class="toggle-pill" id="cert-pill"></div>
+      </div>
+
+      <div id="cert-field" class="field">
+        <label>Certificate number</label>
+        <input type="text" id="f-cert" placeholder="FA3XXXXXXXX"/>
+        <div class="field-error">Please enter your certificate number</div>
+      </div>
+    </div>
+
+    <div id="phone-section" style="display:none;margin-top:4px">
+      <div style="padding:14px 16px;background:rgba(245,158,11,0.07);border:1.5px solid rgba(245,158,11,0.2);border-radius:10px;font-size:13px;color:var(--muted);line-height:1.6">
+        📱 <strong style="color:var(--text)">No drone needed.</strong> Mount your phone on your dashboard, open the app, and drive the search area. Your camera and GPS do the rest.
+        <br><br>
+        <strong style="color:var(--text)">Safety note:</strong> The phone must be in a fixed mount. Never hold or interact with the phone while the vehicle is in motion.
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
       <div class="field-error" id="drone-error" style="display:none">Please select at least one drone model</div>
-    </div>
-
-    <div class="toggle-row" id="cert-toggle" onclick="toggleCert()">
-      <div class="toggle-info">
-        <strong>FAA Part 107 Certified</strong>
-        <span>Licensed Remote Pilot Certificate</span>
-      </div>
-      <div class="toggle-pill" id="cert-pill"></div>
-    </div>
-
-    <div id="cert-field" class="field">
-      <label>Certificate number</label>
-      <input type="text" id="f-cert" placeholder="FA3XXXXXXXX"/>
-      <div class="field-error">Please enter your certificate number</div>
     </div>
 
     <div class="btn-row">
@@ -586,14 +627,22 @@
     </div>
 
     <div class="review-section">
-      <div class="review-heading">Pilot Details</div>
+      <div class="review-heading">Volunteer Details</div>
       <div class="review-row">
+        <span class="review-key">Type</span>
+        <span class="review-val" id="rv-voltype">—</span>
+      </div>
+      <div class="review-row" id="rv-drones-row">
         <span class="review-key">Drones</span>
         <span class="review-val" id="rv-drones">—</span>
       </div>
-      <div class="review-row">
+      <div class="review-row" id="rv-cert-row">
         <span class="review-key">Part 107</span>
         <span class="review-val" id="rv-cert">—</span>
+      </div>
+      <div class="review-row" id="rv-watch-row" style="display:none">
+        <span class="review-key">Watch areas</span>
+        <span class="review-val" id="rv-watch">—</span>
       </div>
     </div>
 
@@ -613,7 +662,7 @@
   <div id="success-screen">
     <div class="success-icon">✓</div>
     <h2>You're in!</h2>
-    <p>Welcome to Amber's Angels. Your pilot profile has been submitted for review.</p>
+    <p>Welcome to Amber's Angels. Your volunteer profile has been submitted for review.</p>
     <p>We'll reach out within 24 hours with mission access details.</p>
     <div class="success-note">
       📋 <strong>Next steps:</strong> Check your email for a verification link. Once verified, you'll be added to the mission dispatch list for your area.
@@ -624,9 +673,36 @@
 
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────────
-let currentStep = 1
-let certOn      = false
+let currentStep    = 1
+let certOn         = false
 let selectedDrones = []
+let selectedVolTypes = []
+let watchAreas = []
+
+// ── WATCH AREAS ───────────────────────────────────────────────────────────────
+function addWatchArea() {
+  const input = document.getElementById('f-watch-input')
+  const val = input.value.trim()
+  if (!val || watchAreas.includes(val)) { input.value = ''; return }
+  watchAreas.push(val)
+  input.value = ''
+  renderWatchChips()
+}
+
+function removeWatchArea(val) {
+  watchAreas = watchAreas.filter(a => a !== val)
+  renderWatchChips()
+}
+
+function renderWatchChips() {
+  const container = document.getElementById('watch-chips')
+  container.innerHTML = watchAreas.map(a =>
+    `<div class="chip selected" style="display:flex;align-items:center;gap:6px">
+      ${a}
+      <span onclick="removeWatchArea('${a.replace(/'/g, "\\'")}')" style="cursor:pointer;opacity:0.7;font-size:11px">✕</span>
+    </div>`
+  ).join('')
+}
 
 // ── STEP NAVIGATION ───────────────────────────────────────────────────────────
 function goNext(from) {
@@ -672,13 +748,21 @@ function validateStep(step) {
     ok = requireSelect('f-radius') && ok
   }
   if (step === 3) {
-    if (selectedDrones.length === 0) {
-      document.getElementById('drone-error').style.display = 'block'
+    if (selectedVolTypes.length === 0) {
+      document.getElementById('voltype-error').style.display = 'block'
       ok = false
     } else {
-      document.getElementById('drone-error').style.display = 'none'
+      document.getElementById('voltype-error').style.display = 'none'
     }
-    if (certOn) ok = requireField('f-cert') && ok
+    if (selectedVolTypes.includes('drone')) {
+      if (selectedDrones.length === 0) {
+        document.getElementById('drone-error').style.display = 'block'
+        ok = false
+      } else {
+        document.getElementById('drone-error').style.display = 'none'
+      }
+      if (certOn) ok = requireField('f-cert') && ok
+    }
   }
 
   return ok
@@ -729,6 +813,20 @@ function checkStrength(val) {
   lbl.style.color = colors[score] || 'var(--muted)'
 }
 
+// ── VOLUNTEER TYPE CHIPS ──────────────────────────────────────────────────────
+function toggleVolType(el) {
+  const val = el.dataset.val
+  const idx = selectedVolTypes.indexOf(val)
+  if (idx === -1) { selectedVolTypes.push(val); el.classList.add('selected') }
+  else            { selectedVolTypes.splice(idx, 1); el.classList.remove('selected') }
+  if (selectedVolTypes.length) document.getElementById('voltype-error').style.display = 'none'
+
+  const hasDrone = selectedVolTypes.includes('drone')
+  const hasPhone = selectedVolTypes.includes('phone')
+  document.getElementById('drone-section').style.display = hasDrone ? 'block' : 'none'
+  document.getElementById('phone-section').style.display = hasPhone ? 'block' : 'none'
+}
+
 // ── DRONE CHIPS ───────────────────────────────────────────────────────────────
 function toggleChip(el) {
   const val = el.dataset.val
@@ -761,11 +859,21 @@ function populateReview() {
   setText('rv-phone',  document.getElementById('f-phone').value)
   setText('rv-city',   document.getElementById('f-city').value)
   setText('rv-radius', radiusMap[document.getElementById('f-radius').value] || '—')
+  const volTypeLabel = selectedVolTypes.map(v => v === 'drone' ? '🚁 Drone pilot' : '🚗 Phone in car').join(' + ') || '—'
+  setText('rv-voltype', volTypeLabel)
+  const hasDrone = selectedVolTypes.includes('drone')
+  document.getElementById('rv-drones-row').style.display = hasDrone ? 'flex' : 'none'
+  document.getElementById('rv-cert-row').style.display   = hasDrone ? 'flex' : 'none'
   setText('rv-drones', selectedDrones.join(', ') || '—')
   const certVal = certOn
     ? `Yes — ${document.getElementById('f-cert').value || '(no number entered)'}`
-    : 'Not certified (recreational / hobbyist)'
+    : 'Not certified'
   setText('rv-cert', certVal)
+  const watchRow = document.getElementById('rv-watch-row')
+  if (watchRow) {
+    watchRow.style.display = watchAreas.length ? 'flex' : 'none'
+    setText('rv-watch', watchAreas.join(', '))
+  }
 }
 function setText(id, val) {
   document.getElementById(id).textContent = val || '—'
@@ -788,9 +896,13 @@ async function submitForm() {
     phone:                document.getElementById('f-phone').value.trim(),
     city:                 document.getElementById('f-city').value.trim(),
     service_radius_miles: radiusInt,
-    drones:               selectedDrones,
+    drones:               [
+      ...selectedDrones,
+      ...(selectedVolTypes.includes('phone') ? ['Phone (vehicle-mounted)'] : []),
+    ],
     part107:              certOn,
     cert_number:          certOn ? document.getElementById('f-cert').value.trim() : null,
+    watch_areas:          watchAreas,
   }
 
   // API goes through nginx /api/ → FastAPI

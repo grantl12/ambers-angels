@@ -4,6 +4,8 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
+export type VolunteerMode = "phone" | "drone" | "both"
+
 export type AppSettings = {
   apiBaseUrl: string
   droneId: string
@@ -11,6 +13,7 @@ export type AppSettings = {
   captureIntervalSec: number  // seconds between frame captures
   alertRangeMiles: number
   notifOutsidePolygon: boolean
+  volunteerMode: VolunteerMode
 }
 
 const DEFAULTS: AppSettings = {
@@ -20,6 +23,7 @@ const DEFAULTS: AppSettings = {
   captureIntervalSec: 5,
   alertRangeMiles: 25,
   notifOutsidePolygon: true,
+  volunteerMode: "phone",
 }
 
 const KEY = "aa_settings"
