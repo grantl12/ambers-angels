@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
@@ -6,15 +6,23 @@ import {
 } from "react-native"
 import { setAuth } from "../lib/auth"
 import { getApiBaseUrl } from "../api/client"
+import { loadSettings } from "../lib/settings"
 
 type Props = { onLogin: () => void }
 
 export default function LoginScreen({ onLogin }: Props) {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [pending,  setPending]  = useState(false)
+  const [username,   setUsername]   = useState("")
+  const [password,   setPassword]   = useState("")
+  const [loading,    setLoading]    = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+  const [pending,    setPending]    = useState(false)
+  const [registerUrl, setRegisterUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadSettings().then((s) => {
+      setRegisterUrl(`${s.apiBaseUrl.replace(/\/$/, "")}/pilot/register.html`)
+    })
+  }, [])
 
   async function submit() {
     if (!username.trim() || !password) {
@@ -119,10 +127,12 @@ export default function LoginScreen({ onLogin }: Props) {
             }
           </TouchableOpacity>
 
-          <Text style={styles.hint}>
-            No account? Register at{"\n"}
-            <Text style={styles.amber}>your-server/pilot/register.html</Text>
-          </Text>
+          {registerUrl && (
+            <Text style={styles.hint}>
+              No account? Register at{"\n"}
+              <Text style={styles.amber}>{registerUrl}</Text>
+            </Text>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

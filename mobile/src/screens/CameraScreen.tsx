@@ -51,7 +51,7 @@ export default function CameraScreen() {
   const [locPermission, setLocPermission] = useState<boolean | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [active, setActive] = useState(false)
-  const [lastCapture, setLastCapture] = useState<string | null>(null)
+  const [frameCount, setFrameCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [rangeWarning, setRangeWarning] = useState<{ miles: number; area: string } | null>(null)
   const [djiConnected, setDjiConnected] = useState(false)
@@ -109,6 +109,7 @@ export default function CameraScreen() {
     telemetryTimerRef.current  = null
     wasOutsideRef.current = false
     setActive(false)
+    setFrameCount(0)
     setRangeWarning(null)
   }, [])
 
@@ -199,7 +200,7 @@ export default function CameraScreen() {
             speed:    loc?.coords.speed ?? undefined,
             accuracy: loc?.coords.accuracy ?? undefined,
           })
-          setLastCapture(new Date().toLocaleTimeString())
+          setFrameCount((n) => n + 1)
           setError(null)
         } catch {
           setError("Frame post failed — check API URL in Settings")
@@ -229,7 +230,7 @@ export default function CameraScreen() {
             altitude: djiLoc?.altitude ?? phoneLoc?.coords.altitude ?? undefined,
             heading:  djiHeading       ?? phoneLoc?.coords.heading  ?? undefined,
           })
-          setLastCapture(new Date().toLocaleTimeString())
+          setFrameCount((n) => n + 1)
           setError(null)
         } catch {
           // Non-fatal — DJI frames are best-effort
@@ -270,6 +271,7 @@ export default function CameraScreen() {
           {settings && (
             <Text style={styles.hudSub}>
               {settings.droneId} · every {settings.captureIntervalSec}s
+              {"  "}{settings.volunteerMode === "phone" ? "📱" : settings.volunteerMode === "drone" ? "🚁" : "📱+🚁"}
             </Text>
           )}
           {(settings?.volunteerMode === "drone" || settings?.volunteerMode === "both") && (
@@ -277,8 +279,8 @@ export default function CameraScreen() {
               DJI {djiConnected ? "connected" : "not connected"}
             </Text>
           )}
-          {lastCapture && (
-            <Text style={styles.hudSub}>Last frame: {lastCapture}</Text>
+          {active && (
+            <Text style={styles.hudSub}>{frameCount} frame{frameCount !== 1 ? "s" : ""} sent</Text>
           )}
           {error && (
             <Text style={[styles.hudSub, { color: "#f87171" }]}>{error}</Text>

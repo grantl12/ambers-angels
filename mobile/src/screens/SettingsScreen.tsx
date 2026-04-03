@@ -15,19 +15,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
-import { loadSettings, saveSettings, type AppSettings, type VolunteerMode } from "../lib/settings"
+import { loadSettings, saveSettings, type AppSettings, type VolunteerMode, DEFAULTS } from "../lib/settings"
 import { setApiBaseUrl, apiGet, apiPatch } from "../api/client"
 import { clearAuth } from "../lib/auth"
 
 type Props = { username: string | null; onSignOut: () => void }
 
 export default function SettingsScreen({ username, onSignOut }: Props) {
-  const [settings, setSettings] = useState<AppSettings>({
-    apiBaseUrl: "http://192.168.1.100:8000",
-    droneId: "phone-1",
-    pilotId: "",
-    captureIntervalSec: 5,
-  })
+  const [settings, setSettings] = useState<AppSettings>(DEFAULTS)
   const [saved, setSaved] = useState(false)
   const [watchAreas, setWatchAreas] = useState<string[]>([])
   const [watchInput, setWatchInput] = useState("")

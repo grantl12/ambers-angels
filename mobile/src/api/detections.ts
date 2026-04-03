@@ -7,6 +7,7 @@ export type Detection = {
   droneId?: string
   confidence?: number
   status: string
+  alertType?: string | null
   lat?: number | null
   lng?: number | null
   vehicleColor?: string | null

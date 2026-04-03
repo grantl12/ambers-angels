@@ -16,7 +16,7 @@ export type AppSettings = {
   volunteerMode: VolunteerMode
 }
 
-const DEFAULTS: AppSettings = {
+export const DEFAULTS: AppSettings = {
   apiBaseUrl: "http://192.168.1.100:8000",
   droneId: "phone-1",
   pilotId: "",

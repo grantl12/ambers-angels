@@ -35,7 +35,9 @@ function alertColor(type: string) {
 }
 
 function volunteerEmoji(mode?: string): string {
-  return mode === "phone" ? "🚗" : "🚁"
+  if (mode === "phone") return "🚗"
+  if (mode === "both")  return "📱"
+  return "🚁"
 }
 
 function parsePolygonCoords(polyStr: string): { latitude: number; longitude: number }[] {
