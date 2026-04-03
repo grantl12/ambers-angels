@@ -15,6 +15,7 @@ at least one account that can approve others.
 """
 
 import os
+import random
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
@@ -395,3 +396,94 @@ def logout():
     # JWT is stateless — the client drops its token. This endpoint is a
     # convenience so the client has a clean POST to call on logout.
     return {"status": "logged_out"}
+
+
+# ---------------------------------------------------------------------------
+# Self-service password reset (6-digit code via email)
+# ---------------------------------------------------------------------------
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    email:        str
+    code:         str
+    new_password: str
+
+RESET_CODE_EXPIRY_MINUTES = 30
+
+@router.post("/forgot-password")
+@limiter.limit("5/minute")
+def forgot_password(request: Request, req: ForgotPasswordRequest):
+    """
+    Generate a 6-digit reset code and email it to the pilot.
+    Always returns 200 so we don't leak whether an email is registered.
+    """
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT username, full_name FROM pilots WHERE email = :e"),
+            {"e": req.email.strip().lower()},
+        ).fetchone()
+
+        if row:
+            code    = f"{random.randint(0, 999999):06d}"
+            expires = datetime.now(timezone.utc) + timedelta(minutes=RESET_CODE_EXPIRY_MINUTES)
+            db.execute(
+                text("UPDATE pilots SET reset_code = :code, reset_code_expires = :exp WHERE email = :e"),
+                {"code": code, "exp": expires, "e": req.email.strip().lower()},
+            )
+            db.commit()
+            _send_email(
+                to=req.email.strip().lower(),
+                subject="Your Amber's Angels password reset code",
+                body=(
+                    f"Hi {row[1] or row[0]},\n\n"
+                    f"Your password reset code is:\n\n"
+                    f"    {code}\n\n"
+                    f"This code expires in {RESET_CODE_EXPIRY_MINUTES} minutes.\n\n"
+                    "If you didn't request a reset, you can safely ignore this email.\n\n"
+                    "— Amber's Angels"
+                ),
+            )
+
+        # Always 200 — don't reveal whether the email is registered
+        return {"status": "ok"}
+    finally:
+        db.close()
+
+
+@router.post("/reset-password")
+@limiter.limit("10/minute")
+def reset_password(request: Request, req: ResetPasswordRequest):
+    """Verify the 6-digit code and set a new password."""
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT reset_code, reset_code_expires FROM pilots WHERE email = :e"),
+            {"e": req.email.strip().lower()},
+        ).fetchone()
+
+        if (
+            not row
+            or row[0] != req.code.strip()
+            or row[1] is None
+            or row[1] < datetime.now(timezone.utc)
+        ):
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+        db.execute(
+            text("""
+                UPDATE pilots
+                SET password_hash = :pw, reset_code = NULL, reset_code_expires = NULL
+                WHERE email = :e
+            """),
+            {"pw": _hash(req.new_password), "e": req.email.strip().lower()},
+        )
+        db.commit()
+        return {"status": "ok"}
+    finally:
+        db.close()

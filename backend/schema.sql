@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS pilots (
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS watch_areas         TEXT[]  DEFAULT '{}';
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS expo_push_token   TEXT;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS notification_prefs TEXT[]  DEFAULT '{push,email}';
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS reset_code         VARCHAR(6);
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS reset_code_expires TIMESTAMP WITH TIME ZONE;
 
 CREATE INDEX IF NOT EXISTS idx_pilots_username ON pilots (username);
 CREATE INDEX IF NOT EXISTS idx_pilots_status   ON pilots (status);

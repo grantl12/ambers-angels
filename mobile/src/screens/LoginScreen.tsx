@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
@@ -8,22 +8,38 @@ import { setAuth } from "../lib/auth"
 import { getApiBaseUrl } from "../api/client"
 import { loadSettings } from "../lib/settings"
 
+type View = "login" | "pending" | "forgot_email" | "forgot_code"
 type Props = { onLogin: () => void }
 
 export default function LoginScreen({ onLogin }: Props) {
-  const [username,   setUsername]   = useState("")
-  const [password,   setPassword]   = useState("")
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const [pending,    setPending]    = useState(false)
+  const [view,        setView]        = useState<View>("login")
+  const [username,    setUsername]    = useState("")
+  const [password,    setPassword]    = useState("")
+  const [resetEmail,  setResetEmail]  = useState("")
+  const [resetCode,   setResetCode]   = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [loading,     setLoading]     = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const [success,     setSuccess]     = useState<string | null>(null)
   const [registerUrl, setRegisterUrl] = useState<string | null>(null)
+  const codeInputRef = useRef<TextInput>(null)
 
   useEffect(() => {
     loadSettings().then((s) => {
+      setResetEmail("")
       setRegisterUrl(`${s.apiBaseUrl.replace(/\/$/, "")}/pilot/register.html`)
     })
   }, [])
 
+  function goBack() {
+    setView("login")
+    setError(null)
+    setSuccess(null)
+    setResetCode("")
+    setNewPassword("")
+  }
+
+  // ── Sign in ───────────────────────────────────────────────────────────────
   async function submit() {
     if (!username.trim() || !password) {
       setError("Enter your username or email and password.")
@@ -38,14 +54,8 @@ export default function LoginScreen({ onLogin }: Props) {
         body: JSON.stringify({ username: username.trim().toLowerCase(), password }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        setError(data.detail ?? "Login failed.")
-        return
-      }
-      if (data.status === "pending") {
-        setPending(true)
-        return
-      }
+      if (!res.ok) { setError(data.detail ?? "Login failed."); return }
+      if (data.status === "pending") { setView("pending"); return }
       await setAuth({
         token:    data.access_token,
         username: data.username,
@@ -61,17 +71,68 @@ export default function LoginScreen({ onLogin }: Props) {
     }
   }
 
-  if (pending) {
+  // ── Step 1: request reset code ────────────────────────────────────────────
+  async function requestCode() {
+    if (!resetEmail.trim()) { setError("Enter your email address."); return }
+    setLoading(true)
+    setError(null)
+    try {
+      await fetch(`${getApiBaseUrl()}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim().toLowerCase() }),
+      })
+      // Always advance — backend returns 200 regardless so we don't leak emails
+      setSuccess("If that email is registered, a 6-digit code is on its way.")
+      setView("forgot_code")
+      setTimeout(() => codeInputRef.current?.focus(), 300)
+    } catch {
+      setError("Cannot reach server. Check your connection.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Step 2: verify code + set new password ────────────────────────────────
+  async function submitReset() {
+    if (resetCode.length !== 6) { setError("Enter the 6-digit code from your email."); return }
+    if (newPassword.length < 8) { setError("New password must be at least 8 characters."); return }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email:        resetEmail.trim().toLowerCase(),
+          code:         resetCode.trim(),
+          new_password: newPassword,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.detail ?? "Reset failed. Check the code and try again."); return }
+      setSuccess("Password updated! You can now sign in.")
+      setView("login")
+      setPassword("")
+    } catch {
+      setError("Cannot reach server. Check your connection.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Pending approval ──────────────────────────────────────────────────────
+  if (view === "pending") {
     return (
       <View style={styles.centered}>
-        <Text style={styles.logo}>Amber's <Text style={styles.amber}>Angels</Text></Text>
+        <Logo />
         <View style={styles.pendingBox}>
           <Text style={styles.pendingTitle}>Account Pending</Text>
           <Text style={styles.pendingText}>
             Your registration is awaiting admin approval.{"\n"}
             You'll be notified once approved.
           </Text>
-          <TouchableOpacity onPress={() => setPending(false)} style={styles.linkBtn}>
+          <TouchableOpacity onPress={goBack} style={styles.linkBtn}>
             <Text style={styles.linkText}>← Back to sign in</Text>
           </TouchableOpacity>
         </View>
@@ -79,19 +140,113 @@ export default function LoginScreen({ onLogin }: Props) {
     )
   }
 
+  // ── Step 1: enter email ───────────────────────────────────────────────────
+  if (view === "forgot_email") {
+    return (
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Logo />
+          <View style={styles.card}>
+            <Text style={styles.heading}>Reset password</Text>
+            <Text style={styles.subheading}>
+              Enter your account email and we'll send you a 6-digit code.
+            </Text>
+
+            {error   && <ErrorBox msg={error} />}
+
+            <Text style={styles.label}>Email address</Text>
+            <TextInput
+              style={styles.input}
+              value={resetEmail}
+              onChangeText={setResetEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              placeholder="you@example.com"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              onSubmitEditing={requestCode}
+              autoFocus
+            />
+
+            <TouchableOpacity
+              style={[styles.btn, loading && styles.btnDisabled]}
+              onPress={requestCode}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.btnText}>Send code</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={goBack} style={styles.linkBtn}>
+              <Text style={styles.linkText}>← Back to sign in</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    )
+  }
+
+  // ── Step 2: enter code + new password ─────────────────────────────────────
+  if (view === "forgot_code") {
+    return (
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Logo />
+          <View style={styles.card}>
+            <Text style={styles.heading}>Enter reset code</Text>
+            {success && <SuccessBox msg={success} />}
+            {error   && <ErrorBox   msg={error}   />}
+
+            <Text style={styles.label}>6-digit code</Text>
+            <TextInput
+              ref={codeInputRef}
+              style={[styles.input, styles.codeInput]}
+              value={resetCode}
+              onChangeText={(v) => setResetCode(v.replace(/\D/g, "").slice(0, 6))}
+              keyboardType="number-pad"
+              placeholder="000000"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              maxLength={6}
+            />
+
+            <Text style={styles.label}>New password</Text>
+            <TextInput
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              placeholder="8+ characters"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              onSubmitEditing={submitReset}
+            />
+
+            <TouchableOpacity
+              style={[styles.btn, loading && styles.btnDisabled]}
+              onPress={submitReset}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.btnText}>Set new password</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setView("forgot_email")} style={styles.linkBtn}>
+              <Text style={styles.linkText}>← Re-send code</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    )
+  }
+
+  // ── Sign in ───────────────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.logo}>Amber's <Text style={styles.amber}>Angels</Text></Text>
-        <Text style={styles.tagline}>Volunteer Drone ALPR Network</Text>
+        <Logo />
 
         <View style={styles.card}>
           <Text style={styles.heading}>Sign in</Text>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {success && <SuccessBox msg={success} />}
+          {error   && <ErrorBox   msg={error}   />}
 
           <Text style={styles.label}>Username or email</Text>
           <TextInput
@@ -121,10 +276,14 @@ export default function LoginScreen({ onLogin }: Props) {
             onPress={submit}
             disabled={loading}
           >
-            {loading
-              ? <ActivityIndicator color="#000" />
-              : <Text style={styles.btnText}>Sign in</Text>
-            }
+            {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.btnText}>Sign in</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkBtn}
+            onPress={() => { setError(null); setSuccess(null); setView("forgot_email") }}
+          >
+            <Text style={[styles.linkText, { textAlign: "center" }]}>Forgot password?</Text>
           </TouchableOpacity>
 
           {registerUrl && (
@@ -137,6 +296,25 @@ export default function LoginScreen({ onLogin }: Props) {
       </ScrollView>
     </KeyboardAvoidingView>
   )
+}
+
+// ── Shared sub-components ──────────────────────────────────────────────────
+
+function Logo() {
+  return (
+    <>
+      <Text style={styles.logo}>Amber's <Text style={styles.amber}>Angels</Text></Text>
+      <Text style={styles.tagline}>Volunteer Drone ALPR Network</Text>
+    </>
+  )
+}
+
+function ErrorBox({ msg }: { msg: string }) {
+  return <Text style={styles.errorText}>{msg}</Text>
+}
+
+function SuccessBox({ msg }: { msg: string }) {
+  return <Text style={styles.successText}>{msg}</Text>
 }
 
 const styles = StyleSheet.create({
@@ -154,18 +332,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  logo: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#fff",
-    marginBottom: 6,
-  },
-  amber: { color: "#f59e0b" },
-  tagline: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.4)",
-    marginBottom: 32,
-  },
+  logo:    { fontSize: 28, fontWeight: "800", color: "#fff", marginBottom: 6 },
+  amber:   { color: "#f59e0b" },
+  tagline: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginBottom: 32 },
   card: {
     width: "100%",
     maxWidth: 400,
@@ -175,12 +344,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
     padding: 24,
   },
-  heading: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
-    marginBottom: 20,
-  },
+  heading:    { fontSize: 20, fontWeight: "700", color: "#fff", marginBottom: 8 },
+  subheading: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginBottom: 20, lineHeight: 20 },
   label: {
     fontSize: 13,
     fontWeight: "500",
@@ -198,20 +363,28 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginBottom: 16,
   },
-  btn: {
-    backgroundColor: "#f59e0b",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
+  codeInput: {
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: 8,
+    textAlign: "center",
   },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { fontSize: 15, fontWeight: "700", color: "#000" },
+  btn:        { backgroundColor: "#f59e0b", borderRadius: 10, paddingVertical: 14, alignItems: "center", marginTop: 4 },
+  btnDisabled:{ opacity: 0.6 },
+  btnText:    { fontSize: 15, fontWeight: "700", color: "#000" },
   errorText: {
     fontSize: 13,
     color: "#f87171",
     marginBottom: 14,
     backgroundColor: "rgba(239,68,68,0.1)",
+    padding: 10,
+    borderRadius: 8,
+  },
+  successText: {
+    fontSize: 13,
+    color: "#34d399",
+    marginBottom: 14,
+    backgroundColor: "rgba(52,211,153,0.08)",
     padding: 10,
     borderRadius: 8,
   },
@@ -222,6 +395,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
+  linkBtn:  { paddingVertical: 12, alignItems: "center" },
+  linkText: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
   pendingBox: {
     backgroundColor: "rgba(245,158,11,0.08)",
     borderWidth: 1,
@@ -233,19 +408,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 24,
   },
-  pendingTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#f59e0b",
-    marginBottom: 10,
-  },
-  pendingText: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.55)",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  linkBtn: { padding: 8 },
-  linkText: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
+  pendingTitle: { fontSize: 18, fontWeight: "700", color: "#f59e0b", marginBottom: 10 },
+  pendingText:  { fontSize: 14, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 22, marginBottom: 20 },
 })
