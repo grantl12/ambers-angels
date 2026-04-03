@@ -39,7 +39,7 @@ Every hour a child is missing, the chances of a safe recovery decline. Amber's A
 
 One of the most important design decisions we made: **the platform works with any camera that can run our mobile app.** You do not need an FAA license, a $1,500 drone, or technical expertise to contribute.
 
-If you have a smartphone and a car mount, you are already equipped. Mount your phone on your dashboard, open the Amber's Angels app, and drive the search area. The app streams frames from your phone's camera to the server, which processes them for license plate recognition in real time. Your GPS location is transmitted alongside every frame, so coordinators can see your coverage on the mission map.
+If you have a smartphone and a car mount, you are already equipped. Mount your phone on your dashboard, open the Amber's Angels app, tap **START MISSION**, and switch to your navigation app. The app's background service keeps the camera running and uploading frames even when AA is not the active screen — a persistent notification shows the live frame count and a one-tap Stop button. Your GPS location is transmitted alongside every frame, so coordinators can see your coverage on the mission map.
 
 **Volunteer modes:**
 - 🚁 **Drone pilot** — aerial coverage, best for wide search areas and terrain that's hard to access by road
@@ -109,10 +109,12 @@ Live Mapbox dark-mode dashboard:
 
 ### Mobile App (Android, iOS pending)
 - Expo bare workflow + TypeScript, built via EAS cloud (no Mac required)
+- **Background scanning** — Android Foreground Service keeps Camera2 + GPS + upload running while the user drives with Uber or Maps open; no need to have the AA app visible
 - Phone camera capture at configurable interval → server-side ALPR
 - GPS telemetry at ~1 Hz for live drone tracking
+- Out-of-range notification when volunteer leaves the active search polygon
 - Login screen, mission map, detection feed, settings
-- Phase 2: DJI Mobile SDK v5 bindings for Mavic 3, Mini 4 Pro, Air 3
+- Phase 2: DJI Mobile SDK v5 (5.17.0, Maven Central) bindings for Mavic 3, Mini 4 Pro, Air 3, Avata
 
 ### Gamification & Volunteer Recognition
 - Ranked pilot leaderboard (flight hours, detection count, missions flown)
@@ -146,29 +148,33 @@ Live Mapbox dark-mode dashboard:
 ## Architecture
 
 ```
-Drone / Phone Camera
-        |
-        v
-  POST /ingest/frame  ←─── Mobile App (Expo)
-        |
-        v
-  OpenALPR + YOLOv8 (local, no raw data leaves server)
-        |
-        v
-  AggregationService (5-second dedup window)
-        |
-   ┌────┴────┐
-   v         v
-PostgreSQL   Discord Webhook → Mission coordinators
-   |
-   v
-Next.js Dashboard  ←── Pilot web browsers
-   |
-FEMA IPAWS Poller (every 5 min, background async task)
-   |
-   ├── Watchlist (plates from alerts)
-   ├── Vehicle targets (color/type/make from alert text)
-   └── Search polygon (for drone proximity warnings)
+Drone (RTMP stream)    Phone Camera (background service)    DJI SDK (phase 2)
+        |                          |                               |
+        v                          v                               v
+  nginx exec_push          POST /ingest/frame  ←────────── Mobile App (Expo)
+  → JPEG frames/drone/                |
+        |                            |
+        └──── Unified Worker ────────┘
+              (shared frame queue, one process, all sources)
+                            |
+                            v
+              OpenALPR + YOLOv8 (local, no raw data leaves server)
+                            |
+                            v
+              AggregationService (5-second dedup window)
+                            |
+                       ┌────┴────┐
+                       v         v
+                  PostgreSQL   Discord Webhook → Mission coordinators
+                       |
+                       v
+              Next.js Dashboard  ←── Pilot web browsers
+                       |
+              FEMA IPAWS Poller (every 5 min, background async task)
+                       |
+                       ├── Watchlist (plates from alerts)
+                       ├── Vehicle targets (color/type/make from alert text)
+                       └── Search polygon (for drone proximity warnings)
 ```
 
 ---
@@ -200,6 +206,9 @@ ambers-angels/
 │       ├── terms/                # Terms of service
 │       └── retention/            # Data retention policy
 ├── mobile/                       # Expo React Native app
+│   ├── modules/
+│   │   ├── dji-camera/           # DJI MSDK V5 native module (Kotlin, phase 2)
+│   │   └── phone-camera/         # Android Foreground Service for background scanning
 │   └── src/
 │       ├── screens/              # Login, Camera, Map, Feed, Settings
 │       ├── api/                  # Authenticated API client
