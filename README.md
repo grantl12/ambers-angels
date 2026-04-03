@@ -104,7 +104,7 @@ Live Mapbox dark-mode dashboard:
 - Multi-step registration with FAA certification tracking
 - Admin approval workflow — no pilot accesses mission data without vetting
 - JWT authentication with 30-day tokens
-- Email notification on account approval
+- Push notification on account approval (Expo)
 - Profile page with personal mission stats (flight time, detections, missions)
 
 ### Mobile App (Android, iOS pending)
@@ -137,7 +137,7 @@ Live Mapbox dark-mode dashboard:
 | Web dashboard | Next.js 14 / Tailwind CSS / Mapbox GL |
 | Mobile app | Expo (React Native) / EAS Build |
 | Alert ingestion | FEMA IPAWS CAP/XML feed |
-| Notifications | Discord webhooks |
+| Notifications | Discord webhooks · Expo push (device alerts) |
 | Process management | PM2 |
 | Infrastructure | DigitalOcean (self-hostable on any Linux VPS) |
 
@@ -203,7 +203,7 @@ ambers-angels/
 │   └── src/
 │       ├── screens/              # Login, Camera, Map, Feed, Settings
 │       ├── api/                  # Authenticated API client
-│       └── lib/                  # Auth (AsyncStorage JWT), settings
+│       └── lib/                  # Auth (AsyncStorage JWT), settings, polygon math, alert target
 ├── pilot/                        # Static pilot registration form
 ├── ecosystem.config.js           # PM2 process definitions
 └── start_api.sh                  # Backend launch with env vars
@@ -230,11 +230,6 @@ cat > .env <<EOF
 DATABASE_URL=postgresql+asyncpg://postgres:PASSWORD@127.0.0.1:5432/ambersangels
 ALERT_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK
 JWT_SECRET=$(openssl rand -hex 32)
-# Optional — email notifications on pilot approval
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=you@gmail.com
-SMTP_PASS=your_app_password
 EOF
 
 # Database

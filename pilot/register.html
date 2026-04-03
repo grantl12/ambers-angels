@@ -366,33 +366,89 @@
   #success-screen {
     display: none;
     text-align: center;
-    padding: 12px 0;
+    padding: 4px 0 8px;
   }
-  .success-icon {
-    width: 72px;
-    height: 72px;
+  .success-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16,185,129,0.1);
+    border: 1.5px solid var(--success);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--success);
+    margin-bottom: 18px;
+  }
+  #success-screen h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  #success-screen .sub { font-size: 14px; color: var(--muted); line-height: 1.55; margin-bottom: 20px; }
+
+  /* safety illustration */
+  .safety-illustration {
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .safety-caption {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -2px;
+    margin-bottom: 20px;
+    font-style: italic;
+  }
+
+  /* next steps */
+  .next-steps { text-align: left; margin-bottom: 18px; }
+  .next-steps-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .next-step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .next-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: rgba(16,185,129,0.12);
-    border: 2px solid var(--success);
+    background: var(--amber-lt);
+    border: 1.5px solid var(--amber);
+    color: var(--amber-dk);
+    font-size: 11px;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
-    margin: 0 auto 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
   }
-  #success-screen h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-  #success-screen p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 6px; }
-  .success-note {
-    margin-top: 20px;
-    padding: 14px 16px;
+  .step-text strong { display: block; font-size: 13px; margin-bottom: 2px; }
+  .step-text span { color: var(--muted); font-size: 12px; }
+
+  .car-mount-tip {
     background: var(--amber-lt);
-    border: 1px solid rgba(245,158,11,0.3);
+    border: 1px solid rgba(245,158,11,0.35);
     border-radius: var(--radius);
-    font-size: 13px;
+    padding: 13px 15px;
+    font-size: 12.5px;
     color: var(--amber-dk);
     text-align: left;
-    line-height: 1.5;
+    line-height: 1.55;
+    margin-bottom: 18px;
   }
+  .car-mount-tip strong { display: block; margin-bottom: 3px; font-size: 13px; }
 
   /* ── VALIDATION ── */
   .field input.error { border-color: var(--danger); }
@@ -660,12 +716,164 @@
 
   <!-- SUCCESS -->
   <div id="success-screen">
-    <div class="success-icon">✓</div>
-    <h2>You're in!</h2>
-    <p>Welcome to Amber's Angels. Your volunteer profile has been submitted for review.</p>
-    <p>We'll reach out within 24 hours with mission access details.</p>
-    <div class="success-note">
-      📋 <strong>Next steps:</strong> Check your email for a verification link. Once verified, you'll be added to the mission dispatch list for your area.
+    <div class="success-badge">✓ Application received</div>
+    <h2>You're in the network!</h2>
+    <p class="sub">Welcome to Amber's Angels. Your profile is under review — here's what to expect.</p>
+
+    <!-- Safety illustration SVG -->
+    <div class="safety-illustration">
+      <svg viewBox="0 0 480 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+        <!-- Sky -->
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#dbeafe"/>
+            <stop offset="100%" stop-color="#eff6ff"/>
+          </linearGradient>
+          <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#86efac"/>
+            <stop offset="100%" stop-color="#4ade80"/>
+          </linearGradient>
+        </defs>
+        <!-- Sky bg -->
+        <rect width="480" height="160" fill="url(#sky)"/>
+        <!-- Ground grass -->
+        <rect y="108" width="480" height="52" fill="url(#grass)"/>
+        <!-- Road -->
+        <rect y="112" width="480" height="30" fill="#6b7280" rx="2"/>
+        <!-- Road shoulder lines -->
+        <rect y="111" width="480" height="2" fill="#e5e7eb" opacity="0.6"/>
+        <rect y="141" width="480" height="2" fill="#e5e7eb" opacity="0.6"/>
+        <!-- Center dashes -->
+        <rect x="0"   y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="52"  y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="104" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="156" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="208" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="260" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="312" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="364" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <rect x="416" y="126" width="36" height="3" fill="white" opacity="0.7" rx="1.5"/>
+        <!-- Car on road -->
+        <g transform="translate(190,112)">
+          <!-- body -->
+          <rect x="0" y="6" width="52" height="18" rx="4" fill="#3b82f6"/>
+          <!-- cab -->
+          <rect x="8" y="0" width="30" height="12" rx="4" fill="#60a5fa"/>
+          <!-- windows -->
+          <rect x="11" y="2" width="11" height="8" rx="2" fill="#bfdbfe" opacity="0.9"/>
+          <rect x="25" y="2" width="11" height="8" rx="2" fill="#bfdbfe" opacity="0.9"/>
+          <!-- wheels -->
+          <circle cx="11" cy="24" r="5" fill="#1f2937"/>
+          <circle cx="11" cy="24" r="2.5" fill="#9ca3af"/>
+          <circle cx="41" cy="24" r="5" fill="#1f2937"/>
+          <circle cx="41" cy="24" r="2.5" fill="#9ca3af"/>
+        </g>
+
+        <!-- "NO FLY" zone hatch over road -->
+        <rect x="0" y="111" width="480" height="32" fill="url(#noflyHatch)" opacity="0.12"/>
+        <defs>
+          <pattern id="noflyHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#ef4444" stroke-width="2"/>
+          </pattern>
+        </defs>
+        <!-- No-fly label -->
+        <rect x="8" y="119" width="68" height="14" rx="3" fill="#ef4444" opacity="0.85"/>
+        <text x="42" y="130" text-anchor="middle" fill="white" font-size="8.5" font-family="Inter,sans-serif" font-weight="600">NO FLY ZONE</text>
+
+        <!-- Operator (right shoulder) -->
+        <g transform="translate(370, 84)">
+          <!-- legs -->
+          <line x1="12" y1="36" x2="8"  y2="52" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>
+          <line x1="12" y1="36" x2="16" y2="52" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>
+          <!-- body -->
+          <rect x="6" y="20" width="12" height="17" rx="3" fill="#f59e0b"/>
+          <!-- arms — one raised with controller -->
+          <line x1="6"  y1="24" x2="-2" y2="32" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>
+          <line x1="18" y1="24" x2="28" y2="18" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>
+          <!-- controller in hand -->
+          <rect x="26" y="14" width="10" height="7" rx="2" fill="#374151"/>
+          <circle cx="29" cy="17" r="1.2" fill="#f59e0b"/>
+          <circle cx="33" cy="17" r="1.2" fill="#f59e0b"/>
+          <!-- head -->
+          <circle cx="12" cy="13" r="8" fill="#fbbf24"/>
+          <!-- helmet -->
+          <path d="M4,13 a8,8 0 0,1 16,0" fill="#1f2937"/>
+          <!-- visor -->
+          <rect x="6" y="11" width="12" height="4" rx="2" fill="#93c5fd" opacity="0.8"/>
+        </g>
+
+        <!-- Drone (above grass, clearly away from road) -->
+        <g transform="translate(340, 30)">
+          <!-- signal arc from controller -->
+          <path d="M52,74 Q46,52 18,28" fill="none" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.7"/>
+          <!-- body -->
+          <rect x="10" y="10" width="16" height="10" rx="3" fill="#1f2937"/>
+          <!-- camera -->
+          <rect x="14" y="18" width="8" height="5" rx="2" fill="#374151"/>
+          <circle cx="18" cy="21" r="2" fill="#3b82f6"/>
+          <!-- arm NW -->
+          <line x1="10" y1="10" x2="2"  y2="3" stroke="#374151" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- arm NE -->
+          <line x1="26" y1="10" x2="34" y2="3" stroke="#374151" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- arm SW -->
+          <line x1="10" y1="20" x2="2"  y2="27" stroke="#374151" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- arm SE -->
+          <line x1="26" y1="20" x2="34" y2="27" stroke="#374151" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- rotors -->
+          <ellipse cx="2"  cy="3"  rx="6" ry="1.5" fill="#f59e0b" opacity="0.75"/>
+          <ellipse cx="34" cy="3"  rx="6" ry="1.5" fill="#f59e0b" opacity="0.75"/>
+          <ellipse cx="2"  cy="27" rx="6" ry="1.5" fill="#f59e0b" opacity="0.75"/>
+          <ellipse cx="34" cy="27" rx="6" ry="1.5" fill="#f59e0b" opacity="0.75"/>
+          <!-- hover shadow -->
+          <ellipse cx="18" cy="80" rx="12" ry="3" fill="#000" opacity="0.08"/>
+        </g>
+
+        <!-- Green "SAFE ZONE" badge over grass -->
+        <rect x="388" y="92" width="72" height="14" rx="3" fill="#10b981" opacity="0.85"/>
+        <text x="424" y="103" text-anchor="middle" fill="white" font-size="8.5" font-family="Inter,sans-serif" font-weight="600">SAFE ZONE ✓</text>
+
+        <!-- Clouds -->
+        <ellipse cx="60"  cy="22" rx="22" ry="9" fill="white" opacity="0.8"/>
+        <ellipse cx="80"  cy="16" rx="16" ry="9" fill="white" opacity="0.8"/>
+        <ellipse cx="45"  cy="18" rx="12" ry="7" fill="white" opacity="0.8"/>
+        <ellipse cx="220" cy="18" rx="26" ry="9" fill="white" opacity="0.7"/>
+        <ellipse cx="244" cy="12" rx="18" ry="9" fill="white" opacity="0.7"/>
+      </svg>
+    </div>
+    <p class="safety-caption">Drone operators fly alongside roads — never directly over moving traffic.</p>
+
+    <!-- What's next -->
+    <div class="next-steps">
+      <div class="next-steps-title">What happens next</div>
+      <div class="next-step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <strong>Review (within 24 h)</strong>
+          <span>Our team verifies your profile and activates your account. You'll get a push notification the moment you're approved.</span>
+        </div>
+      </div>
+      <div class="next-step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <strong>Download the app</strong>
+          <span>Install Amber's Angels on your phone. Sign in with the account you just created — the app will show a pending badge until approval clears.</span>
+        </div>
+      </div>
+      <div class="next-step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <strong>Join your first mission</strong>
+          <span>When an alert fires in your area you'll be notified instantly. Open the app, start a session, and the system does the rest.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Car-mount safety tip -->
+    <div class="car-mount-tip">
+      <strong>🚗 Phone-in-car volunteers — quick safety note</strong>
+      Mount your phone on the <em>windshield or dashboard</em> using a secure holder before you start driving.
+      Never handle the phone while in motion — the app runs automatically once a session is started.
+      Pull over safely before adjusting any settings.
     </div>
   </div>
 
@@ -929,8 +1137,8 @@ async function submitForm() {
     success.style.display = 'block'
 
     if (data.status === 'approved') {
-      success.querySelector('p').textContent = 'Your account is ready. Redirecting to sign in…'
-      // Redirect to login with welcome flag — login form completes the full auth setup
+      // First pilot auto-approved as admin — redirect straight to the dashboard
+      success.querySelector('.sub').textContent = 'Your account is ready. Redirecting to the dashboard…'
       setTimeout(() => { window.location.href = '/login?from=/map&welcome=1' }, 2000)
     }
   } catch (err) {
