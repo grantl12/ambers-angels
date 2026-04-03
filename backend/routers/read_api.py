@@ -707,6 +707,69 @@ def get_watchlist():
 # Admin — manual test alert
 # ---------------------------------------------------------------------------
 
+_NOMINATIM_URL  = "https://nominatim.openstreetmap.org/search"
+_NOMINATIM_UA   = "AmberAngels-admin/1.0"
+# Half-side of the standard search box in degrees (≈5.5 km at mid-latitudes)
+_ZONE_HALF_DEG  = 0.05
+
+
+def _geocode(area: str) -> tuple[float, float] | None:
+    """Return (lat, lng) for a location string via Nominatim, or None on failure."""
+    try:
+        resp = _requests.get(
+            _NOMINATIM_URL,
+            params={"q": area, "format": "json", "limit": 1},
+            headers={"User-Agent": _NOMINATIM_UA},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        results = resp.json()
+        if results:
+            return float(results[0]["lat"]), float(results[0]["lon"])
+    except Exception as e:
+        print(f"[manual-alert] geocode failed for {area!r}: {e}")
+    return None
+
+
+def _bbox_polygon(lat: float, lng: float, half: float = _ZONE_HALF_DEG) -> str:
+    """Return space-separated 'lat,lng' pairs forming a closed rectangular polygon."""
+    s, n, w, e = lat - half, lat + half, lng - half, lng + half
+    return f"{s},{w} {s},{e} {n},{e} {n},{w} {s},{w}"
+
+
+def _discord_zone_embed(
+    headline: str,
+    area: str,
+    alert_type: str,
+    plate: str | None,
+    lat: float,
+    lng: float,
+    expires_at: str,
+    webhook_url: str,
+) -> None:
+    """Fire-and-forget Discord embed for a new manual search zone."""
+    _COLORS = {"amber": 0xF59E0B, "silver": 0x94A3B8, "blue": 0x3B82F6, "test": 0x6B7280}
+    color   = _COLORS.get(alert_type.lower(), 0xF59E0B)
+    fields  = [
+        {"name": "Area",       "value": area,                    "inline": True},
+        {"name": "Alert type", "value": alert_type.upper(),      "inline": True},
+        {"name": "Expires",    "value": expires_at[:16] + " UTC", "inline": True},
+    ]
+    if plate:
+        fields.insert(0, {"name": "Target plate", "value": f"`{plate}`", "inline": True})
+    embed = {
+        "title": f"🗺️  Search Zone Activated — {headline}",
+        "color": color,
+        "fields": fields,
+        "footer": {"text": f"centroid {lat:.4f}, {lng:.4f}"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        _requests.post(webhook_url, json={"embeds": [embed]}, timeout=5)
+    except Exception as e:
+        print(f"[manual-alert] Discord notify failed: {e}")
+
+
 class ManualAlertRequest(BaseModel):
     # Plate (watchlist entry)
     plate:        Optional[str] = None
@@ -723,10 +786,19 @@ class ManualAlertRequest(BaseModel):
 
 @router.post("/admin/manual-alert", dependencies=[Depends(require_admin)])
 def create_manual_alert(req: ManualAlertRequest):
+    import subprocess, os
     db = database.SessionLocal()
     now = datetime.now(timezone.utc)
     expires = now + timedelta(hours=req.expires_hours)
     created = []
+
+    # Geocode area once — used for both zone polygon and Discord embed
+    centroid: tuple[float, float] | None = None
+    polygon_str: str | None = None
+    if req.area:
+        centroid = _geocode(req.area)
+        if centroid:
+            polygon_str = _bbox_polygon(*centroid)
 
     try:
         if req.plate:
@@ -745,30 +817,68 @@ def create_manual_alert(req: ManualAlertRequest):
             })
             created.append(f"watchlist:{plate}")
 
-        if any([req.color, req.body_type, req.make]):
-            fema_id = f"manual-{uuid.uuid4().hex[:8]}"
+        # Always create a vehicle_targets zone entry when area is provided so the
+        # map polygon renders even for plate-only alerts.
+        if any([req.color, req.body_type, req.make]) or req.area:
+            fema_id  = f"manual-{uuid.uuid4().hex[:8]}"
             headline = " ".join(filter(None, [req.color, req.body_type, req.make])).strip()
+            if not headline:
+                headline = req.description or (f"Search zone — {req.area}" if req.area else "Manual test vehicle")
             db.execute(text("""
                 INSERT INTO vehicle_targets
                     (fema_identifier, alert_type, source_program, headline,
-                     area, color, body_type, make, expires_at)
+                     area, color, body_type, make, expires_at,
+                     polygon, centroid_lat, centroid_lng)
                 VALUES
                     (:fid, :atype, 'manual', :headline,
-                     :area, :color, :body_type, :make, :expires)
+                     :area, :color, :body_type, :make, :expires,
+                     :polygon, :clat, :clng)
             """), {
                 "fid":       fema_id,
                 "atype":     req.alert_type,
-                "headline":  headline or req.description or "Manual test vehicle",
+                "headline":  headline,
                 "area":      req.area,
                 "color":     req.color,
                 "body_type": req.body_type,
                 "make":      req.make,
                 "expires":   expires,
+                "polygon":   polygon_str,
+                "clat":      centroid[0] if centroid else None,
+                "clng":      centroid[1] if centroid else None,
             })
             created.append(f"vehicle_target:{fema_id}")
 
         db.commit()
-        return {"created": created, "expires_at": expires.isoformat()}
+
+        # ── Side-effects (best-effort, non-blocking) ──────────────────────────
+        webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+        if webhook_url and centroid:
+            _discord_zone_embed(
+                headline    = headline if any([req.color, req.body_type, req.make]) or req.area else "Manual alert",
+                area        = req.area or "unknown",
+                alert_type  = req.alert_type,
+                plate       = req.plate.strip().upper() if req.plate else None,
+                lat         = centroid[0],
+                lng         = centroid[1],
+                expires_at  = expires.isoformat(),
+                webhook_url = webhook_url,
+            )
+
+        # Kick off flock scraper in background so cameras populate for this zone
+        if polygon_str:
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            subprocess.Popen(
+                ["python3", "scripts/scrape_flock.py"],
+                cwd=project_root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+        return {
+            "created":    created,
+            "expires_at": expires.isoformat(),
+            "zone":       {"lat": centroid[0], "lng": centroid[1]} if centroid else None,
+        }
     finally:
         db.close()
 

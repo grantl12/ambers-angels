@@ -130,7 +130,7 @@ export default function AdminPage() {
     setSubmitting(true)
     setAlertMsg(null)
     try {
-      const res = await apiPost<{ created: string[]; expires_at: string }>("/admin/manual-alert", {
+      const res = await apiPost<{ created: string[]; expires_at: string; zone: { lat: number; lng: number } | null }>("/admin/manual-alert", {
         plate:         form.plate     || null,
         color:         form.color     || null,
         body_type:     form.body_type || null,
@@ -140,7 +140,8 @@ export default function AdminPage() {
         alert_type:    form.alert_type,
         expires_hours: form.expires_hours,
       })
-      setAlertMsg(`Created: ${res.created.join(", ")}`)
+      const zoneNote = res.zone ? " — zone drawn on map" : ""
+      setAlertMsg(`Created: ${res.created.join(", ")}${zoneNote}`)
       setForm(BLANK_FORM)
       loadManualAlerts()
     } catch (e: unknown) {

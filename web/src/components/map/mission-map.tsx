@@ -6,7 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css"
 import { useMemo, useState, useRef, useEffect } from "react"
 import { env } from "@/lib/env"
 import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
-import { useDetectionsFeed, useWatchlist } from "@/features/detections/api"
+import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera } from "@/features/flock/api"
 import type { Detection } from "@/features/detections/types"
@@ -68,6 +68,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
   const { data: detections = [] }    = useDetectionsFeed(100)
   const { data: watchlist = [] }     = useWatchlist()
   const { data: flockCameras = [] }  = useFlockCameras()
+  const { data: alertZones = [] }    = useFemaAlerts()
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -97,6 +98,34 @@ export function MissionMap({ layers, onMapReady }: Props) {
       properties: { id: cam.id },
     })),
   }), [flockCameras])
+
+  // Alert zones — vehicle_targets with polygon data (FEMA + manual injections)
+  const alertZonesGeoJson = useMemo(() => {
+    function parsePolygon(poly: string): [number, number][] {
+      // stored as "lat,lng lat,lng ..." — GeoJSON needs [lng, lat]
+      return poly.trim().split(/\s+/).map((pair) => {
+        const [lat, lng] = pair.split(",").map(Number)
+        return [lng, lat] as [number, number]
+      })
+    }
+    return {
+      type: "FeatureCollection" as const,
+      features: alertZones
+        .filter((z) => z.polygon)
+        .map((z) => ({
+          type: "Feature" as const,
+          geometry: {
+            type: "Polygon" as const,
+            coordinates: [parsePolygon(z.polygon!)],
+          },
+          properties: {
+            headline:  z.headline,
+            alertType: z.alertType,
+            area:      z.area ?? "",
+          },
+        })),
+    }
+  }, [alertZones])
 
   // Heatmap GeoJSON from detections with GPS
   const heatmapGeoJson = useMemo(() => ({
@@ -146,6 +175,58 @@ export function MissionMap({ layers, onMapReady }: Props) {
             }}
           />
         </Source>
+
+        {/* Alert search zones (vehicle_targets with polygon — FEMA + manual) */}
+        {alertZonesGeoJson.features.length > 0 && (
+          <Source id="alert-zones" type="geojson" data={alertZonesGeoJson}>
+            <Layer
+              id="alert-zones-fill"
+              type="fill"
+              paint={{
+                "fill-color": [
+                  "match", ["get", "alertType"],
+                  "amber",  "#F59E0B",
+                  "silver", "#94A3B8",
+                  "blue",   "#3B82F6",
+                  "#F59E0B",
+                ],
+                "fill-opacity": 0.12,
+              }}
+            />
+            <Layer
+              id="alert-zones-outline"
+              type="line"
+              paint={{
+                "line-color": [
+                  "match", ["get", "alertType"],
+                  "amber",  "#F59E0B",
+                  "silver", "#94A3B8",
+                  "blue",   "#3B82F6",
+                  "#F59E0B",
+                ],
+                "line-width": 2,
+                "line-opacity": 0.8,
+                "line-dasharray": [6, 3],
+              }}
+            />
+            <Layer
+              id="alert-zones-label"
+              type="symbol"
+              layout={{
+                "text-field": ["get", "headline"],
+                "text-size": 11,
+                "text-anchor": "center",
+                "text-max-width": 12,
+              }}
+              paint={{
+                "text-color": "#ffffff",
+                "text-opacity": 0.85,
+                "text-halo-color": "#000000",
+                "text-halo-width": 1.5,
+              }}
+            />
+          </Source>
+        )}
 
         {/* Flock coverage sectors (pie slices oriented by heading) */}
         {layers.coverage && (
