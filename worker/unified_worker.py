@@ -1,11 +1,20 @@
 """
 worker/unified_worker.py
 
-Watches a frame directory for new JPEG files, runs OpenALPR on each,
-and POSTs detections to the backend API.
+Single worker process that drains frames from ALL drone subdirectories under
+FRAMES_ROOT (e.g. test_plates/drone1/, test_plates/drone2/, …).
 
-Telemetry is not yet implemented — that path is intentionally removed.
+Models are loaded once at startup and shared across all drones — adding a
+second or third drone costs zero additional RAM.
+
+Frame lifecycle:
+  1. ffmpeg (via nginx exec_push) writes  test_plates/<drone_id>/frame_NNNN.jpg
+  2. Worker scans all subdirs, picks up new files
+  3. OpenALPR + vehicle classifier run on the frame
+  4. Detection POSTed to API
+  5. Frame deleted — no accumulation, no stale-set growth
 """
+import glob
 import os
 import sys
 import time
@@ -24,68 +33,92 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-FRAME_DIR  = os.getenv("FRAMES_DIR", "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates")
-DRONE_ID   = os.getenv("DRONE_ID", "drone1")
-API_URL    = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
+# Root directory that contains one subdir per drone (drone1/, drone2/, …)
+FRAMES_ROOT = os.getenv(
+    "FRAMES_ROOT",
+    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates",
+)
+API_URL = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
 
 ALPR_COUNTRY     = os.getenv("ALPR_COUNTRY", "us")
 ALPR_CONFIG      = os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf")
 ALPR_RUNTIME_DIR = os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data")
 GOLDEN_DIR       = os.getenv(
     "GOLDEN_DIR",
-    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
+    os.path.join(FRAMES_ROOT, "golden_frames"),
 )
 
+# Subdirectory names to skip when scanning FRAMES_ROOT
+_SKIP_DIRS = {"golden_frames", "anomalies", "recovery_bot"}
+
 # ---------------------------------------------------------------------------
-# Initialize OpenALPR once (reuse across frames to save startup cost)
+# Load models once — shared across all drone streams
 # ---------------------------------------------------------------------------
+print("[Worker] Loading OpenALPR…")
 alpr = Alpr(ALPR_COUNTRY, ALPR_CONFIG, ALPR_RUNTIME_DIR)
 if not alpr.is_loaded():
     print("[Worker] ❌ OpenALPR failed to load. Check config paths.")
     sys.exit(1)
-
 alpr.set_top_n(5)
+print("[Worker] ✅ OpenALPR ready.")
 
 
 # ---------------------------------------------------------------------------
-# Golden frame archival
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _save_to_golden(frame_path: str, plate_text: str) -> None:
-    """Copy a watchlist-hit frame into golden_frames for audit and manual re-ingestion."""
     try:
         os.makedirs(GOLDEN_DIR, exist_ok=True)
-        frame_name = os.path.basename(frame_path)
-        dest = os.path.join(GOLDEN_DIR, f"alert_{plate_text}_{frame_name}")
+        dest = os.path.join(GOLDEN_DIR, f"alert_{plate_text}_{os.path.basename(frame_path)}")
         shutil.copy2(frame_path, dest)
-        print(f"[Worker] 💾 Saved to golden_frames: {os.path.basename(dest)}")
+        print(f"[Worker] 💾 golden_frames: {os.path.basename(dest)}")
     except Exception as e:
-        print(f"[Worker] ⚠️  Could not save golden frame: {e}")
+        print(f"[Worker] ⚠️  golden save failed: {e}")
+
+
+def _iter_pending() -> list[tuple[str, str]]:
+    """Yield (frame_path, drone_id) for every image in every drone subdir."""
+    frames = []
+    try:
+        with os.scandir(FRAMES_ROOT) as it:
+            for entry in it:
+                if not entry.is_dir() or entry.name in _SKIP_DIRS or entry.name.startswith("."):
+                    continue
+                drone_id = entry.name
+                with os.scandir(entry.path) as fit:
+                    for f in fit:
+                        if f.name.lower().endswith((".jpg", ".jpeg", ".png")) and f.is_file():
+                            frames.append((f.path, drone_id))
+    except FileNotFoundError:
+        pass
+    return frames
 
 
 # ---------------------------------------------------------------------------
 # Frame processing
 # ---------------------------------------------------------------------------
 
-def process_frame(frame_path: str) -> bool:
-    """Process a single frame. Returns True if fully handled (success or no plates found),
-    False if the API was unreachable so the frame should be retried."""
+def process_frame(frame_path: str, drone_id: str) -> bool:
+    """
+    Run the full detection pipeline on one frame.
+    Returns True  → frame handled (delete it).
+    Returns False → API was down, keep the file and retry next cycle.
+    """
     try:
         results = alpr.recognize_file(frame_path)
     except Exception as e:
-        print(f"[Worker] ❌ ALPR error on {frame_path}: {e}")
-        return True  # ALPR error is permanent — don't retry
+        print(f"[Worker] ❌ ALPR error ({drone_id}): {e}")
+        return True  # permanent failure — don't retry
 
     if not results or not results.get("results"):
-        return True  # no plates found — mark done
+        return True  # no plates — done
 
-    # --- Vehicle classification (local, runs on every frame with plates) ---
     yolo_vehicles = classify_vehicles(frame_path)
     yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
 
-    # --- Plate Recognizer (cloud, only on high-confidence frames) ---
     max_conf = max((r.get("confidence", 0.0) for r in results["results"]), default=0.0)
-    pr_by_plate: dict[str, object] = {}
+    pr_by_plate: dict = {}
     if max_conf >= SINGLE_FRAME_HIGH_CONFIDENCE:
         pr_list = pr_recognize(frame_path, regions=["us"])
         for pr in pr_list:
@@ -94,10 +127,8 @@ def process_frame(frame_path: str) -> bool:
 
     api_ok = True
     for plate_result in results["results"]:
-        plate_text  = plate_result.get("plate", "")
-        confidence  = plate_result.get("confidence", 0.0)
-        frame_name  = os.path.basename(frame_path)
-
+        plate_text = plate_result.get("plate", "")
+        confidence = plate_result.get("confidence", 0.0)
         if not plate_text:
             continue
 
@@ -105,8 +136,8 @@ def process_frame(frame_path: str) -> bool:
         payload = {
             "plate_text":    plate_text,
             "confidence":    confidence,
-            "drone_id":      DRONE_ID,
-            "best_frame_id": frame_name,
+            "drone_id":      drone_id,
+            "best_frame_id": os.path.basename(frame_path),
             "vehicle_color": (pr.color     if pr else None) or (yolo_primary.color     if yolo_primary else None),
             "vehicle_type":  (pr.body_type if pr else None) or (yolo_primary.body_type if yolo_primary else None),
             "vehicle_make":  pr.make  if pr else None,
@@ -117,16 +148,15 @@ def process_frame(frame_path: str) -> bool:
             resp = requests.post(API_URL, json=payload, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
-                alert_triggered = data.get("alert_triggered", False)
-                alert_flag = "🚨" if alert_triggered else "✅"
-                print(f"[Worker] {alert_flag} {plate_text} ({confidence:.1f}%) → {data.get('status')}")
-                if alert_triggered:
+                flag = "🚨" if data.get("alert_triggered") else "✅"
+                print(f"[Worker] {flag} [{drone_id}] {plate_text} ({confidence:.1f}%) → {data.get('status')}")
+                if data.get("alert_triggered"):
                     _save_to_golden(frame_path, plate_text)
             else:
-                print(f"[Worker] ⚠️  API returned {resp.status_code} for {plate_text}")
+                print(f"[Worker] ⚠️  API {resp.status_code} for {plate_text} [{drone_id}]")
         except requests.exceptions.RequestException as e:
-            print(f"[Worker] ❌ API post failed for {plate_text}: {e}")
-            api_ok = False  # transient — let watch loop retry this frame
+            print(f"[Worker] ❌ API post failed [{drone_id}] {plate_text}: {e}")
+            api_ok = False
 
     return api_ok
 
@@ -136,7 +166,6 @@ def process_frame(frame_path: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def wait_for_backend(timeout: int = 60) -> None:
-    """Block until the backend API is reachable, or exit if timeout exceeded."""
     health_url = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/health"
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -147,7 +176,7 @@ def wait_for_backend(timeout: int = 60) -> None:
                 return
         except requests.exceptions.RequestException:
             pass
-        print("[Worker] ⏳ Waiting for backend...")
+        print("[Worker] ⏳ Waiting for backend…")
         time.sleep(2)
     print(f"[Worker] ❌ Backend not reachable after {timeout}s. Exiting.")
     sys.exit(1)
@@ -155,28 +184,30 @@ def wait_for_backend(timeout: int = 60) -> None:
 
 def watch_frames() -> None:
     wait_for_backend()
-    print(f"[Worker] 👁  Monitoring {FRAME_DIR} for new frames (drone: {DRONE_ID})...")
-    processed: set[str] = set()
+    print(f"[Worker] 👁  Watching {FRAMES_ROOT}/*/ for frames from any drone…")
+
+    # Tracks paths currently being retried due to API downtime.
+    # Cleared on success so memory stays bounded.
+    retry: set[str] = set()
 
     while True:
-        try:
-            files = [
-                f for f in os.listdir(FRAME_DIR)
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-        except FileNotFoundError:
-            print(f"[Worker] ⚠️  Frame directory not found: {FRAME_DIR}. Retrying...")
-            time.sleep(5)
-            continue
+        pending = _iter_pending()
 
-        for filename in files:
-            full_path = os.path.join(FRAME_DIR, filename)
-            if full_path not in processed:
-                # Small delay to ensure FFmpeg has finished writing the file
-                time.sleep(0.1)
-                ok = process_frame(full_path)
-                if ok:
-                    processed.add(full_path)  # only skip on success; retry if API was down
+        for frame_path, drone_id in pending:
+            # Brief wait to let ffmpeg finish writing before we read
+            age = time.time() - os.path.getmtime(frame_path)
+            if age < 0.3:
+                continue
+
+            ok = process_frame(frame_path, drone_id)
+            if ok:
+                retry.discard(frame_path)
+                try:
+                    os.remove(frame_path)
+                except OSError:
+                    pass
+            else:
+                retry.add(frame_path)
 
         time.sleep(0.5)
 
