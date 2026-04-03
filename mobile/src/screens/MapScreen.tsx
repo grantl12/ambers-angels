@@ -17,59 +17,7 @@ import * as Location from "expo-location"
 import { fetchLatestTelemetry, type DronePosition } from "../api/telemetry"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings } from "../lib/settings"
-
-// ---------------------------------------------------------------------------
-// Polygon distance helpers (mirrors web sidebar logic)
-// ---------------------------------------------------------------------------
-const _D2R = Math.PI / 180
-const _EARTH_MI = 3958.8
-
-function _hav(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const dLat = (lat2 - lat1) * _D2R, dLon = (lon2 - lon1) * _D2R
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*_D2R)*Math.cos(lat2*_D2R)*Math.sin(dLon/2)**2
-  return _EARTH_MI * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-}
-
-function _parsePoly(s: string): [number, number][] {
-  return s.trim().split(/\s+/).map(p => { const [a,b] = p.split(",").map(Number); return [a,b] })
-}
-
-function _inPoly(lat: number, lon: number, poly: [number,number][]): boolean {
-  let inside = false; const n = poly.length
-  for (let i=0, j=n-1; i<n; j=i++) {
-    const [yi,xi]=poly[i],[yj,xj]=poly[j]
-    if ((yi>lat)!==(yj>lat) && lon<((xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside
-  }
-  return inside
-}
-
-function _segDist(lat: number, lon: number, a: [number,number], b: [number,number]) {
-  const c = Math.cos(lat*_D2R)
-  const px=lon*c,py=lat,ax=a[1]*c,ay=a[0],bx=b[1]*c,by=b[0]
-  const dx=bx-ax,dy=by-ay,len=dx*dx+dy*dy
-  const t = len>0 ? Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len)) : 0
-  return _hav(lat,lon,a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]))
-}
-
-function distToPolygon(lat: number, lon: number, polyStr: string|null): number|null {
-  if (!polyStr) return null
-  const poly = _parsePoly(polyStr)
-  if (poly.length < 3) return null
-  if (_inPoly(lat, lon, poly)) return 0
-  let min = Infinity; const n = poly.length
-  for (let i=0,j=n-1;i<n;j=i++) { const d=_segDist(lat,lon,poly[j],poly[i]); if(d<min) min=d }
-  return min
-}
-
-function nearestAlert(lat: number, lon: number, alerts: FemaAlert[]) {
-  let best: {miles: number; alert: FemaAlert}|null = null
-  for (const a of alerts) {
-    const d = distToPolygon(lat, lon, a.polygon)
-    if (d===null) continue
-    if (!best || d < best.miles) best = {miles: d, alert: a}
-  }
-  return best
-}
+import { nearestAlert } from "../lib/polygon"
 
 const CARROLLTON = { latitude: 33.5801, longitude: -85.0766, latitudeDelta: 0.08, longitudeDelta: 0.08 }
 

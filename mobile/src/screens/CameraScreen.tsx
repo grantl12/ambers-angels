@@ -17,9 +17,26 @@ import {
 } from "react-native"
 import { CameraView, useCameraPermissions } from "expo-camera"
 import * as Location from "expo-location"
+import * as Notifications from "expo-notifications"
 import { postFrame } from "../api/ingest"
 import { postTelemetry } from "../api/telemetry"
+import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings, type AppSettings } from "../lib/settings"
+import { nearestAlert } from "../lib/polygon"
+
+// Show notifications even when the app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+})
+
+// Minimum milliseconds between out-of-range notifications (5 min)
+const NOTIF_COOLDOWN_MS = 5 * 60 * 1000
 
 export default function CameraScreen() {
   const [camPermission, requestCamPermission] = useCameraPermissions()
@@ -28,23 +45,28 @@ export default function CameraScreen() {
   const [active, setActive] = useState(false)
   const [lastCapture, setLastCapture] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [rangeWarning, setRangeWarning] = useState<{ miles: number; area: string } | null>(null)
 
   const cameraRef = useRef<CameraView>(null)
   const locationRef = useRef<Location.LocationObject | null>(null)
   const captureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const telemetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const locationSubRef = useRef<Location.LocationSubscription | null>(null)
+  const femaAlertsRef = useRef<FemaAlert[]>([])
+  const wasOutsideRef = useRef(false)
+  const lastNotifRef = useRef(0)
 
   // Load settings once
   useEffect(() => {
     loadSettings().then(setSettings)
   }, [])
 
-  // Request location permission
+  // Request permissions
   useEffect(() => {
     Location.requestForegroundPermissionsAsync().then(({ status }) => {
       setLocPermission(status === "granted")
     })
+    Notifications.requestPermissionsAsync()
   }, [])
 
   // Watch GPS position — updates locationRef continuously
@@ -64,18 +86,28 @@ export default function CameraScreen() {
     locationSubRef.current?.remove()
     captureTimerRef.current  = null
     telemetryTimerRef.current = null
+    wasOutsideRef.current = false
     setActive(false)
+    setRangeWarning(null)
   }, [])
 
   const startMission = useCallback(() => {
     if (!settings) return
     setError(null)
     setActive(true)
+    wasOutsideRef.current = false
+    setRangeWarning(null)
+
+    // Fetch current FEMA alerts for range checking
+    fetchFemaAlerts()
+      .then((alerts) => { femaAlertsRef.current = alerts })
+      .catch(() => {})
 
     // Telemetry loop — ~1 Hz
     telemetryTimerRef.current = setInterval(async () => {
       const loc = locationRef.current
       if (!loc) return
+
       try {
         await postTelemetry({
           drone_id: settings.droneId,
@@ -89,6 +121,39 @@ export default function CameraScreen() {
         })
       } catch {
         // Non-fatal — don't stop the mission
+      }
+
+      // Out-of-range check
+      if (settings.notifOutsidePolygon && femaAlertsRef.current.length > 0) {
+        const { latitude: lat, longitude: lon } = loc.coords
+        const best = nearestAlert(lat, lon, femaAlertsRef.current)
+        const isOutside = best !== null && best.miles > settings.alertRangeMiles
+
+        if (isOutside) {
+          setRangeWarning({
+            miles: best.miles,
+            area: best.alert.area ?? best.alert.alertType.toUpperCase(),
+          })
+          // Edge-triggered notification: only fire on the inside→outside transition
+          // and no more often than once per NOTIF_COOLDOWN_MS
+          const now = Date.now()
+          if (!wasOutsideRef.current && now - lastNotifRef.current > NOTIF_COOLDOWN_MS) {
+            lastNotifRef.current = now
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: `⚠️ Outside search area — ${best.miles.toFixed(1)} mi`,
+                body: best.alert.area
+                  ? `You are ${best.miles.toFixed(1)} mi from the ${best.alert.area} search area.`
+                  : `You are ${best.miles.toFixed(1)} mi outside the active search polygon.`,
+                sound: true,
+              },
+              trigger: null,
+            })
+          }
+        } else {
+          setRangeWarning(null)
+        }
+        wasOutsideRef.current = isOutside
       }
     }, 1000)
 
@@ -160,6 +225,18 @@ export default function CameraScreen() {
           )}
         </View>
 
+        {/* Out-of-range warning */}
+        {rangeWarning && (
+          <View style={styles.rangeWarning}>
+            <Text style={styles.rangeWarningTitle}>
+              ⚠  {rangeWarning.miles.toFixed(1)} mi outside search area
+            </Text>
+            <Text style={styles.rangeWarningBody} numberOfLines={1}>
+              {rangeWarning.area}
+            </Text>
+          </View>
+        )}
+
         {/* Start / Stop button */}
         <View style={styles.controls}>
           <TouchableOpacity
@@ -224,4 +301,17 @@ const styles = StyleSheet.create({
   },
   captureBtnActive:  { backgroundColor: "#ef4444" },
   captureBtnText:    { color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 1 },
+  rangeWarning: {
+    position: "absolute",
+    top: 56,
+    right: 16,
+    backgroundColor: "rgba(234,88,12,0.92)",
+    borderRadius: 8,
+    padding: 10,
+    maxWidth: 180,
+    borderWidth: 1,
+    borderColor: "rgba(251,146,60,0.6)",
+  },
+  rangeWarningTitle: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  rangeWarningBody:  { color: "rgba(255,255,255,0.75)", fontSize: 10, marginTop: 2 },
 })
