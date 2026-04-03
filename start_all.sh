@@ -23,7 +23,13 @@ export API_BASE="http://127.0.0.1:8000"
 mkdir -p "$BASE_DIR/logs"
 
 # ── 2. Nginx ──────────────────────────────────────────────────────────────────
+# Start (or reload) nginx so the latest exec_push config is active.
+# exec_push fires automatically on each RTMP publish and runs two processes:
+#   a) ffmpeg  — extracts JPEG frames at 3 fps into test_plates/<stream>/
+#   b) rtmp_telemetry.py — tries subtitle track then AMF poll for DJI GPS data,
+#      posts to POST /telemetry so the drone dot moves live on the mission map.
 sudo service nginx start 2>/dev/null || true
+sudo service nginx reload 2>/dev/null || true
 
 # ── 3. API + Web (PM2) ────────────────────────────────────────────────────────
 # start if not registered, restart if already there
@@ -48,4 +54,11 @@ echo "  Worker  -> tmux attach -t aa-worker"
 echo "------------------------------------------------"
 echo "  Dashboard  -> http://157.245.125.103/map"
 echo "  Health     -> http://157.245.125.103:8000/health"
+echo "================================================"
+echo ""
+echo "  RTMP streams  -> rtmp://157.245.125.103/live/<name>"
+echo "    Each stream auto-starts:"
+echo "      - ffmpeg frame grabber  (3 fps → ALPR worker)"
+echo "      - rtmp_telemetry.py     (DJI GPS → /telemetry → map)"
+echo "    Inspect stream:  ffprobe -v quiet -show_format rtmp://localhost/live/<name>"
 echo "================================================"
