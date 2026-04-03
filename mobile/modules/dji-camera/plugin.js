@@ -3,12 +3,13 @@
  *
  * What it does:
  *   1. Adds the DJI Maven artifact repository to android/build.gradle
- *   2. Adds DJI SDK dependencies + packagingOptions to android/app/build.gradle
- *   3. Injects the DJI_APP_KEY meta-data into AndroidManifest.xml
- *   4. Registers DJICameraPackage in MainApplication via react-native-community auto-linking shim
+ *   2. Includes :dji-camera as a Gradle subproject in settings.gradle
+ *   3. Adds packagingOptions + project dependency to android/app/build.gradle
+ *   4. Injects the DJI_APP_KEY meta-data into AndroidManifest.xml
+ *   5. Registers DJICameraPackage in MainApplication.kt
  *
  * Set your DJI App Key via EAS secret:
- *   eas secret:create --scope project --name DJI_APP_KEY --value <your_key>
+ *   eas secret:create --scope project --name DJI_APP_KEY --value <key>
  * or locally in mobile/.env:
  *   DJI_APP_KEY=your_key_here
  */
@@ -38,12 +39,36 @@ function withDJIMavenRepo(config) {
   })
 }
 
-// ─── 2. Add DJI dependencies + packagingOptions to app/build.gradle ─────────
+// ─── 2. Include :dji-camera as a Gradle subproject in settings.gradle ────────
+function withDJISettings(config) {
+  return withDangerousMod(config, [
+    'android',
+    (config) => {
+      const settingsPath = path.join(
+        config.modRequest.platformProjectRoot,
+        'settings.gradle',
+      )
+
+      if (!fs.existsSync(settingsPath)) return config
+
+      let src = fs.readFileSync(settingsPath, 'utf8')
+
+      if (src.includes(':dji-camera')) return config  // already added
+
+      src += `\ninclude ':dji-camera'\nproject(':dji-camera').projectDir = new File(rootProject.projectDir, '../modules/dji-camera/android')\n`
+      fs.writeFileSync(settingsPath, src, 'utf8')
+      console.log('[dji-camera] :dji-camera subproject added to settings.gradle')
+      return config
+    },
+  ])
+}
+
+// ─── 3. Add packagingOptions + project dependency to app/build.gradle ────────
 function withDJIAppGradle(config) {
   return withAppBuildGradle(config, (mod) => {
     let gradle = mod.modResults.contents
 
-    if (gradle.includes('dji-sdk-v5-aircraft')) return mod  // already added
+    if (gradle.includes("project(':dji-camera')")) return mod  // already added
 
     // Add packagingOptions inside android { } block
     gradle = gradle.replace(
@@ -66,13 +91,12 @@ function withDJIAppGradle(config) {
     }`,
     )
 
-    // Add dependencies
+    // Add project dependency (the module's build.gradle declares the DJI SDK deps)
     gradle = gradle.replace(
       /dependencies\s*\{/,
       `dependencies {
-    // DJI Mobile SDK V5
-    implementation 'com.dji:dji-sdk-v5-aircraft:5.10.0'
-    implementation 'com.dji:dji-sdk-v5-networkImp:5.10.0'`,
+    // DJI Camera local module (includes DJI MSDK V5)
+    implementation project(':dji-camera')`,
     )
 
     mod.modResults.contents = gradle
@@ -80,7 +104,7 @@ function withDJIAppGradle(config) {
   })
 }
 
-// ─── 3. Inject DJI_APP_KEY into AndroidManifest.xml ─────────────────────────
+// ─── 4. Inject DJI_APP_KEY into AndroidManifest.xml ─────────────────────────
 function withDJIManifest(config) {
   return withAndroidManifest(config, (mod) => {
     const manifest = mod.modResults
@@ -125,7 +149,7 @@ function withDJIManifest(config) {
   })
 }
 
-// ─── 4. Register DJICameraPackage in MainApplication.kt ─────────────────────
+// ─── 5. Register DJICameraPackage in MainApplication.kt ─────────────────────
 //
 // EAS prebuild generates MainApplication.kt via autolinking. DJICameraPackage
 // is a local module so we patch it in via withDangerousMod after prebuild.
@@ -146,15 +170,16 @@ function withDJIPackageRegistration(config) {
       let src = fs.readFileSync(mainAppPath, 'utf8')
 
       const IMPORT_LINE = 'import com.ambersangels.djicamera.DJICameraPackage'
-      const PACKAGE_ENTRY = 'packages.add(DJICameraPackage())'
+      const PACKAGE_ENTRY = 'add(DJICameraPackage())'
 
       if (!src.includes(IMPORT_LINE)) {
         src = src.replace(/^(package .+\n)/m, `$1\n${IMPORT_LINE}\n`)
       }
 
       if (!src.includes(PACKAGE_ENTRY)) {
+        // Generated MainApplication.kt uses PackageList(this).packages.apply { ... }
         src = src.replace(
-          /override fun getPackages\(\)[^{]*\{[^}]*val packages = PackageList\(this\)\.packages/,
+          /PackageList\(this\)\.packages\.apply\s*\{/,
           (match) => match + `\n        ${PACKAGE_ENTRY}`,
         )
       }
@@ -169,6 +194,7 @@ function withDJIPackageRegistration(config) {
 // ─── Compose ─────────────────────────────────────────────────────────────────
 const withDJICamera = (config) => {
   config = withDJIMavenRepo(config)
+  config = withDJISettings(config)
   config = withDJIAppGradle(config)
   config = withDJIManifest(config)
   config = withDJIPackageRegistration(config)

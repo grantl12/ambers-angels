@@ -1,18 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-echo "🛑 Shutting down systems..."
+PM2="$HOME/.local/bin/pm2"
 
-# Kill tmux sessions
-tmux kill-session -t aa-backend 2>/dev/null
-tmux kill-session -t aa-worker 2>/dev/null
-tmux kill-session -t aa-feed 2>/dev/null
+echo "Stopping Amber's Angels..."
 
-# Kill any stray python/uvicorn processes
-sudo fuser -k 8000/tcp 2>/dev/null
-pkill -f process_frames.py
-pkill -f uvicorn
+# PM2 processes (API + Web)
+$PM2 stop ambers-angels-api ambers-angels-web 2>/dev/null || true
 
-# Optional: Stop Nginx if you want to close the RTMP port entirely
-# sudo systemctl stop nginx
+# tmux sessions (worker + feed)
+tmux kill-session -t aa-worker 2>/dev/null || true
+tmux kill-session -t aa-feed  2>/dev/null || true
 
-echo "📴 All systems offline."
+echo "Done. Run start_all.sh to bring everything back up."
+echo "(Nginx left running — stop manually with: sudo service nginx stop)"

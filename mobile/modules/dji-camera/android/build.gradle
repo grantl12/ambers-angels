@@ -36,13 +36,7 @@ android {
     namespace 'com.ambersangels.djicamera'
 }
 
-repositories {
-    maven { url 'https://storage.googleapis.com/download.flutter.io' }
-    maven {
-        url 'https://artifact.bytedance.com/repository/piper-releases/'
-        // DJI MSDK V5 artifacts
-    }
-}
+// No repositories block needed — DJI maven URL is added to allprojects by the config plugin.
 
 dependencies {
     compileOnly 'com.facebook.react:react-android:+'
@@ -52,6 +46,5 @@ dependencies {
     // Network implementation (required alongside aircraft SDK)
     implementation 'com.dji:dji-sdk-v5-networkImp:5.10.0'
 
-    // Kotlin stdlib
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    // kotlin-stdlib is added automatically by the Kotlin plugin (1.4+)
 }
