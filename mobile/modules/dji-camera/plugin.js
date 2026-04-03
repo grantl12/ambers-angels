@@ -13,7 +13,7 @@
  *   DJI_APP_KEY=your_key_here
  */
 
-const { withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, createRunOncePlugin } = require('@expo/config-plugins')
+const { withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, withDangerousMod, createRunOncePlugin } = require('@expo/config-plugins')
 const path = require('path')
 const fs = require('fs')
 
@@ -128,20 +128,42 @@ function withDJIManifest(config) {
 // ─── 4. Register DJICameraPackage in MainApplication.kt ─────────────────────
 //
 // EAS prebuild generates MainApplication.kt via autolinking. DJICameraPackage
-// is a local module so we patch it in manually after prebuild.
+// is a local module so we patch it in via withDangerousMod after prebuild.
 function withDJIPackageRegistration(config) {
-  return {
-    ...config,
-    hooks: {
-      ...config.hooks,
-      postInstall: [
-        ...(config.hooks?.postInstall ?? []),
-        {
-          file: './modules/dji-camera/scripts/register-package.js',
-        },
-      ],
+  return withDangerousMod(config, [
+    'android',
+    (config) => {
+      const mainAppPath = path.join(
+        config.modRequest.platformProjectRoot,
+        'app/src/main/java/com/ambersangels/app/MainApplication.kt',
+      )
+
+      if (!fs.existsSync(mainAppPath)) {
+        console.log('[dji-camera] MainApplication.kt not found — skipping')
+        return config
+      }
+
+      let src = fs.readFileSync(mainAppPath, 'utf8')
+
+      const IMPORT_LINE = 'import com.ambersangels.djicamera.DJICameraPackage'
+      const PACKAGE_ENTRY = 'packages.add(DJICameraPackage())'
+
+      if (!src.includes(IMPORT_LINE)) {
+        src = src.replace(/^(package .+\n)/m, `$1\n${IMPORT_LINE}\n`)
+      }
+
+      if (!src.includes(PACKAGE_ENTRY)) {
+        src = src.replace(
+          /override fun getPackages\(\)[^{]*\{[^}]*val packages = PackageList\(this\)\.packages/,
+          (match) => match + `\n        ${PACKAGE_ENTRY}`,
+        )
+      }
+
+      fs.writeFileSync(mainAppPath, src, 'utf8')
+      console.log('[dji-camera] DJICameraPackage registered in MainApplication.kt')
+      return config
     },
-  }
+  ])
 }
 
 // ─── Compose ─────────────────────────────────────────────────────────────────
@@ -149,6 +171,7 @@ const withDJICamera = (config) => {
   config = withDJIMavenRepo(config)
   config = withDJIAppGradle(config)
   config = withDJIManifest(config)
+  config = withDJIPackageRegistration(config)
   return config
 }
 
