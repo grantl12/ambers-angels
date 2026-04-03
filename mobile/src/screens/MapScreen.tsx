@@ -1,30 +1,48 @@
 /**
- * MapScreen — live mission map showing all active drone positions.
- * Updates every 5 seconds. Tap a drone marker to see its details.
+ * MapScreen — live mission map showing all active drone positions and FEMA
+ * alert polygons. Updates every 5 seconds (telemetry) / 60 seconds (alerts).
  *
  * Note: Android requires a Google Maps API key in app.json under
  * expo.android.config.googleMaps.apiKey before the map will render.
  * iOS uses Apple Maps and requires no key.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import {
-  StyleSheet,
-  Text,
-  View,
-} from "react-native"
-import MapView, { Callout, Marker, PROVIDER_DEFAULT } from "react-native-maps"
+import { StyleSheet, Text, View } from "react-native"
+import MapView, { Callout, Marker, Polygon, PROVIDER_DEFAULT } from "react-native-maps"
 import * as Location from "expo-location"
+import * as Notifications from "expo-notifications"
+import { useFocusEffect } from "@react-navigation/native"
 import { fetchLatestTelemetry, type DronePosition } from "../api/telemetry"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings } from "../lib/settings"
-import { nearestAlert } from "../lib/polygon"
+import { nearestAlert, parsePoly } from "../lib/polygon"
+import { consumePendingAlertTarget } from "../lib/alertTarget"
 
-const CARROLLTON = { latitude: 33.5801, longitude: -85.0766, latitudeDelta: 0.08, longitudeDelta: 0.08 }
+// Alert type → fill/stroke colour for polygon overlays
+const ALERT_COLORS: Record<string, { fill: string; stroke: string }> = {
+  amber:   { fill: "rgba(245,158,11,0.18)",  stroke: "#f59e0b" },
+  silver:  { fill: "rgba(148,163,184,0.18)", stroke: "#94a3b8" },
+  matties: { fill: "rgba(239,68,68,0.18)",   stroke: "#ef4444" },
+  blue:    { fill: "rgba(59,130,246,0.18)",  stroke: "#3b82f6" },
+  purple:  { fill: "rgba(168,85,247,0.18)",  stroke: "#a855f7" },
+  mipa:    { fill: "rgba(234,179,8,0.18)",   stroke: "#eab308" },
+  ema:     { fill: "rgba(234,179,8,0.18)",   stroke: "#eab308" },
+}
+const DEFAULT_COLOR = { fill: "rgba(245,158,11,0.18)", stroke: "#f59e0b" }
+
+function alertColor(type: string) {
+  return ALERT_COLORS[type] ?? DEFAULT_COLOR
+}
 
 function volunteerEmoji(mode?: string): string {
-  if (mode === "phone") return "🚗"
-  return "🚁"
+  return mode === "phone" ? "🚗" : "🚁"
 }
+
+function parsePolygonCoords(polyStr: string): { latitude: number; longitude: number }[] {
+  return parsePoly(polyStr).map(([lat, lng]) => ({ latitude: lat, longitude: lng }))
+}
+
+const CARROLLTON = { latitude: 33.5801, longitude: -85.0766, latitudeDelta: 0.5, longitudeDelta: 0.5 }
 
 export default function MapScreen() {
   const [drones, setDrones] = useState<DronePosition[]>([])
@@ -34,6 +52,21 @@ export default function MapScreen() {
   const [outsidePolygonNotif, setOutsidePolygonNotif] = useState(true)
 
   const mapRef = useRef<MapView>(null)
+  const seenAlertIds = useRef<Set<number>>(new Set())
+
+  // Pan to any alert target queued by a notification tap
+  useFocusEffect(
+    useCallback(() => {
+      const target = consumePendingAlertTarget()
+      if (!target || !mapRef.current) return
+      mapRef.current.animateToRegion({
+        latitude:      target.lat,
+        longitude:     target.lng,
+        latitudeDelta:  0.25,
+        longitudeDelta: 0.25,
+      }, 600)
+    }, [])
+  )
 
   // Watch own GPS for a "my position" dot
   useEffect(() => {
@@ -48,13 +81,49 @@ export default function MapScreen() {
     return () => sub?.remove()
   }, [])
 
-  // Load settings + FEMA alerts
+  // Load settings
   useEffect(() => {
-    loadSettings().then(s => {
+    loadSettings().then((s) => {
       setAlertRangeMiles(s.alertRangeMiles)
       setOutsidePolygonNotif(s.notifOutsidePolygon)
     })
-    const loadAlerts = () => fetchFemaAlerts().then(setFemaAlerts).catch(() => {})
+  }, [])
+
+  // Poll FEMA alerts; notify on new ones
+  useEffect(() => {
+    async function loadAlerts() {
+      try {
+        const alerts = await fetchFemaAlerts()
+        // Detect newly arrived alerts and fire a device notification for each
+        for (const a of alerts) {
+          if (seenAlertIds.current.has(a.id)) continue
+          seenAlertIds.current.add(a.id)
+          // Skip on the very first load so we don't flood notifications for
+          // alerts that were already active before the app opened
+          if (seenAlertIds.current.size <= alerts.length) continue
+          Notifications.scheduleNotificationAsync({
+            content: {
+              title: `🚨 ${(a.sourceProgram ?? a.alertType).toUpperCase()} — ${a.area ?? "Unknown area"}`,
+              body: a.headline ?? "A new alert has been issued. Open the map for details.",
+              sound: true,
+              data: {
+                centroidLat: a.centroidLat,
+                centroidLng: a.centroidLng,
+                label: a.area ?? a.alertType,
+              },
+            },
+            trigger: null,
+          })
+        }
+        setFemaAlerts(alerts)
+        // Seed seen IDs on first load
+        if (seenAlertIds.current.size === alerts.length) {
+          for (const a of alerts) seenAlertIds.current.add(a.id)
+        }
+      } catch {
+        // silently ignore — keep showing last known alerts
+      }
+    }
     loadAlerts()
     const id = setInterval(loadAlerts, 60_000)
     return () => clearInterval(id)
@@ -62,12 +131,7 @@ export default function MapScreen() {
 
   // Poll drone telemetry
   const loadDrones = useCallback(async () => {
-    try {
-      const data = await fetchLatestTelemetry()
-      setDrones(data)
-    } catch {
-      // silently ignore — keep showing last known positions
-    }
+    try { setDrones(await fetchLatestTelemetry()) } catch {}
   }, [])
 
   useEffect(() => {
@@ -94,6 +158,48 @@ export default function MapScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
+        {/* FEMA alert polygons */}
+        {femaAlerts.map((alert) => {
+          if (!alert.polygon) return null
+          const coords = parsePolygonCoords(alert.polygon)
+          if (coords.length < 3) return null
+          const { fill, stroke } = alertColor(alert.alertType)
+          return (
+            <React.Fragment key={`alert-${alert.id}`}>
+              <Polygon
+                coordinates={coords}
+                fillColor={fill}
+                strokeColor={stroke}
+                strokeWidth={2}
+              />
+              {alert.centroidLat != null && alert.centroidLng != null && (
+                <Marker
+                  coordinate={{ latitude: alert.centroidLat, longitude: alert.centroidLng }}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                >
+                  <View style={[styles.alertPin, { borderColor: stroke }]}>
+                    <Text style={styles.alertPinText}>🚨</Text>
+                  </View>
+                  <Callout tooltip>
+                    <View style={[styles.callout, { borderColor: stroke }]}>
+                      <Text style={[styles.calloutTitle, { color: stroke }]}>
+                        {(alert.sourceProgram ?? alert.alertType).toUpperCase()}
+                      </Text>
+                      {alert.headline ? (
+                        <Text style={styles.calloutLine}>{alert.headline}</Text>
+                      ) : null}
+                      {alert.area ? (
+                        <Text style={styles.calloutLine}>{alert.area}</Text>
+                      ) : null}
+                    </View>
+                  </Callout>
+                </Marker>
+              )}
+            </React.Fragment>
+          )
+        })}
+
+        {/* Volunteer / drone markers */}
         {drones.map((drone) => (
           <Marker
             key={drone.droneId}
@@ -121,10 +227,21 @@ export default function MapScreen() {
         ))}
       </MapView>
 
-      {/* Drone count badge */}
+      {/* Volunteer count badge */}
       <View style={styles.badge}>
-        <Text style={styles.badgeText}>{drones.length} drone{drones.length !== 1 ? "s" : ""} online</Text>
+        <Text style={styles.badgeText}>
+          {drones.length} volunteer{drones.length !== 1 ? "s" : ""} online
+        </Text>
       </View>
+
+      {/* Active alert count badge */}
+      {femaAlerts.length > 0 && (
+        <View style={[styles.badge, styles.alertBadge]}>
+          <Text style={styles.alertBadgeText}>
+            {femaAlerts.length} active alert{femaAlerts.length !== 1 ? "s" : ""}
+          </Text>
+        </View>
+      )}
 
       {/* Outside search area warning */}
       {polygonWarning && (
@@ -143,20 +260,28 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: "#050a0f" },
-  map:           { flex: 1 },
-  droneMarker:   { alignItems: "center", justifyContent: "center" },
-  droneEmoji:    { fontSize: 24 },
+  root:        { flex: 1, backgroundColor: "#050a0f" },
+  map:         { flex: 1 },
+  droneMarker: { alignItems: "center", justifyContent: "center" },
+  droneEmoji:  { fontSize: 24 },
+  alertPin: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    borderWidth: 2,
+    alignItems: "center", justifyContent: "center",
+  },
+  alertPinText: { fontSize: 18 },
   callout: {
     backgroundColor: "#0f172a",
     borderRadius: 8,
     padding: 10,
-    minWidth: 120,
+    minWidth: 140,
+    maxWidth: 220,
     borderWidth: 1,
     borderColor: "#a78bfa",
   },
-  calloutTitle:  { color: "#fff", fontWeight: "700", fontSize: 13, marginBottom: 4 },
-  calloutLine:   { color: "rgba(255,255,255,0.6)", fontSize: 12 },
+  calloutTitle: { color: "#fff", fontWeight: "700", fontSize: 13, marginBottom: 4 },
+  calloutLine:  { color: "rgba(255,255,255,0.6)", fontSize: 12 },
   badge: {
     position: "absolute",
     top: 16,
@@ -168,7 +293,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(167,139,250,0.3)",
   },
-  badgeText:     { color: "#a78bfa", fontSize: 12, fontWeight: "600" },
+  badgeText: { color: "#a78bfa", fontSize: 12, fontWeight: "600" },
+  alertBadge: {
+    top: 52,
+    borderColor: "rgba(245,158,11,0.4)",
+  },
+  alertBadgeText: { color: "#f59e0b", fontSize: 12, fontWeight: "600" },
   polygonWarning: {
     position: "absolute",
     bottom: 24,
