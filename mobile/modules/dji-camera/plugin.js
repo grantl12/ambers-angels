@@ -18,23 +18,20 @@ const { withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, withDan
 const path = require('path')
 const fs = require('fs')
 
-// ─── 1. Add DJI Maven repo to root build.gradle ─────────────────────────────
+// ─── 1. DJI SDK V5 is on Maven Central — no custom repo needed ───────────────
+// DJI migrated from artifact.bytedance.com to Maven Central (mavenCentral()).
+// Expo's generated build.gradle already includes mavenCentral(), so this is a no-op.
 function withDJIMavenRepo(config) {
   return withProjectBuildGradle(config, (mod) => {
-    const gradle = mod.modResults.contents
+    let gradle = mod.modResults.contents
 
-    if (gradle.includes('artifact.bytedance.com')) return mod  // already added
-
-    // Insert after allprojects { repositories { block
-    mod.modResults.contents = gradle.replace(
-      /allprojects\s*\{[\s\S]*?repositories\s*\{/,
-      (match) =>
-        match +
-        `
-        maven {
-            url 'https://artifact.bytedance.com/repository/piper-releases/'
-        }`,
+    // Remove any stale ByteDance repo entry from previous versions of this plugin
+    gradle = gradle.replace(
+      /\s*maven\s*\{\s*url\s*['"]https:\/\/artifact\.bytedance\.com[^'"]*['"]\s*\}/g,
+      '',
     )
+
+    mod.modResults.contents = gradle
     return mod
   })
 }
