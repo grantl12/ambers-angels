@@ -1,0 +1,57 @@
+// DJI Camera native module build config
+// This file is consumed by the root project via the Expo config plugin.
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    compileSdkVersion 35
+    defaultConfig {
+        minSdkVersion 26
+        targetSdkVersion 35
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    // Required for DJI SDK — prevents duplicate .so conflicts
+    packagingOptions {
+        pickFirst 'lib/armeabi-v7a/libcrypto.so'
+        pickFirst 'lib/arm64-v8a/libcrypto.so'
+        pickFirst 'lib/x86/libcrypto.so'
+        pickFirst 'lib/x86_64/libcrypto.so'
+        doNotStrip '*/*/libdjivideo.so'
+        doNotStrip '*/*/libstaticlink.so'
+        doNotStrip '*/*/libdji_innertools.so'
+        doNotStrip '*/*/libdji_livelink.so'
+        doNotStrip '*/*/libdji_mobile.so'
+        doNotStrip '*/*/libdji_rtspeng.so'
+        doNotStrip '*/*/libdji_codec_demo.so'
+        doNotStrip '*/*/libRTSPClient.so'
+        doNotStrip '*/*/libMediaInfoLib.so'
+    }
+    namespace 'com.ambersangels.djicamera'
+}
+
+repositories {
+    maven { url 'https://storage.googleapis.com/download.flutter.io' }
+    maven {
+        url 'https://artifact.bytedance.com/repository/piper-releases/'
+        // DJI MSDK V5 artifacts
+    }
+}
+
+dependencies {
+    compileOnly 'com.facebook.react:react-android:+'
+
+    // DJI MSDK V5 — aircraft (Mavic, Mini, Air, Inspire, Matrice series)
+    implementation 'com.dji:dji-sdk-v5-aircraft:5.10.0'
+    // Network implementation (required alongside aircraft SDK)
+    implementation 'com.dji:dji-sdk-v5-networkImp:5.10.0'
+
+    // Kotlin stdlib
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+}

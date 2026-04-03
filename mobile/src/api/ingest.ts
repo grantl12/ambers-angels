@@ -1,5 +1,7 @@
 import { getApiBaseUrl } from "./client"
 
+export type FrameSource = "phone_gps" | "dji_sdk"
+
 export type FramePayload = {
   uri: string
   droneId: string
@@ -10,6 +12,7 @@ export type FramePayload = {
   heading?: number
   speed?: number
   accuracy?: number
+  source?: FrameSource
 }
 
 export async function postFrame(payload: FramePayload): Promise<void> {
@@ -20,7 +23,7 @@ export async function postFrame(payload: FramePayload): Promise<void> {
     name: "frame.jpg",
   } as unknown as Blob)
   form.append("drone_id", payload.droneId)
-  form.append("source", "phone_gps")
+  form.append("source", payload.source ?? "phone_gps")
   if (payload.pilotId)  form.append("pilot_id",  payload.pilotId)
   if (payload.lat  != null) form.append("lat",      String(payload.lat))
   if (payload.lng  != null) form.append("lng",      String(payload.lng))

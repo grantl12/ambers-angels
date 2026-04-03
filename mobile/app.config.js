@@ -1,7 +1,8 @@
 // Single source of truth for Expo config.
-// For EAS Build, set GOOGLE_MAPS_API_KEY as an EAS secret:
+// EAS secrets needed:
 //   eas secret:create --scope project --name GOOGLE_MAPS_API_KEY --value <key>
-// For local dev, set it in mobile/.env (which is gitignored).
+//   eas secret:create --scope project --name DJI_APP_KEY --value <key>
+// For local dev, set these in mobile/.env (gitignored).
 
 module.exports = {
   expo: {
@@ -44,6 +45,7 @@ module.exports = {
       },
     },
     plugins: [
+      "./modules/dji-camera/plugin",
       "expo-notifications",
       [
         "expo-camera",

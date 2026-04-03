@@ -6,6 +6,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "android": {
+        "prebuildCommand": "node modules/dji-camera/scripts/register-package.js"
+      },
       "ios": {
         "simulator": false
       }
@@ -13,18 +16,20 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "prebuildCommand": "node modules/dji-camera/scripts/register-package.js"
       },
       "ios": {
         "buildConfiguration": "Release"
       }
     },
     "production": {
+      "android": {
+        "buildType": "apk",
+        "prebuildCommand": "node modules/dji-camera/scripts/register-package.js"
+      },
       "ios": {
         "buildConfiguration": "Release"
-      },
-      "android": {
-        "buildType": "apk"
       }
     }
   },

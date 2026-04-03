@@ -23,6 +23,14 @@ import { postTelemetry } from "../api/telemetry"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings, type AppSettings } from "../lib/settings"
 import { nearestAlert } from "../lib/polygon"
+import {
+  initializeDJI,
+  isDJIConnected,
+  captureDJIFrame,
+  getDroneLocation,
+  getDroneHeading,
+  onDJIConnectionChanged,
+} from "../../modules/dji-camera"
 
 // Show notifications even when the app is foregrounded
 Notifications.setNotificationHandler({
@@ -46,10 +54,12 @@ export default function CameraScreen() {
   const [lastCapture, setLastCapture] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [rangeWarning, setRangeWarning] = useState<{ miles: number; area: string } | null>(null)
+  const [djiConnected, setDjiConnected] = useState(false)
 
   const cameraRef = useRef<CameraView>(null)
   const locationRef = useRef<Location.LocationObject | null>(null)
   const captureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const djiCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const telemetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const locationSubRef = useRef<Location.LocationSubscription | null>(null)
   const femaAlertsRef = useRef<FemaAlert[]>([])
@@ -59,6 +69,15 @@ export default function CameraScreen() {
   // Load settings once
   useEffect(() => {
     loadSettings().then(setSettings)
+  }, [])
+
+  // Initialize DJI SDK and watch connection state
+  useEffect(() => {
+    const appKey = process.env.EXPO_PUBLIC_DJI_APP_KEY ?? ""
+    if (appKey) initializeDJI(appKey).catch(() => {})
+    isDJIConnected().then(setDjiConnected).catch(() => {})
+    const unsub = onDJIConnectionChanged(({ connected }) => setDjiConnected(connected))
+    return unsub
   }, [])
 
   // Request permissions
@@ -81,11 +100,13 @@ export default function CameraScreen() {
   }, [locPermission])
 
   const stopMission = useCallback(() => {
-    if (captureTimerRef.current)  clearInterval(captureTimerRef.current)
-    if (telemetryTimerRef.current) clearInterval(telemetryTimerRef.current)
+    if (captureTimerRef.current)    clearInterval(captureTimerRef.current)
+    if (djiCaptureTimerRef.current) clearInterval(djiCaptureTimerRef.current)
+    if (telemetryTimerRef.current)  clearInterval(telemetryTimerRef.current)
     locationSubRef.current?.remove()
-    captureTimerRef.current  = null
-    telemetryTimerRef.current = null
+    captureTimerRef.current    = null
+    djiCaptureTimerRef.current = null
+    telemetryTimerRef.current  = null
     wasOutsideRef.current = false
     setActive(false)
     setRangeWarning(null)
@@ -158,30 +179,63 @@ export default function CameraScreen() {
       }
     }, 1000)
 
-    // Frame capture loop
-    captureTimerRef.current = setInterval(async () => {
-      if (!cameraRef.current) return
-      try {
-        const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true })
-        if (!photo) return
-        const loc = locationRef.current
-        await postFrame({
-          uri:      photo.uri,
-          droneId:  settings.droneId,
-          pilotId:  settings.pilotId || undefined,
-          lat:      loc?.coords.latitude,
-          lng:      loc?.coords.longitude,
-          altitude: loc?.coords.altitude ?? undefined,
-          heading:  loc?.coords.heading ?? undefined,
-          speed:    loc?.coords.speed ?? undefined,
-          accuracy: loc?.coords.accuracy ?? undefined,
-        })
-        setLastCapture(new Date().toLocaleTimeString())
-        setError(null)
-      } catch (e) {
-        setError("Frame post failed — check API URL in Settings")
-      }
-    }, settings.captureIntervalSec * 1000)
+    // Phone camera frame capture loop (volunteerMode: "phone" or "both")
+    if (settings.volunteerMode === "phone" || settings.volunteerMode === "both") {
+      captureTimerRef.current = setInterval(async () => {
+        if (!cameraRef.current) return
+        try {
+          const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true })
+          if (!photo) return
+          const loc = locationRef.current
+          await postFrame({
+            uri:      photo.uri,
+            droneId:  settings.droneId,
+            pilotId:  settings.pilotId || undefined,
+            source:   "phone_gps",
+            lat:      loc?.coords.latitude,
+            lng:      loc?.coords.longitude,
+            altitude: loc?.coords.altitude ?? undefined,
+            heading:  loc?.coords.heading ?? undefined,
+            speed:    loc?.coords.speed ?? undefined,
+            accuracy: loc?.coords.accuracy ?? undefined,
+          })
+          setLastCapture(new Date().toLocaleTimeString())
+          setError(null)
+        } catch {
+          setError("Frame post failed — check API URL in Settings")
+        }
+      }, settings.captureIntervalSec * 1000)
+    }
+
+    // DJI drone frame capture loop (volunteerMode: "drone" or "both")
+    if (settings.volunteerMode === "drone" || settings.volunteerMode === "both") {
+      djiCaptureTimerRef.current = setInterval(async () => {
+        try {
+          const b64 = await captureDJIFrame(50)
+          if (!b64) return  // no frame yet / not connected
+
+          // Prefer drone GPS over phone GPS for DJI frames
+          const [djiLoc, djiHeading] = await Promise.all([getDroneLocation(), getDroneHeading()])
+          const phoneLoc = locationRef.current
+
+          await postFrame({
+            // Encode base64 as a data URI so the same multipart upload path works
+            uri:      `data:image/jpeg;base64,${b64}`,
+            droneId:  settings.droneId,
+            pilotId:  settings.pilotId || undefined,
+            source:   "dji_sdk",
+            lat:      djiLoc?.lat      ?? phoneLoc?.coords.latitude,
+            lng:      djiLoc?.lng      ?? phoneLoc?.coords.longitude,
+            altitude: djiLoc?.altitude ?? phoneLoc?.coords.altitude ?? undefined,
+            heading:  djiHeading       ?? phoneLoc?.coords.heading  ?? undefined,
+          })
+          setLastCapture(new Date().toLocaleTimeString())
+          setError(null)
+        } catch {
+          // Non-fatal — DJI frames are best-effort
+        }
+      }, settings.captureIntervalSec * 1000)
+    }
   }, [settings])
 
   // Clean up on unmount
@@ -216,6 +270,11 @@ export default function CameraScreen() {
           {settings && (
             <Text style={styles.hudSub}>
               {settings.droneId} · every {settings.captureIntervalSec}s
+            </Text>
+          )}
+          {(settings?.volunteerMode === "drone" || settings?.volunteerMode === "both") && (
+            <Text style={[styles.hudSub, { color: djiConnected ? "#22c55e" : "#f87171" }]}>
+              DJI {djiConnected ? "connected" : "not connected"}
             </Text>
           )}
           {lastCapture && (
