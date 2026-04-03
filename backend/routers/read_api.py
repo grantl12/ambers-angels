@@ -18,6 +18,8 @@ import math
 import uuid
 import requests as _requests
 import database
+from services.badge_service import compute_all_badges
+from routers.auth import get_current_pilot
 from routers.auth import require_admin
 
 _DEFLOCK_INDEX_URL = "https://cdn.deflock.me/regions/index.json"
@@ -620,6 +622,19 @@ def get_pilot_leaderboard():
             }
             for r in rows
         ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Badges — gamification, computed live from pilot stats + profile
+# ---------------------------------------------------------------------------
+
+@router.get("/pilots/my-badges")
+def get_my_badges(payload: dict = Depends(get_current_pilot)):
+    db = database.SessionLocal()
+    try:
+        return compute_all_badges(payload["sub"], db)
     finally:
         db.close()
 

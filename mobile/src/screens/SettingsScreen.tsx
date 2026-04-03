@@ -18,6 +18,7 @@ import {
 import { loadSettings, saveSettings, type AppSettings, type VolunteerMode, DEFAULTS } from "../lib/settings"
 import { setApiBaseUrl, apiGet, apiPatch } from "../api/client"
 import { clearAuth } from "../lib/auth"
+import { fetchMyBadges, type Badge } from "../api/badges"
 
 type Props = { username: string | null; onSignOut: () => void }
 
@@ -29,6 +30,9 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   const [watchSaving, setWatchSaving] = useState(false)
   const [notifPrefs, setNotifPrefs] = useState<string[]>(["push", "email"])
   const [notifSaving, setNotifSaving] = useState(false)
+  const [badges, setBadges] = useState<Badge[]>([])
+  const [badgesEarned, setBadgesEarned] = useState(0)
+  const [badgesTotal, setBadgesTotal] = useState(0)
 
   useEffect(() => {
     loadSettings().then(setSettings)
@@ -36,6 +40,13 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
       .then((data) => {
         setWatchAreas(data.watchAreas ?? [])
         setNotifPrefs(data.notificationPrefs ?? ["push", "email"])
+      })
+      .catch(() => {})
+    fetchMyBadges()
+      .then((data) => {
+        setBadges(data.badges)
+        setBadgesEarned(data.earned)
+        setBadgesTotal(data.total)
       })
       .catch(() => {})
   }, [])
@@ -287,6 +298,18 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           </View>
         </Section>
 
+        <Section title={`Badges  ${badgesEarned}/${badgesTotal}`}>
+          {badges.length === 0 ? (
+            <Text style={styles.hint}>Complete missions to earn badges.</Text>
+          ) : (
+            <View style={badgeStyles.grid}>
+              {badges.map((b) => (
+                <BadgeChip key={b.id} badge={b} />
+              ))}
+            </View>
+          )}
+        </Section>
+
         <TouchableOpacity
           style={[styles.saveBtn, saved && styles.saveBtnSaved]}
           onPress={handleSave}
@@ -308,6 +331,47 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
     </KeyboardAvoidingView>
   )
 }
+
+const TIER_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  bronze:   { bg: "rgba(180,83,9,0.15)",   border: "rgba(180,83,9,0.5)",   text: "#f97316" },
+  silver:   { bg: "rgba(148,163,184,0.12)", border: "rgba(148,163,184,0.4)", text: "#94a3b8" },
+  gold:     { bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.5)", text: "#f59e0b" },
+  platinum: { bg: "rgba(139,92,246,0.15)", border: "rgba(139,92,246,0.5)", text: "#a78bfa" },
+  special:  { bg: "rgba(251,191,36,0.12)", border: "rgba(251,191,36,0.5)", text: "#fbbf24" },
+}
+
+function BadgeChip({ badge }: { badge: Badge }) {
+  const colors = TIER_COLORS[badge.tier] ?? TIER_COLORS.bronze
+  const dim = !badge.earned
+  return (
+    <View style={[
+      badgeStyles.chip,
+      { backgroundColor: dim ? "rgba(255,255,255,0.03)" : colors.bg,
+        borderColor: dim ? "rgba(255,255,255,0.07)" : colors.border },
+    ]}>
+      <Text style={[badgeStyles.chipEmoji, dim && { opacity: 0.25 }]}>{badge.emoji}</Text>
+      <Text style={[badgeStyles.chipName, { color: dim ? "rgba(255,255,255,0.2)" : colors.text }]}
+        numberOfLines={2}>
+        {badge.name}
+      </Text>
+    </View>
+  )
+}
+
+const badgeStyles = StyleSheet.create({
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    width: "30%",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    gap: 4,
+  },
+  chipEmoji: { fontSize: 24 },
+  chipName:  { fontSize: 10, fontWeight: "700", textAlign: "center", lineHeight: 13 },
+})
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
