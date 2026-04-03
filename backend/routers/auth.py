@@ -245,20 +245,21 @@ def me(payload: dict = Depends(get_current_pilot)):
     db = database.SessionLocal()
     try:
         row = db.execute(
-            text("SELECT username, full_name, email, city, status, role, created_at, watch_areas FROM pilots WHERE username = :u"),
+            text("SELECT username, full_name, email, city, status, role, created_at, watch_areas, expo_push_token FROM pilots WHERE username = :u"),
             {"u": payload["sub"]},
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Pilot not found")
         return {
-            "username":   row[0],
-            "fullName":   row[1],
-            "email":      row[2],
-            "city":       row[3],
-            "status":     row[4],
-            "role":       row[5],
-            "createdAt":  row[6].isoformat() if row[6] else None,
-            "watchAreas": row[7] or [],
+            "username":      row[0],
+            "fullName":      row[1],
+            "email":         row[2],
+            "city":          row[3],
+            "status":        row[4],
+            "role":          row[5],
+            "createdAt":     row[6].isoformat() if row[6] else None,
+            "watchAreas":    row[7] or [],
+            "expoPushToken": row[8],
         }
     finally:
         db.close()
@@ -361,6 +362,24 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
         })
         db.commit()
         return {"status": "updated"}
+    finally:
+        db.close()
+
+
+class PushTokenRequest(BaseModel):
+    token: str
+
+@router.post("/push-token")
+def register_push_token(req: PushTokenRequest, payload: dict = Depends(get_current_pilot)):
+    """Store (or update) the Expo push token for the authenticated pilot."""
+    db = database.SessionLocal()
+    try:
+        db.execute(
+            text("UPDATE pilots SET expo_push_token = :token WHERE username = :u"),
+            {"token": req.token.strip(), "u": payload["sub"]},
+        )
+        db.commit()
+        return {"status": "ok"}
     finally:
         db.close()
 
