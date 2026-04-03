@@ -37,6 +37,17 @@ type ManualVehicle = {
 
 type ManualAlerts = { plates: ManualPlate[]; vehicles: ManualVehicle[] }
 
+type SystemHealth = {
+  status: string
+  database: string
+  worker: string
+  nginx: string
+  rtmp_feeds: { active: number; configured: number }
+  watchlist_entries: number
+  detections_last_1h: number
+  last_detection_at: string | null
+}
+
 const BLANK_FORM = {
   plate: "", color: "", body_type: "", make: "",
   area: "", description: "", alert_type: "amber", expires_hours: 24,
@@ -46,6 +57,15 @@ const BLANK_FORM = {
 
 export default function AdminPage() {
   const router = useRouter()
+
+  // system health
+  const [health, setHealth] = useState<SystemHealth | null>(null)
+
+  const loadHealth = useCallback(async () => {
+    try {
+      setHealth(await apiGet<SystemHealth>("/health"))
+    } catch { /* silent */ }
+  }, [])
 
   // pilot approvals
   const [pilots,    setPilots]    = useState<PendingPilot[]>([])
@@ -84,7 +104,10 @@ export default function AdminPage() {
     if (!auth || auth.role !== "admin") { router.replace("/map"); return }
     loadPilots()
     loadManualAlerts()
-  }, [router, loadPilots, loadManualAlerts])
+    loadHealth()
+    const interval = setInterval(loadHealth, 10_000)
+    return () => clearInterval(interval)
+  }, [router, loadPilots, loadManualAlerts, loadHealth])
 
   async function approve(username: string) {
     setApproving(username)
@@ -146,6 +169,76 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-neutral-950 px-6 py-10">
       <div className="max-w-3xl mx-auto space-y-10">
+
+        {/* ── System Status ── */}
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-white">System Status</h2>
+            <p className="text-xs text-white/40 mt-0.5">Refreshes every 10 seconds</p>
+          </div>
+
+          {!health ? (
+            <div className="text-sm text-white/40">Checking…</div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5">
+              {/* Overall banner */}
+              <div className={`flex items-center gap-3 px-5 py-3 rounded-t-xl ${health.status === "healthy" ? "bg-emerald-500/10" : "bg-amber-500/10"}`}>
+                <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${health.status === "healthy" ? "bg-emerald-400" : "bg-amber-400"} shadow-[0_0_6px_2px] ${health.status === "healthy" ? "shadow-emerald-500/50" : "shadow-amber-500/50"}`} />
+                <span className={`text-sm font-semibold uppercase tracking-wide ${health.status === "healthy" ? "text-emerald-400" : "text-amber-400"}`}>
+                  {health.status}
+                </span>
+              </div>
+
+              {/* Service rows */}
+              {[
+                { label: "Database",    ok: health.database === "connected" },
+                { label: "Worker",      ok: health.worker   === "running"   },
+                { label: "Nginx",       ok: health.nginx    === "running"   },
+              ].map(({ label, ok }) => (
+                <div key={label} className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm text-white/70">{label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"}`} />
+                    <span className={`text-xs font-medium ${ok ? "text-emerald-400" : "text-red-400"}`}>
+                      {ok ? "running" : "stopped"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {/* RTMP feeds */}
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-white/70">RTMP Feeds</span>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${health.rtmp_feeds.active > 0 ? "bg-emerald-400" : "bg-white/20"}`} />
+                  <span className={`text-xs font-medium ${health.rtmp_feeds.active > 0 ? "text-emerald-400" : "text-white/40"}`}>
+                    {health.rtmp_feeds.active} / {health.rtmp_feeds.configured} active
+                  </span>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 divide-x divide-white/5 rounded-b-xl">
+                <div className="px-5 py-3 text-center">
+                  <div className="text-lg font-bold text-white">{health.watchlist_entries}</div>
+                  <div className="text-xs text-white/40 mt-0.5">Watchlist</div>
+                </div>
+                <div className="px-5 py-3 text-center">
+                  <div className="text-lg font-bold text-white">{health.detections_last_1h}</div>
+                  <div className="text-xs text-white/40 mt-0.5">Detections (1h)</div>
+                </div>
+                <div className="px-5 py-3 text-center">
+                  <div className="text-sm font-semibold text-white truncate">
+                    {health.last_detection_at
+                      ? new Date(health.last_detection_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </div>
+                  <div className="text-xs text-white/40 mt-0.5">Last Hit</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* ── Pilot Approvals ── */}
         <section>

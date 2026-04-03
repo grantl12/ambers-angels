@@ -122,11 +122,70 @@ async def fema_test():
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
+    import subprocess, socket
+    from datetime import timedelta
+
+    # ── database ──────────────────────────────────────────────────────────────
     try:
         db.execute(text("SELECT 1"))
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    # ── worker process ────────────────────────────────────────────────────────
+    try:
+        r = subprocess.run(["pgrep", "-f", "unified_worker.py"], capture_output=True)
+        worker_ok = r.returncode == 0
+    except Exception:
+        worker_ok = False
+
+    # ── ffmpeg / rtmp feed harvesters ─────────────────────────────────────────
+    try:
+        r = subprocess.run(["pgrep", "-f", "rtmp://127.0.0.1/live/"], capture_output=True)
+        feed_pids = [p for p in r.stdout.decode().strip().split("\n") if p]
+        active_feeds = len(feed_pids)
+    except Exception:
+        active_feeds = 0
+
+    # ── nginx ─────────────────────────────────────────────────────────────────
+    try:
+        with socket.create_connection(("127.0.0.1", 80), timeout=1):
+            nginx_ok = True
+    except Exception:
+        nginx_ok = False
+
+    # ── watchlist & recent detections ─────────────────────────────────────────
+    watchlist_count = 0
+    detections_1h = 0
+    last_detection_at = None
+    if db_ok:
+        try:
+            watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist")).scalar() or 0
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+            detections_1h = db.execute(
+                text("SELECT COUNT(*) FROM detection_events WHERE first_seen >= :c"),
+                {"c": cutoff},
+            ).scalar() or 0
+            row = db.execute(
+                text("SELECT MAX(first_seen) FROM detection_events")
+            ).scalar()
+            if row:
+                last_detection_at = row.isoformat() if hasattr(row, "isoformat") else str(row)
+        except Exception:
+            pass
+
+    overall = "healthy" if (db_ok and worker_ok) else "degraded"
+
+    return {
+        "status": overall,
+        "database": "connected" if db_ok else "error",
+        "worker": "running" if worker_ok else "stopped",
+        "nginx": "running" if nginx_ok else "stopped",
+        "rtmp_feeds": {"active": active_feeds, "configured": 3},
+        "watchlist_entries": watchlist_count,
+        "detections_last_1h": detections_1h,
+        "last_detection_at": last_detection_at,
+    }
 
 
 @app.post("/detections/")
