@@ -363,8 +363,17 @@ async def ingest_frame(
     frame_id = str(uuid.uuid4())
     outcomes = []
 
+    # Persist the frame so the Discord alert can attach it
+    frame_path = os.path.join(GOLDEN_DIR, f"{frame_id}.jpg")
+    try:
+        with open(frame_path, "wb") as f:
+            f.write(frame_bytes)
+    except Exception as e:
+        print(f"[ingest/frame] ⚠️ Could not save frame to disk: {e}")
+        frame_path = None
+
     repo       = EventRepository(database.AsyncSessionLocal)
-    dispatcher = AlertDispatcher(repository=repo, webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""))
+    dispatcher = AlertDispatcher(repository=repo, webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""), golden_dir=GOLDEN_DIR)
     service    = EventService(repository=repo, dispatcher=dispatcher)
 
     for plate_result in results["results"]:
