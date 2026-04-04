@@ -64,50 +64,33 @@ export function TopBar() {
         )}
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-white/50">
+      <div className="flex items-center gap-3 text-xs text-white/50">
+        {/* Always visible: live stats + alerts */}
         <Stat label="Pilots" value={drones.length} />
-        <Stat label="Detections" value={detections.length} />
+        <span className="hidden sm:inline"><Stat label="Detections" value={detections.length} /></span>
         {alertCount > 0 && (
           <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-400">
             {alertCount} alert{alertCount !== 1 ? "s" : ""}
           </span>
         )}
-        <Link
-          href="/leaderboard"
-          className="text-white/40 hover:text-white/80 transition-colors"
-        >
-          Leaderboard
-        </Link>
-        <Link
-          href="/debrief"
-          className="text-white/40 hover:text-white/80 transition-colors"
-        >
-          Debrief
-        </Link>
-        <Link href="/missions" className="text-white/40 hover:text-white/80 transition-colors">
-          Missions
-        </Link>
-        {isAdmin && (
-          <Link href="/admin" className="text-amber-500/70 hover:text-amber-400 transition-colors">
-            Admin
-          </Link>
-        )}
-        {utcTime && (
-          <span className="font-mono text-white/30">{utcTime}</span>
-        )}
-        <Link href="/alerts" className="text-white/40 hover:text-white/80 transition-colors">
-          Alerts
-        </Link>
+
+        {/* Secondary nav — hidden on mobile */}
+        <div className="hidden md:flex items-center gap-3">
+          <Link href="/leaderboard" className="text-white/40 hover:text-white/80 transition-colors">Leaderboard</Link>
+          <Link href="/debrief"     className="text-white/40 hover:text-white/80 transition-colors">Debrief</Link>
+          <Link href="/missions"    className="text-white/40 hover:text-white/80 transition-colors">Missions</Link>
+          {isAdmin && (
+            <Link href="/admin" className="text-amber-500/70 hover:text-amber-400 transition-colors">Admin</Link>
+          )}
+          {utcTime && <span className="font-mono text-white/30">{utcTime}</span>}
+          <Link href="/alerts" className="text-white/40 hover:text-white/80 transition-colors">Alerts</Link>
+        </div>
+
         {authLabel && (
           <>
-            <span className="text-white/20">|</span>
-            <Link href="/profile" className="text-white/50 hover:text-white transition-colors">
-              {authLabel}
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-white/30 hover:text-red-400 transition-colors text-xs"
-            >
+            <span className="text-white/20 hidden md:inline">|</span>
+            <Link href="/profile" className="hidden md:inline text-white/50 hover:text-white transition-colors">{authLabel}</Link>
+            <button onClick={handleLogout} className="text-white/30 hover:text-red-400 transition-colors text-xs">
               Sign out
             </button>
           </>

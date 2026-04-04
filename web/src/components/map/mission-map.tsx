@@ -413,6 +413,8 @@ export function MissionMap({ layers, onMapReady }: Props) {
           borderRadius: 6,
           padding: 5,
           backdropFilter: "blur(8px)",
+          maxWidth: "calc(100vw - 24px)",
+          overflowX: "auto",
         }}
       >
         {(["all", "24h", "7d", "30d"] as TimeRange[]).map((range) => (
@@ -440,8 +442,9 @@ export function MissionMap({ layers, onMapReady }: Props) {
         ))}
       </div>
 
-      {/* ── DECONFLICT BANNER ── */}
+      {/* ── DECONFLICT BANNER — hidden on mobile to avoid filter bar collision ── */}
       <div
+        className="hidden md:flex"
         style={{
           position: "absolute",
           top: 12,
@@ -453,7 +456,6 @@ export function MissionMap({ layers, onMapReady }: Props) {
           padding: "7px 12px",
           fontSize: 11,
           color: "#ff6b35",
-          display: "flex",
           alignItems: "center",
           gap: 7,
           backdropFilter: "blur(8px)",
@@ -468,7 +470,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
       <div
         style={{
           position: "absolute",
-          bottom: 28,
+          bottom: "max(28px, env(safe-area-inset-bottom, 28px) + 60px)",
           left: 12,
           zIndex: 10,
           background: "rgba(10,15,22,0.88)",

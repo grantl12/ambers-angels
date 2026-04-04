@@ -131,7 +131,12 @@ class AlertDispatcher:
             filename += ".jpg"
         path = os.path.join(self.golden_dir, filename)
         if not os.path.isfile(path):
-            return None
+            # Worker saves as alert_<plate>_<filename> — try glob fallback
+            import glob as _glob
+            matches = _glob.glob(os.path.join(self.golden_dir, f"*_{filename}"))
+            if not matches:
+                return None
+            path = max(matches, key=os.path.getmtime)
         size = os.path.getsize(path)
         if size > _MAX_BYTES:
             print(f"[AlertDispatcher] ⚠️  Frame {filename} is {size // 1024}KB — too large for Discord, skipping.")
