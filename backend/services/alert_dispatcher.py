@@ -44,10 +44,14 @@ class AlertDispatcher:
             os.path.join(os.path.dirname(__file__), "..", "test_plates", "golden_frames"),
         )
 
-    async def dispatch(self, event: Any) -> None:
+    async def dispatch(self, event: Any, *, vehicle_context: Optional[dict] = None) -> None:
         """
         Fan-out: log to DB (if repository available) and send Discord webhook.
         Accepts both dict and Pydantic/dataclass event objects.
+
+        vehicle_context (optional): dict from _build_vehicle_context() containing
+        YOLO-detected color/type and watchlist-expected values, used to render a
+        vehicle match line in the Discord embed.
         """
         is_dict    = isinstance(event, dict)
         plate      = event.get("plate_best")  if is_dict else getattr(event, "plate_best",  "UNKNOWN")
@@ -94,6 +98,9 @@ class AlertDispatcher:
 
         if alert_type:
             embed["fields"].insert(0, {"name": "Alert type", "value": alert_type.upper(), "inline": True})
+
+        if vehicle_context:
+            embed["fields"].append(_vehicle_context_field(vehicle_context))
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
@@ -147,3 +154,45 @@ class AlertDispatcher:
         except Exception as e:
             print(f"[AlertDispatcher] ⚠️  Could not read frame {path}: {e}")
             return None
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+
+
+def _vehicle_context_field(ctx: dict) -> dict:
+    """
+    Builds a Discord embed field summarising YOLO-detected vehicle attributes
+    and whether they match the watchlist profile.
+
+    Examples:
+      "blue car  ✓ matches profile"
+      "red truck  ⚠️ profile expects blue sedan"
+      "blue car  (no profile on file)"
+    """
+    detected_parts = [p for p in [ctx.get("detected_color"), ctx.get("detected_type")] if p]
+    detected_str   = " ".join(detected_parts) if detected_parts else "unknown"
+
+    color_match = ctx.get("color_match")
+    type_match  = ctx.get("type_match")
+    any_mismatch   = ctx.get("any_mismatch", False)
+    any_confirmed  = ctx.get("any_confirmed", False)
+
+    expected_parts = [p for p in [ctx.get("expected_color"), ctx.get("expected_type"), ctx.get("expected_make")] if p]
+
+    if not expected_parts:
+        verdict = "(no profile on file)"
+    elif any_mismatch:
+        expected_str = " ".join(expected_parts)
+        verdict = f"⚠️ profile expects **{expected_str}**"
+    elif any_confirmed:
+        verdict = "✓ matches profile"
+    else:
+        verdict = "(profile present, unable to compare)"
+
+    return {
+        "name":   "Vehicle (YOLO)",
+        "value":  f"{detected_str}  {verdict}",
+        "inline": False,
+    }

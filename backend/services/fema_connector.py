@@ -383,26 +383,40 @@ async def _add_to_watchlist(
     description: str,
     alert_type: str,
     source_program: str,
+    vehicle_color: str | None = None,
+    vehicle_type:  str | None = None,
+    vehicle_make:  str | None = None,
 ) -> bool:
     """
-    Insert plate into watchlist with alert type metadata.
-    ON CONFLICT DO NOTHING — existing entries are not overwritten.
+    Insert plate into watchlist with alert type and vehicle profile metadata.
+    ON CONFLICT: vehicle profile columns are filled in if they were previously NULL,
+    so a re-polled alert with profile data can enrich an existing bare-plate entry.
     Returns True if newly inserted.
     """
     async with session_factory() as session:
         try:
             result = await session.execute(
                 text("""
-                    INSERT INTO watchlist (plate_text, description, alert_type, source_program, added_at)
-                    VALUES (:plate, :desc, :atype, :prog, :now)
-                    ON CONFLICT (plate_text) DO NOTHING
+                    INSERT INTO watchlist
+                        (plate_text, description, alert_type, source_program,
+                         vehicle_color, vehicle_type, vehicle_make, added_at)
+                    VALUES
+                        (:plate, :desc, :atype, :prog,
+                         :vcolor, :vtype, :vmake, :now)
+                    ON CONFLICT (plate_text) DO UPDATE SET
+                        vehicle_color = COALESCE(watchlist.vehicle_color, EXCLUDED.vehicle_color),
+                        vehicle_type  = COALESCE(watchlist.vehicle_type,  EXCLUDED.vehicle_type),
+                        vehicle_make  = COALESCE(watchlist.vehicle_make,  EXCLUDED.vehicle_make)
                 """),
                 {
-                    "plate": plate,
-                    "desc":  description,
-                    "atype": alert_type,
-                    "prog":  source_program,
-                    "now":   datetime.now(timezone.utc),
+                    "plate":  plate,
+                    "desc":   description,
+                    "atype":  alert_type,
+                    "prog":   source_program,
+                    "vcolor": vehicle_color,
+                    "vtype":  vehicle_type,
+                    "vmake":  vehicle_make,
+                    "now":    datetime.now(timezone.utc),
                 },
             )
             await session.commit()
@@ -734,6 +748,7 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             continue
 
         new_plates: list[str] = []
+        profile = alert.get("vehicle_profile", {})
         for plate in alert["plates"]:
             desc = (
                 f"{alert['source_program']} | {alert['headline']} | "
@@ -743,6 +758,9 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
                 session_factory, plate, desc,
                 alert_type=atype["key"],
                 source_program=alert["source_program"],
+                vehicle_color=profile.get("color"),
+                vehicle_type=profile.get("yolo_body_type"),
+                vehicle_make=profile.get("make"),
             )
             if inserted:
                 new_plates.append(plate)

@@ -40,6 +40,9 @@ CREATE TABLE IF NOT EXISTS flock_cameras (
 -- source_program = human-readable program name from the alert headline
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS alert_type     VARCHAR(30) DEFAULT 'amber';
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS source_program TEXT;
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS vehicle_color  VARCHAR(30);
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS vehicle_type   VARCHAR(20);
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS vehicle_make   VARCHAR(40);
 
 -- 6. Vehicle targets from FEMA alerts — partial profiles for no-plate alerts
 CREATE TABLE IF NOT EXISTS vehicle_targets (

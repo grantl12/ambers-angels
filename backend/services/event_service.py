@@ -74,7 +74,7 @@ class EventService:
             created, updated = False, True
 
         # 2. EVALUATE ALERT (Fuzzy Logic Applied Here)
-        should_dispatch_alert, suppression_reason, cooldown_expires_at = await self._evaluate_alert_dispatch(
+        should_dispatch_alert, suppression_reason, cooldown_expires_at, vehicle_context = await self._evaluate_alert_dispatch(
             event=event,
             snapshot=snapshot
         )
@@ -93,7 +93,7 @@ class EventService:
                 }
             )
             try:
-                await self.dispatcher.dispatch(event)
+                await self.dispatcher.dispatch(event, vehicle_context=vehicle_context)
                 print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful.")
             except Exception as e:
                 print(f"[LOUD DEBUG] ❌ Discord Dispatch FAILED: {e}")
@@ -111,27 +111,40 @@ class EventService:
 
         return EventDecision(event, created, updated, should_dispatch_alert, suppression_reason, cooldown_expires_at)
 
-    async def _evaluate_alert_dispatch(self, *, event: DetectionEvent, snapshot: EventSnapshot) -> tuple[bool, str | None, datetime | None]:
+    async def _evaluate_alert_dispatch(self, *, event: DetectionEvent, snapshot: EventSnapshot) -> tuple[bool, str | None, datetime | None, dict | None]:
         def get_similarity(a, b):
             return SequenceMatcher(None, a, b).ratio()
 
         plate = snapshot.plate_best.upper()
         async with self.repository.session_factory() as session:
-            res = await session.execute(text("SELECT plate_text FROM watchlist"))
-            targets = [row[0] for row in res.fetchall()]
-            
+            res = await session.execute(text(
+                "SELECT plate_text, vehicle_color, vehicle_type, vehicle_make FROM watchlist"
+            ))
+            rows = res.fetchall()
+
         match_found = None
-        for target in targets:
+        matched_row = None
+        for row in rows:
+            target = row[0]
             target_up = target.upper()
             similarity = get_similarity(plate, target_up)
-            # 0.7 threshold + substring check
             if similarity >= 0.7 or target_up in plate or plate in target_up:
                 match_found = target
+                matched_row = row
                 print(f"[LOUD DEBUG] 🎯 FUZZY MATCH: {plate} matches {target} (Sim: {similarity:.2f})")
                 break
-            
+
         if not match_found:
-            return False, "not_on_watchlist", None
+            return False, "not_on_watchlist", None, None
+
+        # Build vehicle profile comparison context
+        vehicle_context = _build_vehicle_context(
+            detected_color=snapshot.vehicle_color,
+            detected_type=snapshot.vehicle_type,
+            expected_color=matched_row[1] if matched_row else None,
+            expected_type=matched_row[2] if matched_row else None,
+            expected_make=matched_row[3] if matched_row else None,
+        )
 
         # Check Cooldown
         current_status = event.get('status') if isinstance(event, dict) else event.status
@@ -140,9 +153,9 @@ class EventService:
             base_time = updated_at or datetime.now(timezone.utc)
             cooldown_expires_at = base_time + timedelta(seconds=self.alert_cooldown_seconds)
             if datetime.now(timezone.utc) < cooldown_expires_at:
-                return False, "cooldown_active", cooldown_expires_at
+                return False, "cooldown_active", cooldown_expires_at, vehicle_context
 
-        return True, None, None
+        return True, None, None, vehicle_context
 
     def _build_create_payload(self, snapshot: EventSnapshot) -> DetectionEventCreate:
         return DetectionEventCreate(
@@ -167,3 +180,45 @@ class EventService:
     async def _find_recent_reopen_candidate(self, snapshot: EventSnapshot) -> DetectionEvent | None:
         since = snapshot.first_seen_at - timedelta(seconds=self.reopen_window_seconds)
         return await self.repository.get_recent_event_by_plate(drone_id=snapshot.drone_id, plate_normalized=snapshot.plate_normalized, since=since)
+
+
+def _build_vehicle_context(
+    *,
+    detected_color: str | None,
+    detected_type: str | None,
+    expected_color: str | None,
+    expected_type: str | None,
+    expected_make: str | None,
+) -> dict:
+    """
+    Compares YOLO-detected vehicle attributes against the watchlist profile.
+
+    match values:
+      True  → attributes present on both sides and agree
+      False → attributes present on both sides and disagree
+      None  → watchlist has no expectation for this attribute (can't compare)
+    """
+    def _match(detected: str | None, expected: str | None) -> bool | None:
+        if not expected:
+            return None  # no expectation → nothing to flag
+        if not detected:
+            return None  # YOLO didn't detect this → can't compare
+        return detected.lower() == expected.lower()
+
+    color_match = _match(detected_color, expected_color)
+    type_match  = _match(detected_type,  expected_type)
+
+    any_mismatch = (color_match is False) or (type_match is False)
+    any_confirmed = (color_match is True) or (type_match is True)
+
+    return {
+        "detected_color":  detected_color,
+        "detected_type":   detected_type,
+        "expected_color":  expected_color,
+        "expected_type":   expected_type,
+        "expected_make":   expected_make,
+        "color_match":     color_match,
+        "type_match":      type_match,
+        "any_mismatch":    any_mismatch,
+        "any_confirmed":   any_confirmed,
+    }

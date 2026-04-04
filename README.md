@@ -23,15 +23,17 @@ Every hour a child is missing, the chances of a safe recovery decline. Amber's A
 
 ## How It Works
 
-1. **Alert ingestion** — The platform polls the FEMA IPAWS (Integrated Public Alert and Warning System) feed every five minutes. When a qualifying alert is issued, the suspect vehicle profile (plate, color, make, body type) and the search polygon are automatically extracted and loaded into the mission system.
+1. **Alert ingestion** — The platform polls the FEMA IPAWS feed every five minutes. When a qualifying alert fires, the suspect vehicle profile (plate, color, make, body type) and the search polygon are automatically extracted from the CAP XML, written to the watchlist, and loaded into the mission system.
 
 2. **Volunteer dispatch** — Approved volunteers in the affected area are notified. They connect via the mobile app — whether launching a drone or simply mounting their phone in their car's dashboard holder and driving the search area.
 
-3. **Real-time detection** — Frames from the camera (drone or phone) are processed locally on the server using OpenALPR (license plate recognition) and YOLOv8 (vehicle classification). Detected plates and vehicle types are compared against the active alert profile.
+3. **Real-time detection** — Frames from the camera are processed using OpenALPR (plate recognition) and YOLOv8 (vehicle classification). Each detection produces a **composite confidence score** that combines plate-read quality across multiple frames with independent YOLO evidence about the vehicle's color and body type. A plate read alone is not enough — the system asks *is this also the right kind of car?*
 
-4. **Coordinator notification** — On a match, a Discord alert fires instantly to the mission coordinator channel with plate text, vehicle description, confidence score, and GPS coordinates.
+4. **Vehicle corroboration** — For each watchlist hit, YOLO's detected color and body type are compared against the expected vehicle profile parsed from the original FEMA alert text. The Discord notification shows the full verdict: plate confidence, what YOLO saw, and whether it matches the suspect vehicle description.
 
-5. **Mission debrief** — After the mission, coordinators and volunteers review detection statistics, coverage, and alert history through the web dashboard.
+5. **Coordinator notification** — On a match, a Discord alert fires instantly to the mission coordinator channel with plate text, confidence breakdown, GPS coordinates, vehicle description, and the attached frame image.
+
+6. **Mission debrief** — After the mission, coordinators and volunteers review detection statistics, coverage, and alert history through the web dashboard.
 
 ---
 
@@ -46,22 +48,68 @@ If you have a smartphone and a car mount, you are already equipped. Mount your p
 - 🚗 **Vehicle-mounted phone** — ground-level coverage along roads and parking lots, no special equipment or certification required
 - 📱 **Both** — many of our volunteers do both depending on the mission
 
-This means a neighbor, a parent, or anyone who wants to help can be part of a search within minutes of an alert being issued. The barrier to entry is a phone and a willingness to drive.
-
 ---
 
-## Privacy & Data Handling
+## Detection & Scoring Pipeline
 
-We built privacy in from the start, not as an afterthought.
+The platform's core capability is not just reading plates — it is deciding, with calibrated confidence, whether a particular vehicle in a particular frame is the one that matters.
 
-- **No video archive.** Raw frames are deleted immediately after processing. Nothing is stored.
-- **Minimum data.** We collect only what is operationally necessary: GPS telemetry during missions, license plate reads, and pilot account information.
-- **Short retention windows.** Telemetry is purged after 90 days. Detection records after 1 year. See our full [Data Retention Policy](https://ambersangels.org/retention).
-- **No third-party data sales.** We do not sell, rent, or share personal data with advertisers or data brokers under any circumstances.
-- **Transparent watchlist.** The platform only flags vehicles that match an active government-issued alert. It does not build or maintain its own persistent database of plate sightings.
-- **Volunteer-only access.** The dashboard, detection data, and pilot portal are accessible only to approved, identity-verified volunteers.
+### Composite Confidence Score
 
-Full policies: [Privacy Policy](https://ambersangels.org/privacy) · [Terms of Service](https://ambersangels.org/terms) · [Data Retention Policy](https://ambersangels.org/retention)
+Every detection produces an `aggregate_confidence` value (0–99) built from two independent signals:
+
+**1. ALPR signal (plate text quality)**
+
+| Component | Weight |
+|---|---|
+| Highest single-frame ALPR confidence | 50% |
+| Mean ALPR confidence across all frames | 30% |
+| Median ALPR confidence across all frames | 10% |
+| Repetition bonus (+5 / +10 for 2 / 3+ frames) | additive |
+| Consistency bonus (+5 if ≥75% of reads agree) | additive |
+| Quality penalty (blur, skew, partial plate, etc.) | subtractive |
+
+**2. YOLO vehicle corroboration (new)**
+
+YOLO independently observes the vehicle in every frame. Its contribution to the composite score:
+
+| Signal | Max contribution |
+|---|---|
+| Color consistency (+2 if ≥75% of frames agree on color) | +2 pts |
+| Body-type consistency (+2 if ≥75% of frames agree on type) | +2 pts |
+| YOLO detection confidence signal `(avg_conf − 0.5) × 6` | ±3 pts |
+
+The YOLO contribution is intentionally small — ALPR dominates because the plate is the primary identifier. But a consistently high-confidence vehicle detection that agrees across frames adds meaningful corroboration, while a weak or inconsistent YOLO signal (e.g. a partially visible vehicle seen at a bad angle) pulls the score down slightly. This prevents a sharp ALPR read on a blurry or ambiguous vehicle from scoring unrealistically high.
+
+The full breakdown is stored in `raw_summary.vehicle_corroboration` on every detection event, so coordinators can inspect exactly what contributed to the score.
+
+### Vehicle Profile Matching
+
+When FEMA issues an alert — "blue 2018 Honda sedan, plate ABC1234" — our connector parses the alert text and stores the vehicle profile alongside the plate in the watchlist. When a drone or phone camera later detects plate ABC1234, the system:
+
+1. Looks up the watchlist entry and retrieves the expected vehicle profile
+2. Compares YOLO's detected color and body type against the expected values
+3. Computes a `color_match` and `type_match` verdict (True / False / None if no expectation)
+4. Appends the result to the Discord alert embed
+
+The Discord notification tells coordinators not just *which plate was seen* but whether the vehicle it was attached to looks right:
+
+```
+Vehicle (YOLO)   blue car  ✓ matches profile
+Vehicle (YOLO)   red truck  ⚠️ profile expects blue sedan
+Vehicle (YOLO)   blue car  (no profile on file)
+```
+
+A plate match with a mismatched vehicle description prompts additional verification before escalation — the system surfaces the discrepancy rather than hiding it behind a single number.
+
+### FEMA Alert → Watchlist
+
+When an AMBER Alert, Silver Alert, or other qualifying alert is ingested from FEMA IPAWS, the connector:
+
+1. Parses the CAP XML for plate numbers and vehicle description (color, body type, make)
+2. Writes the plate to the watchlist with the full vehicle profile attached
+3. Stores a separate `vehicle_targets` record for alerts where no plate was found, so YOLO-only matching can still trigger a notification
+4. On re-poll, uses `COALESCE` upsert logic so an existing bare-plate entry gets backfilled with vehicle profile data if a later poll provides it
 
 ---
 
@@ -82,14 +130,17 @@ Monitors all national missing and endangered person alert programs via FEMA IPAW
 
 ### License Plate Recognition
 - Frame analysis via OpenALPR (local, no third-party transmission of raw frames)
-- High-confidence frames optionally enriched via Plate Recognizer cloud API (opt-in)
-- Fuzzy matching handles partial plate reads (91%+ similarity threshold)
-- Detection aggregation window prevents duplicate alerts on the same plate
+- High-confidence frames optionally enriched via Plate Recognizer cloud API (opt-in, quota-conserving)
+- Fuzzy matching handles OCR confusions (O/0, I/1, B/8, S/5, Z/2, G/6) and single-character insertions/deletions
+- 5-second aggregation window groups multi-frame detections before scoring and alerting
+- Composite confidence score incorporating both ALPR quality and YOLO vehicle corroboration
 
 ### Vehicle Identification
-- YOLOv8 classifies vehicle body type and extracts dominant color
-- Partial-profile alerts (no plate available) matched by color + body type
-- Full vehicle description attached to every detection event
+- YOLOv8 (nano) classifies body type (car, truck, motorcycle, bus) and extracts dominant color via K-means clustering in HSV space
+- Color sampled from the upper 60% of the bounding box to exclude plate and wheel areas
+- YOLO confidence and cross-frame consistency feed directly into the composite score
+- Vehicle profile from FEMA alert text compared against YOLO detections at alert time
+- Partial-profile alerts (no plate found) matched by color + body type via the `vehicle_targets` table
 
 ### Mission Map
 Live Mapbox dark-mode dashboard:
@@ -109,12 +160,12 @@ Live Mapbox dark-mode dashboard:
 
 ### Mobile App (Android, iOS pending)
 - Expo bare workflow + TypeScript, built via EAS cloud (no Mac required)
-- **Background scanning** — Android Foreground Service keeps Camera2 + GPS + upload running while the user drives with Uber or Maps open; no need to have the AA app visible
-- Phone camera capture at configurable interval → server-side ALPR
-- GPS telemetry at ~1 Hz for live drone tracking
+- **Background scanning** — Android Foreground Service keeps Camera2 + GPS + upload running while the user drives with another app open; no need to keep AA visible
+- Phone camera capture at configurable interval → server-side ALPR + YOLO
+- GPS telemetry at ~1 Hz for live tracking
 - Out-of-range notification when volunteer leaves the active search polygon
 - Login screen, mission map, detection feed, settings
-- Phase 2: DJI Mobile SDK v5 (5.17.0, Maven Central) bindings for Mavic 3, Mini 4 Pro, Air 3, Avata
+- Phase 2: DJI Mobile SDK v5 (5.17.0) bindings for Mavic 3, Mini 4 Pro, Air 3, Avata
 
 ### Gamification & Volunteer Recognition
 - Ranked pilot leaderboard (flight hours, detection count, missions flown)
@@ -126,6 +177,21 @@ Live Mapbox dark-mode dashboard:
 - Alert history log of every notification dispatched
 - Manual watchlist management for multi-agency coordination
 - Rate-limited authentication (brute-force protected)
+
+---
+
+## Privacy & Data Handling
+
+We built privacy in from the start, not as an afterthought.
+
+- **No video archive.** Raw frames are deleted immediately after processing. Nothing is stored.
+- **Minimum data.** We collect only what is operationally necessary: GPS telemetry during missions, license plate reads, and pilot account information.
+- **Short retention windows.** Telemetry is purged after 90 days. Detection records after 1 year. See our full [Data Retention Policy](https://ambersangels.org/retention).
+- **No third-party data sales.** We do not sell, rent, or share personal data with advertisers or data brokers under any circumstances.
+- **Transparent watchlist.** The platform only flags vehicles that match an active government-issued alert. It does not build or maintain its own persistent database of plate sightings.
+- **Volunteer-only access.** The dashboard, detection data, and pilot portal are accessible only to approved, identity-verified volunteers.
+
+Full policies: [Privacy Policy](https://ambersangels.org/privacy) · [Terms of Service](https://ambersangels.org/terms) · [Data Retention Policy](https://ambersangels.org/retention)
 
 ---
 
@@ -158,23 +224,38 @@ Drone (RTMP stream)    Phone Camera (background service)    DJI SDK (phase 2)
               (shared frame queue, one process, all sources)
                             |
                             v
-              OpenALPR + YOLOv8 (local, no raw data leaves server)
+              OpenALPR (plate text + confidence)
+              YOLOv8   (body type + color + yolo_conf)
+              Plate Recognizer (make/model, cloud, high-conf only)
                             |
                             v
-              AggregationService (5-second dedup window)
+              AggregationService
+                ├── ALPR composite (max/mean/median + bonuses/penalties)
+                └── YOLO corroboration (color consistency, type consistency, conf signal)
+                            |
+                            v
+              EventService → watchlist fuzzy match
+                            |
+                            v
+              Vehicle profile comparison
+                (YOLO detected color/type vs. FEMA alert expected profile)
                             |
                        ┌────┴────┐
                        v         v
-                  PostgreSQL   Discord Webhook → Mission coordinators
+                  PostgreSQL   Discord Webhook
+                               ├── Plate + confidence
+                               ├── Frame image attachment
+                               └── Vehicle match verdict
+                                   (✓ matches / ⚠️ mismatch / no profile)
                        |
                        v
               Next.js Dashboard  ←── Pilot web browsers
-                       |
-              FEMA IPAWS Poller (every 5 min, background async task)
-                       |
-                       ├── Watchlist (plates from alerts)
-                       ├── Vehicle targets (color/type/make from alert text)
-                       └── Search polygon (for drone proximity warnings)
+
+FEMA IPAWS Poller (every 5 min, background async task)
+        ├── Parses CAP XML for plates + vehicle profile (color, body type, make)
+        ├── Watchlist (plate + vehicle profile written together)
+        ├── Vehicle targets (color/type/make for no-plate alerts, YOLO-matched)
+        └── Search polygon (for drone proximity warnings + pilot notifications)
 ```
 
 ---
@@ -185,14 +266,17 @@ Drone (RTMP stream)    Phone Camera (background service)    DJI SDK (phase 2)
 ambers-angels/
 ├── backend/
 │   ├── main.py                   # FastAPI app + ingestion endpoints
+│   ├── schema.sql                # Database schema + additive migrations
 │   ├── routers/
 │   │   ├── read_api.py           # Dashboard data endpoints + mission management
 │   │   └── auth.py               # Pilot registration, login, approval, profile
 │   └── services/
-│       ├── fema_connector.py     # IPAWS polling + vehicle target matching
-│       ├── aggregation_service.py# ALPR + YOLO + Plate Recognizer pipeline
-│       ├── event_service.py      # Alert evaluation and watchlist matching
-│       └── alert_dispatcher.py   # Discord dispatch
+│       ├── fema_connector.py     # IPAWS polling, vehicle profile parsing, target matching
+│       ├── aggregation_service.py# Composite scoring: ALPR + YOLO corroboration
+│       ├── vehicle_classifier.py # YOLOv8 inference + dominant color extraction
+│       ├── event_service.py      # Watchlist matching + vehicle profile comparison
+│       ├── alert_dispatcher.py   # Discord dispatch with vehicle match embed field
+│       └── plate_recognizer.py   # Plate Recognizer cloud API (make/model enrichment)
 ├── web/                          # Next.js dashboard
 │   └── src/app/
 │       ├── map/                  # Live mission map
@@ -212,7 +296,7 @@ ambers-angels/
 │   └── src/
 │       ├── screens/              # Login, Camera, Map, Feed, Settings
 │       ├── api/                  # Authenticated API client
-│       └── lib/                  # Auth (AsyncStorage JWT), settings, polygon math, alert target
+│       └── lib/                  # Auth (AsyncStorage JWT), settings, polygon math
 ├── pilot/                        # Static pilot registration form
 ├── ecosystem.config.js           # PM2 process definitions
 └── start_api.sh                  # Backend launch with env vars

@@ -75,6 +75,7 @@ class DetectionInput:
     vehicle_type:  str | None = None
     vehicle_make:  str | None = None
     vehicle_model: str | None = None
+    yolo_conf:     float = 0.0
 
     @property
     def plate_normalized(self) -> str:
@@ -210,6 +211,67 @@ def quality_penalty(flags_by_detection: Iterable[list[str]]) -> float:
 
 
 # -----------------------------------------------------------------------------
+# Vehicle corroboration scoring
+# -----------------------------------------------------------------------------
+
+
+def _vehicle_corroboration_bonus(
+    detections: list["DetectionInput"],
+) -> tuple[float, dict[str, Any]]:
+    """
+    Computes a small score adjustment (max ±7 pts) from YOLO vehicle attributes.
+
+    Components:
+    - Color consistency: +2.0 if ≥75 % of detections with a color agree on one value
+    - Type  consistency: +2.0 if ≥75 % of detections with a type  agree on one value
+    - YOLO conf signal:  (avg_yolo_conf − 0.5) × 6, clamped to [−3, +3]
+                         → +3 at 100 % YOLO conf, 0 at 50 %, −3 at 0 %
+
+    Returns (bonus_float, detail_dict).  Returns (0.0, {}) when no YOLO data exists.
+    """
+    colors = [d.vehicle_color for d in detections if d.vehicle_color]
+    types  = [d.vehicle_type  for d in detections if d.vehicle_type]
+    confs  = [d.yolo_conf     for d in detections if d.yolo_conf > 0.0]
+
+    if not colors and not types and not confs:
+        return 0.0, {}
+
+    color_bonus = 0.0
+    dominant_color: str | None = None
+    if colors:
+        most_common_color, color_count = Counter(colors).most_common(1)[0]
+        if color_count / len(colors) >= 0.75:
+            color_bonus = 2.0
+            dominant_color = most_common_color
+
+    type_bonus = 0.0
+    dominant_type: str | None = None
+    if types:
+        most_common_type, type_count = Counter(types).most_common(1)[0]
+        if type_count / len(types) >= 0.75:
+            type_bonus = 2.0
+            dominant_type = most_common_type
+
+    yolo_signal = 0.0
+    avg_yolo_conf: float | None = None
+    if confs:
+        avg_yolo_conf = sum(confs) / len(confs)
+        yolo_signal = max(-3.0, min(3.0, (avg_yolo_conf - 0.5) * 6.0))
+
+    total = color_bonus + type_bonus + yolo_signal
+    detail: dict[str, Any] = {
+        "color_bonus":    round(color_bonus, 2),
+        "type_bonus":     round(type_bonus, 2),
+        "yolo_signal":    round(yolo_signal, 3),
+        "avg_yolo_conf":  round(avg_yolo_conf, 3) if avg_yolo_conf is not None else None,
+        "dominant_color": dominant_color,
+        "dominant_type":  dominant_type,
+        "total":          round(total, 3),
+    }
+    return round(total, 3), detail
+
+
+# -----------------------------------------------------------------------------
 # Live group state
 # -----------------------------------------------------------------------------
 
@@ -323,6 +385,8 @@ class ActiveDetectionGroup:
         consistency_bonus = 5.0 if dominant_ratio >= DOMINANT_RATIO_HIGH else 0.0
         penalty = quality_penalty(item.quality_flags for item in self.detections)
 
+        vehicle_bonus, vehicle_detail = _vehicle_corroboration_bonus(self.detections)
+
         aggregate_confidence = min(
             99.0,
             max(
@@ -332,6 +396,7 @@ class ActiveDetectionGroup:
                 + (median_confidence * 0.10)
                 + repetition_bonus
                 + consistency_bonus
+                + vehicle_bonus
                 - penalty,
             ),
         )
@@ -399,6 +464,7 @@ class ActiveDetectionGroup:
             "repetition_bonus": repetition_bonus,
             "consistency_bonus": consistency_bonus,
             "quality_penalty": penalty,
+            "vehicle_corroboration": vehicle_detail,
             "top_hypotheses": [
                 {
                     "plate": h.plate,

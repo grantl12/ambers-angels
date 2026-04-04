@@ -458,6 +458,7 @@ async def ingest_frame(
             vehicle_type= (pr.body_type if pr else None) or (yolo_primary.body_type if yolo_primary else None),
             vehicle_make= pr.make  if pr else None,
             vehicle_model=pr.model if pr else None,
+            yolo_conf=   yolo_primary.yolo_conf if yolo_primary else 0.0,
         )
 
         snapshot = _aggregation_service.ingest(det_input)
