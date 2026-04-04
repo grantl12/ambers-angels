@@ -33,6 +33,7 @@ from services.alert_dispatcher import AlertDispatcher
 from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
+from services.frame_preprocessor import apply_clahe, enhance_alpr_results
 from routers.read_api import router as read_router
 from routers.auth import router as auth_router
 
@@ -360,6 +361,7 @@ async def ingest_frame(
         tmp.write(frame_bytes)
         tmp_path = tmp.name
 
+    enhanced_path: str | None = None
     try:
         alpr = Alpr(
             os.getenv("ALPR_COUNTRY", "us"),
@@ -370,7 +372,15 @@ async def ingest_frame(
             raise HTTPException(status_code=500, detail="OpenALPR failed to load")
         alpr.set_top_n(5)
 
-        results = alpr.recognize_file(tmp_path)
+        # Pass 1: CLAHE contrast enhancement on full frame
+        enhanced_path, clahe_is_temp = apply_clahe(tmp_path)
+
+        # Initial ALPR read
+        results = alpr.recognize_file(enhanced_path)
+
+        # Pass 2: perspective deskew + re-read for each detected plate
+        results = enhance_alpr_results(alpr, enhanced_path, results)
+
         alpr.unload()
 
         # --- Vehicle classification (always local, never blocking) ---
@@ -395,6 +405,11 @@ async def ingest_frame(
                     pr_by_plate[pr.plate.upper()] = pr
     finally:
         os.unlink(tmp_path)
+        if enhanced_path and clahe_is_temp and enhanced_path != tmp_path:
+            try:
+                os.unlink(enhanced_path)
+            except OSError:
+                pass
 
     if not results or not results.get("results"):
         return {"status": "no_plates", "plates": []}

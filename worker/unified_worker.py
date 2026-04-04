@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_sync as pr_recognize
 from services.aggregation_service import SINGLE_FRAME_HIGH_CONFIDENCE
+from services.frame_preprocessor import apply_clahe, enhance_alpr_results
 
 load_dotenv()
 
@@ -105,14 +106,29 @@ def process_frame(frame_path: str, drone_id: str) -> bool:
     Returns True  → frame handled (delete it).
     Returns False → API was down, keep the file and retry next cycle.
     """
+    enhanced_path: str | None = None
+    clahe_is_temp = False
     try:
-        results = alpr.recognize_file(frame_path)
-    except Exception as e:
-        print(f"[Worker] ❌ ALPR error ({drone_id}): {e}")
-        return True  # permanent failure — don't retry
+        # Pass 1: CLAHE contrast enhancement
+        enhanced_path, clahe_is_temp = apply_clahe(frame_path)
 
-    if not results or not results.get("results"):
-        return True  # no plates — done
+        try:
+            results = alpr.recognize_file(enhanced_path)
+        except Exception as e:
+            print(f"[Worker] ❌ ALPR error ({drone_id}): {e}")
+            return True  # permanent failure — don't retry
+
+        if not results or not results.get("results"):
+            return True  # no plates — done
+
+        # Pass 2: perspective deskew + re-read
+        results = enhance_alpr_results(alpr, enhanced_path, results)
+    finally:
+        if clahe_is_temp and enhanced_path and enhanced_path != frame_path:
+            try:
+                os.unlink(enhanced_path)
+            except OSError:
+                pass
 
     yolo_vehicles = classify_vehicles(frame_path)
     yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
