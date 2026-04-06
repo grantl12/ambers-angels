@@ -63,5 +63,5 @@ if [ "$FAIL" -gt 0 ]; then
   echo "  Fix failures before queueing a build."
   exit 1
 else
-  echo "  OK to queue."
+  echo "  OK to queue. Tip: use EAS_SKIP_AUTO_FINGERPRINT=1 to force a fresh build."
 fi
