@@ -11,7 +11,7 @@ import dji.sdk.keyvalue.value.common.ComponentIndexType
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D
 import dji.v5.common.error.IDJIError
 import dji.v5.common.register.DJISDKInitEvent
-import dji.v5.common.utils.KeyTools
+import dji.sdk.keyvalue.key.KeyTools
 import dji.v5.manager.KeyManager
 import dji.v5.manager.SDKManager
 import dji.v5.manager.datacenter.MediaDataCenter
