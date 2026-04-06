@@ -22,6 +22,7 @@ import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
 import { postFrame } from "../api/ingest"
 import { postTelemetry } from "../api/telemetry"
+import { setApiBaseUrl } from "../api/client"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings, type AppSettings } from "../lib/settings"
 import { nearestAlert } from "../lib/polygon"
@@ -74,9 +75,13 @@ export default function CameraScreen() {
   const wasOutsideRef = useRef(false)
   const lastNotifRef = useRef(0)
 
-  // Load settings once
+  // Load settings once — also sync the in-memory API base URL so postFrame
+  // hits the address the user configured in Settings, not the hardcoded default.
   useEffect(() => {
-    loadSettings().then(setSettings)
+    loadSettings().then((s) => {
+      setSettings(s)
+      setApiBaseUrl(s.apiBaseUrl)
+    })
   }, [])
 
   // Initialize DJI SDK and watch connection state
