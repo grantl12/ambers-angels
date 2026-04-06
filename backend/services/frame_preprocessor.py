@@ -32,12 +32,38 @@ so it is safe to call unconditionally.
 """
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import tempfile
 from typing import Any
 
 import cv2
 import numpy as np
+
+
+# ---------------------------------------------------------------------------
+# OpenALPR subprocess wrapper
+# ---------------------------------------------------------------------------
+
+def run_alpr(image_path: str, top_n: int = 5) -> dict[str, Any]:
+    """
+    Run the `alpr` CLI on *image_path* and return a results dict with the
+    same structure as the old Python binding's recognize_file() output.
+
+    The Python binding (openalpr) is only available for Python 2.7 on this
+    server — this subprocess wrapper is the Python 3 equivalent.
+    """
+    try:
+        result = subprocess.run(
+            ["alpr", "-j", "-n", str(top_n), image_path],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return {"results": []}
+        return json.loads(result.stdout)
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+        return {"results": []}
 
 # Standard US plate dimensions ~520mm × 110mm → aspect ~4.73:1.
 # We render at this size then scale up 3× for better ALPR accuracy.
@@ -85,7 +111,7 @@ def apply_clahe(image_path: str) -> tuple[str, bool]:
 # ---------------------------------------------------------------------------
 
 def enhance_alpr_results(
-    alpr: Any,
+    alpr: Any,  # kept for API compatibility — unused, run_alpr() is called directly
     image_path: str,
     initial_results: dict[str, Any],
 ) -> dict[str, Any]:
@@ -119,7 +145,7 @@ def enhance_alpr_results(
 # ---------------------------------------------------------------------------
 
 def _try_deskew_and_read(
-    alpr: Any,
+    alpr: Any,  # unused — kept so call-sites don't need changing
     img: np.ndarray,
     coords: list[dict],
     original_detection: dict[str, Any],
@@ -160,7 +186,7 @@ def _try_deskew_and_read(
         os.close(fd)
         try:
             cv2.imwrite(tmp_path, warped, [cv2.IMWRITE_JPEG_QUALITY, 97])
-            deskewed_results = alpr.recognize_file(tmp_path)
+            deskewed_results = run_alpr(tmp_path)
         finally:
             try:
                 os.unlink(tmp_path)

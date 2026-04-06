@@ -344,7 +344,7 @@ async def ingest_frame(
         pilot_id   pilot identifier (optional)
         source     "dji_app" | "phone_gps" (optional, defaults to "dji_app")
     """
-    from openalpr import Alpr
+    from services.frame_preprocessor import run_alpr as _run_alpr
 
     ts = datetime.now(timezone.utc)
     if detected_at:
@@ -363,25 +363,17 @@ async def ingest_frame(
 
     enhanced_path: str | None = None
     try:
-        alpr = Alpr(
-            os.getenv("ALPR_COUNTRY", "us"),
-            os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf"),
-            os.getenv("ALPR_RUNTIME_DIR", "/usr/share/openalpr/runtime_data"),
-        )
-        if not alpr.is_loaded():
-            raise HTTPException(status_code=500, detail="OpenALPR failed to load")
-        alpr.set_top_n(5)
-
-        # Pass 1: CLAHE contrast enhancement on full frame
-        enhanced_path, clahe_is_temp = apply_clahe(tmp_path)
-
-        # Initial ALPR read
-        results = alpr.recognize_file(enhanced_path)
+        # Pass 1: try ALPR on the original frame first.
+        # Only apply CLAHE if nothing is found — CLAHE helps with dark/hazy frames
+        # but can hurt on already-readable images.
+        results = _run_alpr(tmp_path)
+        enhanced_path, clahe_is_temp = tmp_path, False
+        if not results.get("results"):
+            enhanced_path, clahe_is_temp = apply_clahe(tmp_path)
+            results = _run_alpr(enhanced_path)
 
         # Pass 2: perspective deskew + re-read for each detected plate
-        results = enhance_alpr_results(alpr, enhanced_path, results)
-
-        alpr.unload()
+        results = enhance_alpr_results(None, enhanced_path, results)
 
         # --- Vehicle classification (always local, never blocking) ---
         yolo_vehicles = classify_vehicles(tmp_path)
