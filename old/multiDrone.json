@@ -1,4 +1,0 @@
-{
-  "drone1": { "pilot": "Grant", "status": "active" },
-  "drone2": { "pilot": "User2", "status": "idle" }
-}

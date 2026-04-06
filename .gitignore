@@ -35,7 +35,23 @@ recordings/
 *.jpeg
 *.png
 
+# App assets are intentionally tracked
+!mobile/assets/*.png
+!mobile/assets/*.jpg
+!graphics/*.svg
+
 # OS/editor
 .DS_Store
 .vscode/
 .idea/
+
+# Retired code and scratch files
+old/
+design-prompts.txt
+repomix-output.xml
+repomix.config.json
+scan_results.json
+
+# ML model weights (large binaries — download separately)
+*.pt
+*.pth
