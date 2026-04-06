@@ -62,11 +62,14 @@ export async function captureDJIFrame(quality = 50): Promise<string | null> {
 /**
  * Get the drone's current GPS position from the flight controller.
  * Returns null if GPS is unavailable or no drone is connected.
+ * Location comes from KeyAircraftLocation3D via KeyManager — real FC telemetry,
+ * not RTMP metadata (which the Avata doesn't embed).
  */
 export async function getDroneLocation(): Promise<DroneLocation | null> {
   if (!NativeDJICamera || Platform.OS !== "android") return null
   try {
-    return await NativeDJICamera.getDroneLocation()
+    const loc = await NativeDJICamera.getDroneLocation()
+    return { lat: loc.lat, lng: loc.lng, altitude: loc.altitude }
   } catch {
     return null
   }
