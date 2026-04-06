@@ -11,6 +11,7 @@ import dji.sdk.keyvalue.value.common.ComponentIndexType
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D
 import dji.v5.common.error.IDJIError
 import dji.v5.common.register.DJISDKInitEvent
+import dji.v5.common.utils.KeyTools
 import dji.v5.manager.KeyManager
 import dji.v5.manager.SDKManager
 import dji.v5.manager.datacenter.MediaDataCenter
@@ -52,16 +53,20 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
     @Volatile private var lastHeading: Double? = null
 
     // ── Key listeners (keep refs so we can unlisten on destroy) ─────────────
+    // Explicit `Unit` return avoids the `Unit?` inference from `?.let` that
+    // makes the lambda incompatible with KeyManager.listen's callback type.
     private val locationKeyListener = { _: LocationCoordinate3D?, new: LocationCoordinate3D? ->
         new?.let { loc ->
             lastLat = loc.latitude
             lastLng = loc.longitude
             lastAlt = loc.altitude
         }
+        Unit
     }
 
     private val headingKeyListener = { _: Double?, new: Double? ->
         new?.let { lastHeading = it }
+        Unit
     }
 
     override fun getName(): String = NAME
@@ -76,7 +81,7 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(null); return
         }
 
-        val activity = currentActivity ?: run {
+        val activity = reactContext.currentActivity ?: run {
             promise.reject("NO_ACTIVITY", "Activity not available"); return
         }
 
@@ -212,13 +217,15 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
 
     private fun startKeyListeners() {
         try {
+            // KeyTools.createKey converts DJIKeyInfo<T> → DJIKey<T>, which is
+            // what KeyManager.listen() requires.
             KeyManager.getInstance().listen(
-                FlightControllerKey.KeyAircraftLocation3D,
+                KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D),
                 this,
                 locationKeyListener
             )
             KeyManager.getInstance().listen(
-                FlightControllerKey.KeyCompassHeading,
+                KeyTools.createKey(FlightControllerKey.KeyCompassHeading),
                 this,
                 headingKeyListener
             )
