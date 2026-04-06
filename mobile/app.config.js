@@ -11,17 +11,40 @@ module.exports = {
     version: "1.0.0",
     orientation: "portrait",
     userInterfaceStyle: "dark",
+    scheme: "ambersangels",
+
+    icon: "./assets/icon.png",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#050a0f",
+    },
+
     ios: {
       bundleIdentifier: "com.ambersangels.app",
       supportsTablet: false,
+      icon: "./assets/icon.png",
       infoPlist: {
+        // Camera + location permission strings
         NSCameraUsageDescription:
           "Camera is used to capture frames for license plate recognition.",
         NSLocationWhenInUseUsageDescription:
           "Location is used to tag detections and update your drone position on the mission map.",
         NSLocationAlwaysAndWhenInUseUsageDescription:
           "Location is used in the background to keep your drone position live during a mission.",
+        NSLocationAlwaysUsageDescription:
+          "Location is used in the background to keep your drone position live during a mission.",
+
+        // Required for iOS background location — without this iOS kills
+        // the location subscription when the app is backgrounded, breaking
+        // mission telemetry entirely.
+        UIBackgroundModes: ["location", "fetch", "remote-notification"],
+
+        // Apple compliance
         ITSAppUsesNonExemptEncryption: false,
+
+        // Allow plain HTTP to the mission server.
+        // TODO: move to HTTPS and remove this exception.
         NSAppTransportSecurity: {
           NSExceptionDomains: {
             "157.245.125.103": {
@@ -32,8 +55,13 @@ module.exports = {
         },
       },
     },
+
     android: {
       package: "com.ambersangels.app",
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#050a0f",
+      },
       permissions: [
         "CAMERA",
         "ACCESS_FINE_LOCATION",
@@ -53,10 +81,29 @@ module.exports = {
         },
       },
     },
+
+    web: {
+      favicon: "./assets/favicon.png",
+    },
+
+    notification: {
+      icon: "./assets/icon.png",
+      color: "#f59e0b",
+      androidMode: "default",
+    },
+
     plugins: [
+      "./plugins/withPrivacyManifest",
       "./modules/dji-camera/plugin",
       "./modules/phone-camera/plugin",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/icon.png",
+          color: "#f59e0b",
+          sounds: [],
+        },
+      ],
       [
         "expo-camera",
         {
@@ -69,9 +116,12 @@ module.exports = {
         {
           locationAlwaysAndWhenInUsePermission:
             "Allow Amber's Angels to use your location during missions.",
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
         },
       ],
     ],
+
     extra: {
       eas: {
         projectId: "4f470b02-19e3-47a7-9f48-663dc49603bd",
