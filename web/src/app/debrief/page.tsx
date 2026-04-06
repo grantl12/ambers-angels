@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useAllMissions, useMissionDebrief } from "@/features/missions/api"
 
 function StatCard({ label, value }: { label: string; value: React.ReactNode }) {
@@ -29,10 +30,21 @@ function formatDuration(minutes: number): string {
   return `${h}h ${m}m`
 }
 
-export default function DebriefPage() {
+function DebriefContent() {
+  const params = useSearchParams()
   const { data: missions = [], isLoading: missionsLoading } = useAllMissions()
-  const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null)
+  const [selectedMissionId, setSelectedMissionId] = useState<string | null>(
+    params.get("mission")
+  )
   const { data: debrief, isLoading: debriefLoading, error: debriefError } = useMissionDebrief(selectedMissionId)
+
+  // Auto-select most recent mission once loaded (if none specified via URL)
+  useEffect(() => {
+    if (selectedMissionId || missions.length === 0) return
+    const active    = missions.find((m) => m.status === "active")
+    const fallback  = missions[0]
+    setSelectedMissionId((active ?? fallback)?.id ?? null)
+  }, [missions, selectedMissionId])
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white px-4 py-8">
@@ -176,5 +188,13 @@ export default function DebriefPage() {
 
       </div>
     </main>
+  )
+}
+
+export default function DebriefPage() {
+  return (
+    <Suspense>
+      <DebriefContent />
+    </Suspense>
   )
 }

@@ -55,9 +55,11 @@ function PilotRow({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
       {/* Pilot / Drone */}
       <div className="min-w-0 flex-1">
         <div className={`truncate text-sm font-semibold ${isTop ? "text-yellow-300" : "text-white"}`}>
-          {entry.pilotId}
+          {entry.fullName ?? entry.pilotId}
         </div>
-        <div className="truncate text-xs text-white/40">{entry.droneId}</div>
+        <div className="truncate text-xs text-white/40">
+          {entry.fullName ? `${entry.pilotId} · ${entry.droneId}` : entry.droneId}
+        </div>
       </div>
 
       {/* Stats grid */}
