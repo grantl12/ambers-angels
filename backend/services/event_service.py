@@ -93,7 +93,19 @@ class EventService:
                 }
             )
             try:
-                await self.dispatcher.dispatch(event, vehicle_context=vehicle_context)
+                location = None
+                if snapshot.location_centroid:
+                    c = snapshot.location_centroid
+                    lat = c.get("lat") or c.get("latitude")
+                    lng = c.get("lon") or c.get("lng") or c.get("longitude")
+                    if lat is not None and lng is not None:
+                        location = {
+                            "lat":      lat,
+                            "lng":      lng,
+                            "altitude": c.get("alt") or c.get("altitude"),
+                            "accuracy": c.get("accuracy"),
+                        }
+                await self.dispatcher.dispatch(event, vehicle_context=vehicle_context, location=location)
                 print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful.")
             except Exception as e:
                 print(f"[LOUD DEBUG] ❌ Discord Dispatch FAILED: {e}")

@@ -22,6 +22,16 @@ from typing import Optional
 # Ensure the backend directory is on the path regardless of working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Load .env from the backend dir (and fall back to repo root .env) so all
+# secrets are available regardless of which directory the server is started from.
+try:
+    from dotenv import load_dotenv
+    _here = os.path.dirname(os.path.abspath(__file__))
+    load_dotenv(os.path.join(_here, ".env"), override=False)
+    load_dotenv(os.path.join(_here, "..", ".env"), override=False)
+except ImportError:
+    pass  # python-dotenv not installed — rely on env vars being set externally
+
 # --- Core imports ---
 import database
 import schemas

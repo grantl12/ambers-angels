@@ -44,7 +44,7 @@ class AlertDispatcher:
             os.path.join(os.path.dirname(__file__), "..", "test_plates", "golden_frames"),
         )
 
-    async def dispatch(self, event: Any, *, vehicle_context: Optional[dict] = None) -> None:
+    async def dispatch(self, event: Any, *, vehicle_context: Optional[dict] = None, location: Optional[dict] = None) -> None:
         """
         Fan-out: log to DB (if repository available) and send Discord webhook.
         Accepts both dict and Pydantic/dataclass event objects.
@@ -98,6 +98,23 @@ class AlertDispatcher:
 
         if alert_type:
             embed["fields"].insert(0, {"name": "Alert type", "value": alert_type.upper(), "inline": True})
+
+        if location:
+            lat  = location.get("lat")
+            lng  = location.get("lng")
+            alt  = location.get("altitude")
+            acc  = location.get("accuracy")
+            maps_url = f"https://www.google.com/maps?q={lat},{lng}"
+            loc_parts = [f"[{lat:.5f}, {lng:.5f}]({maps_url})"]
+            if alt is not None and alt > 0:
+                loc_parts.append(f"{alt:.0f}m MSL")
+            if acc is not None and acc > 0:
+                loc_parts.append(f"±{acc:.0f}m")
+            embed["fields"].append({
+                "name":   "Location",
+                "value":  "  ".join(loc_parts),
+                "inline": False,
+            })
 
         if vehicle_context:
             embed["fields"].append(_vehicle_context_field(vehicle_context))
