@@ -13,6 +13,17 @@ module.exports = {
     userInterfaceStyle: "dark",
     scheme: "ambersangels",
 
+    // OTA updates via EAS Update — JS-only changes ship without a full rebuild.
+    // runtimeVersion tied to appVersion so native builds only receive compatible JS.
+    updates: {
+      url: "https://u.expo.dev/4f470b02-19e3-47a7-9f48-663dc49603bd",
+      enabled: true,
+      fallbackToCacheTimeout: 0,
+    },
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+
     icon: "./assets/icon.png",
     splash: {
       image: "./assets/splash.png",
@@ -93,6 +104,7 @@ module.exports = {
     },
 
     plugins: [
+      "expo-updates",
       "./plugins/withPrivacyManifest",
       "./modules/dji-camera/plugin",
       "./modules/phone-camera/plugin",

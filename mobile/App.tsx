@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import { Platform, View, ActivityIndicator } from "react-native"
 import { StatusBar } from "expo-status-bar"
+import * as Updates from "expo-updates"
 import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -76,6 +77,22 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
+      // Check for an OTA update. In production builds this downloads and
+      // reboots into the new JS bundle before the user sees the main UI.
+      // Skipped in dev (Updates.isEmbeddedLaunch is always true in dev client).
+      if (!__DEV__) {
+        try {
+          const update = await Updates.checkForUpdateAsync()
+          if (update.isAvailable) {
+            await Updates.fetchUpdateAsync()
+            await Updates.reloadAsync()
+            return  // reloadAsync restarts the app — nothing below executes
+          }
+        } catch {
+          // Network error or update server down — continue with cached bundle
+        }
+      }
+
       const settings = await loadSettings()
       setApiBaseUrl(settings.apiBaseUrl)
 
