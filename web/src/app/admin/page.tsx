@@ -17,6 +17,15 @@ type PendingPilot = {
   createdAt: string | null
 }
 
+type ApprovedPilot = {
+  username:   string
+  fullName:   string | null
+  email:      string
+  city:       string | null
+  role:       string
+  approvedAt: string | null
+}
+
 type ManualPlate = {
   plate:       string
   description: string | null
@@ -88,10 +97,15 @@ export default function AdminPage() {
   }
 
   // pilot approvals
-  const [pilots,    setPilots]    = useState<PendingPilot[]>([])
+  const [pilots,        setPilots]        = useState<PendingPilot[]>([])
   const [pilotsLoading, setPilotsLoading] = useState(true)
   const [pilotsError,   setPilotsError]   = useState<string | null>(null)
-  const [approving, setApproving] = useState<string | null>(null)
+  const [approving,     setApproving]     = useState<string | null>(null)
+  const [pendingRoles,  setPendingRoles]  = useState<Record<string, string>>({})
+
+  // approved pilots + role management
+  const [approvedPilots,      setApprovedPilots]      = useState<ApprovedPilot[]>([])
+  const [settingRole,         setSettingRole]          = useState<string | null>(null)
 
   // manual alert form
   const [form,       setForm]       = useState(BLANK_FORM)
@@ -113,6 +127,12 @@ export default function AdminPage() {
     }
   }, [])
 
+  const loadApprovedPilots = useCallback(async () => {
+    try {
+      setApprovedPilots(await apiGet<ApprovedPilot[]>("/auth/pilots"))
+    } catch { /* silent */ }
+  }, [])
+
   const loadManualAlerts = useCallback(async () => {
     try {
       setManualAlerts(await apiGet<ManualAlerts>("/admin/manual-alerts"))
@@ -123,21 +143,41 @@ export default function AdminPage() {
     const auth = getAuthState()
     if (!auth || auth.role !== "admin") { router.replace("/map"); return }
     loadPilots()
+    loadApprovedPilots()
     loadManualAlerts()
     loadHealth()
     const interval = setInterval(loadHealth, 10_000)
     return () => clearInterval(interval)
-  }, [router, loadPilots, loadManualAlerts, loadHealth])
+  }, [router, loadPilots, loadApprovedPilots, loadManualAlerts, loadHealth])
 
   async function approve(username: string) {
     setApproving(username)
     try {
       await apiPost(`/auth/approve/${username}`, {})
+      const role = pendingRoles[username] ?? "pilot"
+      if (role !== "pilot") {
+        await apiPost(`/auth/set-role/${username}`, { role })
+      }
       setPilots((prev) => prev.filter((p) => p.username !== username))
+      loadApprovedPilots()
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Approval failed.")
     } finally {
       setApproving(null)
+    }
+  }
+
+  async function setRole(username: string, role: string) {
+    setSettingRole(username)
+    try {
+      await apiPost(`/auth/set-role/${username}`, { role })
+      setApprovedPilots((prev) =>
+        prev.map((p) => p.username === username ? { ...p, role } : p)
+      )
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Role update failed.")
+    } finally {
+      setSettingRole(null)
     }
   }
 
@@ -299,18 +339,68 @@ export default function AdminPage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => approve(pilot.username)}
-                    disabled={approving === pilot.username}
-                    className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
-                  >
-                    {approving === pilot.username ? "Approving…" : "Approve"}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      value={pendingRoles[pilot.username] ?? "pilot"}
+                      onChange={(e) => setPendingRoles((prev) => ({ ...prev, [pilot.username]: e.target.value }))}
+                      className="rounded-lg bg-neutral-800 border border-white/10 px-2 py-2 text-xs text-white/70 focus:outline-none"
+                    >
+                      <option value="pilot">Pilot</option>
+                      <option value="coordinator">Coordinator</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button
+                      onClick={() => approve(pilot.username)}
+                      disabled={approving === pilot.username}
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                    >
+                      {approving === pilot.username ? "Approving…" : "Approve"}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </section>
+
+        {/* ── Active Pilots ── */}
+        {approvedPilots.length > 0 && (
+          <section>
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-white">Active Pilots</h2>
+              <p className="text-sm text-white/40 mt-1">Manage roles for approved volunteers</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5">
+              {approvedPilots.map((pilot) => (
+                <div key={pilot.username} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-white">{pilot.fullName ?? pilot.username}</span>
+                    <span className="ml-2 text-xs text-white/35">@{pilot.username}</span>
+                    {pilot.city && <span className="ml-2 text-xs text-white/25">{pilot.city}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {settingRole === pilot.username ? (
+                      <span className="text-xs text-white/40">Saving…</span>
+                    ) : (
+                      <select
+                        value={pilot.role}
+                        onChange={(e) => setRole(pilot.username, e.target.value)}
+                        className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none bg-neutral-800
+                          ${pilot.role === "admin"       ? "border-purple-500/40 text-purple-400" :
+                            pilot.role === "coordinator" ? "border-sky-500/40 text-sky-400" :
+                                                          "border-white/10 text-white/50"}`}
+                      >
+                        <option value="pilot">Pilot</option>
+                        <option value="coordinator">Coordinator</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Manual Alert Criteria ── */}
         <section>

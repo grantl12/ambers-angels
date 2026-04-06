@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
-  Platform, ScrollView,
+  Platform, ScrollView, Linking,
 } from "react-native"
 import { setAuth } from "../lib/auth"
 import { getApiBaseUrl } from "../api/client"
@@ -22,14 +22,31 @@ export default function LoginScreen({ onLogin }: Props) {
   const [error,       setError]       = useState<string | null>(null)
   const [success,     setSuccess]     = useState<string | null>(null)
   const [registerUrl, setRegisterUrl] = useState<string | null>(null)
+  const [showServer,  setShowServer]  = useState(false)
+  const [apiUrl,      setApiUrl]      = useState("")
+  const [urlSaved,    setUrlSaved]    = useState(false)
   const codeInputRef = useRef<TextInput>(null)
 
   useEffect(() => {
     loadSettings().then((s) => {
       setResetEmail("")
+      setApiUrl(s.apiBaseUrl)
       setRegisterUrl(`${s.apiBaseUrl.replace(/\/$/, "")}/pilot/register.html`)
     })
   }, [])
+
+  async function saveApiUrl() {
+    const trimmed = apiUrl.trim().replace(/\/$/, "")
+    if (!trimmed) return
+    const { saveSettings, loadSettings: load } = await import("../lib/settings")
+    const { setApiBaseUrl } = await import("../api/client")
+    const current = await load()
+    await saveSettings({ ...current, apiBaseUrl: trimmed })
+    setApiBaseUrl(trimmed)
+    setRegisterUrl(`${trimmed}/pilot/register.html`)
+    setUrlSaved(true)
+    setTimeout(() => { setUrlSaved(false); setShowServer(false) }, 1200)
+  }
 
   function goBack() {
     setView("login")
@@ -287,10 +304,44 @@ export default function LoginScreen({ onLogin }: Props) {
           </TouchableOpacity>
 
           {registerUrl && (
-            <Text style={styles.hint}>
-              No account? Register at{"\n"}
-              <Text style={styles.amber}>{registerUrl}</Text>
+            <TouchableOpacity
+              style={styles.registerBtn}
+              onPress={() => Linking.openURL(registerUrl)}
+            >
+              <Text style={styles.registerBtnText}>No account? Register here</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.serverToggle}
+            onPress={() => setShowServer((v) => !v)}
+          >
+            <Text style={styles.serverToggleText}>
+              {showServer ? "▲" : "▼"} Configure server
             </Text>
+          </TouchableOpacity>
+
+          {showServer && (
+            <View style={styles.serverBox}>
+              <Text style={styles.label}>API Base URL</Text>
+              <TextInput
+                style={styles.input}
+                value={apiUrl}
+                onChangeText={setApiUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                placeholder="http://..."
+                placeholderTextColor="rgba(255,255,255,0.25)"
+                onSubmitEditing={saveApiUrl}
+              />
+              <TouchableOpacity
+                style={[styles.btn, urlSaved && styles.btnSaved]}
+                onPress={saveApiUrl}
+              >
+                <Text style={styles.btnText}>{urlSaved ? "Saved!" : "Save URL"}</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -397,6 +448,19 @@ const styles = StyleSheet.create({
   },
   linkBtn:  { paddingVertical: 12, alignItems: "center" },
   linkText: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
+  serverToggle: { paddingVertical: 10, alignItems: "center", marginTop: 4 },
+  serverToggleText: { fontSize: 12, color: "rgba(255,255,255,0.25)" },
+  serverBox: { marginTop: 4, gap: 4 },
+  btnSaved: { backgroundColor: "#22c55e" },
+  registerBtn: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  registerBtnText: { fontSize: 13, fontWeight: "600", color: "#f59e0b" },
   pendingBox: {
     backgroundColor: "rgba(245,158,11,0.08)",
     borderWidth: 1,

@@ -139,6 +139,12 @@ def require_admin(payload: dict = Depends(get_current_pilot)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return payload
 
+def require_coordinator(payload: dict = Depends(get_current_pilot)):
+    """Coordinator or admin — can see coverage map, not user management."""
+    if payload.get("role") not in ("admin", "coordinator"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Coordinator access required")
+    return payload
+
 
 # ---------------------------------------------------------------------------
 # Endpoints
@@ -303,6 +309,34 @@ def approve_pilot(username: str, _: dict = Depends(require_admin)):
         db.close()
 
 
+@router.get("/pilots")
+def list_pilots(payload: dict = Depends(require_admin)):
+    """Admin-only: all approved pilots with their current roles."""
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT username, full_name, email, city, role, status, created_at, approved_at
+            FROM pilots
+            WHERE status = 'approved'
+            ORDER BY approved_at DESC
+        """)).fetchall()
+        return [
+            {
+                "username":   r[0],
+                "fullName":   r[1],
+                "email":      r[2],
+                "city":       r[3],
+                "role":       r[4],
+                "status":     r[5],
+                "createdAt":  r[6].isoformat() if r[6] else None,
+                "approvedAt": r[7].isoformat() if r[7] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
 @router.get("/pending")
 def list_pending(payload: dict = Depends(require_admin)):
     db = database.SessionLocal()
@@ -387,6 +421,28 @@ def register_push_token(req: PushTokenRequest, payload: dict = Depends(get_curre
         )
         db.commit()
         return {"status": "ok"}
+    finally:
+        db.close()
+
+
+class SetRoleRequest(BaseModel):
+    role: str  # pilot | coordinator | admin
+
+@router.post("/set-role/{username}")
+def set_role(username: str, req: SetRoleRequest, _: dict = Depends(require_admin)):
+    """Admin-only: promote or demote a pilot's role."""
+    if req.role not in ("pilot", "coordinator", "admin"):
+        raise HTTPException(status_code=400, detail="Invalid role. Must be pilot, coordinator, or admin")
+    db = database.SessionLocal()
+    try:
+        result = db.execute(
+            text("UPDATE pilots SET role = :role WHERE username = :u RETURNING username"),
+            {"role": req.role, "u": username.strip().lower()},
+        ).fetchone()
+        db.commit()
+        if not result:
+            raise HTTPException(status_code=404, detail="Pilot not found")
+        return {"username": username, "role": req.role}
     finally:
         db.close()
 

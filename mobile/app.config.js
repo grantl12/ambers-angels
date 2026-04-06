@@ -21,6 +21,15 @@ module.exports = {
           "Location is used to tag detections and update your drone position on the mission map.",
         NSLocationAlwaysAndWhenInUseUsageDescription:
           "Location is used in the background to keep your drone position live during a mission.",
+        ITSAppUsesNonExemptEncryption: false,
+        NSAppTransportSecurity: {
+          NSExceptionDomains: {
+            "157.245.125.103": {
+              NSExceptionAllowsInsecureHTTPLoads: true,
+              NSIncludesSubdomains: false,
+            },
+          },
+        },
       },
     },
     android: {

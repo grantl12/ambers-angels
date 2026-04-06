@@ -8,7 +8,7 @@ Amber's Angels is a 501(c)(3) nonprofit (pending) that coordinates volunteers in
 
 ## Mission
 
-Every hour a child is missing, the chances of a safe recovery decline. Amber's Angels exists to close the gap between when an alert is issued and when boots — and rotors — are on the ground. Our volunteers donate their time, equipment, and expertise because they believe technology can save lives when it is deployed responsibly, transparently, and in partnership with law enforcement. Drone pilots with FAA Part 107 certification are welcome and encouraged, but a license is never a prerequisite — a smartphone and a car mount are all it takes to join a search.
+Every hour a child is missing, the chances of a safe recovery decline. Amber's Angels exists to close the gap between when an alert is issued and when boots are on the ground and rotors are in the air. Our volunteers donate their time, equipment, and expertise because they believe technology can save lives when it is deployed responsibly, transparently, and in partnership with law enforcement. Drone pilots with FAA Part 107 certification are welcome and encouraged, but a license is never a prerequisite — a smartphone and a car mount are all it takes to join a search.
 
 ---
 
@@ -151,20 +151,45 @@ Live Mapbox dark-mode dashboard:
 - Flock ALPR fixed-camera positions with coverage polygons
 - Out-of-range warning when a drone exceeds the pilot's configured distance from the active search area
 
+### Tiered Access & Roles
+
+Three roles with distinct access levels, managed from the admin console:
+
+| Role | Access |
+|---|---|
+| **Pilot** | Mission map, camera capture, detection feed, personal stats |
+| **Coordinator** | All pilot access + coverage map with bucketed camera density — suitable for law enforcement demos and operational briefings |
+| **Admin** | Full platform access: pilot approval, role management, test alert injection, system health, raw Flock camera data |
+
+Coordinators see a heatmap of ALPR camera coverage broken down by zone (bucketed "0 / 1–3 / 4+" cameras per cell — never exact counts, never positions), derived flight priority zones, and live volunteer positions. Raw Flock camera coordinates never leave the server. Admins can promote or demote any pilot's role at any time from the admin console.
+
+### Flight Priority Zones
+
+When an active search area is live, the platform computes a grid of recommended flight zones based on Flock Safety fixed-camera coverage:
+
+- Cells with **zero** fixed-camera coverage → **high priority** (red overlay on map)
+- Cells with **low** coverage (1–3 cameras) → **medium priority** (amber overlay)
+- Well-covered cells are omitted — no need to duplicate existing infrastructure
+
+Pilots see color-coded zone overlays on the mission map with a compass-direction label ("Northwest sector"). The coverage reasoning is intentionally opaque to pilots — they see where to fly, not why. Coordinators and admins see the full bucketed coverage map for briefings and demos.
+
 ### Pilot Portal & Accounts
 - Multi-step registration with FAA certification tracking
-- Admin approval workflow — no pilot accesses mission data without vetting
+- Admin approval workflow with role assignment — no pilot accesses mission data without vetting
+- Role selector on the approval card (approve as Pilot, Coordinator, or Admin in one step)
+- Active Pilots panel for live role management of already-approved volunteers
 - JWT authentication with 30-day tokens
 - Push notification on account approval (Expo)
 - Profile page with personal mission stats (flight time, detections, missions)
 
-### Mobile App (Android, iOS pending)
+### Mobile App (Android + iOS)
 - Expo bare workflow + TypeScript, built via EAS cloud (no Mac required)
 - **Background scanning** — Android Foreground Service keeps Camera2 + GPS + upload running while the user drives with another app open; no need to keep AA visible
 - Phone camera capture at configurable interval → server-side ALPR + YOLO
 - GPS telemetry at ~1 Hz for live tracking
 - Out-of-range notification when volunteer leaves the active search polygon
-- Login screen, mission map, detection feed, settings
+- Server URL configurable from the login screen — no login required to connect
+- Login screen, mission map (with priority zone overlay), detection feed, settings
 - Phase 2: DJI Mobile SDK v5 (5.17.0) bindings for Mavic 3, Mini 4 Pro, Air 3, Avata
 
 ### Gamification & Volunteer Recognition
@@ -276,6 +301,7 @@ ambers-angels/
 │       ├── vehicle_classifier.py # YOLOv8 inference + dominant color extraction
 │       ├── event_service.py      # Watchlist matching + vehicle profile comparison
 │       ├── alert_dispatcher.py   # Discord dispatch with vehicle match embed field
+│       ├── coverage_service.py   # Flight priority zones + coordinator coverage map (bucketed, never raw positions)
 │       └── plate_recognizer.py   # Plate Recognizer cloud API (make/model enrichment)
 ├── web/                          # Next.js dashboard
 │   └── src/app/
@@ -344,15 +370,20 @@ pm2 save
 pm2 startup  # follow the printed sudo command to enable auto-restart on reboot
 ```
 
-### Mobile app (Android)
+### Mobile app (Android + iOS)
 
 ```bash
 cd mobile
 npm install
+
+# Android
 EXPO_TOKEN=your_token npx eas-cli build --profile preview --platform android
+
+# iOS (requires Apple Developer account)
+EXPO_APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx eas build --platform ios --profile preview
 ```
 
-EAS builds in the cloud — no Android SDK or Mac required. The finished APK download link appears in the Expo dashboard and can be sideloaded directly onto any Android device.
+EAS builds in the cloud — no Android SDK or Mac required. The finished APK/IPA download link appears in the Expo dashboard. Android builds can be sideloaded directly; iOS preview builds install via the Expo Go link or direct IPA install on registered devices.
 
 ---
 

@@ -19,8 +19,8 @@ import uuid
 import requests as _requests
 import database
 from services.badge_service import compute_all_badges
-from routers.auth import get_current_pilot
-from routers.auth import require_admin
+from routers.auth import get_current_pilot, require_admin, require_coordinator
+from services.coverage_service import compute_priority_zones, compute_coverage_map
 
 _DEFLOCK_INDEX_URL = "https://cdn.deflock.me/regions/index.json"
 _DEFLOCK_HEADERS   = {"User-Agent": "AmberAngels-mission-scraper/1.0"}
@@ -448,7 +448,7 @@ def get_detections_feed(
 # With bbox params    → filter by bbox; if <3 cached, live-fetch from DeFlock.
 # ---------------------------------------------------------------------------
 
-@router.get("/flock/cameras")
+@router.get("/flock/cameras", dependencies=[Depends(require_coordinator)])
 def get_flock_cameras(
     south: Optional[float] = Query(None),
     north: Optional[float] = Query(None),
@@ -522,6 +522,36 @@ def get_flock_cameras(
             }
             for r in rows
         ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Coverage endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/coverage/priority-zones", dependencies=[Depends(get_current_pilot)])
+def get_priority_zones():
+    """
+    All authenticated pilots: low-coverage cells within the active FEMA search area.
+    Returns derived priority labels only — no camera positions or counts.
+    """
+    db = database.SessionLocal()
+    try:
+        return compute_priority_zones(db)
+    finally:
+        db.close()
+
+
+@router.get("/coverage/map", dependencies=[Depends(require_coordinator)])
+def get_coverage_map():
+    """
+    Coordinator + admin: full coverage grid with bucketed camera counts.
+    Counts are bucketed ("0", "1-3", "4+") — never exact, never positions.
+    """
+    db = database.SessionLocal()
+    try:
+        return compute_coverage_map(db)
     finally:
         db.close()
 

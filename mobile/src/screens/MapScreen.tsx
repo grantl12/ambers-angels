@@ -7,13 +7,14 @@
  * iOS uses Apple Maps and requires no key.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import MapView, { Callout, Marker, Polygon, PROVIDER_DEFAULT } from "react-native-maps"
 import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
 import { useFocusEffect } from "@react-navigation/native"
 import { fetchLatestTelemetry, type DronePosition } from "../api/telemetry"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
+import { fetchPriorityZones, type PriorityZone } from "../api/coverage"
 import { loadSettings } from "../lib/settings"
 import { nearestAlert, parsePoly } from "../lib/polygon"
 import { consumePendingAlertTarget } from "../lib/alertTarget"
@@ -52,6 +53,8 @@ export default function MapScreen() {
   const [femaAlerts, setFemaAlerts] = useState<FemaAlert[]>([])
   const [alertRangeMiles, setAlertRangeMiles] = useState(25)
   const [outsidePolygonNotif, setOutsidePolygonNotif] = useState(true)
+  const [priorityZones, setPriorityZones] = useState<PriorityZone[]>([])
+  const [showPriorityLayer, setShowPriorityLayer] = useState(true)
 
   const mapRef = useRef<MapView>(null)
   const seenAlertIds = useRef<Set<number>>(new Set())
@@ -142,6 +145,17 @@ export default function MapScreen() {
     return () => clearInterval(id)
   }, [loadDrones])
 
+  // Fetch priority zones once on focus, refresh every 5 minutes
+  useFocusEffect(
+    useCallback(() => {
+      fetchPriorityZones().then(setPriorityZones).catch(() => {})
+      const id = setInterval(() => {
+        fetchPriorityZones().then(setPriorityZones).catch(() => {})
+      }, 5 * 60 * 1000)
+      return () => clearInterval(id)
+    }, [])
+  )
+
   const polygonWarning = (() => {
     if (!outsidePolygonNotif || !myLocation || femaAlerts.length === 0) return null
     const best = nearestAlert(myLocation.latitude, myLocation.longitude, femaAlerts)
@@ -160,6 +174,22 @@ export default function MapScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
+        {/* Priority flight zones */}
+        {showPriorityLayer && priorityZones.map((zone, i) => {
+          const coords = parsePolygonCoords(zone.polygon)
+          if (coords.length < 3) return null
+          const isHigh = zone.priority === "high"
+          return (
+            <Polygon
+              key={`pz-${i}`}
+              coordinates={coords}
+              fillColor={isHigh ? "rgba(239,68,68,0.13)" : "rgba(245,158,11,0.10)"}
+              strokeColor={isHigh ? "rgba(239,68,68,0.5)" : "rgba(245,158,11,0.4)"}
+              strokeWidth={1}
+            />
+          )
+        })}
+
         {/* FEMA alert polygons */}
         {femaAlerts.map((alert) => {
           if (!alert.polygon) return null
@@ -245,6 +275,18 @@ export default function MapScreen() {
         </View>
       )}
 
+      {/* Priority zones toggle */}
+      {priorityZones.length > 0 && (
+        <TouchableOpacity
+          style={styles.priorityToggle}
+          onPress={() => setShowPriorityLayer((v) => !v)}
+        >
+          <Text style={styles.priorityToggleText}>
+            {showPriorityLayer ? "▣" : "□"} Flight priority zones
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Outside search area warning */}
       {polygonWarning && (
         <View style={styles.polygonWarning}>
@@ -301,6 +343,18 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   alertBadgeText: { color: "#f59e0b", fontSize: 12, fontWeight: "600" },
+  priorityToggle: {
+    position: "absolute",
+    bottom: 80,
+    right: 16,
+    backgroundColor: "rgba(10,15,22,0.88)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+  },
+  priorityToggleText: { color: "#f87171", fontSize: 12, fontWeight: "600" },
   polygonWarning: {
     position: "absolute",
     bottom: 24,

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="560" font-family="system-ui, -apple-system, sans-serif">
+  <!-- Background -->
+  <rect width="820" height="560" fill="#050a0f" rx="12" stroke="#38bdf8" stroke-width="1.5"/>
+
+  <!-- Header band -->
+  <rect x="0" y="0" width="820" height="68" fill="rgba(56,189,248,0.08)" rx="12"/>
+  <rect x="0" y="56" width="820" height="12" fill="rgba(56,189,248,0.08)"/>
+  <text x="410" y="30" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="700" letter-spacing="3">FAA PART 107</text>
+  <text x="410" y="54" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="700">Know Before You Fly</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="76" x2="780" y2="76" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <line x1="410" y1="76" x2="410" y2="460" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+  <!-- LEFT COLUMN rules -->
+
+  <!-- Rule 1 -->
+  <circle cx="72" cy="112" r="18" fill="rgba(56,189,248,0.12)" stroke="rgba(56,189,248,0.3)" stroke-width="1.5"/>
+  <text x="72" y="117" text-anchor="middle" fill="#38bdf8" font-size="16">✈</text>
+  <text x="102" y="108" fill="#ffffff" font-size="13" font-weight="600">Stay below 400 ft AGL</text>
+  <text x="102" y="124" fill="rgba(255,255,255,0.45)" font-size="11">Above ground level — not sea level</text>
+
+  <!-- Rule 2 -->
+  <circle cx="72" cy="168" r="18" fill="rgba(56,189,248,0.12)" stroke="rgba(56,189,248,0.3)" stroke-width="1.5"/>
+  <text x="72" y="173" text-anchor="middle" fill="#38bdf8" font-size="16">👁</text>
+  <text x="102" y="164" fill="#ffffff" font-size="13" font-weight="600">Visual Line of Sight (VLOS)</text>
+  <text x="102" y="180" fill="rgba(255,255,255,0.45)" font-size="11">Must see the drone unaided at all times</text>
+
+  <!-- Rule 3 -->
+  <circle cx="72" cy="224" r="18" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.3)" stroke-width="1.5"/>
+  <text x="72" y="229" text-anchor="middle" fill="#ef4444" font-size="16">🚫</text>
+  <text x="102" y="220" fill="#ffffff" font-size="13" font-weight="600">No flight over people or vehicles</text>
+  <text x="102" y="236" fill="rgba(255,255,255,0.45)" font-size="11">Unless flying over a controlled or restricted site</text>
+
+  <!-- Rule 4 -->
+  <circle cx="72" cy="280" r="18" fill="rgba(245,158,11,0.12)" stroke="rgba(245,158,11,0.3)" stroke-width="1.5"/>
+  <text x="72" y="285" text-anchor="middle" fill="#f59e0b" font-size="16">🌙</text>
+  <text x="102" y="276" fill="#ffffff" font-size="13" font-weight="600">No night flying without waiver</text>
+  <text x="102" y="292" fill="rgba(255,255,255,0.45)" font-size="11">Or anti-collision lighting (visible 3 statute miles)</text>
+
+  <!-- Rule 5 -->
+  <circle cx="72" cy="336" r="18" fill="rgba(56,189,248,0.12)" stroke="rgba(56,189,248,0.3)" stroke-width="1.5"/>
+  <text x="72" y="341" text-anchor="middle" fill="#38bdf8" font-size="16">✈</text>
+  <text x="102" y="332" fill="#ffffff" font-size="13" font-weight="600">Yield to all manned aircraft</text>
+  <text x="102" y="348" fill="rgba(255,255,255,0.45)" font-size="11">Always — no exceptions</text>
+
+  <!-- RIGHT COLUMN rules -->
+
+  <!-- Rule 6 -->
+  <circle cx="432" cy="112" r="18" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.3)" stroke-width="1.5"/>
+  <text x="432" y="117" text-anchor="middle" fill="#ef4444" font-size="16">📡</text>
+  <text x="462" y="108" fill="#ffffff" font-size="13" font-weight="600">Airport clearance within 5 miles</text>
+  <text x="462" y="124" fill="rgba(255,255,255,0.45)" font-size="11">Use FAA LAANC app for authorization</text>
+
+  <!-- Rule 7 -->
+  <circle cx="432" cy="168" r="18" fill="rgba(34,197,94,0.12)" stroke="rgba(34,197,94,0.3)" stroke-width="1.5"/>
+  <text x="432" y="173" text-anchor="middle" fill="#22c55e" font-size="16">🔋</text>
+  <text x="462" y="164" fill="#ffffff" font-size="13" font-weight="600">Pre-flight check every mission</text>
+  <text x="462" y="180" fill="rgba(255,255,255,0.45)" font-size="11">Battery, props, GPS lock, firmware</text>
+
+  <!-- Rule 8 -->
+  <circle cx="432" cy="224" r="18" fill="rgba(245,158,11,0.12)" stroke="rgba(245,158,11,0.3)" stroke-width="1.5"/>
+  <text x="432" y="229" text-anchor="middle" fill="#f59e0b" font-size="16">🌧</text>
+  <text x="462" y="220" fill="#ffffff" font-size="13" font-weight="600">No flight in adverse weather</text>
+  <text x="462" y="236" fill="rgba(255,255,255,0.45)" font-size="11">Rain, fog, or winds exceeding 20 knots</text>
+
+  <!-- Rule 9 -->
+  <circle cx="432" cy="280" r="18" fill="rgba(167,139,250,0.12)" stroke="rgba(167,139,250,0.3)" stroke-width="1.5"/>
+  <text x="432" y="285" text-anchor="middle" fill="#a78bfa" font-size="16">📋</text>
+  <text x="462" y="276" fill="#ffffff" font-size="13" font-weight="600">Carry your Remote Pilot Certificate</text>
+  <text x="462" y="292" fill="rgba(255,255,255,0.45)" font-size="11">On your person every flight</text>
+
+  <!-- Rule 10 -->
+  <circle cx="432" cy="336" r="18" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.3)" stroke-width="1.5"/>
+  <text x="432" y="341" text-anchor="middle" fill="#ef4444" font-size="16">🆘</text>
+  <text x="462" y="332" fill="#ffffff" font-size="13" font-weight="600">Emergency: land immediately</text>
+  <text x="462" y="348" fill="rgba(255,255,255,0.45)" font-size="11">Clear the area and report to coordinator</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="370" x2="780" y2="370" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- FEMA context note -->
+  <rect x="40" y="382" width="740" height="38" fill="rgba(245,158,11,0.06)" rx="6" stroke="rgba(245,158,11,0.2)" stroke-width="1"/>
+  <text x="410" y="396" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="11">Amber's Angels search-and-rescue support missions do not grant exemptions from Part 107.</text>
+  <text x="410" y="412" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="11">All volunteer drone operators must hold a valid Remote Pilot Certificate.</text>
+
+  <!-- Bottom amber banner -->
+  <rect x="0" y="464" width="820" height="96" fill="rgba(245,158,11,0.12)" rx="12"/>
+  <rect x="0" y="464" width="820" height="48" fill="rgba(245,158,11,0.12)"/>
+  <line x1="0" y1="464" x2="820" y2="464" stroke="rgba(245,158,11,0.35)" stroke-width="1"/>
+
+  <text x="410" y="490" text-anchor="middle" fill="#f59e0b" font-size="14" font-weight="700">Amber's Angels missions are search-and-rescue support operations.</text>
+  <text x="410" y="512" text-anchor="middle" fill="rgba(245,158,11,0.75)" font-size="12">FAA Part 107 applies to all volunteer drone operators. Flying safely protects the mission and the people we're searching for.</text>
+  <text x="410" y="536" text-anchor="middle" fill="rgba(245,158,11,0.5)" font-size="11">Get Part 107 certified at faa.gov/uas · LAANC authorization via the FAA DroneZone app</text>
+</svg>

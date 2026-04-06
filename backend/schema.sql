@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS pilots (
     part107         BOOLEAN      DEFAULT FALSE,
     cert_number     TEXT,
     status          VARCHAR(20)  DEFAULT 'pending',   -- pending | approved | suspended
-    role            VARCHAR(20)  DEFAULT 'pilot',     -- pilot | admin
+    role            VARCHAR(20)  DEFAULT 'pilot',     -- pilot | coordinator | admin
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     approved_at     TIMESTAMP WITH TIME ZONE
 );
