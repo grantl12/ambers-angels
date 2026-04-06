@@ -46,7 +46,7 @@ class ScanService : Service() {
     private var apiBase    = "http://192.168.1.100:8000"
     private var droneId    = "phone-1"
     private var pilotId    = ""
-    private var intervalMs = 1500L
+    @Volatile private var intervalMs = 1500L
 
     // ── Camera2 ──────────────────────────────────────────────────────────────
     private var cameraDevice:    CameraDevice?            = null
@@ -244,6 +244,14 @@ class ScanService : Service() {
                 if (resp.isSuccessful) {
                     val n = framesUploaded.incrementAndGet()
                     updateNotification("Scanning  •  $n frames")
+                    // Adaptive interval: server hints how fast to capture next frame
+                    try {
+                        val bodyStr = resp.body?.string()
+                        if (bodyStr != null) {
+                            val hint = org.json.JSONObject(bodyStr).optLong("capture_interval_ms", 0L)
+                            if (hint in 500L..5000L) intervalMs = hint
+                        }
+                    } catch (_: Exception) {}
                 }
             }
         } catch (_: IOException) {

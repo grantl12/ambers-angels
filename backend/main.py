@@ -412,7 +412,9 @@ async def ingest_frame(
                 pass
 
     if not results or not results.get("results"):
-        return {"status": "no_plates", "plates": []}
+        # No plates — slow down unless YOLO saw a vehicle (potential target without readable plate)
+        interval_ms = 1200 if yolo_primary else 2500
+        return {"status": "no_plates", "plates": [], "capture_interval_ms": interval_ms}
 
     telemetry = None
     if lat is not None and lng is not None:
@@ -490,4 +492,13 @@ async def ingest_frame(
                 "alert_triggered": decision.should_dispatch_alert,
             })
 
-    return {"status": "ok", "plates": outcomes}
+    # Adaptive capture interval — tells phone how fast to shoot the next frame
+    if any(o.get("alert_triggered") for o in outcomes):
+        capture_interval_ms = 700       # watchlist hit — keep tracking hard
+    elif any(o.get("status") == "processed" for o in outcomes):
+        capture_interval_ms = 900       # new event opened — stay sharp
+    elif outcomes:                      # plates seen but still buffering
+        capture_interval_ms = 1200
+    else:
+        capture_interval_ms = 2500      # quiet scene — conserve battery
+    return {"status": "ok", "plates": outcomes, "capture_interval_ms": capture_interval_ms}
