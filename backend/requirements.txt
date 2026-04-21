@@ -13,3 +13,5 @@ ultralytics
 passlib[bcrypt]
 python-jose[cryptography]
 slowapi
+onnxruntime
+Pillow

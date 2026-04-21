@@ -3,7 +3,7 @@ backend/schemas.py
 Pydantic schemas used by FastAPI endpoints and the worker.
 """
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 
 
@@ -22,9 +22,12 @@ class DetectionCreate(BaseModel):
 
     # Optional — worker may pass this if it has it
     best_frame_id: Optional[str]  = None
+    frame_id:      Optional[str]  = None
     raw_payload:   Optional[dict] = None
 
     # Native app telemetry — omit to preserve RTMP worker behaviour
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     lat:      Optional[float] = None
     lng:      Optional[float] = None
     altitude: Optional[float] = None   # metres AGL
@@ -38,6 +41,11 @@ class DetectionCreate(BaseModel):
     vehicle_type:  Optional[str] = None   # car | truck | motorcycle | bus
     vehicle_make:  Optional[str] = None   # e.g. "honda"
     vehicle_model: Optional[str] = None   # e.g. "civic"
+    yolo_conf:     Optional[float] = 0.0
+    
+    # Cascade Stage 2: CDC
+    cdc_label: Optional[str]   = None
+    cdc_conf:  Optional[float] = 0.0
 
 
 class TelemetryCreate(BaseModel):

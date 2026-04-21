@@ -98,56 +98,54 @@ class EventService:
             try:
                 location = None
                 if snapshot.location_centroid:
-                    c = snapshot.location_centroid
-                    lat = c.get("lat") or c.get("latitude")
-                    lng = c.get("lon") or c.get("lng") or c.get("longitude")
-                    if lat is not None and lng is not None:
-                        location = {
-                            "lat":      lat,
-                            "lng":      lng,
-                            "altitude": c.get("alt") or c.get("altitude"),
-                            "accuracy": c.get("accuracy"),
-                        }
-                await self.dispatcher.dispatch(event, vehicle_context=vehicle_context, location=location)
-                logger.info("Discord dispatch successful for %s", snapshot.plate_best)
+                    location = {"lat": snapshot.location_centroid[0], "lng": snapshot.location_centroid[1]}
+
+                await self.dispatcher.dispatch_alert(
+                    plate=snapshot.plate_best,
+                    drone_id=snapshot.drone_id,
+                    confidence=snapshot.aggregate_confidence,
+                    timestamp=snapshot.last_seen_at,
+                    location=location,
+                    frame_id=snapshot.best_frame_id,
+                    raw_summary=snapshot.raw_summary,
+                    vehicle_context=vehicle_context
+                )
             except Exception as e:
-                logger.error("Discord dispatch failed: %s", e)
-        else:
-            logger.debug("Alert suppressed: %s", suppression_reason)
+                logger.error("Alert dispatch failed: %s", e)
 
-        # 4. TRACE RECORD
-        try:
-            async with self.repository.session_factory() as session:
-                sql = text("INSERT INTO detections (drone_id, plate_text, confidence, detected_at) VALUES (:d, :p, :c, :t)")
-                await session.execute(sql, {"d": snapshot.drone_id, "p": snapshot.plate_best, "c": snapshot.aggregate_confidence, "t": datetime.now(timezone.utc)})
-                await session.commit()
-        except Exception as e:
-            logger.warning("Trace record failed: %s", e)
+        return EventDecision(
+            event=event,
+            created=created,
+            updated=updated,
+            should_dispatch_alert=should_dispatch_alert,
+            suppression_reason=suppression_reason,
+            cooldown_expires_at=cooldown_expires_at
+        )
 
-        return EventDecision(event, created, updated, should_dispatch_alert, suppression_reason, cooldown_expires_at)
-
-    async def _evaluate_alert_dispatch(self, *, event: DetectionEvent, snapshot: EventSnapshot) -> tuple[bool, str | None, datetime | None, dict | None]:
-        def get_similarity(a, b):
-            return SequenceMatcher(None, a, b).ratio()
-
-        plate = snapshot.plate_best.upper()
+    async def _evaluate_alert_dispatch(self, event: DetectionEvent, snapshot: EventSnapshot) -> tuple[bool, str | None, datetime | None, dict | None]:
+        """
+        Determines if a Discord alert should be fired.
+        Logic:
+          - MUST be on watchlist (fuzzy match)
+          - MUST NOT be in cooldown
+        """
         async with self.repository.session_factory() as session:
-            res = await session.execute(text(
-                "SELECT plate_text, vehicle_color, vehicle_type, vehicle_make FROM watchlist"
-            ))
-            rows = res.fetchall()
+            rows = await session.execute(text("SELECT plate, vehicle_color, vehicle_type, vehicle_make FROM watchlist"))
+            watchlist = rows.fetchall()
 
-        match_found = None
+        match_found = False
         matched_row = None
-        for row in rows:
-            target = row[0]
-            target_up = target.upper()
-            similarity = get_similarity(plate, target_up)
-            if similarity >= 0.7 or target_up in plate or plate in target_up:
-                match_found = target
-                matched_row = row
-                logger.info("Fuzzy match: %s matches %s (similarity: %.2f)", plate, target, similarity)
-                break
+        p_norm = snapshot.plate_normalized
+        
+        for row in watchlist:
+            w_plate = row[0].upper().replace(" ", "")
+            # Fuzzy match: same length, at most 1 char difference
+            if len(p_norm) == len(w_plate):
+                mismatches = sum(1 for c1, c2 in zip(p_norm, w_plate) if c1 != c2)
+                if mismatches <= 1:
+                    match_found = True
+                    matched_row = row
+                    break
 
         if not match_found:
             return False, "not_on_watchlist", None, None
@@ -156,6 +154,7 @@ class EventService:
         vehicle_context = _build_vehicle_context(
             detected_color=snapshot.vehicle_color,
             detected_type=snapshot.vehicle_type,
+            cdc_label=snapshot.cdc_label,
             expected_color=matched_row[1] if matched_row else None,
             expected_type=matched_row[2] if matched_row else None,
             expected_make=matched_row[3] if matched_row else None,
@@ -201,39 +200,42 @@ def _build_vehicle_context(
     *,
     detected_color: str | None,
     detected_type: str | None,
+    cdc_label: str | None,
     expected_color: str | None,
     expected_type: str | None,
     expected_make: str | None,
 ) -> dict:
     """
-    Compares YOLO-detected vehicle attributes against the watchlist profile.
-
-    match values:
-      True  → attributes present on both sides and agree
-      False → attributes present on both sides and disagree
-      None  → watchlist has no expectation for this attribute (can't compare)
+    Compares YOLO + CDC detected vehicle attributes against the watchlist profile.
     """
     def _match(detected: str | None, expected: str | None) -> bool | None:
         if not expected:
-            return None  # no expectation → nothing to flag
+            return None
         if not detected:
-            return None  # YOLO didn't detect this → can't compare
+            return None
         return detected.lower() == expected.lower()
 
     color_match = _match(detected_color, expected_color)
     type_match  = _match(detected_type,  expected_type)
+    
+    # CDC Match — check if expected make appears in the CDC generational label
+    cdc_match = None
+    if expected_make and cdc_label:
+        cdc_match = expected_make.lower() in cdc_label.lower()
 
-    any_mismatch = (color_match is False) or (type_match is False)
-    any_confirmed = (color_match is True) or (type_match is True)
+    any_mismatch = (color_match is False) or (type_match is False) or (cdc_match is False)
+    any_confirmed = (color_match is True) or (type_match is True) or (cdc_match is True)
 
     return {
         "detected_color":  detected_color,
         "detected_type":   detected_type,
+        "cdc_label":       cdc_label,
         "expected_color":  expected_color,
         "expected_type":   expected_type,
         "expected_make":   expected_make,
         "color_match":     color_match,
         "type_match":      type_match,
+        "cdc_match":       cdc_match,
         "any_mismatch":    any_mismatch,
         "any_confirmed":   any_confirmed,
     }

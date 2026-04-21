@@ -207,160 +207,24 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 
-@app.post("/detections/")
-async def create_detection(
-    detection: schemas.DetectionCreate,
-    db: Session = Depends(get_db),
-):
-    """
-    Accepts a raw detection from the worker, runs it through the full pipeline:
-      AggregationService (buffer + score) → EventService (DB upsert + alert dispatch)
-
-    The aggregation service is a process-level singleton so it can maintain the
-    5-second grouping window across successive frames of the same plate.
-    """
-    # Build telemetry dict from native app fields (None when RTMP worker)
-    telemetry = None
-    if detection.lat is not None and detection.lng is not None:
-        telemetry = {
-            "lat":      detection.lat,
-            "lon":      detection.lng,
-            "alt":      detection.altitude,
-            "heading":  detection.heading,
-            "speed":    detection.speed,
-        }
-        # Write a telemetry_point so the drone dot moves on the map
-        try:
-            async with database.AsyncSessionLocal() as session:
-                await session.execute(text("""
-                    INSERT INTO telemetry_points
-                        (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source, volunteer_mode)
-                    VALUES
-                        (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source, :volunteer_mode)
-                """), {
-                    "drone_id":      detection.drone_id,
-                    "pilot_id":      None,
-                    "ts":            detection.detected_at or datetime.now(timezone.utc),
-                    "lat":           detection.lat,
-                    "lon":           detection.lng,
-                    "alt":           detection.altitude,
-                    "heading":       detection.heading,
-                    "speed":         detection.speed,
-                    "accuracy":      detection.accuracy,
-                    "source":        detection.source or "dji_app",
-                    "volunteer_mode": detection.volunteer_mode,
-                })
-                await session.commit()
-        except Exception as e:
-            logger.warning("telemetry_point write failed: %s", e)
-
-    det_input = AggDetectionInput(
-        detection_id=str(uuid.uuid4()),
-        frame_id=detection.best_frame_id or str(uuid.uuid4()),
-        drone_id=detection.drone_id,
-        detected_at=detection.detected_at or datetime.now(timezone.utc),
-        plate_raw=detection.plate_text,
-        confidence=detection.confidence,
-        quality_flags=[],
-        telemetry=telemetry,
-        bbox=None,
-        alpr_payload=detection.raw_payload,
-        vehicle_color=detection.vehicle_color,
-        vehicle_type=detection.vehicle_type,
-        vehicle_make=detection.vehicle_make,
-        vehicle_model=detection.vehicle_model,
-    )
-
-    snapshot = _aggregation_service.ingest(det_input)
-
-    if not snapshot or not snapshot.should_open_event:
-        # Detection is buffered or filtered (low confidence / too short)
-        return {"status": "buffering", "plate": detection.plate_text, "alert_triggered": False}
-
-    repo = EventRepository(database.AsyncSessionLocal)
-    dispatcher = AlertDispatcher(
-        repository=repo,
-        webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
-    )
-    service = EventService(repository=repo, dispatcher=dispatcher)
-
-    decision = await service.upsert_from_snapshot(snapshot)
-
-    if not decision:
-        return {"status": "ignored", "reason": "snapshot_rejected"}
-
-    event = decision.event
-    plate = event.get("plate_best") if isinstance(event, dict) else event.plate_best
-
-    return {
-        "status": "processed",
-        "plate": plate,
-        "alert_triggered": decision.should_dispatch_alert,
-    }
-
-
-@app.post("/telemetry")
-async def post_telemetry(point: schemas.TelemetryCreate):
-    """
-    Position-only update from the native app. Called every ~1s during flight
-    so the drone dot on the mission map tracks in real time.
-    Independent of detections — no ALPR involved.
-    """
-    try:
-        async with database.AsyncSessionLocal() as session:
-            await session.execute(text("""
-                INSERT INTO telemetry_points
-                    (drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, accuracy_m, source, volunteer_mode)
-                VALUES
-                    (:drone_id, :pilot_id, :ts, :lat, :lon, :alt, :heading, :speed, :accuracy, :source, :volunteer_mode)
-            """), {
-                "drone_id":      point.drone_id,
-                "pilot_id":      point.pilot_id,
-                "ts":            point.ts or datetime.now(timezone.utc),
-                "lat":           point.lat,
-                "lon":           point.lng,
-                "alt":           point.altitude,
-                "heading":       point.heading,
-                "speed":         point.speed,
-                "accuracy":      point.accuracy,
-                "source":        point.source or "dji_telemetry",
-                "volunteer_mode": point.volunteer_mode,
-            })
-            await session.commit()
-        return {"status": "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/ingest/frame")
 async def ingest_frame(
-    file:      UploadFile = File(...),
-    drone_id:  str        = Form(...),
-    lat:       Optional[float] = Form(None),
-    lng:       Optional[float] = Form(None),
-    altitude:  Optional[float] = Form(None),
-    heading:   Optional[float] = Form(None),
-    speed:     Optional[float] = Form(None),
-    accuracy:  Optional[float] = Form(None),
-    pilot_id:  Optional[str]  = Form(None),
-    source:    Optional[str]  = Form(None),
+    file: UploadFile = File(...),
+    drone_id: str = Form(...),
+    lat: Optional[float] = Form(None),
+    lng: Optional[float] = Form(None),
+    altitude: Optional[float] = Form(None),
+    heading: Optional[float] = Form(None),
+    speed: Optional[float] = Form(None),
+    accuracy: Optional[float] = Form(None),
+    pilot_id: Optional[str] = Form(None),
+    source: Optional[str] = Form(None),
     detected_at: Optional[str] = Form(None),
 ):
     """
     Raw JPEG frame ingestion from native app (DJI SDK or phone camera).
     Runs OpenALPR server-side, then feeds each result into the same
     AggregationService → EventService pipeline as the RTMP worker.
-
-    Multipart form fields:
-        file       JPEG frame
-        drone_id   pilot's drone identifier
-        lat/lng    GPS at moment of capture (optional but strongly recommended)
-        altitude   metres AGL (optional)
-        heading    degrees (optional)
-        speed      m/s (optional)
-        accuracy   GPS accuracy radius in metres (optional)
-        pilot_id   pilot identifier (optional)
-        source     "dji_app" | "phone_gps" (optional, defaults to "dji_app")
     """
     from services.frame_preprocessor import run_alpr as _run_alpr
 
@@ -382,8 +246,6 @@ async def ingest_frame(
     enhanced_path: str | None = None
     try:
         # Pass 1: try ALPR on the original frame first.
-        # Only apply CLAHE if nothing is found — CLAHE helps with dark/hazy frames
-        # but can hurt on already-readable images.
         results = _run_alpr(tmp_path)
         enhanced_path, clahe_is_temp = tmp_path, False
         if not results.get("results"):
@@ -394,8 +256,9 @@ async def ingest_frame(
         results = enhance_alpr_results(None, enhanced_path, results)
 
         # --- Vehicle classification (always local, never blocking) ---
+        # CASCADE: Now returns CDC fine-grained attributes in primary_vehicle
         yolo_vehicles = classify_vehicles(tmp_path)
-        yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
+        primary_vehicle = yolo_vehicles[0] if yolo_vehicles else None
 
         # --- Vehicle target matching against active FEMA alerts ---
         await check_vehicle_targets(
@@ -422,8 +285,8 @@ async def ingest_frame(
                 pass
 
     if not results or not results.get("results"):
-        # No plates — slow down unless YOLO saw a vehicle (potential target without readable plate)
-        interval_ms = 1200 if yolo_primary else 2500
+        # No plates — slow down unless primary vehicle seen
+        interval_ms = 1200 if primary_vehicle else 2500
         return {"status": "no_plates", "plates": [], "capture_interval_ms": interval_ms}
 
     telemetry = None
@@ -448,67 +311,91 @@ async def ingest_frame(
 
     frame_id = str(uuid.uuid4())
     outcomes = []
-
-    # Persist the frame so the Discord alert can attach it
-    frame_path = os.path.join(GOLDEN_DIR, f"{frame_id}.jpg")
-    try:
-        with open(frame_path, "wb") as f:
-            f.write(frame_bytes)
-    except Exception as e:
-        logger.warning("Could not save frame to disk: %s", e)
-        frame_path = None
-
-    repo       = EventRepository(database.AsyncSessionLocal)
-    dispatcher = AlertDispatcher(repository=repo, webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""), golden_dir=GOLDEN_DIR)
-    service    = EventService(repository=repo, dispatcher=dispatcher)
-
-    for plate_result in results["results"]:
-        plate_text = plate_result.get("plate", "")
-        confidence = plate_result.get("confidence", 0.0)
+    
+    # Process each plate result into the aggregation service
+    for plate_res in results.get("results", []):
+        plate_text = plate_res.get("plate", "").upper()
         if not plate_text:
             continue
-
-        # Merge vehicle attributes: PR make/model takes priority; YOLO fills color/type
-        pr = pr_by_plate.get(plate_text.upper())
-        det_input = AggDetectionInput(
+            
+        pr = pr_by_plate.get(plate_text)
+        
+        # Build the detection input for the 5-second aggregator
+        det = AggDetectionInput(
             detection_id=str(uuid.uuid4()),
             frame_id=frame_id,
             drone_id=drone_id,
             detected_at=ts,
             plate_raw=plate_text,
-            confidence=confidence,
-            quality_flags=[],
+            confidence=plate_res.get("confidence", 0.0),
+            quality_flags=[f.get("type") for f in plate_res.get("quality_flags", []) if f.get("type")],
             telemetry=telemetry,
-            bbox=None,
-            alpr_payload=plate_result,
-            vehicle_color=(pr.color  if pr else None) or (yolo_primary.color     if yolo_primary else None),
-            vehicle_type= (pr.body_type if pr else None) or (yolo_primary.body_type if yolo_primary else None),
-            vehicle_make= pr.make  if pr else None,
-            vehicle_model=pr.model if pr else None,
-            yolo_conf=   yolo_primary.yolo_conf if yolo_primary else 0.0,
+            bbox=plate_res.get("coordinates"),
+            alpr_payload=plate_res,
+            # Broad classification (YOLO)
+            vehicle_color=primary_vehicle.color if primary_vehicle else None,
+            vehicle_type=primary_vehicle.body_type if primary_vehicle else None,
+            yolo_conf=primary_vehicle.yolo_conf if primary_vehicle else 0.0,
+            # Fine-grained classification (CDC)
+            cdc_label=primary_vehicle.cdc_label if primary_vehicle else None,
+            cdc_conf=primary_vehicle.cdc_conf if primary_vehicle else 0.0,
+            # Make/Model (Cloud API enrichment if high confidence)
+            vehicle_make=getattr(pr, 'make', None) if pr else None,
+            vehicle_model=getattr(pr, 'model', None) if pr else None,
         )
 
-        snapshot = _aggregation_service.ingest(det_input)
-        if not snapshot or not snapshot.should_open_event:
-            outcomes.append({"plate": plate_text, "confidence": confidence, "status": "buffering"})
-            continue
+        snapshot = _aggregation_service.ingest(det)
+        if snapshot:
+            # 1. Update the EventService with the new group state
+            service = EventService(
+                repository=EventRepository(database.AsyncSessionLocal),
+                dispatcher=_alert_dispatcher,
+            )
+            decision = await service.upsert_from_snapshot(snapshot)
+            if decision:
+                outcomes.append({
+                    "plate": snapshot.plate_best,
+                    "confidence": snapshot.aggregate_confidence,
+                    "status": decision.event.status if hasattr(decision.event, "status") else decision.event.get("status"),
+                    "alert_sent": decision.should_dispatch_alert
+                })
 
-        decision = await service.upsert_from_snapshot(snapshot)
-        if decision:
-            outcomes.append({
-                "plate":           snapshot.plate_best,
-                "confidence":      snapshot.aggregate_confidence,
-                "status":          "processed",
-                "alert_triggered": decision.should_dispatch_alert,
-            })
+    # Return the next capture interval. If we saw plates, we speed up.
+    interval_ms = 800 if outcomes else 1500
+    return {"status": "ok", "outcomes": outcomes, "capture_interval_ms": interval_ms}
 
-    # Adaptive capture interval — tells phone how fast to shoot the next frame
-    if any(o.get("alert_triggered") for o in outcomes):
-        capture_interval_ms = 700       # watchlist hit — keep tracking hard
-    elif any(o.get("status") == "processed" for o in outcomes):
-        capture_interval_ms = 900       # new event opened — stay sharp
-    elif outcomes:                      # plates seen but still buffering
-        capture_interval_ms = 1200
-    else:
-        capture_interval_ms = 2500      # quiet scene — conserve battery
-    return {"status": "ok", "plates": outcomes, "capture_interval_ms": capture_interval_ms}
+
+@app.post("/detections/")
+async def create_detection(det: schemas.DetectionCreate):
+    """
+    Standard detection endpoint (used by RTMP worker).
+    """
+    # Convert schema to internal AggDetectionInput
+    internal_det = AggDetectionInput(
+        detection_id=str(uuid.uuid4()),
+        frame_id=det.frame_id or str(uuid.uuid4()),
+        drone_id=det.drone_id,
+        detected_at=det.detected_at or datetime.now(timezone.utc),
+        plate_raw=det.plate_text,
+        confidence=det.confidence,
+        quality_flags=[], # RTMP worker doesn't yet provide quality flags
+        telemetry={"lat": det.latitude, "lon": det.longitude},
+        # We don't have CDC label in the old schema yet — RTMP worker needs update too
+        vehicle_color=det.vehicle_color,
+        vehicle_type=det.vehicle_type,
+        vehicle_make=det.vehicle_make,
+        vehicle_model=det.vehicle_model,
+        yolo_conf=det.yolo_conf or 0.0,
+        cdc_label=det.cdc_label,
+        cdc_conf=det.cdc_conf or 0.0,
+    )
+
+    snapshot = _aggregation_service.ingest(internal_det)
+    if snapshot:
+        service = EventService(
+            repository=EventRepository(database.AsyncSessionLocal),
+            dispatcher=_alert_dispatcher,
+        )
+        await service.upsert_from_snapshot(snapshot)
+    
+    return {"status": "ingested"}

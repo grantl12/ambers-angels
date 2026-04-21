@@ -102,53 +102,45 @@ def _iter_pending() -> list[tuple[str, str]]:
 
 def process_frame(frame_path: str, drone_id: str) -> bool:
     """
-    Run the full detection pipeline on one frame.
-    Returns True  → frame handled (delete it).
-    Returns False → API was down, keep the file and retry next cycle.
+    OpenALPR + YOLO + Plate Recognizer cascade.
+    Sends one POST to the API per plate found.
+    Returns True if API was reachable.
     """
-    enhanced_path: str | None = None
-    clahe_is_temp = False
-    try:
-        # Pass 1: CLAHE contrast enhancement
-        enhanced_path, clahe_is_temp = apply_clahe(frame_path)
-
-        try:
-            results = alpr.recognize_file(enhanced_path)
-        except Exception as e:
-            print(f"[Worker] ❌ ALPR error ({drone_id}): {e}")
-            return True  # permanent failure — don't retry
-
-        if not results or not results.get("results"):
-            return True  # no plates — done
-
-        # Pass 2: perspective deskew + re-read
-        results = enhance_alpr_results(alpr, enhanced_path, results)
-    finally:
-        if clahe_is_temp and enhanced_path and enhanced_path != frame_path:
-            try:
-                os.unlink(enhanced_path)
-            except OSError:
-                pass
-
+    # 1. Broad classification (YOLO) + Fine-grained (CDC)
+    # The classifier now handles the cascade internally.
     yolo_vehicles = classify_vehicles(frame_path)
     yolo_primary  = yolo_vehicles[0] if yolo_vehicles else None
 
-    max_conf = max((r.get("confidence", 0.0) for r in results["results"]), default=0.0)
-    pr_by_plate: dict = {}
+    # 2. Plate Recognition (OpenALPR)
+    results = alpr.recognize_file(frame_path)
+    
+    # Check if we need enhancement (low confidence or dark frame)
+    max_conf = max((r.get("confidence", 0.0) for r in results.get("results", [])), default=0.0)
+    if not results.get("results") or max_conf < 70.0:
+        enhanced_path, is_temp = apply_clahe(frame_path)
+        if enhanced_path != frame_path:
+            results = alpr.recognize_file(enhanced_path)
+            if is_temp:
+                os.unlink(enhanced_path)
+
+    # 3. Plate Recognizer (Cloud API, optional for make/model enrichment)
+    pr_by_plate = {}
     if max_conf >= SINGLE_FRAME_HIGH_CONFIDENCE:
-        pr_list = pr_recognize(frame_path, regions=["us"])
-        for pr in pr_list:
-            if pr.plate:
-                pr_by_plate[pr.plate.upper()] = pr
+        try:
+            with open(frame_path, "rb") as f:
+                pr_list = pr_recognize(f.read(), regions=["us"])
+                for pr in pr_list:
+                    if pr.plate:
+                        pr_by_plate[pr.plate.upper()] = pr
+        except Exception as e:
+            print(f"[Worker] ⚠️ Plate Recognizer failed: {e}")
 
     api_ok = True
-    for plate_result in results["results"]:
-        plate_text = plate_result.get("plate", "")
-        confidence = plate_result.get("confidence", 0.0)
-        if not plate_text:
-            continue
-
-        pr = pr_by_plate.get(plate_text.upper())
+    for res in results.get("results", []):
+        plate_text = res.get("plate", "").upper()
+        confidence = res.get("confidence", 0.0)
+        
+        pr = pr_by_plate.get(plate_text)
         payload = {
             "plate_text":    plate_text,
             "confidence":    confidence,
@@ -158,6 +150,11 @@ def process_frame(frame_path: str, drone_id: str) -> bool:
             "vehicle_type":  (pr.body_type if pr else None) or (yolo_primary.body_type if yolo_primary else None),
             "vehicle_make":  pr.make  if pr else None,
             "vehicle_model": pr.model if pr else None,
+            # YOLO confidence
+            "yolo_conf":     yolo_primary.yolo_conf if yolo_primary else 0.0,
+            # Cascade Stage 2: CDC
+            "cdc_label":     yolo_primary.cdc_label if yolo_primary else None,
+            "cdc_conf":      yolo_primary.cdc_conf  if yolo_primary else 0.0,
         }
 
         try:
@@ -198,43 +195,35 @@ def wait_for_backend(timeout: int = 60) -> None:
     sys.exit(1)
 
 
-def watch_frames() -> None:
+def main():
+    print(f"[Worker] Scanning {FRAMES_ROOT}…")
     wait_for_backend()
-    print(f"[Worker] 👁  Watching {FRAMES_ROOT}/*/ for frames from any drone…")
-
-    # Tracks paths currently being retried due to API downtime.
-    # Cleared on success so memory stays bounded.
-    retry: set[str] = set()
-
+    
     while True:
         pending = _iter_pending()
-
+        if not pending:
+            time.sleep(0.5)
+            continue
+            
         for frame_path, drone_id in pending:
-            # Brief wait to let ffmpeg finish writing before we read
-            age = time.time() - os.path.getmtime(frame_path)
-            if age < 0.3:
-                continue
+            try:
+                # Give it a moment to finish writing
+                time.sleep(0.05)
+                if not os.path.exists(frame_path):
+                    continue
+                    
+                success = process_frame(frame_path, drone_id)
+                
+                # Delete processed frame
+                if success:
+                    try:
+                        os.remove(frame_path)
+                    except OSError:
+                        pass
+            except Exception as e:
+                print(f"[Worker] 💥 Critical error processing {frame_path}: {e}")
+                time.sleep(1)
 
-            ok = process_frame(frame_path, drone_id)
-            if ok:
-                retry.discard(frame_path)
-                try:
-                    os.remove(frame_path)
-                except OSError:
-                    pass
-            else:
-                retry.add(frame_path)
-
-        time.sleep(0.5)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    try:
-        watch_frames()
-    finally:
-        alpr.unload()
-        print("[Worker] OpenALPR unloaded. Exiting.")
+    main()

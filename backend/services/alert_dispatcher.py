@@ -51,10 +51,6 @@ class AlertDispatcher:
         """
         Fan-out: log to DB (if repository available) and send Discord webhook.
         Accepts both dict and Pydantic/dataclass event objects.
-
-        vehicle_context (optional): dict from _build_vehicle_context() containing
-        YOLO-detected color/type and watchlist-expected values, used to render a
-        vehicle match line in the Discord embed.
         """
         is_dict    = isinstance(event, dict)
         plate      = event.get("plate_best")  if is_dict else getattr(event, "plate_best",  "UNKNOWN")
@@ -183,19 +179,23 @@ class AlertDispatcher:
 
 def _vehicle_context_field(ctx: dict) -> dict:
     """
-    Builds a Discord embed field summarising YOLO-detected vehicle attributes
-    and whether they match the watchlist profile.
-
-    Examples:
-      "blue car  ✓ matches profile"
-      "red truck  ⚠️ profile expects blue sedan"
-      "blue car  (no profile on file)"
+    Builds a Discord embed field summarising YOLO + CDC vehicle attributes.
     """
-    detected_parts = [p for p in [ctx.get("detected_color"), ctx.get("detected_type")] if p]
-    detected_str   = " ".join(detected_parts) if detected_parts else "unknown"
+    detected_color = ctx.get("detected_color")
+    detected_type  = ctx.get("detected_type")
+    cdc_label      = ctx.get("cdc_label")
+
+    # Format CDC label (e.g. "Toyota_Camry_XV70" -> "Toyota Camry XV70")
+    cdc_fmt = cdc_label.replace("_", " ") if cdc_label else None
+    
+    detected_str = f"{detected_color or ''} {detected_type or ''}".strip() or "unknown"
+    if cdc_fmt:
+        detected_str = f"{detected_str} ({cdc_fmt})"
 
     color_match = ctx.get("color_match")
     type_match  = ctx.get("type_match")
+    cdc_match   = ctx.get("cdc_match")
+    
     any_mismatch   = ctx.get("any_mismatch", False)
     any_confirmed  = ctx.get("any_confirmed", False)
 
@@ -207,12 +207,16 @@ def _vehicle_context_field(ctx: dict) -> dict:
         expected_str = " ".join(expected_parts)
         verdict = f"⚠️ profile expects **{expected_str}**"
     elif any_confirmed:
-        verdict = "✓ matches profile"
+        # Give CDC match extra weight in the UI
+        if cdc_match is True:
+            verdict = "✅ **GENERATIONAL MATCH CONFIRMED**"
+        else:
+            verdict = "✓ matches profile"
     else:
         verdict = "(profile present, unable to compare)"
 
     return {
-        "name":   "Vehicle (YOLO)",
-        "value":  f"{detected_str}  {verdict}",
+        "name":   "Vehicle (YOLO + CDC Cascade)",
+        "value":  f"{detected_str}\n{verdict}",
         "inline": False,
     }

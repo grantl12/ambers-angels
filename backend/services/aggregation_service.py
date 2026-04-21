@@ -76,6 +76,9 @@ class DetectionInput:
     vehicle_make:  str | None = None
     vehicle_model: str | None = None
     yolo_conf:     float = 0.0
+    # Cascade Stage 2: CDC
+    cdc_label:     str | None = None
+    cdc_conf:      float = 0.0
 
     @property
     def plate_normalized(self) -> str:
@@ -103,169 +106,138 @@ class EventSnapshot:
     status: EventStatus
     detection_count: int
     distinct_frame_count: int
-    best_frame_id: UUID | str | None
-    best_detection_id: UUID | str | None
-    should_open_event: bool
-    should_alert: bool
-    dominant_ratio: float
-    top_hypotheses: list[GroupedHypothesis]
-    quality_flags: list[str]
-    raw_summary: dict[str, Any]
-    location_centroid: dict[str, Any] | None = None
+    best_frame_id: UUID | str | None = None
+    best_detection_id: UUID | str | None = None
+    should_open_event: bool = False
+    should_alert: bool = False
+    dominant_ratio: float = 0.0
+    top_hypotheses: list[GroupedHypothesis] = field(default_factory=list)
+    quality_flags: list[str] = field(default_factory=list)
+    raw_summary: dict[str, Any] = field(default_factory=dict)
+    location_centroid: tuple[float, float] | None = None
     vehicle_color: str | None = None
     vehicle_type:  str | None = None
     vehicle_make:  str | None = None
     vehicle_model: str | None = None
+    # Cascade Stage 2: CDC
+    cdc_label:     str | None = None
 
 
 # -----------------------------------------------------------------------------
-# Normalization and matching
+# Scoring logic
 # -----------------------------------------------------------------------------
 
 
-def normalize_plate(plate: str) -> str:
-    normalized = "".join(ch for ch in plate.upper() if ch.isalnum())
-    return normalized
+def normalize_plate(raw: str) -> str:
+    if not raw:
+        return ""
+    # Uppercase and remove non-alphanumeric (except space/dash if needed, but ALPR usually strips)
+    clean = "".join(c.upper() for c in raw if c.isalnum())
+    return clean
 
 
-def has_usable_plate(plate: str) -> bool:
-    return PLATE_LENGTH_MIN <= len(plate) <= PLATE_LENGTH_MAX
+def has_usable_plate(normalized: str) -> bool:
+    return PLATE_LENGTH_MIN <= len(normalized) <= PLATE_LENGTH_MAX
 
 
-def is_known_confusion(a: str, b: str) -> bool:
-    return (a, b) in KNOWN_OCR_CONFUSIONS
-
-
-def one_edit_ocr_compatible(left: str, right: str) -> bool:
-    if abs(len(left) - len(right)) > 1:
-        return False
-
-    if left == right:
+def plates_match(p1: str, p2: str) -> bool:
+    if p1 == p2:
         return True
-
-    if len(left) == len(right):
-        diffs: list[tuple[str, str]] = []
-        for lch, rch in zip(left, right):
-            if lch != rch:
-                diffs.append((lch, rch))
-                if len(diffs) > 1:
-                    return False
-        return len(diffs) == 1 and is_known_confusion(*diffs[0])
-
-    shorter, longer = (left, right) if len(left) < len(right) else (right, left)
-    i = j = 0
-    edits = 0
-    while i < len(shorter) and j < len(longer):
-        if shorter[i] == longer[j]:
-            i += 1
-            j += 1
-            continue
-        edits += 1
-        if edits > 1:
-            return False
-        j += 1
-    return True
-
-
-def plates_match(candidate: str, existing: str) -> bool:
-    if candidate == existing:
-        return True
-    if not has_usable_plate(candidate) or not has_usable_plate(existing):
+    if abs(len(p1) - len(p2)) > 1:
         return False
-    return one_edit_ocr_compatible(candidate, existing)
-
-
-# -----------------------------------------------------------------------------
-# Quality / scoring helpers
-# -----------------------------------------------------------------------------
+    # Check for common OCR confusions at every position
+    # (O vs 0, I vs 1, etc.)
+    if len(p1) == len(p2):
+        mismatches = 0
+        for c1, c2 in zip(p1, p2):
+            if c1 == c2:
+                continue
+            if (c1, c2) in KNOWN_OCR_CONFUSIONS:
+                continue
+            mismatches += 1
+        return mismatches <= 1
+    return False
 
 
 def frame_quality_weight(flags: Iterable[str]) -> float:
-    penalty_flags = [flag for flag in flags if flag in NEGATIVE_QUALITY_FLAGS]
-    if not penalty_flags:
-        return 1.0
-    if len(penalty_flags) == 1:
-        return 0.85
-    if len(penalty_flags) == 2:
-        return 0.70
-    return 0.60
+    penalty = 0.0
+    for f in flags:
+        if f in NEGATIVE_QUALITY_FLAGS:
+            penalty += 0.15
+    return max(0.4, 1.0 - penalty)
 
 
-def quality_penalty(flags_by_detection: Iterable[list[str]]) -> float:
-    penalty_count = 0
-    total = 0
-    for flags in flags_by_detection:
-        total += 1
-        if any(flag in NEGATIVE_QUALITY_FLAGS for flag in flags):
-            penalty_count += 1
-    if total == 0:
+def quality_penalty(flag_sets: Iterable[Iterable[str]]) -> float:
+    # If every single frame in the group has a quality flag, penalize the aggregate
+    all_flags: list[set[str]] = [set(fs) for fs in flag_sets if fs]
+    if not all_flags:
         return 0.0
-    ratio = penalty_count / total
-    if ratio >= 0.75:
-        return 15.0
-    if ratio >= 0.50:
-        return 10.0
-    if ratio >= 0.25:
-        return 5.0
-    return 0.0
+    
+    common_penalties = set(NEGATIVE_QUALITY_FLAGS)
+    # intersection of all flags seen across frames
+    persistent_flags = all_flags[0].intersection(*all_flags[1:])
+    
+    penalty = 0.0
+    for f in persistent_flags:
+        if f in common_penalties:
+            penalty += 5.0
+    return min(15.0, penalty)
 
 
-# -----------------------------------------------------------------------------
-# Vehicle corroboration scoring
-# -----------------------------------------------------------------------------
-
-
-def _vehicle_corroboration_bonus(
-    detections: list["DetectionInput"],
-) -> tuple[float, dict[str, Any]]:
+def _vehicle_corroboration_bonus(detections: list[DetectionInput]) -> tuple[float, dict[str, Any]]:
     """
-    Computes a small score adjustment (max ±7 pts) from YOLO vehicle attributes.
-
-    Components:
-    - Color consistency: +2.0 if ≥75 % of detections with a color agree on one value
-    - Type  consistency: +2.0 if ≥75 % of detections with a type  agree on one value
-    - YOLO conf signal:  (avg_yolo_conf − 0.5) × 6, clamped to [−3, +3]
-                         → +3 at 100 % YOLO conf, 0 at 50 %, −3 at 0 %
-
-    Returns (bonus_float, detail_dict).  Returns (0.0, {}) when no YOLO data exists.
+    Computes a corroboration bonus (0-8 pts) based on YOLO + CDC consistency.
     """
-    colors = [d.vehicle_color for d in detections if d.vehicle_color]
-    types  = [d.vehicle_type  for d in detections if d.vehicle_type]
-    confs  = [d.yolo_conf     for d in detections if d.yolo_conf > 0.0]
-
-    if not colors and not types and not confs:
+    if not detections:
         return 0.0, {}
 
+    colors = [d.vehicle_color for d in detections if d.vehicle_color]
+    types  = [d.vehicle_type  for d in detections if d.vehicle_type]
+    cdc_labels = [d.cdc_label for d in detections if d.cdc_label]
+    yolo_confs = [d.yolo_conf  for d in detections if d.yolo_conf > 0]
+    cdc_confs  = [d.cdc_conf   for d in detections if d.cdc_conf > 0]
+
     color_bonus = 0.0
-    dominant_color: str | None = None
+    dominant_color = None
     if colors:
-        most_common_color, color_count = Counter(colors).most_common(1)[0]
-        if color_count / len(colors) >= 0.75:
+        c_counts = Counter(colors)
+        dominant_color, count = c_counts.most_common(1)[0]
+        if count / len(detections) >= DOMINANT_RATIO_HIGH:
             color_bonus = 2.0
-            dominant_color = most_common_color
 
     type_bonus = 0.0
-    dominant_type: str | None = None
+    dominant_type = None
     if types:
-        most_common_type, type_count = Counter(types).most_common(1)[0]
-        if type_count / len(types) >= 0.75:
+        t_counts = Counter(types)
+        dominant_type, count = t_counts.most_common(1)[0]
+        if count / len(detections) >= DOMINANT_RATIO_HIGH:
             type_bonus = 2.0
-            dominant_type = most_common_type
+
+    # CDC Bonus — generational match consistency is worth more
+    cdc_bonus = 0.0
+    dominant_cdc = None
+    if cdc_labels:
+        cdc_counts = Counter(cdc_labels)
+        dominant_cdc, count = cdc_counts.most_common(1)[0]
+        if count / len(detections) >= DOMINANT_RATIO_PROBABLE:
+            cdc_bonus = 4.0  # Big bonus for generational agreement
 
     yolo_signal = 0.0
-    avg_yolo_conf: float | None = None
-    if confs:
-        avg_yolo_conf = sum(confs) / len(confs)
-        yolo_signal = max(-3.0, min(3.0, (avg_yolo_conf - 0.5) * 6.0))
+    avg_yolo_conf = None
+    if yolo_confs:
+        avg_yolo_conf = mean(yolo_confs)
+        yolo_signal = (avg_yolo_conf - 0.5) * 6.0  # ±3 pts
 
-    total = color_bonus + type_bonus + yolo_signal
+    total = color_bonus + type_bonus + cdc_bonus + yolo_signal
     detail: dict[str, Any] = {
         "color_bonus":    round(color_bonus, 2),
         "type_bonus":     round(type_bonus, 2),
+        "cdc_bonus":      round(cdc_bonus, 2),
         "yolo_signal":    round(yolo_signal, 3),
         "avg_yolo_conf":  round(avg_yolo_conf, 3) if avg_yolo_conf is not None else None,
         "dominant_color": dominant_color,
         "dominant_type":  dominant_type,
+        "dominant_cdc":   dominant_cdc,
         "total":          round(total, 3),
     }
     return round(total, 3), detail
@@ -398,55 +370,44 @@ class ActiveDetectionGroup:
                 + consistency_bonus
                 + vehicle_bonus
                 - penalty,
-            ),
+            )
         )
 
-        classification = EventClassification.WEAK
         status = EventStatus.CANDIDATE
-        should_open_event = False
+        classification = EventClassification.WEAK
         should_alert = False
 
-        if max_confidence >= SINGLE_FRAME_HIGH_CONFIDENCE or winning_count >= 2:
-            should_open_event = True
-
-        if (
-            aggregate_confidence >= HIGH_CONFIDENCE_EVENT_MIN_SCORE
-            and winning_count >= HIGH_CONFIDENCE_EVENT_MIN_SUPPORT
-            and dominant_ratio >= DOMINANT_RATIO_HIGH
-        ):
+        if aggregate_confidence >= HIGH_CONFIDENCE_EVENT_MIN_SCORE and winning_count >= HIGH_CONFIDENCE_EVENT_MIN_SUPPORT:
+            status = EventStatus.DETECTION
             classification = EventClassification.HIGH_CONFIDENCE
-            status = EventStatus.QUEUED_REVIEW
             should_alert = True
-        elif (
-            aggregate_confidence >= PROBABLE_EVENT_MIN_SCORE
-            and winning_count >= PROBABLE_EVENT_MIN_SUPPORT
-            and dominant_ratio >= DOMINANT_RATIO_PROBABLE
-        ):
+        elif aggregate_confidence >= PROBABLE_EVENT_MIN_SCORE and winning_count >= PROBABLE_EVENT_MIN_SUPPORT:
+            status = EventStatus.DETECTION
             classification = EventClassification.PROBABLE
-            status = EventStatus.QUEUED_REVIEW
-        elif should_open_event:
-            classification = EventClassification.WEAK
-            status = EventStatus.CANDIDATE
+            should_alert = True
 
-        if best_adjusted_detection and best_adjusted_detection.plate_normalized != winning_plate:
-            best_frame_id = next(
-                (
-                    item.frame_id
-                    for item in self.detections
-                    if item.plate_normalized == winning_plate
-                ),
-                best_adjusted_detection.frame_id,
-            )
-        else:
-            best_frame_id = best_adjusted_detection.frame_id if best_adjusted_detection else None
+        should_open_event = aggregate_confidence >= RAW_DETECTION_FLOOR
 
-        location_centroid = _compute_location_centroid(self.detections)
+        # Pick a representative location and vehicle profile from the group
+        location_centroid = None
+        lats = [d.telemetry["lat"] for d in self.detections if d.telemetry and "lat" in d.telemetry]
+        lngs = [d.telemetry["lng"] for d in self.detections if d.telemetry and "lng" in d.telemetry]
+        if lats and lngs:
+            location_centroid = (sum(lats) / len(lats), sum(lngs) / len(lngs))
 
-        # Vehicle attributes — take from the best-scoring detection that has them.
-        # Prefer make/model from Plate Recognizer; fall back to YOLO color/type.
-        vehicle_color = vehicle_type = vehicle_make = vehicle_model = None
-        for det in sorted(self.detections, key=lambda d: d.confidence, reverse=True):
-            if vehicle_make is None and det.vehicle_make:
+        # Best frame for thumbnails
+        best_frame_id = best_adjusted_detection.frame_id if best_adjusted_detection else None
+
+        # Consolidate profile
+        vehicle_color = vehicle_detail.get("dominant_color")
+        vehicle_type  = vehicle_detail.get("dominant_type")
+        cdc_label     = vehicle_detail.get("dominant_cdc")
+        
+        # Try to pull make/model from Plate Recognizer enrichment if available
+        vehicle_make = None
+        vehicle_model = None
+        for det in self.detections:
+            if det.vehicle_make:
                 vehicle_make  = det.vehicle_make
                 vehicle_model = det.vehicle_model
             if vehicle_color is None and det.vehicle_color:
@@ -463,8 +424,8 @@ class ActiveDetectionGroup:
             "dominant_ratio": round(dominant_ratio, 3),
             "repetition_bonus": repetition_bonus,
             "consistency_bonus": consistency_bonus,
-            "quality_penalty": penalty,
             "vehicle_corroboration": vehicle_detail,
+            "quality_penalty": penalty,
             "top_hypotheses": [
                 {
                     "plate": h.plate,
@@ -501,6 +462,7 @@ class ActiveDetectionGroup:
             vehicle_type=vehicle_type,
             vehicle_make=vehicle_make,
             vehicle_model=vehicle_model,
+            cdc_label=cdc_label,
         )
 
 
@@ -534,6 +496,13 @@ class AggregationService:
         group.add(detection)
         return group.build_snapshot()
 
+    def _find_matching_group(self, detection: DetectionInput) -> ActiveDetectionGroup | None:
+        # Search backwards (most recent groups first)
+        for group in reversed(self._active_groups):
+            if group.can_accept(detection):
+                return group
+        return None
+
     def flush_expired(self, now: datetime | None = None) -> list[EventSnapshot]:
         now = now or datetime.now(timezone.utc)
         expired: list[EventSnapshot] = []
@@ -547,61 +516,3 @@ class AggregationService:
 
         self._active_groups = remaining
         return expired
-
-    def active_group_count(self) -> int:
-        return len(self._active_groups)
-
-    def _find_matching_group(self, detection: DetectionInput) -> ActiveDetectionGroup | None:
-        candidates: list[ActiveDetectionGroup] = []
-        for group in self._active_groups:
-            if group.can_accept(detection):
-                candidates.append(group)
-
-        if not candidates:
-            return None
-
-        candidates.sort(
-            key=lambda group: (
-                group.canonical_plate == detection.plate_normalized,
-                group.last_seen_at,
-                len(group.detections),
-            ),
-            reverse=True,
-        )
-        return candidates[0]
-
-
-# -----------------------------------------------------------------------------
-# Internal helpers
-# -----------------------------------------------------------------------------
-
-
-def _compute_location_centroid(detections: Iterable[DetectionInput]) -> dict[str, Any] | None:
-    lats: list[float] = []
-    lons: list[float] = []
-    alts: list[float] = []
-
-    for detection in detections:
-        if not detection.telemetry:
-            continue
-        lat = detection.telemetry.get("lat")
-        lon = detection.telemetry.get("lon")
-        alt = detection.telemetry.get("alt")
-        if isinstance(lat, (int, float)):
-            lats.append(float(lat))
-        if isinstance(lon, (int, float)):
-            lons.append(float(lon))
-        if isinstance(alt, (int, float)):
-            alts.append(float(alt))
-
-    if not lats or not lons:
-        return None
-
-    centroid: dict[str, Any] = {
-        "lat": round(sum(lats) / len(lats), 7),
-        "lon": round(sum(lons) / len(lons), 7),
-        "source": "telemetry_centroid",
-    }
-    if alts:
-        centroid["alt"] = round(sum(alts) / len(alts), 2)
-    return centroid
