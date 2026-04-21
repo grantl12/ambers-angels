@@ -2,7 +2,7 @@
 
 **A volunteer-driven public safety platform using cameras, license plate recognition, and real-time coordination to help bring missing and abducted children home.**
 
-Amber's Angels is a 501(c)(3) nonprofit (pending) that coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Either way, the app streams frames to the server for live license plate recognition and vehicle identification. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
+Amber's Angels is a 501(c)(3) nonprofit that coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Either way, the app streams frames to the server for live license plate recognition and vehicle identification. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
 
 ---
 
@@ -69,7 +69,7 @@ Every detection produces an `aggregate_confidence` value (0–99) built from two
 | Consistency bonus (+5 if ≥75% of reads agree) | additive |
 | Quality penalty (blur, skew, partial plate, etc.) | subtractive |
 
-**2. YOLO vehicle corroboration (new)**
+**2. YOLO vehicle corroboration**
 
 YOLO independently observes the vehicle in every frame. Its contribution to the composite score:
 
@@ -232,6 +232,7 @@ Full policies: [Privacy Policy](https://ambersangels.org/privacy) · [Terms of S
 | Alert ingestion | FEMA IPAWS CAP/XML feed |
 | Notifications | Discord webhooks · Expo push (device alerts) |
 | Process management | PM2 |
+| Reverse proxy / TLS | nginx + Let's Encrypt (Certbot) |
 | Infrastructure | DigitalOcean (self-hostable on any Linux VPS) |
 
 ---
@@ -312,6 +313,8 @@ ambers-angels/
 │       ├── alerts/               # Alert history log
 │       ├── leaderboard/          # Pilot rankings
 │       ├── debrief/              # Post-mission reports
+│       ├── login/                # Authentication flow
+│       ├── settings/             # Pilot settings
 │       ├── privacy/              # Privacy policy
 │       ├── terms/                # Terms of service
 │       └── retention/            # Data retention policy
@@ -323,9 +326,16 @@ ambers-angels/
 │       ├── screens/              # Login, Camera, Map, Feed, Settings
 │       ├── api/                  # Authenticated API client
 │       └── lib/                  # Auth (AsyncStorage JWT), settings, polygon math
+├── worker/
+│   ├── unified_worker.py         # Shared frame queue — handles RTMP + direct frame sources
+│   └── rtmp_telemetry.py         # RTMP stream telemetry harvester
+├── deploy/
+│   └── nginx.conf                # nginx reverse proxy template with HTTPS / Let's Encrypt
 ├── pilot/                        # Static pilot registration form
+├── .env.example                  # Environment variable template — copy to .env and fill in
 ├── ecosystem.config.js           # PM2 process definitions
-└── start_api.sh                  # Backend launch with env vars
+├── start_all.sh                  # Start all PM2 processes
+└── stop_all.sh                   # Stop all PM2 processes
 ```
 
 ---
@@ -333,7 +343,7 @@ ambers-angels/
 ## Deployment
 
 ### Prerequisites
-- Ubuntu 20.04+ · PostgreSQL 14+ · Node.js 18+ · Python 3.10+ · PM2 · OpenALPR
+- Ubuntu 20.04+ · PostgreSQL 14+ · Node.js 18+ · Python 3.10+ · PM2 · OpenALPR · nginx · Certbot
 
 ### Quick start
 
@@ -341,33 +351,50 @@ ambers-angels/
 git clone https://github.com/grantl12/ambers-angels.git
 cd ambers-angels
 
-# Backend
+# Backend dependencies
 pip3 install -r backend/requirements.txt
 
-# Create .env (never committed)
-cat > .env <<EOF
-DATABASE_URL=postgresql+asyncpg://postgres:PASSWORD@127.0.0.1:5432/ambersangels
-ALERT_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK
-JWT_SECRET=$(openssl rand -hex 32)
-EOF
+# Configure secrets — copy the template and fill in your values
+cp .env.example .env
+$EDITOR .env   # set DATABASE_URL, JWT_SECRET (openssl rand -hex 32), ALERT_WEBHOOK_URL
 
 # Database
-PGPASSWORD=PASSWORD psql -U postgres -h 127.0.0.1 -d ambersangels < backend/schema.sql
+PGPASSWORD=YOUR_DB_PASSWORD psql -U postgres -h 127.0.0.1 -d ambersangels < backend/schema.sql
 
 # Web dashboard
 cd web && npm install && npm run build && cd ..
 
 # Create web/.env.local
-cat > web/.env.local <<EOF
+cat > web/.env.local <<'EOF'
 NEXT_PUBLIC_APP_NAME=Amber's Angels
 NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token
-NEXT_PUBLIC_API_BASE_URL=http://YOUR_SERVER_IP/api
+NEXT_PUBLIC_API_BASE_URL=https://ambersangels.org/api
 EOF
 
 # Launch everything under PM2
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup  # follow the printed sudo command to enable auto-restart on reboot
+```
+
+### HTTPS setup
+
+A ready-to-use nginx config is in `deploy/nginx.conf`. It reverse-proxies the FastAPI backend (`:8000`) and the Next.js dashboard (`:3000`) behind HTTPS using Let's Encrypt.
+
+```bash
+# Install nginx and Certbot
+sudo apt install nginx certbot python3-certbot-nginx
+
+# Copy the site config and enable it
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/ambersangels
+sudo ln -s /etc/nginx/sites-available/ambersangels /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+# Obtain a certificate (fills in the ssl_* lines automatically)
+sudo certbot --nginx -d ambersangels.org -d www.ambersangels.org
+
+# Certbot installs a renewal cron automatically — verify with:
+sudo certbot renew --dry-run
 ```
 
 ### Mobile app (Android + iOS)
@@ -398,7 +425,7 @@ Amber's Angels operates entirely on volunteer labor and donated infrastructure. 
 
 If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **admin@ambersangels.org**.
 
-501(c)(3) determination pending. All donations are currently held in trust pending nonprofit status confirmation.
+Amber's Angels is a registered 501(c)(3) nonprofit. Donations are tax-deductible to the extent permitted by law.
 
 ---
 
