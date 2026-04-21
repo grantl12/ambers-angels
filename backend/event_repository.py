@@ -1,7 +1,10 @@
+import logging
 import uuid
 from typing import Any, Optional, Protocol
 from datetime import datetime, timezone
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 class EventRepository:
     def __init__(self, session_factory):
@@ -57,7 +60,7 @@ class EventRepository:
                 if isinstance(event, dict):
                     event.update(safe_fields)
             except Exception as e:
-                print(f"[EventRepository] ⚠️ update_event failed: {e}")
+                logger.warning("update_event failed: %s", e)
                 await session.rollback()
         return event
 
@@ -97,6 +100,6 @@ class EventRepository:
                 await session.commit()
                 return result.fetchone()
             except Exception as e:
-                print(f"[LOUD DEBUG] ⚠️ Could not log alert to DB: {e}")
+                logger.warning("Could not log alert to DB: %s", e)
                 await session.rollback()
                 return None

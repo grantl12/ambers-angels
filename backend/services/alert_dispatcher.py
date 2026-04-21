@@ -7,8 +7,11 @@ When a saved frame is available it is attached to the Discord message as an
 image embed so operators can see the triggering photo inline.
 """
 import json
+import logging
 import os
 import httpx
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -61,7 +64,7 @@ class AlertDispatcher:
         alert_type = event.get("alert_type")  if is_dict else getattr(event, "alert_type",  None)
         confidence = event.get("confidence")  if is_dict else getattr(event, "confidence",  None)
 
-        print(f"[AlertDispatcher] 🚨 Dispatching alert — Plate: {plate} | Drone: {drone_id}")
+        logger.info("Dispatching alert — Plate: %s | Drone: %s", plate, drone_id)
 
         # 1. Optional DB logging
         if self.repository is not None and hasattr(self.repository, "create_alert"):
@@ -73,11 +76,11 @@ class AlertDispatcher:
                     channel="DISCORD",
                 )
             except Exception as e:
-                print(f"[AlertDispatcher] ⚠️  DB alert log failed: {e}")
+                logger.warning("DB alert log failed: %s", e)
 
         # 2. Discord webhook
         if not self.webhook_url:
-            print("[AlertDispatcher] ⚠️  No webhook URL configured — skipping Discord dispatch.")
+            logger.warning("No webhook URL configured — skipping Discord dispatch.")
             return
 
         frame_bytes = self._load_frame(frame_url)
@@ -134,11 +137,11 @@ class AlertDispatcher:
 
                 if resp.status_code in (200, 204):
                     attached = "with frame" if frame_bytes else "text-only"
-                    print(f"[AlertDispatcher] ✅ Discord dispatch successful for {plate} ({attached})")
+                    logger.info("Discord dispatch successful for %s (%s)", plate, attached)
                 else:
-                    print(f"[AlertDispatcher] ❌ Discord returned {resp.status_code}: {resp.text[:200]}")
+                    logger.error("Discord returned %s: %s", resp.status_code, resp.text[:200])
             except Exception as e:
-                print(f"[AlertDispatcher] ❌ Network error sending to Discord: {e}")
+                logger.error("Network error sending to Discord: %s", e)
 
     # -------------------------------------------------------------------------
 
@@ -163,13 +166,13 @@ class AlertDispatcher:
             path = max(matches, key=os.path.getmtime)
         size = os.path.getsize(path)
         if size > _MAX_BYTES:
-            print(f"[AlertDispatcher] ⚠️  Frame {filename} is {size // 1024}KB — too large for Discord, skipping.")
+            logger.warning("Frame %s is %dKB — too large for Discord, skipping.", filename, size // 1024)
             return None
         try:
             with open(path, "rb") as f:
                 return f.read()
         except Exception as e:
-            print(f"[AlertDispatcher] ⚠️  Could not read frame {path}: {e}")
+            logger.warning("Could not read frame %s: %s", path, e)
             return None
 
 

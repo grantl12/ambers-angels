@@ -18,9 +18,12 @@ FEMA IPAWS public feed:
 """
 
 import asyncio
+import logging
 import os
 import re
 import xml.etree.ElementTree as ET
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -317,7 +320,7 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
     try:
         root = ET.fromstring(xml_bytes)
     except ET.ParseError as e:
-        print(f"[FEMA] ❌ XML parse error: {e}")
+        logger.error("XML parse error: %s", e)
         return []
 
     alerts: list[dict] = []
@@ -422,7 +425,7 @@ async def _add_to_watchlist(
             await session.commit()
             return result.rowcount > 0
         except Exception as e:
-            print(f"[FEMA] ❌ Watchlist insert failed for {plate}: {e}")
+            logger.error("Watchlist insert failed for %s: %s", plate, e)
             await session.rollback()
             return False
 
@@ -476,7 +479,7 @@ async def _add_vehicle_target(session_factory, alert: dict) -> bool:
             await session.commit()
             return result.rowcount > 0
         except Exception as e:
-            print(f"[FEMA] ❌ Vehicle target insert failed: {e}")
+            logger.error("Vehicle target insert failed: %s", e)
             await session.rollback()
             return False
 
@@ -492,9 +495,9 @@ async def _post_discord(webhook_url: str, content: str) -> None:
         async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
             resp = await client.post(webhook_url, json={"content": content})
         if resp.status_code not in (200, 204):
-            print(f"[FEMA] ❌ Discord returned {resp.status_code}")
+            logger.error("Discord returned %s", resp.status_code)
     except Exception as e:
-        print(f"[FEMA] ❌ Discord error: {e}")
+        logger.error("Discord error: %s", e)
 
 
 async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
@@ -602,7 +605,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
             )
             matched = rows.fetchall()
     except Exception as e:
-        print(f"[FEMA] ❌ Watch-area query failed: {e}")
+        logger.error("Watch-area query failed: %s", e)
         return
 
     if not matched:
@@ -638,11 +641,11 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                     headers={"Accept": "application/json", "Content-Type": "application/json"},
                 )
             if resp.status_code in (200, 204):
-                print(f"[FEMA] 📲 Expo push sent to {len(push_tokens)} device(s)")
+                logger.info("Expo push sent to %d device(s)", len(push_tokens))
             else:
-                print(f"[FEMA] ⚠️  Expo push returned {resp.status_code}")
+                logger.warning("Expo push returned %s", resp.status_code)
         except Exception as e:
-            print(f"[FEMA] ❌ Expo push failed: {e}")
+            logger.error("Expo push failed: %s", e)
 
     # ── Email ─────────────────────────────────────────────────────────────────
     email_pilots = [
@@ -655,7 +658,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
 
         smtp_host = os.getenv("SMTP_HOST")
         if not smtp_host:
-            print(f"[FEMA] ⚠️  SMTP not configured — skipping {len(email_pilots)} watch-area email(s).")
+            logger.warning("SMTP not configured — skipping %d watch-area email(s).", len(email_pilots))
         else:
             subject = f"[Amber's Angels] {atype['short']} alert in your watch area — {alert['area']}"
             body_tpl = (
@@ -681,9 +684,9 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                         s.starttls()
                         s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
                         s.send_message(msg)
-                    print(f"[FEMA] 📧 Watch-area email sent to {email}")
+                    logger.info("Watch-area email sent to %s", email)
                 except Exception as e:
-                    print(f"[FEMA] ❌ Watch-area email to {email} failed: {e}")
+                    logger.error("Watch-area email to %s failed: %s", email, e)
 
 
 # ---------------------------------------------------------------------------
@@ -697,26 +700,26 @@ _seen_identifiers: set[str] = set()
 # ---------------------------------------------------------------------------
 
 async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) -> None:
-    print(f"[FEMA] 🛰️  Polling IPAWS ({FEMA_LOOKBACK_MINUTES}m lookback)...")
+    logger.info("Polling IPAWS (%dm lookback)...", FEMA_LOOKBACK_MINUTES)
 
     try:
         async with httpx.AsyncClient(timeout=15.0, verify=False) as client:
             resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
     except Exception as e:
-        print(f"[FEMA] ❌ Fetch error: {e}")
+        logger.error("IPAWS fetch error: %s", e)
         return
 
     if resp.status_code == 404:
-        print("[FEMA] ✅ No active alerts in lookback window.")
+        logger.info("No active alerts in lookback window.")
         return
     if resp.status_code != 200:
-        print(f"[FEMA] ⚠️  IPAWS returned HTTP {resp.status_code}")
+        logger.warning("IPAWS returned HTTP %s", resp.status_code)
         return
 
     alerts = _parse_cap_alerts(resp.content)
 
     if not alerts:
-        print("[FEMA] ✅ No monitored alerts found.")
+        logger.info("No monitored alerts found.")
         return
 
     for alert in alerts:
@@ -726,9 +729,9 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
 
         _seen_identifiers.add(ident)
         atype = alert["alert_type"]
-        print(
-            f"[FEMA] {atype['emoji']} {atype['short']} detected: "
-            f"{alert['source_program']} | {alert['headline']} | Area: {alert['area']}"
+        logger.info(
+            "%s detected: %s | %s | Area: %s",
+            atype["short"], alert["source_program"], alert["headline"], alert["area"]
         )
 
         # Always store vehicle profile (useful even when plates are present)
@@ -736,13 +739,13 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
         if stored:
             profile = alert.get("vehicle_profile", {})
             vdesc = " ".join(filter(None, [profile.get("color"), profile.get("body_type"), profile.get("make")])).title()
-            print(f"[FEMA] 🚗 Vehicle target stored: {vdesc or 'profile incomplete'}")
+            logger.info("Vehicle target stored: %s", vdesc or "profile incomplete")
 
         # Notify pilots watching this geographic area regardless of their location
         await _notify_watching_pilots(session_factory, alert)
 
         if not alert["plates"]:
-            print(f"[FEMA] ⚠️  No plate found — sending no-plate notification.")
+            logger.warning("No plate found in alert — sending no-plate notification.")
             if webhook_url:
                 await _notify_no_plate(webhook_url, alert)
             continue
@@ -764,9 +767,9 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             )
             if inserted:
                 new_plates.append(plate)
-                print(f"[FEMA] ✅ Watchlist: {plate} ({atype['short']})")
+                logger.info("Watchlist: %s (%s)", plate, atype["short"])
             else:
-                print(f"[FEMA] ℹ️  {plate} already on watchlist.")
+                logger.debug("%s already on watchlist.", plate)
 
         if new_plates and webhook_url:
             await _notify_plates(webhook_url, alert, new_plates)
@@ -810,7 +813,7 @@ async def _refresh_vehicle_targets(session_factory) -> list[dict]:
         ]
         _vt_cache_at = _time.time()
     except Exception as e:
-        print(f"[FEMA] ⚠️  Vehicle target cache refresh failed: {e}")
+        logger.warning("Vehicle target cache refresh failed: %s", e)
     return _vt_cache
 
 
@@ -858,9 +861,9 @@ async def check_vehicle_targets(
                 continue
 
             _match_cooldowns[key] = now
-            print(
-                f"[FEMA] 🎯 Vehicle match: {v_color} {v_body} on drone {drone_id} "
-                f"→ target #{target['id']} ({target.get('alert_type', '?')})"
+            logger.info(
+                "Vehicle match: %s %s on drone %s → target #%s (%s)",
+                v_color, v_body, drone_id, target["id"], target.get("alert_type", "?")
             )
 
             if webhook_url:
@@ -876,11 +879,11 @@ async def check_vehicle_targets(
 # ---------------------------------------------------------------------------
 
 async def fema_background_loop(session_factory, webhook_url: Optional[str] = None) -> None:
-    print(f"[FEMA] 🟢 Connector started. Poll interval: {POLL_INTERVAL_SECONDS}s")
-    print(f"[FEMA] 👁  Monitoring: {', '.join(e['short'] for e in ALERT_REGISTRY)}")
+    logger.info("FEMA connector started. Poll interval: %ds", POLL_INTERVAL_SECONDS)
+    logger.info("Monitoring: %s", ", ".join(e["short"] for e in ALERT_REGISTRY))
     while True:
         try:
             await poll_fema_ipaws(session_factory, webhook_url)
         except Exception as e:
-            print(f"[FEMA] ❌ Unexpected error in poll loop: {e}")
+            logger.error("Unexpected error in poll loop: %s", e)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)

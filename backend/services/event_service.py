@@ -1,6 +1,9 @@
 from __future__ import annotations
+import logging
 import uuid
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta, timezone
 from typing import Protocol, Any
 from uuid import UUID
@@ -53,10 +56,10 @@ class EventService:
         self.reopen_window_seconds = reopen_window_seconds
 
     async def upsert_from_snapshot(self, snapshot: EventSnapshot) -> EventDecision | None:
-        print(f"\n[LOUD DEBUG] 📥 Processing Snapshot: {snapshot.plate_best} (Confidence: {snapshot.aggregate_confidence})")
-        
+        logger.debug("Processing snapshot: %s (confidence: %s)", snapshot.plate_best, snapshot.aggregate_confidence)
+
         if not snapshot.should_open_event:
-            print("[LOUD DEBUG] 🛑 Snapshot rejected: 'should_open_event' is False.")
+            logger.debug("Snapshot rejected: should_open_event is False")
             return None
 
         # 1. Database Lookup
@@ -65,11 +68,11 @@ class EventService:
             existing = await self._find_recent_reopen_candidate(snapshot)
 
         if existing is None:
-            print(f"[LOUD DEBUG] ✨ Creating NEW event for {snapshot.plate_best}")
+            logger.debug("Creating new event for %s", snapshot.plate_best)
             event = await self.repository.create_event(self._build_create_payload(snapshot))
             created, updated = True, False
         else:
-            print(f"[LOUD DEBUG] 🔄 Updating EXISTING event ID: {existing.get('id') if isinstance(existing, dict) else existing.id}")
+            logger.debug("Updating existing event ID: %s", existing.get('id') if isinstance(existing, dict) else existing.id)
             event = await self.repository.update_event(existing, self._build_update_fields(existing, snapshot))
             created, updated = False, True
 
@@ -81,7 +84,7 @@ class EventService:
 
         # 3. DISPATCH TO DISCORD
         if should_dispatch_alert:
-            print(f"[LOUD DEBUG] 🚨 ALERT TRIGGERED for {snapshot.plate_best}!")
+            logger.info("Alert triggered for %s", snapshot.plate_best)
             # Store frame_url so the frontend can show the thumbnail
             frame_url = f"/frames/{snapshot.best_frame_id}" if snapshot.best_frame_id else None
             event = await self.repository.update_event(
@@ -106,11 +109,11 @@ class EventService:
                             "accuracy": c.get("accuracy"),
                         }
                 await self.dispatcher.dispatch(event, vehicle_context=vehicle_context, location=location)
-                print(f"[LOUD DEBUG] ✅ Discord Dispatch Successful.")
+                logger.info("Discord dispatch successful for %s", snapshot.plate_best)
             except Exception as e:
-                print(f"[LOUD DEBUG] ❌ Discord Dispatch FAILED: {e}")
+                logger.error("Discord dispatch failed: %s", e)
         else:
-            print(f"[LOUD DEBUG] ℹ️ Alert Suppressed. Reason: {suppression_reason}")
+            logger.debug("Alert suppressed: %s", suppression_reason)
 
         # 4. TRACE RECORD
         try:
@@ -119,7 +122,7 @@ class EventService:
                 await session.execute(sql, {"d": snapshot.drone_id, "p": snapshot.plate_best, "c": snapshot.aggregate_confidence, "t": datetime.now(timezone.utc)})
                 await session.commit()
         except Exception as e:
-            print(f"[LOUD DEBUG] ⚠️ Trace record failed: {e}")
+            logger.warning("Trace record failed: %s", e)
 
         return EventDecision(event, created, updated, should_dispatch_alert, suppression_reason, cooldown_expires_at)
 
@@ -143,7 +146,7 @@ class EventService:
             if similarity >= 0.7 or target_up in plate or plate in target_up:
                 match_found = target
                 matched_row = row
-                print(f"[LOUD DEBUG] 🎯 FUZZY MATCH: {plate} matches {target} (Sim: {similarity:.2f})")
+                logger.info("Fuzzy match: %s matches %s (similarity: %.2f)", plate, target, similarity)
                 break
 
         if not match_found:

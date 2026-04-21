@@ -9,6 +9,7 @@ GET /telemetry/trail
 GET /detections/feed
 """
 
+import logging
 from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -18,6 +19,8 @@ import math
 import uuid
 import requests as _requests
 import database
+
+logger = logging.getLogger(__name__)
 from services.badge_service import compute_all_badges
 from routers.auth import get_current_pilot, require_admin, require_coordinator
 from services.coverage_service import compute_priority_zones, compute_coverage_map
@@ -37,7 +40,7 @@ def _fetch_flock_for_bbox(db, south: float, north: float, west: float, east: flo
         tile_size: float = idx["tile_size_degrees"]
         tile_url: str    = idx["tile_url"]
     except Exception as exc:
-        print(f"[FLOCK] DeFlock index fetch failed: {exc}")
+        logger.warning("DeFlock index fetch failed: %s", exc)
         return
 
     lat_min = math.floor(south / tile_size) * tile_size
@@ -90,7 +93,7 @@ def _fetch_flock_for_bbox(db, south: float, north: float, west: float, east: flo
                 scraped_at = NOW()
         """), rows)
         db.commit()
-        print(f"[FLOCK] Live-fetched {len(rows)} cameras for bbox")
+        logger.info("Live-fetched %d cameras for bbox", len(rows))
 
 router = APIRouter()
 
@@ -762,7 +765,7 @@ def _geocode(area: str) -> tuple[float, float] | None:
         if results:
             return float(results[0]["lat"]), float(results[0]["lon"])
     except Exception as e:
-        print(f"[manual-alert] geocode failed for {area!r}: {e}")
+        logger.warning("Manual alert geocode failed for %r: %s", area, e)
     return None
 
 
@@ -802,7 +805,7 @@ def _discord_zone_embed(
     try:
         _requests.post(webhook_url, json={"embeds": [embed]}, timeout=5)
     except Exception as e:
-        print(f"[manual-alert] Discord notify failed: {e}")
+        logger.warning("Manual alert Discord notify failed: %s", e)
 
 
 class ManualAlertRequest(BaseModel):

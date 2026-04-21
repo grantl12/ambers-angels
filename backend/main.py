@@ -6,8 +6,16 @@ import sys
 import os
 import uuid
 import asyncio
+import logging
 import tempfile
 from contextlib import asynccontextmanager
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -244,7 +252,7 @@ async def create_detection(
                 })
                 await session.commit()
         except Exception as e:
-            print(f"[detections] ⚠️ telemetry_point write failed: {e}")
+            logger.warning("telemetry_point write failed: %s", e)
 
     det_input = AggDetectionInput(
         detection_id=str(uuid.uuid4()),
@@ -436,7 +444,7 @@ async def ingest_frame(
                 })
                 await session.commit()
         except Exception as e:
-            print(f"[ingest/frame] ⚠️ telemetry_point write failed: {e}")
+            logger.warning("telemetry_point write failed: %s", e)
 
     frame_id = str(uuid.uuid4())
     outcomes = []
@@ -447,7 +455,7 @@ async def ingest_frame(
         with open(frame_path, "wb") as f:
             f.write(frame_bytes)
     except Exception as e:
-        print(f"[ingest/frame] ⚠️ Could not save frame to disk: {e}")
+        logger.warning("Could not save frame to disk: %s", e)
         frame_path = None
 
     repo       = EventRepository(database.AsyncSessionLocal)

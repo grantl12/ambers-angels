@@ -33,6 +33,7 @@ so it is safe to call unconditionally.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -40,6 +41,8 @@ from typing import Any
 
 import cv2
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +105,7 @@ def apply_clahe(image_path: str) -> tuple[str, bool]:
         return tmp_path, True
 
     except Exception as e:
-        print(f"[Preprocessor] ⚠️  CLAHE failed: {e}")
+        logger.warning("CLAHE failed: %s", e)
         return image_path, False
 
 
@@ -208,14 +211,14 @@ def _try_deskew_and_read(
             merged["candidates"] = best.get("candidates", original_detection.get("candidates", []))
             merged["deskew_applied"] = True
             merged["deskew_gain"]    = round(deskew_conf - orig_conf, 2)
-            print(
-                f"[Preprocessor] ✅ Deskew improved {original_detection.get('plate')} "
-                f"→ {best['plate']}  ({orig_conf:.1f}% → {deskew_conf:.1f}%)"
+            logger.debug(
+                "Deskew improved %s → %s (%.1f%% → %.1f%%)",
+                original_detection.get("plate"), best["plate"], orig_conf, deskew_conf
             )
             return merged
 
         return original_detection
 
     except Exception as e:
-        print(f"[Preprocessor] ⚠️  Deskew failed: {e}")
+        logger.warning("Deskew failed: %s", e)
         return original_detection

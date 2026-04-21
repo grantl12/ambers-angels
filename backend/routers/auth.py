@@ -14,9 +14,12 @@ The first pilot to register is auto-approved as admin so there's always
 at least one account that can approve others.
 """
 
+import logging
 import os
 import random
 import smtplib
+
+logger = logging.getLogger(__name__)
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -54,7 +57,7 @@ def _send_email(to: str, subject: str, body: str) -> None:
             s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
             s.send_message(msg)
     except Exception as e:
-        print(f"[email] send failed: {e}")
+        logger.warning("Email send failed: %s", e)
 
 # ---------------------------------------------------------------------------
 # Config

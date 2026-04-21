@@ -1,3 +1,7 @@
+// PM2 process definitions for Amber's Angels.
+// Secrets are loaded from .env by each application at startup — do NOT
+// put credentials here.  Copy .env.example → .env and fill in your values
+// before running: pm2 start ecosystem.config.js
 module.exports = {
   apps: [
     {
@@ -6,11 +10,6 @@ module.exports = {
       args: "backend.main:app --host 0.0.0.0 --port 8000",
       cwd: "/home/ambers-angels/proj_dir/ambers-angels",
       autorestart: true,
-      env: {
-        DATABASE_URL: "postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels",
-        JWT_SECRET: "6fd3d6ee34525198873092d44b300f99312d0aeefb664f7395c1517f0e9cd084",
-        ALERT_WEBHOOK_URL: "https://discord.com/api/webhooks/1487118233978015809/x4vC4bi56xCJmWzAZIORinokhE6q9Utc5kKAIraaqcj0ubRd3ZDRi91tSV3QEGbh84ic",
-      }
     },
     {
       name: "ambers-angels-web",

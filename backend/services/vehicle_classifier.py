@@ -10,8 +10,11 @@ On first run ultralytics will download the weights automatically.
 """
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from typing import Optional
 
 import cv2
@@ -138,5 +141,5 @@ def classify(image_path: str) -> list[VehicleAttributes]:
         return vehicles
 
     except Exception as e:
-        print(f"[VehicleClassifier] ⚠️ classify failed: {e}")
+        logger.warning("classify failed: %s", e)
         return []

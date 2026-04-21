@@ -12,6 +12,7 @@ backend/openalpr/*
 # Secrets / env
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 

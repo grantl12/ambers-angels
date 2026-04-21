@@ -14,8 +14,11 @@ attributes are enrichment only, never blocking.
 """
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from typing import Optional
 
 import httpx
@@ -71,11 +74,11 @@ async def recognize_async(image_bytes: bytes, regions: list[str] | None = None) 
                 data=data,
             )
         if resp.status_code not in (200, 201):
-            print(f"[PlateRecognizer] ⚠️ API returned {resp.status_code}")
+            logger.warning("Plate Recognizer API returned %s", resp.status_code)
             return []
         return _parse_response(resp.json())
     except Exception as e:
-        print(f"[PlateRecognizer] ⚠️ async request failed: {e}")
+        logger.warning("Plate Recognizer async request failed: %s", e)
         return []
 
 
@@ -96,9 +99,9 @@ def recognize_sync(image_path: str, regions: list[str] | None = None) -> list[PR
                 timeout=8,
             )
         if resp.status_code not in (200, 201):
-            print(f"[PlateRecognizer] ⚠️ API returned {resp.status_code}")
+            logger.warning("Plate Recognizer API returned %s", resp.status_code)
             return []
         return _parse_response(resp.json())
     except Exception as e:
-        print(f"[PlateRecognizer] ⚠️ sync request failed: {e}")
+        logger.warning("Plate Recognizer sync request failed: %s", e)
         return []
