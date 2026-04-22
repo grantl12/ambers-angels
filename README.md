@@ -211,12 +211,12 @@ We built privacy in from the start, not as an afterthought.
 
 - **No video archive.** Raw frames are deleted immediately after processing. Nothing is stored.
 - **Minimum data.** We collect only what is operationally necessary: GPS telemetry during missions, license plate reads, and pilot account information.
-- **Short retention windows.** Telemetry is purged after 90 days. Detection records after 1 year. See our full [Data Retention Policy](https://ambersangels.org/retention).
+- **Short retention windows.** Telemetry is purged after 90 days. Detection records after 1 year. See our full [Data Retention Policy](https://amberangels.org/retention).
 - **No third-party data sales.** We do not sell, rent, or share personal data with advertisers or data brokers under any circumstances.
 - **Transparent watchlist.** The platform only flags vehicles that match an active government-issued alert. It does not build or maintain its own persistent database of plate sightings.
 - **Volunteer-only access.** The dashboard, detection data, and pilot portal are accessible only to approved, identity-verified volunteers.
 
-Full policies: [Privacy Policy](https://ambersangels.org/privacy) · [Terms of Service](https://ambersangels.org/terms) · [Data Retention Policy](https://ambersangels.org/retention)
+Full policies: [Privacy Policy](https://amberangels.org/privacy) · [Terms of Service](https://amberangels.org/terms) · [Data Retention Policy](https://amberangels.org/retention)
 
 ---
 
@@ -368,7 +368,7 @@ cd web && npm install && npm run build && cd ..
 cat > web/.env.local <<'EOF'
 NEXT_PUBLIC_APP_NAME=Amber's Angels
 NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token
-NEXT_PUBLIC_API_BASE_URL=https://ambersangels.org/api
+NEXT_PUBLIC_API_BASE_URL=https://amberangels.org/api
 EOF
 
 # Launch everything under PM2
@@ -391,7 +391,7 @@ sudo ln -s /etc/nginx/sites-available/ambersangels /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # Obtain a certificate (fills in the ssl_* lines automatically)
-sudo certbot --nginx -d ambersangels.org -d www.ambersangels.org
+sudo certbot --nginx -d amberangels.org -d www.amberangels.org
 
 # Certbot installs a renewal cron automatically — verify with:
 sudo certbot renew --dry-run
@@ -423,7 +423,7 @@ Amber's Angels operates entirely on volunteer labor and donated infrastructure. 
 - **State-level homeland security and public safety grants**
 - **Corporate technology sponsorships** (cloud credits, API access, drone hardware)
 
-If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **admin@ambersangels.org**.
+If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **admin@amberangels.org**.
 
 Amber's Angels is a registered 501(c)(3) nonprofit. Donations are tax-deductible to the extent permitted by law.
 
@@ -435,14 +435,14 @@ Amber's Angels is a registered 501(c)(3) nonprofit. Donations are tax-deductible
 
 **Developers** — Issues and pull requests welcome. See open issues for the current roadmap.
 
-**Organizations** — If you are a law enforcement agency, search-and-rescue organization, or child safety nonprofit and want to explore a formal partnership, reach out at **admin@ambersangels.org**.
+**Organizations** — If you are a law enforcement agency, search-and-rescue organization, or child safety nonprofit and want to explore a formal partnership, reach out at **admin@amberangels.org**.
 
 ---
 
 ## Legal
 
-- [Privacy Policy](https://ambersangels.org/privacy)
-- [Terms of Service](https://ambersangels.org/terms)
-- [Data Retention Policy](https://ambersangels.org/retention)
+- [Privacy Policy](https://amberangels.org/privacy)
+- [Terms of Service](https://amberangels.org/terms)
+- [Data Retention Policy](https://amberangels.org/retention)
 
 Amber's Angels is a volunteer-run nonprofit. The platform is provided as-is. Pilots are responsible for complying with all applicable FAA regulations and local laws. Nothing in this platform constitutes legal advice or a guarantee of child recovery outcomes.

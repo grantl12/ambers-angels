@@ -75,7 +75,7 @@ Aerial nodes can cover terrain that ground vehicles cannot — fields, wooded ar
 
 ### Role C: Mission Coordinator (Advanced — Separate Training Required)
 
-Coordinators review AI-flagged detections and decide whether to escalate to law enforcement. This role requires a separate application, additional vetting, and dedicated training. If you are interested, contact admin@ambersangels.org after completing your first 3 active missions as a ground volunteer.
+Coordinators review AI-flagged detections and decide whether to escalate to law enforcement. This role requires a separate application, additional vetting, and dedicated training. If you are interested, contact admin@amberangels.org after completing your first 3 active missions as a ground volunteer.
 
 ---
 
@@ -179,7 +179,7 @@ If you witness an active emergency (assault, accident, abduction in progress):
 1. **Call 911 immediately** — this is always the first step
 2. End your mission in the app
 3. Follow 911 operator instructions
-4. After the situation is resolved, contact admin@ambersangels.org to report the incident
+4. After the situation is resolved, contact admin@amberangels.org to report the incident
 
 The app does **not** replace 911. We are a search support tool, not an emergency dispatch system.
 
@@ -189,7 +189,7 @@ The app does **not** replace 911. We are a search support tool, not an emergency
 - Maintain altitude awareness — know your airspace class
 - If you lose visual contact with your drone, land immediately
 - Never attempt to recover a drone that has landed on private property without permission
-- Report any near-miss incidents to admin@ambersangels.org within 24 hours
+- Report any near-miss incidents to admin@amberangels.org within 24 hours
 
 ---
 
@@ -231,7 +231,7 @@ You will be notified in-app when your active mission is terminated. Please end y
 A: Do not follow it. Do not stop near it. Continue driving normally. The app will have already flagged it if it's a match. Your coordinator is handling it. Call 911 only if you observe an active emergency.
 
 **Q: Can I volunteer if I don't have a car mount?**
-A: Not for active driving missions — a mounted, stable camera is required for accurate detection. Car mounts are inexpensive ($15–$30) and worth the investment. Contact admin@ambersangels.org if cost is a barrier.
+A: Not for active driving missions — a mounted, stable camera is required for accurate detection. Car mounts are inexpensive ($15–$30) and worth the investment. Contact admin@amberangels.org if cost is a barrier.
 
 **Q: What if an alert fires while I'm at work or otherwise unavailable?**
 A: Decline the mission in the app. It takes two taps. We will never penalize you for being unavailable.
@@ -240,7 +240,7 @@ A: Decline the mission in the app. It takes two taps. We will never penalize you
 A: Yes, once our multi-county deployment launches. During the Carroll County pilot, please focus on in-county coverage.
 
 **Q: I'm a retired law enforcement officer. Can I serve as a coordinator?**
-A: Your background is extremely valuable and we want to talk to you. Please email admin@ambersangels.org with your experience.
+A: Your background is extremely valuable and we want to talk to you. Please email admin@amberangels.org with your experience.
 
 **Q: What happens to the detection data after an alert ends?**
 A: GPS telemetry is retained for 90 days for mission analysis and deleted. Detection records (plate + VMMC data for confirmed leads) are retained for 1 year for law enforcement reference on the active case. Raw video is never stored.
@@ -279,7 +279,7 @@ Before your first active mission, confirm all of the following:
 - [ ] Data Use Agreement signed
 - [ ] Car mount installed and tested
 - [ ] Test drive completed (use the "Practice Mode" in the app)
-- [ ] Emergency contact on file with admin@ambersangels.org
+- [ ] Emergency contact on file with admin@amberangels.org
 
 *For drone pilots, also:*
 - [ ] FAA Part 107 certificate uploaded to your profile
@@ -290,11 +290,11 @@ Before your first active mission, confirm all of the following:
 
 ## Contact
 
-**Questions about your volunteer status:** admin@ambersangels.org
-**Technical support:** admin@ambersangels.org (subject: "App Support")
+**Questions about your volunteer status:** admin@amberangels.org
+**Technical support:** admin@amberangels.org (subject: "App Support")
 **Urgent operational issue during a mission:** End mission → call 911 if emergency, then call your assigned coordinator
 
 **Amber's Angels Inc.**
-admin@ambersangels.org | ambersangels.org
+admin@amberangels.org | amberangels.org
 
 *This guide is reviewed and updated with each pilot phase. Version 1.0 — April 2026.*

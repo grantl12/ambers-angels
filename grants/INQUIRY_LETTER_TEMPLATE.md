@@ -47,8 +47,8 @@ Sincerely,
 
 Grant Lindberg
 Executive Director, Amber's Angels Inc.
-admin@ambersangels.org
+admin@amberangels.org
 [Phone Number]
-ambersangels.org
+amberangels.org
 
 *EIN: [from CP 575 E on file] | 501(c)(3) Application In Progress | Georgia SOS Registered*

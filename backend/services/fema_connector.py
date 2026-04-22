@@ -677,7 +677,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                 try:
                     msg = MIMEText(body_tpl.format(name=full_name or email.split("@")[0]), "plain")
                     msg["Subject"] = subject
-                    msg["From"]    = os.getenv("SMTP_FROM", "noreply@ambersangels.org")
+                    msg["From"]    = os.getenv("SMTP_FROM", "noreply@amberangels.org")
                     msg["To"]      = email
                     port = int(os.getenv("SMTP_PORT", "587"))
                     with smtplib.SMTP(smtp_host, port) as s:

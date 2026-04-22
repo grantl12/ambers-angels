@@ -93,7 +93,7 @@ Our AI models (YOLOv8 + MobileNetV3 + OpenALPR) are mission-scoped tools, not au
 Questions regarding data governance, privacy concerns, or requests for records deletion may be directed to:
 
 **Amber's Angels Inc.**
-Email: admin@ambersangels.org
-Website: ambersangels.org
+Email: admin@amberangels.org
+Website: amberangels.org
 
 *Last Updated: April 22, 2026*

@@ -49,7 +49,7 @@ def _send_email(to: str, subject: str, body: str) -> None:
     try:
         msg = MIMEText(body, "plain")
         msg["Subject"] = subject
-        msg["From"]    = os.getenv("SMTP_FROM", "noreply@ambersangels.org")
+        msg["From"]    = os.getenv("SMTP_FROM", "noreply@amberangels.org")
         msg["To"]      = to
         port = int(os.getenv("SMTP_PORT", "587"))
         with smtplib.SMTP(host, port) as s:

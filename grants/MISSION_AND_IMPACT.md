@@ -151,8 +151,8 @@ Amber's Angels is more than a software platform — it is a life-saving bridge b
 
 **Contact Information:**
 - **Organization:** Amber's Angels (501(c)(3) in formation)
-- **Email:** admin@ambersangels.org
-- **Website:** ambersangels.org
+- **Email:** admin@amberangels.org
+- **Website:** amberangels.org
 - **Executive Director:** Grant Lindberg
 
 *Last Updated: April 22, 2026*

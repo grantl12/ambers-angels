@@ -56,3 +56,7 @@ scan_results.json
 # ML model weights (large binaries — download separately)
 *.pt
 *.pth
+
+# Personal/sensitive documents — keep local only
+grants/*.pdf
+grants/*.txt

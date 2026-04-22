@@ -69,8 +69,8 @@ export default function TermsPage() {
           Amber's Angels may suspend or terminate your account at any time for violation of
           these terms, unsafe behavior, or for any reason at our discretion. Appeals may be
           submitted to{" "}
-          <a href="mailto:admin@ambersangels.org" className="text-amber-400 hover:underline">
-            admin@ambersangels.org
+          <a href="mailto:admin@amberangels.org" className="text-amber-400 hover:underline">
+            admin@amberangels.org
           </a>.
         </Section>
 
@@ -80,8 +80,8 @@ export default function TermsPage() {
         </Section>
 
         <Section title="Contact">
-          <a href="mailto:admin@ambersangels.org" className="text-amber-400 hover:underline">
-            admin@ambersangels.org
+          <a href="mailto:admin@amberangels.org" className="text-amber-400 hover:underline">
+            admin@amberangels.org
           </a>
         </Section>
       </div>

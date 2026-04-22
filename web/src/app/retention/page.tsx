@@ -87,8 +87,8 @@ export default function RetentionPage() {
           personal fields are hard-deleted within <strong className="text-white/80">30 days</strong>. A
           pseudonymous record (username only) may be retained in mission logs for historical
           mission integrity. Deletion requests should be sent to{" "}
-          <a href="mailto:privacy@ambersangels.org" className="text-amber-400 hover:underline">
-            privacy@ambersangels.org
+          <a href="mailto:privacy@amberangels.org" className="text-amber-400 hover:underline">
+            privacy@amberangels.org
           </a>.
         </Section>
 
@@ -111,8 +111,8 @@ export default function RetentionPage() {
 
         <Section title="Data subject requests">
           To request a copy, correction, or deletion of your data, email{" "}
-          <a href="mailto:privacy@ambersangels.org" className="text-amber-400 hover:underline">
-            privacy@ambersangels.org
+          <a href="mailto:privacy@amberangels.org" className="text-amber-400 hover:underline">
+            privacy@amberangels.org
           </a>{" "}
           from the address associated with your account. We will respond within 14 days and
           complete eligible requests within 30 days.
