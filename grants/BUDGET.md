@@ -3,9 +3,12 @@
 ## 1. Executive Summary
 Amber's Angels is a Service-Disabled Veteran-Owned Small Business (SDVOSB) currently undergoing formal 501(c)(3) nonprofit transition. Our financial model prioritizes high-impact technology deployment with lean overhead, leveraging significant "In-Kind" professional contributions to maximize the value of every dollar received via grants and donations.
 
----
+## 2. Strategic Differentiators (The Amber's Angels Advantage)
+*   **Market Advantage:** We do not compete with expensive, fixed-infrastructure ALPR companies. Instead, we provide a decentralized software solution that fills the critical coverage gaps left by stationary cameras at a fraction of the cost.
+*   **Operational Sustainability:** By leveraging community-volunteered hardware (smartphones and drones), our capital expenditure remains extremely low. This ensures that grant funding is directed toward mission-critical infrastructure and field coordination rather than equipment procurement.
+*   **Mission-Specific Mobilization:** Our system is designed for "On-Demand" activation, triggered specifically by FEMA IPAWS alerts, ensuring privacy and public trust while maintaining rapid response capabilities.
 
-## 2. Annual Operating Budget (Hard Costs)
+## 3. Annual Operating Budget (Hard Costs)
 
 | Category | Item Description | Est. Cost (Annual) |
 | :--- | :--- | :--- |
