@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amber's Angels — AI-Powered Missing Person Search</title>
+  <meta name="description" content="A volunteer-driven, AI-powered search network that activates during AMBER Alerts to help bring missing children and vulnerable adults home safely.">
+  <link rel="icon" type="image/png" href="img/icon.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #050a0f;
+      --bg2:       #0d1117;
+      --bg3:       #111827;
+      --amber:     #f59e0b;
+      --amber-dim: #b45309;
+      --sky:       #38bdf8;
+      --purple:    #a78bfa;
+      --text:      #f1f5f9;
+      --muted:     rgba(241,245,249,0.55);
+      --border:    rgba(241,245,249,0.08);
+      --radius:    12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(5,10,15,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+    }
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.05rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-logo img { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; font-size: 0.9rem;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .btn {
+      display: inline-block; padding: 0.5rem 1.2rem;
+      background: var(--amber); color: #000;
+      font-weight: 700; font-size: 0.85rem; border-radius: 8px;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .btn:hover { background: #fbbf24; }
+    .btn-outline {
+      background: transparent; color: var(--amber);
+      border: 1.5px solid var(--amber);
+    }
+    .btn-outline:hover { background: rgba(245,158,11,0.1); }
+
+    /* ── SECTIONS ── */
+    section { padding: 5rem 1.5rem; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--amber); margin-bottom: 0.75rem;
+    }
+    h1 { font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; line-height: 1.15; }
+    h2 { font-size: clamp(1.5rem, 3.5vw, 2.25rem); font-weight: 700; line-height: 1.2; }
+    h3 { font-size: 1.1rem; font-weight: 700; }
+    p { color: var(--muted); }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: calc(100vh - 60px);
+      display: flex; align-items: center;
+      padding: 5rem 1.5rem;
+      background:
+        radial-gradient(ellipse 70% 50% at 60% 40%, rgba(245,158,11,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 60% at 20% 70%, rgba(56,189,248,0.05) 0%, transparent 70%);
+    }
+    .hero-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 4rem; align-items: center;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 100px; padding: 4px 14px;
+      font-size: 0.8rem; font-weight: 600; color: var(--amber);
+      margin-bottom: 1.5rem;
+    }
+    .hero-eyebrow span { width: 6px; height: 6px; background: var(--amber); border-radius: 50%; }
+    .hero-title { margin-bottom: 1.25rem; }
+    .hero-title em { font-style: normal; color: var(--amber); }
+    .hero-sub { font-size: 1.1rem; margin-bottom: 2rem; max-width: 520px; }
+    .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .hero-ctas .btn { padding: 0.75rem 1.75rem; font-size: 1rem; }
+    .hero-stat-row {
+      display: flex; gap: 2rem; margin-top: 3rem; padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+    .hero-stat strong { display: block; font-size: 1.75rem; font-weight: 800; color: var(--text); }
+    .hero-stat span { font-size: 0.8rem; color: var(--muted); }
+    .hero-img img {
+      width: 100%; border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    /* ── ALERT TICKER ── */
+    .ticker-bar {
+      background: rgba(239,68,68,0.1);
+      border-top: 1px solid rgba(239,68,68,0.2);
+      border-bottom: 1px solid rgba(239,68,68,0.2);
+      padding: 0.6rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+      font-size: 0.82rem;
+    }
+    .ticker-badge {
+      background: #ef4444; color: #fff; font-weight: 800;
+      font-size: 0.7rem; letter-spacing: 0.08em;
+      padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+    }
+    .ticker-text { color: var(--muted); }
+
+    /* ── HOW IT WORKS ── */
+    #how { background: var(--bg2); }
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem; margin-top: 3rem;
+    }
+    .step {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.75rem;
+      position: relative;
+    }
+    .step-num {
+      font-size: 2.5rem; font-weight: 800; color: rgba(245,158,11,0.15);
+      line-height: 1; margin-bottom: 0.75rem;
+    }
+    .step h3 { margin-bottom: 0.5rem; }
+    .step p { font-size: 0.9rem; }
+    .step-icon {
+      font-size: 1.5rem; margin-bottom: 0.5rem;
+    }
+    .how-graphic { margin-top: 3rem; }
+    .how-graphic img {
+      width: 100%; border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    /* ── ALERTS SUPPORTED ── */
+    #alerts { background: var(--bg); }
+    .alert-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem; margin-top: 3rem;
+    }
+    .alert-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem;
+      border-top: 3px solid var(--amber);
+    }
+    .alert-card.silver { border-top-color: #94a3b8; }
+    .alert-card.mattie { border-top-color: var(--purple); }
+    .alert-card.purple { border-top-color: #c084fc; }
+    .alert-card.blue   { border-top-color: var(--sky); }
+    .alert-type {
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--amber); margin-bottom: 0.5rem;
+    }
+    .alert-card.silver .alert-type { color: #94a3b8; }
+    .alert-card.mattie .alert-type { color: var(--purple); }
+    .alert-card.purple .alert-type { color: #c084fc; }
+    .alert-card.blue   .alert-type { color: var(--sky); }
+    .alert-card h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+    .alert-card p { font-size: 0.85rem; }
+
+    /* ── PRIVACY STRIP ── */
+    #privacy-strip {
+      background: linear-gradient(135deg, rgba(56,189,248,0.05) 0%, rgba(167,139,250,0.05) 100%);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .privacy-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2rem; margin-top: 3rem;
+    }
+    .privacy-item { display: flex; gap: 1rem; }
+    .privacy-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .privacy-item h3 { font-size: 0.95rem; margin-bottom: 0.25rem; }
+    .privacy-item p { font-size: 0.85rem; }
+
+    /* ── VOLUNTEER CTA ── */
+    #volunteer-cta {
+      background: var(--bg2);
+      text-align: center;
+    }
+    .cta-box {
+      background: linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(56,189,248,0.06) 100%);
+      border: 1px solid rgba(245,158,11,0.2);
+      border-radius: 20px; padding: 4rem 2rem; max-width: 700px; margin: 0 auto;
+    }
+    .cta-box h2 { margin-bottom: 1rem; }
+    .cta-box p { font-size: 1.05rem; margin-bottom: 2rem; }
+    .cta-box .btn { padding: 0.85rem 2.5rem; font-size: 1.05rem; }
+    .roles {
+      display: flex; justify-content: center; gap: 1rem;
+      flex-wrap: wrap; margin-top: 2rem;
+    }
+    .role-badge {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 100px; padding: 0.4rem 1rem;
+      font-size: 0.8rem; color: var(--muted);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg); border-top: 1px solid var(--border);
+      padding: 2.5rem 1.5rem;
+    }
+    .footer-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 1rem;
+    }
+    .footer-left { font-size: 0.85rem; color: var(--muted); }
+    .footer-left strong { color: var(--text); }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { font-size: 0.85rem; color: var(--muted); text-decoration: none; }
+    .footer-links a:hover { color: var(--text); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .hero-img { display: none; }
+      .hero-stat-row { gap: 1.25rem; }
+      .nav-links .btn-outline { display: none; }
+      section { padding: 3.5rem 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <img src="img/icon.png" alt="Amber's Angels">
+      Amber's Angels
+    </a>
+    <div class="nav-links">
+      <a href="#how">How It Works</a>
+      <a href="#alerts">Alert Types</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="volunteer.html" class="btn btn-outline">Volunteer</a>
+      <a href="volunteer.html" class="btn">Join the Search</a>
+    </div>
+  </div>
+</nav>
+
+<!-- TICKER -->
+<div class="ticker-bar">
+  <span class="ticker-badge">AMBER ALERT</span>
+  <span class="ticker-text">Amber's Angels activates automatically when FEMA IPAWS issues an alert in your area. Enroll once — respond when it matters.</span>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-eyebrow">
+          <span></span> 501(c)(3) Nonprofit · Veteran-Founded · Georgia
+        </div>
+        <h1 class="hero-title">
+          When minutes matter,<br><em>every volunteer counts.</em>
+        </h1>
+        <p class="hero-sub">
+          Amber's Angels turns everyday drivers and drone pilots into a real-time AI search network — activated automatically during AMBER Alerts to find missing children and vulnerable adults faster.
+        </p>
+        <div class="hero-ctas">
+          <a href="volunteer.html" class="btn">Become a Volunteer</a>
+          <a href="#how" class="btn btn-outline">See How It Works</a>
+        </div>
+        <div class="hero-stat-row">
+          <div class="hero-stat">
+            <strong>76%</strong>
+            <span>of abducted children killed<br>die within the first 3 hours</span>
+          </div>
+          <div class="hero-stat">
+            <strong>1,000+</strong>
+            <span>road miles covered<br>per active alert</span>
+          </div>
+          <div class="hero-stat">
+            <strong>&lt;5%</strong>
+            <span>false-positive rate<br>with VMMC verification</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-img">
+        <img src="img/alert-range.svg" alt="Alert coverage map visualization">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <p class="section-label">How It Works</p>
+    <h2>A search network that activates in minutes</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">🔔</div>
+        <h3>Alert Fires</h3>
+        <p>FEMA IPAWS issues an AMBER Alert. Our platform detects it within 60 seconds and pushes a mission notification to enrolled volunteers in the area.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">🚗</div>
+        <h3>Volunteers Deploy</h3>
+        <p>Volunteers accept the mission in the app and drive their assigned sector — or simply their normal route — with the app scanning their camera feed in real time.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">🤖</div>
+        <h3>AI Identifies</h3>
+        <p>Our Cascade Inference engine checks every frame for the suspect vehicle — plate, make, model, color, and year range. Frames are deleted immediately after processing.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-icon">👤</div>
+        <h3>Human Reviews</h3>
+        <p>Every AI detection is reviewed by a trained coordinator before anything reaches law enforcement. No automated alerts — ever.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-icon">🚔</div>
+        <h3>Law Enforcement Acts</h3>
+        <p>Confirmed leads are sent to law enforcement with GPS coordinates, timestamp, and vehicle details — a complete lead package, not just a plate number.</p>
+      </div>
+    </div>
+    <div class="how-graphic">
+      <img src="img/drone-camera.svg" alt="Optimal camera angles for license plate capture">
+    </div>
+  </div>
+</section>
+
+<!-- ALERT TYPES -->
+<section id="alerts">
+  <div class="container">
+    <p class="section-label">Alert Types</p>
+    <h2>We don't only search for children</h2>
+    <p style="margin-top:0.75rem; max-width:600px;">
+      Our platform activates for any government-issued missing person emergency — because every vulnerable life deserves the same urgency.
+    </p>
+    <div class="alert-grid">
+      <div class="alert-card">
+        <div class="alert-type">AMBER Alert</div>
+        <h3>Missing Children</h3>
+        <p>Activated when a child under 18 is believed to have been abducted. Highest priority. Time-critical.</p>
+      </div>
+      <div class="alert-card silver">
+        <div class="alert-type">Silver Alert</div>
+        <h3>Missing Seniors</h3>
+        <p>Issued for adults with dementia or Alzheimer's who have wandered or gone missing.</p>
+      </div>
+      <div class="alert-card mattie">
+        <div class="alert-type">Mattie's Call</div>
+        <h3>Adults with Disabilities</h3>
+        <p>Georgia's alert for at-risk adults with developmental or intellectual disabilities.</p>
+      </div>
+      <div class="alert-card purple">
+        <div class="alert-type">Purple Alert</div>
+        <h3>Persons with Disabilities</h3>
+        <p>For missing individuals with a broad range of disabilities who may need immediate assistance.</p>
+      </div>
+      <div class="alert-card blue">
+        <div class="alert-type">Blue Alert</div>
+        <h3>Endangered Officers</h3>
+        <p>Issued when a law enforcement officer is missing or endangered. Volunteers exercise extra caution.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section id="privacy-strip">
+  <div class="container">
+    <p class="section-label">Privacy by Design</p>
+    <h2>Technology that saves lives — not a surveillance tool</h2>
+    <p style="margin-top:0.75rem; max-width:620px;">
+      Every architectural decision we've made prevents the platform from becoming something it should never be. These aren't policies we can override — they're built into the system.
+    </p>
+    <div class="privacy-grid">
+      <div class="privacy-item">
+        <div class="privacy-icon">🗑️</div>
+        <div>
+          <h3>No Video Storage</h3>
+          <p>Frames are analyzed in memory and deleted immediately. We never write raw footage to disk.</p>
+        </div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-icon">⚡</div>
+        <div>
+          <h3>Event-Triggered Only</h3>
+          <p>Detection is dormant between alerts. There is no passive background scanning — ever.</p>
+        </div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-icon">✋</div>
+        <div>
+          <h3>Human-in-the-Loop</h3>
+          <p>No AI result reaches law enforcement without a trained human coordinator reviewing it first.</p>
+        </div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-icon">🔒</div>
+        <div>
+          <h3>Minimum Data</h3>
+          <p>We only collect what the active mission requires. GPS telemetry is deleted after 90 days.</p>
+        </div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-icon">🙈</div>
+        <div>
+          <h3>Faces Obfuscated</h3>
+          <p>Our pipeline automatically obfuscates faces and non-suspect plates of innocent bystanders.</p>
+        </div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-icon">📄</div>
+        <div>
+          <h3>Public Policy</h3>
+          <p>Our full data governance policy is public. <a href="privacy.html" style="color:var(--sky);">Read it here →</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MISSION MAP VISUAL -->
+<section style="padding: 0; background: var(--bg2);">
+  <img src="img/mission-map.svg" alt="Live mission coordinator map" style="width:100%; display:block;">
+</section>
+
+<!-- VOLUNTEER CTA -->
+<section id="volunteer-cta">
+  <div class="container">
+    <div class="cta-box">
+      <p class="section-label">Get Involved</p>
+      <h2>You already have everything you need</h2>
+      <p>A smartphone, a car, and a willingness to help. Amber's Angels turns your normal commute into a search mission — only when it matters, only with your consent.</p>
+      <a href="volunteer.html" class="btn">Become a Volunteer</a>
+      <div class="roles">
+        <span class="role-badge">🚗 Ground Vehicle Volunteer</span>
+        <span class="role-badge">🚁 Drone Pilot (Part 107)</span>
+        <span class="role-badge">👤 Mission Coordinator</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <strong>Amber's Angels Inc.</strong> — 501(c)(3) nonprofit in formation · SDVOSB · Carroll County, Georgia<br>
+      <a href="mailto:admin@ambersangels.org" style="color:var(--sky); text-decoration:none;">admin@ambersangels.org</a>
+    </div>
+    <div class="footer-links">
+      <a href="volunteer.html">Volunteer</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="mailto:admin@ambersangels.org">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

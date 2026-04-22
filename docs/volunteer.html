@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volunteer — Amber's Angels</title>
+  <meta name="description" content="Join Amber's Angels as a volunteer. Use your smartphone or drone to help find missing children and vulnerable adults during active AMBER Alerts.">
+  <link rel="icon" type="image/png" href="img/icon.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#050a0f; --bg2:#0d1117; --bg3:#111827;
+      --amber:#f59e0b; --sky:#38bdf8; --purple:#a78bfa;
+      --text:#f1f5f9; --muted:rgba(241,245,249,0.55);
+      --border:rgba(241,245,249,0.08); --radius:12px;
+    }
+    body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,'Segoe UI',sans-serif; line-height:1.6; }
+    nav { position:sticky;top:0;z-index:100;background:rgba(5,10,15,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem; }
+    .nav-inner { max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px; }
+    .nav-logo { display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;color:var(--text);text-decoration:none; }
+    .nav-logo img { width:32px;height:32px;border-radius:8px; }
+    .nav-links { display:flex;align-items:center;gap:1.5rem; }
+    .nav-links a { color:var(--muted);text-decoration:none;font-size:0.9rem;transition:color 0.15s; }
+    .nav-links a:hover { color:var(--text); }
+    .btn { display:inline-block;padding:0.5rem 1.2rem;background:var(--amber);color:#000;font-weight:700;font-size:0.85rem;border-radius:8px;text-decoration:none;transition:background 0.15s; }
+    .btn:hover { background:#fbbf24; }
+    .btn-outline { background:transparent;color:var(--amber);border:1.5px solid var(--amber); }
+    .btn-outline:hover { background:rgba(245,158,11,0.1); }
+    section { padding:5rem 1.5rem; }
+    .container { max-width:1100px;margin:0 auto; }
+    .section-label { font-size:0.75rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--amber);margin-bottom:0.75rem; }
+    h1 { font-size:clamp(2rem,5vw,3rem);font-weight:800;line-height:1.15; }
+    h2 { font-size:clamp(1.4rem,3vw,2rem);font-weight:700; }
+    h3 { font-size:1.05rem;font-weight:700; }
+    p { color:var(--muted); }
+
+    /* PAGE HERO */
+    .page-hero {
+      padding:5rem 1.5rem;
+      background:radial-gradient(ellipse 60% 60% at 50% 0%, rgba(245,158,11,0.08) 0%, transparent 70%);
+      text-align:center;
+    }
+    .page-hero h1 { margin-bottom:1rem; }
+    .page-hero p { font-size:1.1rem;max-width:600px;margin:0 auto; }
+
+    /* ROLES */
+    #roles { background:var(--bg2); }
+    .role-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-top:3rem; }
+    .role-card {
+      background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;
+      border-top:3px solid var(--amber);
+    }
+    .role-card.drone { border-top-color:var(--sky); }
+    .role-card.coord { border-top-color:var(--purple); }
+    .role-emoji { font-size:2rem;margin-bottom:1rem; }
+    .role-card h3 { font-size:1.2rem;margin-bottom:0.5rem; }
+    .role-card p { font-size:0.9rem;margin-bottom:1.25rem; }
+    .req-list { list-style:none; }
+    .req-list li { font-size:0.85rem;color:var(--muted);padding:0.3rem 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px; }
+    .req-list li:last-child { border-bottom:none; }
+    .req-list li::before { content:'→';color:var(--amber);flex-shrink:0; }
+    .role-card.drone .req-list li::before { color:var(--sky); }
+    .role-card.coord .req-list li::before { color:var(--purple); }
+
+    /* ONBOARDING STEPS */
+    #steps { background:var(--bg); }
+    .onboard-steps { display:flex;flex-direction:column;gap:1.5rem;margin-top:3rem;max-width:720px; }
+    .onboard-step { display:flex;gap:1.5rem;align-items:flex-start; }
+    .onboard-num {
+      width:48px;height:48px;border-radius:50%;flex-shrink:0;
+      background:rgba(245,158,11,0.1);border:1.5px solid rgba(245,158,11,0.3);
+      display:flex;align-items:center;justify-content:center;
+      font-size:1.1rem;font-weight:800;color:var(--amber);
+    }
+    .onboard-step h3 { margin-bottom:0.3rem; }
+    .onboard-step p { font-size:0.9rem; }
+    .mission-graphic { margin-top:3rem; }
+    .mission-graphic img { width:100%;border-radius:var(--radius);border:1px solid var(--border); }
+
+    /* FAQ */
+    #faq { background:var(--bg2); }
+    .faq-list { max-width:750px;margin-top:3rem; }
+    .faq-item { border-bottom:1px solid var(--border);padding:1.5rem 0; }
+    .faq-item:first-child { padding-top:0; }
+    .faq-q { font-weight:700;margin-bottom:0.5rem;color:var(--text); }
+    .faq-a { font-size:0.9rem; }
+
+    /* CTA */
+    #apply { background:var(--bg);text-align:center; }
+    .apply-box {
+      background:linear-gradient(135deg,rgba(245,158,11,0.08) 0%,rgba(56,189,248,0.06) 100%);
+      border:1px solid rgba(245,158,11,0.2);border-radius:20px;
+      padding:4rem 2rem;max-width:700px;margin:0 auto;
+    }
+    .apply-box h2 { margin-bottom:1rem; }
+    .apply-box p { font-size:1.05rem;margin-bottom:2rem; }
+    .apply-box .btn { padding:0.85rem 2.5rem;font-size:1.05rem; }
+
+    /* FOOTER */
+    footer { background:var(--bg);border-top:1px solid var(--border);padding:2.5rem 1.5rem; }
+    .footer-inner { max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem; }
+    .footer-left { font-size:0.85rem;color:var(--muted); }
+    .footer-left strong { color:var(--text); }
+    .footer-links { display:flex;gap:1.5rem; }
+    .footer-links a { font-size:0.85rem;color:var(--muted);text-decoration:none; }
+    .footer-links a:hover { color:var(--text); }
+
+    @media(max-width:768px){ section{padding:3.5rem 1.25rem;} .nav-links .btn-outline{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <img src="img/icon.png" alt="Amber's Angels"> Amber's Angels
+    </a>
+    <div class="nav-links">
+      <a href="index.html#how">How It Works</a>
+      <a href="index.html#alerts">Alert Types</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="mailto:admin@ambersangels.org" class="btn btn-outline">Contact</a>
+      <a href="mailto:admin@ambersangels.org?subject=Volunteer Application" class="btn">Apply Now</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-hero">
+  <div class="container">
+    <p class="section-label">Become a Volunteer</p>
+    <h1>You already have<br>what it takes.</h1>
+    <p>A smartphone, a car, and the willingness to help. That's the entry point. We'll handle the training, the technology, and the coordination — you drive your normal routes and let the AI work.</p>
+  </div>
+</div>
+
+<!-- ROLES -->
+<section id="roles">
+  <div class="container">
+    <p class="section-label">Volunteer Roles</p>
+    <h2>Three ways to contribute</h2>
+    <div class="role-grid">
+
+      <div class="role-card">
+        <div class="role-emoji">🚗</div>
+        <h3>Ground Vehicle Volunteer</h3>
+        <p>The core of our network. Drive your normal routes — or an assigned sector — with our app running. The AI scans for suspect vehicles while you focus on the road.</p>
+        <ul class="req-list">
+          <li>Smartphone (iOS 14+ or Android 10+)</li>
+          <li>Dashboard or windshield car mount</li>
+          <li>Valid driver's license</li>
+          <li>Background check (we cover the cost)</li>
+          <li>Completion of online training</li>
+        </ul>
+      </div>
+
+      <div class="role-card drone">
+        <div class="role-emoji">🚁</div>
+        <h3>Drone Pilot</h3>
+        <p>Aerial nodes provide coverage that ground vehicles can't — open areas, parking lots, highway interchanges, wooded corridors. Your altitude gives coordinators a perspective no camera can match.</p>
+        <ul class="req-list">
+          <li>FAA Part 107 Remote Pilot Certificate (required)</li>
+          <li>Own drone (DJI Mavic 3 preferred)</li>
+          <li>UAS liability insurance</li>
+          <li>All ground volunteer requirements</li>
+          <li>Part 107 scholarship available for new pilots</li>
+        </ul>
+      </div>
+
+      <div class="role-card coord">
+        <div class="role-emoji">👤</div>
+        <h3>Mission Coordinator</h3>
+        <p>The human-in-the-loop that keeps our system honest. Coordinators review AI detection events and decide what reaches law enforcement. Requires prior experience as a ground volunteer.</p>
+        <ul class="req-list">
+          <li>Minimum 3 completed ground volunteer missions</li>
+          <li>Separate coordinator application and interview</li>
+          <li>Extended background and reference check</li>
+          <li>Dedicated coordinator training program</li>
+          <li>Law enforcement or emergency management background a plus</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section id="steps">
+  <div class="container">
+    <p class="section-label">Getting Started</p>
+    <h2>From application to first mission</h2>
+    <div class="onboard-steps">
+      <div class="onboard-step">
+        <div class="onboard-num">1</div>
+        <div>
+          <h3>Apply by Email</h3>
+          <p>Send an email to <a href="mailto:admin@ambersangels.org" style="color:var(--sky);">admin@ambersangels.org</a> with your name, location, and which role you're interested in. We'll send you the application form and next steps within 48 hours.</p>
+        </div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">2</div>
+        <div>
+          <h3>Background Check & ID Verification</h3>
+          <p>We use a third-party background screening provider. The process takes 3–5 business days. This is non-negotiable — it's a requirement of our law enforcement partnerships and the communities we serve.</p>
+        </div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">3</div>
+        <div>
+          <h3>Complete Online Training</h3>
+          <p>Our training covers the app, operational protocols, privacy rules, and safety procedures. It takes approximately 45 minutes and is fully self-paced. Drone pilots complete an additional pre-flight checklist module.</p>
+        </div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">4</div>
+        <div>
+          <h3>Install the App & Complete a Practice Run</h3>
+          <p>Once your account is approved, install the Amber's Angels app, run through the in-app practice mode in your driveway or parking lot, and confirm your mount is stable and camera angle is correct.</p>
+        </div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">5</div>
+        <div>
+          <h3>You're Live — Respond When You Can</h3>
+          <p>When an AMBER Alert fires in your area, you'll receive a push notification. Accept or decline — there's no penalty for being unavailable. When you can go, tap Accept and drive.</p>
+        </div>
+      </div>
+    </div>
+    <div class="mission-graphic">
+      <img src="img/start-mission.svg" alt="Step-by-step guide to starting a mission in the app">
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <p class="section-label">Questions</p>
+    <h2>Common questions from new volunteers</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">What if I see the suspect vehicle while on a mission?</div>
+        <div class="faq-a">Do not follow it. Do not stop near it. Continue driving normally. The app has already flagged it — your coordinator is handling it. Call 911 only if you witness an active emergency in progress.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Does the app record my video or track me outside of missions?</div>
+        <div class="faq-a">No. Video frames are processed in memory and deleted immediately — never written to disk. GPS is only active during a mission you've accepted. Between missions, the app has no background activity.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I participate if I don't have a car mount?</div>
+        <div class="faq-a">Not for active vehicle missions — a mounted, stable camera is required for accurate AI detection. Mounts run $15–$30 at most auto parts stores. Contact us if cost is a barrier.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">I want to become a drone pilot but don't have my Part 107. Can I still apply?</div>
+        <div class="faq-a">Yes — apply as a ground vehicle volunteer and note your interest in drone operations. We offer Part 107 training scholarships through our pilot grant funding. We'll work with you on a path to certification.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Am I liable if something goes wrong during a search?</div>
+        <div class="faq-a">Amber's Angels carries general liability insurance that covers volunteers operating within our established protocols. Volunteers are explicitly instructed not to confront or pursue suspects — your role is detection only. Drone pilots must carry their own UAS insurance.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">I'm a retired law enforcement officer. Is there a more active role for me?</div>
+        <div class="faq-a">Absolutely — your background is exactly what our coordinator program is built for. Please mention your experience in your application email.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- APPLY -->
+<section id="apply">
+  <div class="container">
+    <div class="apply-box">
+      <p class="section-label">Ready?</p>
+      <h2>Every volunteer hour matters</h2>
+      <p>It takes less than 5 minutes to apply. If you're approved, your next drive could be the one that brings a child home.</p>
+      <a href="mailto:admin@ambersangels.org?subject=Volunteer Application — Amber's Angels&body=Name:%0ALocation (city/county):%0ARole interested in (Ground / Drone / Coordinator):%0ADo you have a Part 107 certificate? (Yes / No / In progress):%0AAnything else you'd like us to know:" class="btn">Email Us to Apply</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <strong>Amber's Angels Inc.</strong> — 501(c)(3) nonprofit in formation · Carroll County, Georgia<br>
+      <a href="mailto:admin@ambersangels.org" style="color:var(--sky);text-decoration:none;">admin@ambersangels.org</a>
+    </div>
+    <div class="footer-links">
+      <a href="index.html">Home</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="mailto:admin@ambersangels.org">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
