@@ -53,17 +53,6 @@ module.exports = {
 
         // Apple compliance
         ITSAppUsesNonExemptEncryption: false,
-
-        // Allow plain HTTP to the mission server.
-        // TODO: move to HTTPS and remove this exception.
-        NSAppTransportSecurity: {
-          NSExceptionDomains: {
-            "157.245.125.103": {
-              NSExceptionAllowsInsecureHTTPLoads: true,
-              NSIncludesSubdomains: false,
-            },
-          },
-        },
       },
     },
 
