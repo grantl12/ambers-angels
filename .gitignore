@@ -41,6 +41,7 @@ recordings/
 !mobile/assets/*.jpg
 !graphics/*.svg
 !web/public/*.png
+!web/public/**/*.png
 
 # OS/editor
 .DS_Store
