@@ -40,6 +40,7 @@ recordings/
 !mobile/assets/*.png
 !mobile/assets/*.jpg
 !graphics/*.svg
+!web/public/*.png
 
 # OS/editor
 .DS_Store
@@ -60,3 +61,8 @@ scan_results.json
 # Personal/sensitive documents — keep local only
 grants/*.pdf
 grants/*.txt
+grants/*.html
+grants/*_files/
+
+# Design source files
+AMBER\ Angels/
