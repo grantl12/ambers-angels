@@ -314,17 +314,17 @@ export default function LandingPage() {
           <div className={s.involveCard}>
             <h3>Volunteer — Ground</h3>
             <p>Drive your normal routes during active alerts. Your phone does the work. No special hardware needed — just a car mount and the app.</p>
-            <a href="#">Apply to Volunteer →</a>
+            <a href="mailto:info@amberangels.org?subject=Volunteer%20Application">Apply to Volunteer →</a>
           </div>
           <div className={s.involveCard}>
             <h3>Volunteer — Drone</h3>
             <p>Part 107 certified? Put your skills and your aircraft to work. DJI hardware connects directly to our platform in four steps.</p>
-            <a href="#">Register Your Drone →</a>
+            <a href="mailto:info@amberangels.org?subject=Drone%20Pilot%20Registration">Register Your Drone →</a>
           </div>
           <div className={s.involveCard}>
             <h3>Fund the Mission</h3>
             <p>We&apos;re a 501(c)(3) in formation. Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
-            <a href="mailto:admin@amberangels.org">Contact Grant Lindberg →</a>
+            <a href="mailto:info@amberangels.org">Contact Grant Lindberg →</a>
           </div>
         </div>
       </section>
@@ -333,13 +333,13 @@ export default function LandingPage() {
       <footer className={s.footer}>
         <div className={s.footerBrand}>
           <img src="/aa-icon.png" alt="AA" />
-          <span>Amber&apos;s Angels · 501(c)(3) in formation · admin@amberangels.org · amberangels.org</span>
+          <span>Amber&apos;s Angels · 501(c)(3) in formation · info@amberangels.org · amberangels.org</span>
         </div>
         <div className={s.footerLinks}>
           <a href="/privacy">Privacy Policy</a>
-          <a href="#">Transparency Report</a>
-          <a href="#">FAA Part 107</a>
-          <a href="mailto:admin@amberangels.org">Contact</a>
+          <a href="/deck">Pitch Deck</a>
+          <a href="https://www.faa.gov/uas/commercial_operators/become_a_drone_pilot" target="_blank" rel="noopener noreferrer">FAA Part 107</a>
+          <a href="mailto:info@amberangels.org">Contact</a>
         </div>
       </footer>
 

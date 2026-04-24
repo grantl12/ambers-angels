@@ -423,7 +423,7 @@ Amber's Angels operates entirely on volunteer labor and donated infrastructure. 
 - **State-level homeland security and public safety grants**
 - **Corporate technology sponsorships** (cloud credits, API access, drone hardware)
 
-If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **admin@amberangels.org**.
+If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **info@amberangels.org**.
 
 Amber's Angels is a registered 501(c)(3) nonprofit. Donations are tax-deductible to the extent permitted by law.
 
@@ -435,7 +435,7 @@ Amber's Angels is a registered 501(c)(3) nonprofit. Donations are tax-deductible
 
 **Developers** — Issues and pull requests welcome. See open issues for the current roadmap.
 
-**Organizations** — If you are a law enforcement agency, search-and-rescue organization, or child safety nonprofit and want to explore a formal partnership, reach out at **admin@amberangels.org**.
+**Organizations** — If you are a law enforcement agency, search-and-rescue organization, or child safety nonprofit and want to explore a formal partnership, reach out at **info@amberangels.org**.
 
 ---
 
