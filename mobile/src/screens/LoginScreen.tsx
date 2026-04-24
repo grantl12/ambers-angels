@@ -4,15 +4,24 @@ import {
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
   Platform, ScrollView, Linking,
 } from "react-native"
+import * as AppleAuthentication from "expo-apple-authentication"
+import * as Google from "expo-auth-session/providers/google"
+import * as WebBrowser from "expo-web-browser"
+import Constants from "expo-constants"
 import { setAuth } from "../lib/auth"
 import { getApiBaseUrl } from "../api/client"
 import { loadSettings } from "../lib/settings"
 
-type View = "login" | "pending" | "forgot_email" | "forgot_code"
-type Props = { onLogin: () => void }
+WebBrowser.maybeCompleteAuthSession()
 
-export default function LoginScreen({ onLogin }: Props) {
-  const [view,        setView]        = useState<View>("login")
+type LoginView = "login" | "pending" | "forgot_email" | "forgot_code"
+type Props = {
+  onLogin:      () => void
+  onSSONewUser: (registrationToken: string, email: string | null, provider: "apple" | "google") => void
+}
+
+export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
+  const [view,        setView]        = useState<LoginView>("login")
   const [username,    setUsername]    = useState("")
   const [password,    setPassword]    = useState("")
   const [resetEmail,  setResetEmail]  = useState("")
@@ -26,6 +35,20 @@ export default function LoginScreen({ onLogin }: Props) {
   const [apiUrl,      setApiUrl]      = useState("")
   const [urlSaved,    setUrlSaved]    = useState(false)
   const codeInputRef = useRef<TextInput>(null)
+
+  const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string>
+  const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    iosClientId:     extra.googleIosClientId     ?? "",
+    androidClientId: extra.googleAndroidClientId ?? "",
+    webClientId:     extra.googleWebClientId     ?? "",
+  })
+
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const idToken = googleResponse.authentication?.idToken
+      if (idToken) sendSSOToken("google", idToken)
+    }
+  }, [googleResponse])
 
   useEffect(() => {
     loadSettings().then((s) => {
@@ -54,6 +77,60 @@ export default function LoginScreen({ onLogin }: Props) {
     setSuccess(null)
     setResetCode("")
     setNewPassword("")
+  }
+
+  // ── SSO ───────────────────────────────────────────────────────────────────
+  async function sendSSOToken(provider: "apple" | "google", token: string) {
+    setLoading(true)
+    setError(null)
+    try {
+      const endpoint = provider === "apple" ? "/auth/apple" : "/auth/google"
+      const body     = provider === "apple" ? { identity_token: token } : { id_token: token }
+      const res = await fetch(`${getApiBaseUrl()}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.detail ?? "Sign in failed."); return }
+
+      if (data.registration_token) {
+        onSSONewUser(data.registration_token, data.email ?? null, provider)
+        return
+      }
+      if (data.status === "pending") { setView("pending"); return }
+
+      await setAuth({
+        token:    data.access_token,
+        username: data.username,
+        fullName: data.full_name ?? null,
+        role:     data.role,
+        status:   data.status,
+      })
+      onLogin()
+    } catch {
+      setError("Cannot reach server. Check your API URL in Settings.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAppleSignIn() {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      })
+      if (credential.identityToken) {
+        await sendSSOToken("apple", credential.identityToken)
+      }
+    } catch (e: unknown) {
+      if ((e as { code?: string }).code !== "ERR_REQUEST_CANCELED") {
+        setError("Apple Sign In failed. Please try again.")
+      }
+    }
   }
 
   // ── Sign in ───────────────────────────────────────────────────────────────
@@ -303,6 +380,30 @@ export default function LoginScreen({ onLogin }: Props) {
             <Text style={[styles.linkText, { textAlign: "center" }]}>Forgot password?</Text>
           </TouchableOpacity>
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {Platform.OS === "ios" && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={10}
+              style={styles.appleBtn}
+              onPress={handleAppleSignIn}
+            />
+          )}
+
+          <TouchableOpacity
+            style={[styles.googleBtn, loading && styles.btnDisabled]}
+            onPress={() => promptGoogleAsync()}
+            disabled={loading}
+          >
+            <Text style={styles.googleBtnText}>Continue with Google</Text>
+          </TouchableOpacity>
+
           {registerUrl && (
             <TouchableOpacity
               style={styles.registerBtn}
@@ -474,4 +575,18 @@ const styles = StyleSheet.create({
   },
   pendingTitle: { fontSize: 18, fontWeight: "700", color: "#f59e0b", marginBottom: 10 },
   pendingText:  { fontSize: 14, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 22, marginBottom: 20 },
+  dividerRow:   { flexDirection: "row", alignItems: "center", marginVertical: 16, gap: 8 },
+  dividerLine:  { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.08)" },
+  dividerText:  { fontSize: 12, color: "rgba(255,255,255,0.3)" },
+  appleBtn:     { width: "100%", height: 48, marginBottom: 10 },
+  googleBtn: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: "center",
+    marginBottom: 10,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  googleBtnText: { fontSize: 15, fontWeight: "600", color: "#fff" },
 })

@@ -34,6 +34,7 @@ module.exports = {
     ios: {
       bundleIdentifier: "com.ambersangels.app",
       supportsTablet: false,
+      usesAppleSignIn: true,
       icon: "./assets/icon.png",
       infoPlist: {
         // Camera + location permission strings
@@ -127,6 +128,9 @@ module.exports = {
       eas: {
         projectId: "4f470b02-19e3-47a7-9f48-663dc49603bd",
       },
+      googleIosClientId:     process.env.GOOGLE_IOS_CLIENT_ID     ?? "",
+      googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID ?? "",
+      googleWebClientId:     process.env.GOOGLE_WEB_CLIENT_ID     ?? "",
     },
     owner: "ambersangels",
   },
