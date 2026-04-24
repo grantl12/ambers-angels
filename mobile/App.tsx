@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import * as Notifications from "expo-notifications"
 import { TabNavigator } from "./src/navigation/TabNavigator"
 import LoginScreen from "./src/screens/LoginScreen"
+import SSOCompleteScreen from "./src/screens/SSOCompleteScreen"
 import { loadSettings, saveSettings } from "./src/lib/settings"
 import { setApiBaseUrl, apiPost } from "./src/api/client"
 import { getAuthState } from "./src/lib/auth"
@@ -52,9 +53,14 @@ const queryClient = new QueryClient({
 })
 
 export default function App() {
-  const [ready,    setReady]    = useState(false)
-  const [authed,   setAuthed]   = useState(false)
-  const [username, setUsername] = useState<string | null>(null)
+  const [ready,      setReady]      = useState(false)
+  const [authed,     setAuthed]     = useState(false)
+  const [username,   setUsername]   = useState<string | null>(null)
+  const [ssoNewUser, setSSONewUser] = useState<{
+    registrationToken: string
+    email:             string | null
+    provider:          "apple" | "google"
+  } | null>(null)
   const navRef = useNavigationContainerRef()
 
   // Notification tap → navigate to Map tab and queue a pan to the alert centroid
@@ -132,10 +138,27 @@ export default function App() {
   }
 
   if (!authed) {
+    if (ssoNewUser) {
+      return (
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <SSOCompleteScreen
+            registrationToken={ssoNewUser.registrationToken}
+            email={ssoNewUser.email}
+            provider={ssoNewUser.provider}
+            onComplete={handleLogin}
+            onBack={() => setSSONewUser(null)}
+          />
+        </SafeAreaProvider>
+      )
+    }
     return (
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <LoginScreen onLogin={handleLogin} />
+        <LoginScreen
+          onLogin={handleLogin}
+          onSSONewUser={(token, email, provider) => setSSONewUser({ registrationToken: token, email, provider })}
+        />
       </SafeAreaProvider>
     )
   }

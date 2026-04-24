@@ -98,6 +98,12 @@ ALTER TABLE pilots ADD COLUMN IF NOT EXISTS reset_code_expires TIMESTAMP WITH TI
 CREATE INDEX IF NOT EXISTS idx_pilots_username ON pilots (username);
 CREATE INDEX IF NOT EXISTS idx_pilots_status   ON pilots (status);
 
+-- SSO: Apple and Google sign-in
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS apple_sub     TEXT UNIQUE;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS google_sub    TEXT UNIQUE;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'email';
+ALTER TABLE pilots ALTER COLUMN password_hash DROP NOT NULL;
+
 -- 4. Create the alerts table
 CREATE TABLE IF NOT EXISTS alerts (
     id SERIAL PRIMARY KEY,

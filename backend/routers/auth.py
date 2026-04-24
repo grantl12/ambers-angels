@@ -18,6 +18,7 @@ import logging
 import os
 import random
 import smtplib
+import httpx
 
 logger = logging.getLogger(__name__)
 from email.mime.text import MIMEText
@@ -49,7 +50,7 @@ def _send_email(to: str, subject: str, body: str) -> None:
     try:
         msg = MIMEText(body, "plain")
         msg["Subject"] = subject
-        msg["From"]    = os.getenv("SMTP_FROM", "noreply@amberangels.org")
+        msg["From"]    = os.getenv("SMTP_FROM", "info@amberangels.org")
         msg["To"]      = to
         port = int(os.getenv("SMTP_PORT", "587"))
         with smtplib.SMTP(host, port) as s:
@@ -301,7 +302,7 @@ def approve_pilot(username: str, _: dict = Depends(require_admin)):
             body=(
                 f"Hi {row[1] or username},\n\n"
                 "Your Amber's Angels pilot account has been approved!\n\n"
-                "Sign in at: http://157.245.125.103/login\n\n"
+                "Sign in at: https://amberangels.org/login\n\n"
                 "Thank you for volunteering your time and equipment to help bring "
                 "missing children home.\n\n"
                 "— The Amber's Angels Team"
@@ -544,5 +545,172 @@ def reset_password(request: Request, req: ResetPasswordRequest):
         )
         db.commit()
         return {"status": "ok"}
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Apple / Google SSO
+# ---------------------------------------------------------------------------
+
+SSO_REG_EXPIRE_MINUTES = 30
+
+class AppleSignInRequest(BaseModel):
+    identity_token: str
+
+class GoogleSignInRequest(BaseModel):
+    id_token: str
+
+class SSOCompleteRequest(BaseModel):
+    registration_token: str
+    username:           str
+    full_name:          Optional[str] = None
+
+
+def _make_sso_reg_token(provider: str, sub: str, email: Optional[str]) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(minutes=SSO_REG_EXPIRE_MINUTES)
+    return jwt.encode(
+        {"type": "sso_registration", "provider": provider, "sub": sub, "email": email, "exp": exp},
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
+
+
+def _handle_sso_login(provider: str, sub: str, email: Optional[str]) -> dict:
+    """Look up an existing SSO pilot or return a registration token for a new one."""
+    sub_col = "apple_sub" if provider == "apple" else "google_sub"
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text(f"SELECT username, full_name, role, status FROM pilots WHERE {sub_col} = :sub"),
+            {"sub": sub},
+        ).fetchone()
+
+        if row:
+            if row[3] == "suspended":
+                raise HTTPException(status_code=403, detail="Account suspended")
+            token = _make_token(row[0], row[2])
+            return {
+                "access_token": token,
+                "token_type":   "bearer",
+                "username":     row[0],
+                "full_name":    row[1],
+                "role":         row[2],
+                "status":       row[3],
+            }
+
+        # New SSO user — short-lived token so the mobile app can collect a username
+        return {
+            "registration_token": _make_sso_reg_token(provider, sub, email),
+            "email": email,
+        }
+    finally:
+        db.close()
+
+
+@router.post("/apple")
+async def apple_sign_in(req: AppleSignInRequest):
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get("https://appleid.apple.com/auth/keys")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail="Could not fetch Apple public keys")
+    jwks = resp.json()
+
+    try:
+        header = jwt.get_unverified_header(req.identity_token)
+        key = next((k for k in jwks["keys"] if k["kid"] == header.get("kid")), None)
+        if not key:
+            raise HTTPException(status_code=400, detail="Apple public key not found for kid")
+        payload = jwt.decode(
+            req.identity_token,
+            key,
+            algorithms=["RS256"],
+            audience="com.ambersangels.app",
+        )
+    except JWTError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid Apple identity token: {exc}")
+
+    return _handle_sso_login("apple", payload["sub"], payload.get("email"))
+
+
+@router.post("/google")
+async def google_sign_in(req: GoogleSignInRequest):
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": req.id_token},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid Google ID token")
+
+    data = resp.json()
+
+    allowed_ids = set(filter(None, os.getenv("GOOGLE_CLIENT_IDS", "").split(",")))
+    if allowed_ids and data.get("aud") not in allowed_ids:
+        raise HTTPException(status_code=400, detail="Token not issued for this app")
+
+    return _handle_sso_login("google", data["sub"], data.get("email"))
+
+
+@router.post("/sso-complete", response_model=TokenResponse)
+def sso_complete(req: SSOCompleteRequest):
+    try:
+        payload = _decode_token(req.registration_token)
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired registration token")
+
+    if payload.get("type") != "sso_registration":
+        raise HTTPException(status_code=400, detail="Invalid token type")
+
+    provider = payload["provider"]
+    sub      = payload["sub"]
+    email    = payload.get("email")
+    username = req.username.strip().lower()
+
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+
+    db = database.SessionLocal()
+    try:
+        existing = db.execute(
+            text("SELECT id FROM pilots WHERE username = :u"),
+            {"u": username},
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already taken")
+
+        count      = db.execute(text("SELECT COUNT(*) FROM pilots")).scalar()
+        is_first   = count == 0
+        pilot_status = "approved" if is_first else "pending"
+        pilot_role   = "admin"   if is_first else "pilot"
+        sub_col      = "apple_sub" if provider == "apple" else "google_sub"
+
+        db.execute(text(f"""
+            INSERT INTO pilots
+                (username, email, password_hash, full_name, auth_provider, {sub_col},
+                 status, role, approved_at)
+            VALUES
+                (:username, :email, NULL, :full_name, :provider, :sub,
+                 :status, :role, :approved_at)
+        """), {
+            "username":   username,
+            "email":      email or f"{username}@sso.placeholder",
+            "full_name":  req.full_name,
+            "provider":   provider,
+            "sub":        sub,
+            "status":     pilot_status,
+            "role":       pilot_role,
+            "approved_at": datetime.now(timezone.utc) if is_first else None,
+        })
+        db.commit()
+
+        token = _make_token(username, pilot_role)
+        return TokenResponse(
+            access_token=token,
+            username=username,
+            full_name=req.full_name,
+            role=pilot_role,
+            status=pilot_status,
+        )
     finally:
         db.close()
