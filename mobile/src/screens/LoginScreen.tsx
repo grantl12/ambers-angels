@@ -47,6 +47,8 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
     if (googleResponse?.type === "success") {
       const idToken = googleResponse.authentication?.idToken
       if (idToken) sendSSOToken("google", idToken)
+    } else if (googleResponse?.type === "error") {
+      setError("Google Sign In failed. Please try again.")
     }
   }, [googleResponse])
 

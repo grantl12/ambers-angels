@@ -20,6 +20,7 @@ export default function SSOCompleteScreen({ registrationToken, email, provider, 
   const [fullName,  setFullName]  = useState("")
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState<string | null>(null)
+  const [pending,   setPending]   = useState(false)
 
   const providerLabel = provider === "apple" ? "Apple" : "Google"
 
@@ -54,12 +55,32 @@ export default function SSOCompleteScreen({ registrationToken, email, provider, 
         role:     data.role,
         status:   data.status,
       })
+      if (data.status === "pending") { setPending(true); return }
       onComplete()
     } catch {
       setError("Cannot reach server. Check your connection.")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (pending) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.logo}>Amber's <Text style={styles.amber}>Angels</Text></Text>
+        <Text style={styles.tagline}>Volunteer Drone ALPR Network</Text>
+        <View style={styles.pendingBox}>
+          <Text style={styles.pendingTitle}>Account Pending</Text>
+          <Text style={styles.pendingText}>
+            Your registration is awaiting admin approval.{"\n"}
+            You'll be notified once approved.
+          </Text>
+          <TouchableOpacity onPress={onBack} style={styles.linkBtn}>
+            <Text style={styles.linkText}>← Back to sign in</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
   }
 
   return (
@@ -184,4 +205,24 @@ const styles = StyleSheet.create({
   },
   linkBtn:  { paddingVertical: 12, alignItems: "center" },
   linkText: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
+  centered: {
+    flex: 1,
+    backgroundColor: "#050a0f",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  pendingBox: {
+    backgroundColor: "rgba(245,158,11,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.25)",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    alignItems: "center",
+    marginTop: 24,
+  },
+  pendingTitle: { fontSize: 18, fontWeight: "700", color: "#f59e0b", marginBottom: 10 },
+  pendingText:  { fontSize: 14, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 22, marginBottom: 20 },
 })

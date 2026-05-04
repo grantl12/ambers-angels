@@ -18,6 +18,7 @@ import logging
 import os
 import random
 import smtplib
+import time
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -555,6 +556,24 @@ def reset_password(request: Request, req: ResetPasswordRequest):
 
 SSO_REG_EXPIRE_MINUTES = 30
 
+_apple_jwks: dict = {"keys": [], "fetched_at": 0.0}
+_APPLE_JWKS_TTL = 3600  # seconds
+
+async def _get_apple_jwks() -> list:
+    now = time.monotonic()
+    if _apple_jwks["keys"] and now - _apple_jwks["fetched_at"] < _APPLE_JWKS_TTL:
+        return _apple_jwks["keys"]
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get("https://appleid.apple.com/auth/keys")
+    if resp.status_code != 200:
+        if _apple_jwks["keys"]:
+            return _apple_jwks["keys"]  # serve stale rather than break login
+        raise HTTPException(status_code=502, detail="Could not fetch Apple public keys")
+    keys = resp.json()["keys"]
+    _apple_jwks["keys"] = keys
+    _apple_jwks["fetched_at"] = now
+    return keys
+
 class AppleSignInRequest(BaseModel):
     identity_token: str
 
@@ -576,13 +595,17 @@ def _make_sso_reg_token(provider: str, sub: str, email: Optional[str]) -> str:
     )
 
 
+_SSO_LOOKUP: dict[str, str] = {
+    "apple":  "SELECT username, full_name, role, status FROM pilots WHERE apple_sub  = :sub",
+    "google": "SELECT username, full_name, role, status FROM pilots WHERE google_sub = :sub",
+}
+
 def _handle_sso_login(provider: str, sub: str, email: Optional[str]) -> dict:
     """Look up an existing SSO pilot or return a registration token for a new one."""
-    sub_col = "apple_sub" if provider == "apple" else "google_sub"
     db = database.SessionLocal()
     try:
         row = db.execute(
-            text(f"SELECT username, full_name, role, status FROM pilots WHERE {sub_col} = :sub"),
+            text(_SSO_LOOKUP[provider]),
             {"sub": sub},
         ).fetchone()
 
@@ -610,15 +633,11 @@ def _handle_sso_login(provider: str, sub: str, email: Optional[str]) -> dict:
 
 @router.post("/apple")
 async def apple_sign_in(req: AppleSignInRequest):
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get("https://appleid.apple.com/auth/keys")
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail="Could not fetch Apple public keys")
-    jwks = resp.json()
+    keys = await _get_apple_jwks()
 
     try:
         header = jwt.get_unverified_header(req.identity_token)
-        key = next((k for k in jwks["keys"] if k["kid"] == header.get("kid")), None)
+        key = next((k for k in keys if k["kid"] == header.get("kid")), None)
         if not key:
             raise HTTPException(status_code=400, detail="Apple public key not found for kid")
         payload = jwt.decode(
@@ -683,16 +702,26 @@ def sso_complete(req: SSOCompleteRequest):
         is_first   = count == 0
         pilot_status = "approved" if is_first else "pending"
         pilot_role   = "admin"   if is_first else "pilot"
-        sub_col      = "apple_sub" if provider == "apple" else "google_sub"
 
-        db.execute(text(f"""
-            INSERT INTO pilots
-                (username, email, password_hash, full_name, auth_provider, {sub_col},
-                 status, role, approved_at)
-            VALUES
-                (:username, :email, NULL, :full_name, :provider, :sub,
-                 :status, :role, :approved_at)
-        """), {
+        _SSO_INSERT = {
+            "apple": """
+                INSERT INTO pilots
+                    (username, email, password_hash, full_name, auth_provider, apple_sub,
+                     status, role, approved_at)
+                VALUES
+                    (:username, :email, NULL, :full_name, :provider, :sub,
+                     :status, :role, :approved_at)
+            """,
+            "google": """
+                INSERT INTO pilots
+                    (username, email, password_hash, full_name, auth_provider, google_sub,
+                     status, role, approved_at)
+                VALUES
+                    (:username, :email, NULL, :full_name, :provider, :sub,
+                     :status, :role, :approved_at)
+            """,
+        }
+        db.execute(text(_SSO_INSERT[provider]), {
             "username":   username,
             "email":      email or f"{username}@sso.placeholder",
             "full_name":  req.full_name,
