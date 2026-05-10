@@ -1,241 +1,181 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" font-family="system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" font-family="system-ui,-apple-system,sans-serif">
   <defs>
-    
-    <filter id="car-blur" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.8 0.8"></feGaussianBlur>
+    <filter id="blur-car" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="2.4 0.7"/>
     </filter>
-    
-    <filter id="plate-glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
-      <feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+    <filter id="glow-plate" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    
-    <linearGradient id="fov-fill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.22"></stop>
-      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.04"></stop>
+    <linearGradient id="sky-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#050a0f"/>
+      <stop offset="100%" stop-color="#071220"/>
     </linearGradient>
-    
     <linearGradient id="safe-grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.06"></stop>
-      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.12"></stop>
+      <stop offset="0%"   stop-color="#22c55e" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.10"/>
     </linearGradient>
-    
-    <linearGradient id="road-zone-grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.0"></stop>
-      <stop offset="100%" stop-color="#ef4444" stop-opacity="0.06"></stop>
+    <linearGradient id="fov-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#38bdf8" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.04"/>
     </linearGradient>
-    
-    <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#38bdf8"></path>
-    </marker>
-    <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#22c55e"></path>
-    </marker>
-    <marker id="arr-amber" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#f59e0b"></path>
-    </marker>
   </defs>
 
-  
-  <rect width="900" height="560" fill="#050a0f"></rect>
+  <!-- Title -->
+  <text x="450" y="34" text-anchor="middle" fill="#fff" font-size="18" font-weight="700" letter-spacing="0.5">Safe Aerial LPR — Optimal Positioning</text>
+  <line x1="50" y1="46" x2="850" y2="46" stroke="rgba(56,189,248,0.3)" stroke-width="1"/>
 
-  
-  <text x="450" y="36" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="700" letter-spacing="1">Safe Aerial LPR — Optimal Positioning</text>
-  <line x1="60" y1="48" x2="840" y2="48" stroke="rgba(56,189,248,0.3)" stroke-width="1"></line>
+  <!-- Sky background -->
+  <rect x="0" y="46" width="900" height="252" fill="url(#sky-grad)"/>
 
-  
-  <rect x="0" y="54" width="900" height="248" fill="rgba(56,189,248,0.025)"></rect>
+  <!-- Safe zone tint (right of x=590) -->
+  <rect x="590" y="46" width="310" height="330" fill="url(#safe-grad)"/>
 
-  
-  
-  
+  <!-- Zone labels in sky -->
+  <text x="50"  y="76" fill="rgba(239,68,68,0.5)"  font-size="10" font-weight="700" letter-spacing="2">ACTIVE ROAD ZONE</text>
+  <text x="612" y="76" fill="rgba(34,197,94,0.65)"  font-size="10" font-weight="700" letter-spacing="2">SAFE PILOT ZONE</text>
 
-  
-  <rect x="580" y="54" width="320" height="248" fill="url(#safe-grad)"></rect>
+  <!-- Zone divider -->
+  <line x1="590" y1="46" x2="590" y2="378" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="6,5"/>
 
-  
-  <rect x="0" y="302" width="580" height="72" fill="url(#road-zone-grad)"></rect>
+  <!-- "do not fly over active lanes" -->
+  <text x="290" y="250" text-anchor="middle" fill="rgba(239,68,68,0.3)" font-size="9" letter-spacing="1">do not fly over active lanes</text>
 
-  
-  <rect x="0" y="293" width="900" height="9" fill="rgba(34,197,94,0.12)" rx="0"></rect>
+  <!-- ── FOV CONE ── from drone (754,118) to road -->
+  <polygon points="754,118 215,296 450,296" fill="url(#fov-grad)"/>
+  <line x1="754" y1="118" x2="215" y2="296" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+  <line x1="754" y1="118" x2="450" y2="296" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+  <text x="490" y="224" fill="#38bdf8" font-size="11" font-weight="600" opacity="0.7">field of view</text>
 
-  
-  <rect x="0" y="302" width="900" height="72" fill="#151a14"></rect>
-  
-  <rect x="0" y="302" width="900" height="72" fill="rgba(255,255,255,0.02)"></rect>
-  
-  <line x1="0" y1="338" x2="900" y2="338" stroke="rgba(255,235,0,0.28)" stroke-width="2.5" stroke-dasharray="36,22"></line>
-  
-  <line x1="0" y1="305" x2="900" y2="305" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"></line>
-  
-  <line x1="0" y1="372" x2="900" y2="372" stroke="rgba(255,255,255,0.12)" stroke-width="1"></line>
-  
-  <line x1="580" y1="302" x2="580" y2="374" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"></line>
+  <!-- ── ROAD ── -->
+  <rect x="0"   y="296" width="900" height="82" fill="#111a10"/>
+  <rect x="0"   y="296" width="900" height="82" fill="rgba(255,255,255,0.018)"/>
+  <!-- road edge lines -->
+  <line x1="0" y1="298" x2="900" y2="298" stroke="rgba(255,255,255,0.2)"  stroke-width="1.5"/>
+  <line x1="0" y1="376" x2="900" y2="376" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <!-- center dashes -->
+  <line x1="0" y1="337" x2="900" y2="337" stroke="rgba(255,220,0,0.3)" stroke-width="2" stroke-dasharray="34,22"/>
 
-  
-  <rect x="0" y="374" width="900" height="44" fill="#0b140b"></rect>
-  
-  <rect x="0" y="374" width="900" height="5" fill="rgba(34,197,94,0.08)"></rect>
-  
-  <rect x="580" y="374" width="320" height="44" fill="rgba(34,197,94,0.07)"></rect>
+  <!-- ── GROUND / SHOULDER ── -->
+  <rect x="0"   y="376" width="900" height="46" fill="#0d1a0d"/>
+  <rect x="590" y="376" width="310" height="46" fill="rgba(34,197,94,0.06)"/>
 
-  
-  
-  <text x="20" y="280" fill="rgba(239,68,68,0.45)" font-size="10" font-weight="700" letter-spacing="2">ACTIVE ROAD ZONE</text>
-  <line x1="20" y1="284" x2="560" y2="284" stroke="rgba(239,68,68,0.18)" stroke-width="1" stroke-dasharray="5,4"></line>
-
-  
-  <text x="592" y="280" fill="rgba(34,197,94,0.6)" font-size="10" font-weight="700" letter-spacing="2">SAFE PILOT ZONE</text>
-  <line x1="592" y1="284" x2="870" y2="284" stroke="rgba(34,197,94,0.2)" stroke-width="1" stroke-dasharray="5,4"></line>
-
-  
-  <line x1="580" y1="54" x2="580" y2="302" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="6,5"></line>
-
-  
-  <text x="290" y="264" text-anchor="middle" fill="rgba(239,68,68,0.35)" font-size="9" letter-spacing="1">do not fly over active lanes</text>
-
-  
-  <polygon points="720,118 360,302 668,302" fill="url(#fov-fill)"></polygon>
-  <line x1="720" y1="118" x2="360" y2="302" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.55"></line>
-  <line x1="720" y1="118" x2="668" y2="302" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.55"></line>
-  
-  <text x="520" y="228" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="600" opacity="0.75">field of view</text>
-  <text x="520" y="242" text-anchor="middle" fill="rgba(56,189,248,0.45)" font-size="9">optimal capture angle</text>
-
-  
-  
-  <rect x="130" y="318" width="90" height="32" fill="rgba(40,55,70,0.35)" rx="3" filter="url(#car-blur)"></rect>
-
-  
-  <g filter="url(#car-blur)">
-    
-    <rect x="220" y="316" width="150" height="42" fill="#2b3e52" rx="5"></rect>
-    
-    <rect x="246" y="304" width="96" height="20" fill="#1e2f3e" rx="5"></rect>
-    
-    <rect x="252" y="307" width="38" height="14" fill="rgba(56,189,248,0.18)" rx="2"></rect>
-    <rect x="295" y="307" width="38" height="14" fill="rgba(56,189,248,0.18)" rx="2"></rect>
-    
-    <rect x="366" y="320" width="8" height="12" fill="rgba(255,255,220,0.55)" rx="1"></rect>
-    <rect x="366" y="338" width="8" height="8" fill="rgba(255,140,0,0.4)" rx="1"></rect>
-    
-    <circle cx="248" cy="358" r="12" fill="#0d1117" stroke="rgba(255,255,255,0.15)" stroke-width="2"></circle>
-    <circle cx="348" cy="358" r="12" fill="#0d1117" stroke="rgba(255,255,255,0.15)" stroke-width="2"></circle>
+  <!-- ── CAR (blurred) ── -->
+  <g filter="url(#blur-car)">
+    <!-- main body -->
+    <path d="M228,372 L428,372 L428,348 L406,332 L376,296 L268,296 L246,316 L228,332 Z"
+          fill="#2b3e52" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    <!-- windows -->
+    <polygon points="268,296 306,296 298,316 258,316" fill="rgba(56,189,248,0.16)"/>
+    <polygon points="310,296 374,296 372,316 308,316" fill="rgba(56,189,248,0.14)"/>
+    <polygon points="378,296 404,328 388,332 368,316" fill="rgba(56,189,248,0.10)"/>
+    <!-- wheels -->
+    <circle cx="268" cy="374" r="20" fill="#0d1117" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+    <circle cx="268" cy="374" r="10" fill="#1a1a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <circle cx="390" cy="374" r="20" fill="#0d1117" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+    <circle cx="390" cy="374" r="10" fill="#1a1a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <!-- headlights (front-right) -->
+    <rect x="420" y="332" width="8" height="10" rx="1" fill="rgba(255,240,180,0.45)"/>
+    <!-- taillights (rear-left) -->
+    <rect x="228" y="336" width="8" height="10" rx="1" fill="rgba(255,80,60,0.4)"/>
   </g>
 
-  
-  <g filter="url(#plate-glow)">
-    <rect x="268" y="351" width="56" height="16" fill="#d8d8cc" rx="1.5"></rect>
-    <text x="296" y="363" text-anchor="middle" fill="#050a0f" font-size="8" font-weight="800" letter-spacing="1.2">GHB 4827</text>
+  <!-- ── LICENSE PLATE (sharp, with glow) ── -->
+  <g filter="url(#glow-plate)">
+    <rect x="358" y="350" width="50" height="16" rx="2" fill="#d4d4c8"/>
+    <text x="383" y="362" text-anchor="middle" fill="#050a0f" font-size="8" font-weight="800" letter-spacing="1.2">GHB 4827</text>
   </g>
-  
-  <rect x="265" y="348" width="62" height="22" fill="none" stroke="#22c55e" stroke-width="1.5" rx="2" opacity="0.9"></rect>
+  <!-- detection box -->
+  <rect x="354" y="346" width="58" height="24" rx="2" fill="none" stroke="#22c55e" stroke-width="1.8" opacity="0.95"/>
 
-  
-  <line x1="265" y1="360" x2="180" y2="256" stroke="rgba(34,197,94,0.4)" stroke-width="1" stroke-dasharray="4,3"></line>
-  <rect x="58" y="232" width="148" height="42" fill="rgba(34,197,94,0.1)" rx="5" stroke="rgba(34,197,94,0.35)" stroke-width="1"></rect>
-  <text x="132" y="249" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="700">PLATE IN FOCUS</text>
-  <text x="132" y="265" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="10">OpenALPR score: 94%</text>
+  <!-- plate callout line + label -->
+  <line x1="354" y1="358" x2="196" y2="240" stroke="rgba(34,197,94,0.4)" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="60" y="218" width="152" height="38" rx="5" fill="rgba(34,197,94,0.08)" stroke="rgba(34,197,94,0.35)" stroke-width="1"/>
+  <text x="136" y="234" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="700">PLATE IN FOCUS</text>
+  <text x="136" y="249" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="10">OpenALPR score: 94%</text>
 
-  
-  
-  <rect x="703" y="109" width="34" height="18" fill="#1e293b" rx="4" stroke="#38bdf8" stroke-width="1.5"></rect>
-  <circle cx="720" cy="118" r="5.5" fill="#38bdf8" opacity="0.85"></circle>
-  
-  <line x1="703" y1="113" x2="677" y2="99" stroke="#38bdf8" stroke-width="2"></line>
-  <line x1="737" y1="113" x2="763" y2="99" stroke="#38bdf8" stroke-width="2"></line>
-  <line x1="703" y1="123" x2="677" y2="137" stroke="#38bdf8" stroke-width="2"></line>
-  <line x1="737" y1="123" x2="763" y2="137" stroke="#38bdf8" stroke-width="2"></line>
-  
-  <ellipse cx="673" cy="97" rx="15" ry="4" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.7"></ellipse>
-  <ellipse cx="767" cy="97" rx="15" ry="4" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.7"></ellipse>
-  <ellipse cx="673" cy="139" rx="15" ry="4" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.7"></ellipse>
-  <ellipse cx="767" cy="139" rx="15" ry="4" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.7"></ellipse>
-
-  
-  <rect x="674" y="72" width="92" height="22" fill="rgba(34,197,94,0.14)" rx="4" stroke="rgba(34,197,94,0.4)" stroke-width="1"></rect>
-  <text x="720" y="87" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="700">✓ SAFE ZONE</text>
-  <line x1="720" y1="94" x2="720" y2="109" stroke="rgba(34,197,94,0.4)" stroke-width="1" stroke-dasharray="3,2"></line>
-
-  
-  <text x="720" y="60" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="9">over shoulder / field</text>
-  <text x="720" y="70" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="9">NOT over road</text>
-
-  
-  
-  <line x1="720" y1="127" x2="720" y2="374" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="4,4"></line>
-  
-  <line x1="720" y1="127" x2="514" y2="335" stroke="rgba(56,189,248,0.3)" stroke-width="1.5" stroke-dasharray="5,3"></line>
-  
-  <path d="M 720 185 A 58 58 0 0 0 686 162" fill="none" stroke="#f59e0b" stroke-width="2"></path>
-  <text x="660" y="188" fill="#f59e0b" font-size="13" font-weight="700">~35°</text>
-  <text x="658" y="201" fill="rgba(245,158,11,0.6)" font-size="9">BEST RANGE</text>
-
-  
-  <line x1="858" y1="118" x2="858" y2="374" stroke="rgba(255,255,255,0.14)" stroke-width="1" stroke-dasharray="4,4"></line>
-  <line x1="850" y1="118" x2="866" y2="118" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"></line>
-  <line x1="850" y1="374" x2="866" y2="374" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"></line>
-  <text x="872" y="250" fill="#38bdf8" font-size="11" font-weight="600">≤200 ft</text>
-  <text x="872" y="264" fill="rgba(56,189,248,0.55)" font-size="10">AGL</text>
-
-  
-  
-  <g transform="translate(820,350)">
-    <rect x="-36" y="-22" width="70" height="30" fill="#1a2e1a" rx="4" stroke="rgba(34,197,94,0.25)" stroke-width="1"></rect>
-    <rect x="-22" y="-34" width="44" height="18" fill="#132213" rx="4"></rect>
-    <rect x="-18" y="-31" width="16" height="12" fill="rgba(56,189,248,0.14)" rx="2"></rect>
-    <rect x="2" y="-31" width="16" height="12" fill="rgba(56,189,248,0.14)" rx="2"></rect>
-    <circle cx="-20" cy="8" r="7" fill="#0d1117" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"></circle>
-    <circle cx="24" cy="8" r="7" fill="#0d1117" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"></circle>
-    
-    <rect x="-6" y="-38" width="12" height="4" fill="rgba(56,189,248,0.3)" rx="1"></rect>
+  <!-- ── DRONE ── at (754, 118), in safe zone -->
+  <g transform="translate(754,118)">
+    <!-- body -->
+    <rect x="-14" y="-10" width="28" height="20" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="1.8"/>
+    <circle cx="0" cy="1" r="4" fill="none" stroke="#38bdf8" stroke-width="1" opacity="0.7"/>
+    <!-- arms -->
+    <line x1="-14" y1="-10" x2="-36" y2="-30" stroke="#334155" stroke-width="2"/>
+    <line x1="14"  y1="-10" x2="36"  y2="-30" stroke="#334155" stroke-width="2"/>
+    <line x1="-14" y1="10"  x2="-36" y2="30"  stroke="#334155" stroke-width="2"/>
+    <line x1="14"  y1="10"  x2="36"  y2="30"  stroke="#334155" stroke-width="2"/>
+    <!-- props -->
+    <ellipse cx="-40" cy="-33" rx="14" ry="4.5" fill="none" stroke="#38bdf8" stroke-width="1.8" opacity="0.85"/>
+    <ellipse cx="40"  cy="-33" rx="14" ry="4.5" fill="none" stroke="#38bdf8" stroke-width="1.8" opacity="0.85"/>
+    <ellipse cx="-40" cy="33"  rx="14" ry="4.5" fill="none" stroke="#38bdf8" stroke-width="1.8" opacity="0.85"/>
+    <ellipse cx="40"  cy="33"  rx="14" ry="4.5" fill="none" stroke="#38bdf8" stroke-width="1.8" opacity="0.85"/>
   </g>
 
-  
-  <g transform="translate(664,378)">
-    <polygon points="0,-26 13,0 -13,0" fill="#f59e0b" opacity="0.88"></polygon>
-    <rect x="-13" y="0" width="26" height="5" fill="#f59e0b" opacity="0.6"></rect>
-    <line x1="-9" y1="-16" x2="9" y2="-16" stroke="white" stroke-width="2.5" opacity="0.55"></line>
-    <line x1="-6" y1="-8" x2="6" y2="-8" stroke="white" stroke-width="2" opacity="0.45"></line>
-  </g>
+  <!-- SAFE ZONE badge -->
+  <rect x="696" y="72" width="108" height="24" rx="4" fill="rgba(34,197,94,0.12)" stroke="rgba(34,197,94,0.45)" stroke-width="1"/>
+  <text x="750" y="88" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="700">SAFE ZONE</text>
+  <line x1="750" y1="96" x2="754" y2="108" stroke="rgba(34,197,94,0.4)" stroke-width="1" stroke-dasharray="3,2"/>
 
-  
-  <g transform="translate(710,368)">
-    
-    <line x1="-4" y1="-6" x2="-6" y2="10" stroke="#334155" stroke-width="4"></line>
-    <line x1="4" y1="-6" x2="6" y2="10" stroke="#334155" stroke-width="4"></line>
-    
-    <rect x="-9" y="-28" width="18" height="22" fill="#f59e0b" rx="3" opacity="0.92"></rect>
-    
-    <line x1="-9" y1="-18" x2="9" y2="-18" stroke="rgba(255,255,255,0.65)" stroke-width="2.5"></line>
-    <line x1="-9" y1="-12" x2="9" y2="-12" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"></line>
-    
-    <line x1="-9" y1="-26" x2="-17" y2="-14" stroke="#f59e0b" stroke-width="3" opacity="0.85"></line>
-    <line x1="9" y1="-26" x2="18" y2="-14" stroke="#f59e0b" stroke-width="3" opacity="0.85"></line>
-    
-    <rect x="16" y="-18" width="12" height="8" fill="#38bdf8" rx="2" opacity="0.8"></rect>
-    <circle cx="18" cy="-15" r="1.5" fill="rgba(255,255,255,0.6)"></circle>
-    <circle cx="22" cy="-13" r="1.5" fill="rgba(255,255,255,0.6)"></circle>
-    
-    <circle cx="0" cy="-36" r="8" fill="#1e293b" stroke="#64748b" stroke-width="1.5"></circle>
-    
-    <rect x="-9" y="-39" width="18" height="5" fill="#475569" rx="2"></rect>
-  </g>
+  <!-- "NOT over road" note -->
+  <text x="754" y="62" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="9">shoulder / field — not over road</text>
 
-  
-  <line x1="722" y1="332" x2="720" y2="145" stroke="rgba(56,189,248,0.2)" stroke-width="1" stroke-dasharray="3,4"></line>
-  <text x="738" y="238" fill="rgba(56,189,248,0.35)" font-size="9" transform="rotate(-88,738,238)">RC link</text>
+  <!-- ── ANGLE ARC ── -->
+  <path d="M 754 185 A 68 68 0 0 0 710 154" fill="none" stroke="#f59e0b" stroke-width="2"/>
+  <text x="692" y="194" fill="#f59e0b" font-size="14" font-weight="700">~35°</text>
+  <text x="688" y="208" fill="rgba(245,158,11,0.55)" font-size="9">optimal</text>
 
-  
-  <line x1="700" y1="340" x2="640" y2="268" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3,3"></line>
-  <rect x="596" y="250" width="165" height="40" fill="rgba(245,158,11,0.07)" rx="4" stroke="rgba(245,158,11,0.22)" stroke-width="1"></rect>
-  <text x="679" y="265" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700">Remote Pilot · Part 107</text>
-  <text x="679" y="280" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9">Hi-vis · helmet · off road · VLOS maintained</text>
+  <!-- vertical RC link line -->
+  <line x1="754" y1="138" x2="754" y2="376" stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="4,4"/>
 
-  
-  <rect x="40" y="430" width="820" height="60" fill="rgba(56,189,248,0.06)" rx="8" stroke="rgba(56,189,248,0.22)" stroke-width="1"></rect>
-  <text x="60" y="450" fill="#38bdf8" font-size="13" font-weight="700">POSITIONING RULES</text>
-  <text x="196" y="450" fill="rgba(255,255,255,0.7)" font-size="12">Always launch and operate from the road shoulder or adjacent field — never over active lanes.</text>
-  <text x="60" y="468" fill="rgba(255,255,255,0.65)" font-size="12">Fly ≤ 200 ft AGL · 30–45° camera angle for best plate reads · Maintain visual line of sight at all times.</text>
-  <text x="60" y="484" fill="rgba(255,255,255,0.38)" font-size="10">Safety cone marks your launch/landing zone. Hi-vis vest and helmet recommended for all roadside operations. FAA Part 107 applies.</text>
+  <!-- ── HEIGHT INDICATOR ── -->
+  <line x1="858" y1="118" x2="858" y2="296" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="850" y1="118" x2="866" y2="118" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+  <line x1="850" y1="296" x2="866" y2="296" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+  <text x="874" y="212" fill="#38bdf8" font-size="12" font-weight="600">≤200 ft</text>
+  <text x="876" y="228" fill="rgba(56,189,248,0.55)" font-size="10">AGL</text>
+
+  <!-- ── PILOT FIGURE ── at x=838, standing on shoulder (y=376) -->
+  <!-- legs -->
+  <line x1="832" y1="418" x2="828" y2="378" stroke="#475569" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="844" y1="418" x2="840" y2="378" stroke="#475569" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- hi-vis vest / torso -->
+  <rect x="824" y="356" width="22" height="24" rx="3" fill="#f59e0b" opacity="0.92"/>
+  <!-- vest stripe -->
+  <line x1="824" y1="365" x2="846" y2="365" stroke="rgba(255,255,255,0.5)" stroke-width="2"/>
+  <!-- left arm (down at side) -->
+  <line x1="824" y1="360" x2="814" y2="378" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <!-- right arm (holding remote, extended right) -->
+  <line x1="846" y1="360" x2="860" y2="368" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <!-- remote controller -->
+  <rect x="860" y="362" width="22" height="13" rx="3" fill="#1e293b" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+  <circle cx="865" cy="368" r="2"  fill="rgba(255,255,255,0.3)"/>
+  <circle cx="876" cy="368" r="2"  fill="rgba(255,255,255,0.3)"/>
+  <!-- head -->
+  <circle cx="836" cy="347" r="9"  fill="#334155"/>
+  <!-- helmet -->
+  <path d="M826,347 A10,10 0 0,1 846,347" fill="#475569"/>
+  <rect  x="824" y="345" width="24" height="4" rx="2" fill="#64748b"/>
+
+  <!-- pilot label -->
+  <rect x="720" y="258" width="154" height="34" rx="4" fill="rgba(245,158,11,0.07)" stroke="rgba(245,158,11,0.22)" stroke-width="1"/>
+  <text x="797" y="272" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700">Remote Pilot · Part 107</text>
+  <text x="797" y="285" text-anchor="middle" fill="rgba(255,255,255,0.38)" font-size="9">hi-vis · VLOS · off road</text>
+  <line x1="800" y1="292" x2="836" y2="338" stroke="rgba(245,158,11,0.25)" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- ── SAFETY CONE ── at x=648, shoulder edge -->
+  <!-- cone body -->
+  <polygon points="648,370 662,418 634,418" fill="#f59e0b" opacity="0.88"/>
+  <!-- white stripes -->
+  <line x1="638" y1="392" x2="658" y2="392" stroke="rgba(255,255,255,0.55)" stroke-width="3"/>
+  <line x1="641" y1="404" x2="655" y2="404" stroke="rgba(255,255,255,0.4)"  stroke-width="2"/>
+  <!-- base -->
+  <rect x="630" y="416" width="36" height="6" rx="2" fill="#f59e0b" opacity="0.6"/>
+
+  <!-- ── RULES FOOTER ── -->
+  <rect x="10" y="432" width="880" height="78" rx="8" fill="rgba(56,189,248,0.05)" stroke="rgba(56,189,248,0.22)" stroke-width="1"/>
+  <text x="30" y="452" fill="#38bdf8" font-size="12" font-weight="700">POSITIONING RULES</text>
+  <line x1="172" y1="445" x2="876" y2="445" stroke="rgba(56,189,248,0.15)" stroke-width="1"/>
+  <text x="30" y="466" fill="rgba(255,255,255,0.65)" font-size="11">Always launch and operate from the road shoulder or adjacent field — never over active lanes.</text>
+  <text x="30" y="482" fill="rgba(255,255,255,0.55)" font-size="11">Fly at 30–45° camera angle for best plate reads. Maintain visual line of sight at all times.</text>
+  <text x="30" y="498" fill="rgba(255,255,255,0.32)" font-size="10">Safety cone marks your launch zone. Hi-vis vest and helmet recommended. FAA Part 107 applies.</text>
 </svg>
