@@ -241,7 +241,7 @@ export default function LandingPage() {
                   <span className={s.impactVal}>{val}</span>
                 </div>
               ))}
-              <p className={s.supportNote}>Letter of support from Carroll County law enforcement on file. Active support from local veteran community aligned with our SDVOSB founding.</p>
+              <p className={s.supportNote}>Actively seeking formal law enforcement partnership with Carroll County. Active support from local veteran community aligned with our SDVOSB founding.</p>
             </div>
           </div>
         </div>
