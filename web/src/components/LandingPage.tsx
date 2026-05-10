@@ -216,7 +216,7 @@ export default function LandingPage() {
           <span className={s.label}>Carroll County Pilot</span>
           <div className={s.sectionHeader}>
             <h2>On the ground in Georgia.</h2>
-            <p>Six-month deployment in Carroll County — 503 square miles, limited fixed infrastructure, active law enforcement partnership, and a community ready to mobilize.</p>
+            <p>Six-month deployment in Carroll County — 503 square miles, limited fixed infrastructure, seeking active law enforcement partnership, and a community ready to mobilize.</p>
           </div>
         </div>
         <div className={`${s.pilotGrid} ${s.fadeUp}`}>
