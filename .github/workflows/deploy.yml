@@ -14,7 +14,6 @@ jobs:
           host: 157.245.125.103
           username: ambers-angels
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          fingerprint: SHA256:2T9T2IeB4A1fsjVUTSQ+AZPRaaOLYYB5GnQi3ivmupc
           script: |
             set -e
             cd /home/ambers-angels/proj_dir/ambers-angels
