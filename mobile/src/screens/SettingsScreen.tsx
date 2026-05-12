@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -25,6 +26,7 @@ type Props = { username: string | null; onSignOut: () => void }
 export default function SettingsScreen({ username, onSignOut }: Props) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULTS)
   const [saved, setSaved] = useState(false)
+  const [rtmpCopied, setRtmpCopied] = useState(false)
   const [watchAreas, setWatchAreas] = useState<string[]>([])
   const [watchInput, setWatchInput] = useState("")
   const [watchSaving, setWatchSaving] = useState(false)
@@ -50,6 +52,25 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
       })
       .catch(() => {})
   }, [])
+
+  function getRtmpUrl(): string {
+    try {
+      const raw = settings.apiBaseUrl.trim().replace(/\/$/, "")
+      const withProto = raw.startsWith("http") ? raw : `https://${raw}`
+      const host = new URL(withProto).hostname
+      return `rtmp://${host}/live/${settings.droneId || "drone-1"}`
+    } catch {
+      return `rtmp://api.amberangels.org/live/${settings.droneId || "drone-1"}`
+    }
+  }
+
+  async function shareRtmpUrl() {
+    try {
+      await Share.share({ message: getRtmpUrl() })
+      setRtmpCopied(true)
+      setTimeout(() => setRtmpCopied(false), 2000)
+    } catch {}
+  }
 
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }))
@@ -157,29 +178,75 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
         </Section>
 
         <Section title="Identity">
-          <Field label="Volunteer mode" hint="How you're participating in this mission">
+          <Field label="Volunteer mode" hint="">
             <View style={styles.modeRow}>
-              {(["phone", "drone", "both"] as VolunteerMode[]).map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.modeBtn, settings.volunteerMode === m && styles.modeBtnActive]}
-                  onPress={() => update("volunteerMode", m)}
-                >
-                  <Text style={[styles.modeBtnText, settings.volunteerMode === m && styles.modeBtnTextActive]}>
-                    {m === "phone" ? "📱 Phone" : m === "drone" ? "🚁 Drone" : "📱+🚁 Both"}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[styles.modeBtn, settings.volunteerMode === "phone" && styles.modeBtnActive]}
+                onPress={() => update("volunteerMode", "phone")}
+              >
+                <Text style={[styles.modeBtnText, settings.volunteerMode === "phone" && styles.modeBtnTextActive]}>
+                  📱 Phone
+                </Text>
+                <Text style={styles.modeSubText}>Ground / driving</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modeBtn, settings.volunteerMode === "drone" && styles.modeBtnActive]}
+                onPress={() => update("volunteerMode", "drone")}
+              >
+                <Text style={[styles.modeBtnText, settings.volunteerMode === "drone" && styles.modeBtnTextActive]}>
+                  🚁 Drone
+                </Text>
+                <Text style={styles.modeSubText}>RTMP stream</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modeBtn, settings.volunteerMode === "both" && styles.modeBtnActive]}
+                onPress={() => update("volunteerMode", "both")}
+              >
+                <Text style={[styles.modeBtnText, settings.volunteerMode === "both" && styles.modeBtnTextActive]}>
+                  📱+🚁 Both
+                </Text>
+                <Text style={styles.modeSubText}>DJI RC only</Text>
+              </TouchableOpacity>
             </View>
+
+            {settings.volunteerMode === "both" && (
+              <Text style={styles.modeNote}>
+                ⚠ Both modes require a DJI RC controller with a built-in screen. If your phone is the remote, use Drone mode only.
+              </Text>
+            )}
           </Field>
-          <Field label="Device ID" hint="Shown on the mission map">
+
+          {(settings.volunteerMode === "drone" || settings.volunteerMode === "both") && (
+            <View style={styles.rtmpBox}>
+              <Text style={styles.rtmpLabel}>RTMP STREAM URL</Text>
+              <View style={styles.rtmpRow}>
+                <Text style={styles.rtmpUrl} numberOfLines={1} ellipsizeMode="middle">
+                  {getRtmpUrl()}
+                </Text>
+                <TouchableOpacity style={styles.rtmpCopyBtn} onPress={shareRtmpUrl}>
+                  <Text style={styles.rtmpCopyIcon}>⧉</Text>
+                  <Text style={styles.rtmpCopyText}>{rtmpCopied ? "Shared!" : "Copy"}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.rtmpInstructions}>
+                In DJI Fly: tap ••• → Transmission → RTMP Live → paste this URL → Go Live
+              </Text>
+              <Text style={[styles.rtmpInstructions, { marginTop: 4 }]}>
+                In DJI Go 4: Camera → General Settings → Live Broadcast Platform → Custom RTMP
+              </Text>
+            </View>
+          )}
+
+          <Field label="Device / Drone ID" hint="Shown on the mission map and included in the RTMP stream URL above">
             <TextInput
               style={styles.input}
               value={settings.droneId}
               onChangeText={(v) => update("droneId", v)}
               autoCapitalize="none"
               autoCorrect={false}
-              placeholder="phone-1"
+              placeholder="drone-1"
               placeholderTextColor="rgba(255,255,255,0.2)"
             />
           </Field>
@@ -436,6 +503,44 @@ const styles = StyleSheet.create({
   modeBtnActive:     { borderColor: "#f59e0b", backgroundColor: "rgba(245,158,11,0.15)" },
   modeBtnText:       { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "600" },
   modeBtnTextActive: { color: "#f59e0b" },
+  modeSubText:       { color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 3 },
+  modeNote: {
+    marginTop: 10,
+    fontSize: 11, color: "rgba(251,146,60,0.85)", lineHeight: 16,
+    backgroundColor: "rgba(251,146,60,0.08)",
+    borderRadius: 6, padding: 8,
+    borderWidth: 1, borderColor: "rgba(251,146,60,0.2)",
+  },
+  rtmpBox: {
+    backgroundColor: "rgba(56,189,248,0.06)",
+    borderWidth: 1, borderColor: "rgba(56,189,248,0.2)",
+    borderRadius: 10, padding: 14, gap: 8,
+  },
+  rtmpLabel: {
+    fontSize: 10, fontWeight: "800", letterSpacing: 2,
+    color: "rgba(56,189,248,0.6)", textTransform: "uppercase",
+  },
+  rtmpRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 8,
+    borderWidth: 1, borderColor: "rgba(56,189,248,0.15)",
+    paddingLeft: 12, overflow: "hidden",
+  },
+  rtmpUrl: {
+    flex: 1, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontSize: 12, color: "#38bdf8", paddingVertical: 10,
+  },
+  rtmpCopyBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(56,189,248,0.15)",
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderLeftWidth: 1, borderLeftColor: "rgba(56,189,248,0.15)",
+  },
+  rtmpCopyIcon: { fontSize: 14, color: "#38bdf8" },
+  rtmpCopyText: { fontSize: 11, fontWeight: "700", color: "#38bdf8" },
+  rtmpInstructions: {
+    fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 17,
+  },
   rangeRow:          { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   rangeBtn: {
     borderWidth: 1,

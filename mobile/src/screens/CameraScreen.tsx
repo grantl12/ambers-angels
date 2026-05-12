@@ -219,7 +219,7 @@ export default function CameraScreen() {
         captureTimerRef.current = setInterval(async () => {
           if (!cameraRef.current) return
           try {
-            const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true })
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: true })
             if (!photo) return
             const loc = locationRef.current
             await postFrame({
@@ -247,7 +247,7 @@ export default function CameraScreen() {
     if (settings.volunteerMode === "drone" || settings.volunteerMode === "both") {
       djiCaptureTimerRef.current = setInterval(async () => {
         try {
-          const b64 = await captureDJIFrame(50)
+          const b64 = await captureDJIFrame(90)
           if (!b64) return  // no frame yet / not connected
 
           // Prefer drone GPS over phone GPS for DJI frames
