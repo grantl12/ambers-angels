@@ -100,10 +100,14 @@ class EventService:
                 if snapshot.location_centroid:
                     location = {"lat": snapshot.location_centroid[0], "lng": snapshot.location_centroid[1]}
 
+                effective_conf = (
+                    vehicle_context.get("effective_confidence", snapshot.aggregate_confidence)
+                    if vehicle_context else snapshot.aggregate_confidence
+                )
                 await self.dispatcher.dispatch_alert(
                     plate=snapshot.plate_best,
                     drone_id=snapshot.drone_id,
-                    confidence=snapshot.aggregate_confidence,
+                    confidence=effective_conf,
                     timestamp=snapshot.last_seen_at,
                     location=location,
                     frame_id=snapshot.best_frame_id,
@@ -160,6 +164,12 @@ class EventService:
             expected_make=matched_row[3] if matched_row else None,
         )
 
+        # Reduce reported confidence when detected vehicle doesn't match watchlist profile
+        penalty = vehicle_context.get("mismatch_penalty", 0.0)
+        vehicle_context["effective_confidence"] = round(
+            max(0.0, snapshot.aggregate_confidence - penalty), 2
+        )
+
         # Check Cooldown
         current_status = event.get('status') if isinstance(event, dict) else event.status
         if current_status == EventStatus.ALERTED.value:
@@ -196,6 +206,10 @@ class EventService:
         return await self.repository.get_recent_event_by_plate(drone_id=snapshot.drone_id, plate_normalized=snapshot.plate_normalized, since=since)
 
 
+_COLOR_MISMATCH_PENALTY = 12.0
+_TYPE_MISMATCH_PENALTY  = 8.0
+
+
 def _build_vehicle_context(
     *,
     detected_color: str | None,
@@ -207,6 +221,7 @@ def _build_vehicle_context(
 ) -> dict:
     """
     Compares YOLO + CDC detected vehicle attributes against the watchlist profile.
+    Also computes mismatch_penalty (pts to subtract from aggregate_confidence).
     """
     def _match(detected: str | None, expected: str | None) -> bool | None:
         if not expected:
@@ -217,7 +232,7 @@ def _build_vehicle_context(
 
     color_match = _match(detected_color, expected_color)
     type_match  = _match(detected_type,  expected_type)
-    
+
     # CDC Match — check if expected make appears in the CDC generational label
     cdc_match = None
     if expected_make and cdc_label:
@@ -225,6 +240,12 @@ def _build_vehicle_context(
 
     any_mismatch = (color_match is False) or (type_match is False) or (cdc_match is False)
     any_confirmed = (color_match is True) or (type_match is True) or (cdc_match is True)
+
+    mismatch_penalty = 0.0
+    if color_match is False:
+        mismatch_penalty += _COLOR_MISMATCH_PENALTY
+    if type_match is False:
+        mismatch_penalty += _TYPE_MISMATCH_PENALTY
 
     return {
         "detected_color":  detected_color,
@@ -238,4 +259,5 @@ def _build_vehicle_context(
         "cdc_match":       cdc_match,
         "any_mismatch":    any_mismatch,
         "any_confirmed":   any_confirmed,
+        "mismatch_penalty": mismatch_penalty,
     }

@@ -47,6 +47,28 @@ class AlertDispatcher:
             os.path.join(os.path.dirname(__file__), "..", "test_plates", "golden_frames"),
         )
 
+    async def dispatch_alert(
+        self,
+        *,
+        plate: str,
+        drone_id: str,
+        confidence: float,
+        timestamp: Any = None,
+        location: Optional[dict] = None,
+        frame_id: Any = None,
+        raw_summary: Any = None,
+        vehicle_context: Optional[dict] = None,
+    ) -> None:
+        """Keyword-arg entry point used by EventService."""
+        event_dict = {
+            "plate_best": plate,
+            "drone_id": drone_id,
+            "confidence": confidence,
+            "frame_url": f"/frames/{frame_id}" if frame_id else None,
+            "alert_type": None,
+        }
+        await self.dispatch(event_dict, vehicle_context=vehicle_context, location=location)
+
     async def dispatch(self, event: Any, *, vehicle_context: Optional[dict] = None, location: Optional[dict] = None) -> None:
         """
         Fan-out: log to DB (if repository available) and send Discord webhook.
