@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { apiPost } from "@/lib/api-client"
 
 type Settings = {
   username: string
@@ -70,6 +71,28 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS)
   const [saved, setSaved] = useState(false)
+
+  const [currentPw, setCurrentPw]   = useState("")
+  const [newPw, setNewPw]           = useState("")
+  const [confirmPw, setConfirmPw]   = useState("")
+  const [pwStatus, setPwStatus]     = useState<"idle" | "saving" | "ok" | "error">("idle")
+  const [pwError, setPwError]       = useState<string | null>(null)
+
+  async function handleChangePassword() {
+    setPwError(null)
+    if (newPw.length < 8) { setPwError("New password must be at least 8 characters"); return }
+    if (newPw !== confirmPw) { setPwError("Passwords don't match"); return }
+    setPwStatus("saving")
+    try {
+      await apiPost("/auth/change-password", { current_password: currentPw, new_password: newPw })
+      setPwStatus("ok")
+      setCurrentPw(""); setNewPw(""); setConfirmPw("")
+      setTimeout(() => setPwStatus("idle"), 2500)
+    } catch (e: unknown) {
+      setPwError(e instanceof Error ? e.message : "Failed to change password")
+      setPwStatus("error")
+    }
+  }
 
   useEffect(() => {
     setSettings(loadSettings())
@@ -192,6 +215,57 @@ export default function SettingsPage() {
           <p className="mt-3 text-xs text-white/30">
             Location services required for range-based filtering. Setting is saved now and applied when location is available.
           </p>
+        </section>
+
+        {/* Change Password */}
+        <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
+          <h2 className="text-xs uppercase tracking-widest text-white/40 mb-4">Change Password</h2>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm text-white/70 mb-1">Current password</label>
+              <input
+                type="password"
+                value={currentPw}
+                onChange={(e) => { setCurrentPw(e.target.value); setPwStatus("idle"); setPwError(null) }}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-sky-500/60 focus:outline-none"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-white/70 mb-1">New password</label>
+              <input
+                type="password"
+                value={newPw}
+                onChange={(e) => { setNewPw(e.target.value); setPwStatus("idle"); setPwError(null) }}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-sky-500/60 focus:outline-none"
+                placeholder="Min. 8 characters"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-white/70 mb-1">Confirm new password</label>
+              <input
+                type="password"
+                value={confirmPw}
+                onChange={(e) => { setConfirmPw(e.target.value); setPwStatus("idle"); setPwError(null) }}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-sky-500/60 focus:outline-none"
+                placeholder="••••••••"
+              />
+            </div>
+            {pwError && (
+              <p className="text-xs text-red-400">{pwError}</p>
+            )}
+            <button
+              onClick={handleChangePassword}
+              disabled={pwStatus === "saving" || !currentPw || !newPw || !confirmPw}
+              className={`w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                pwStatus === "ok"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "bg-white/10 hover:bg-white/15 text-white border border-white/10"
+              }`}
+            >
+              {pwStatus === "saving" ? "Updating…" : pwStatus === "ok" ? "Password updated!" : "Update password"}
+            </button>
+          </div>
         </section>
 
         {/* Save */}

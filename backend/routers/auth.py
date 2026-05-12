@@ -452,6 +452,34 @@ def set_role(username: str, req: SetRoleRequest, _: dict = Depends(require_admin
         db.close()
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password:     str
+
+@router.post("/change-password")
+def change_password(req: ChangePasswordRequest, payload: dict = Depends(get_current_pilot)):
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT password_hash FROM pilots WHERE username = :u"),
+            {"u": payload["sub"]},
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Account not found")
+        if not row[0] or not _verify(req.current_password, row[0]):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        db.execute(
+            text("UPDATE pilots SET password_hash = :pw WHERE username = :u"),
+            {"pw": _hash(req.new_password), "u": payload["sub"]},
+        )
+        db.commit()
+        return {"status": "ok"}
+    finally:
+        db.close()
+
+
 @router.post("/logout")
 def logout():
     # JWT is stateless — the client drops its token. This endpoint is a
