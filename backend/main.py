@@ -310,8 +310,19 @@ async def ingest_frame(
             logger.warning("telemetry_point write failed: %s", e)
 
     frame_id = str(uuid.uuid4())
+
+    # Persist the frame so Discord alerts can attach it as a thumbnail.
+    # Only save when plates were actually detected (confidence floor enforced below).
+    if results and results.get("results"):
+        try:
+            os.makedirs(GOLDEN_DIR, exist_ok=True)
+            with open(os.path.join(GOLDEN_DIR, f"{frame_id}.jpg"), "wb") as _f:
+                _f.write(frame_bytes)
+        except Exception as _e:
+            logger.warning("frame persist failed: %s", _e)
+
     outcomes = []
-    
+
     # Process each plate result into the aggregation service
     for plate_res in results.get("results", []):
         plate_text = plate_res.get("plate", "").upper()
