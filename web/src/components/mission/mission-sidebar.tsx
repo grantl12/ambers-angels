@@ -128,11 +128,12 @@ type Props = {
 }
 
 const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = [
-  { key: "flock",    label: "Flock ALPR Cameras", color: "bg-orange-400" },
-  { key: "coverage", label: "Coverage Ellipses",   color: "bg-orange-400/40" },
-  { key: "drones",   label: "Active Drones",       color: "bg-violet-400" },
-  { key: "heat",     label: "Detection Heatmap",   color: "bg-amber-400" },
-  { key: "hits",     label: "Watchlist Hits",      color: "bg-red-400" },
+  { key: "flock",    label: "Flock ALPR Cameras",  color: "bg-orange-400" },
+  { key: "coverage", label: "Camera Coverage",      color: "bg-orange-400/40" },
+  { key: "zones",    label: "Dark Zones (Pilot)",   color: "bg-red-500" },
+  { key: "drones",   label: "Active Drones",        color: "bg-violet-400" },
+  { key: "heat",     label: "Detection Heatmap",    color: "bg-amber-400" },
+  { key: "hits",     label: "Watchlist Hits",       color: "bg-red-400" },
 ]
 
 export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {

@@ -9,6 +9,7 @@ import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera } from "@/features/flock/api"
+import { useFlockCoverageMap, usePriorityZones } from "@/features/coverage/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
 
@@ -69,6 +70,8 @@ export function MissionMap({ layers, onMapReady }: Props) {
   const { data: watchlist = [] }     = useWatchlist()
   const { data: flockCameras = [] }  = useFlockCameras()
   const { data: alertZones = [] }    = useFemaAlerts()
+  const { data: coverageCells = [] } = useFlockCoverageMap()
+  const { data: priorityZones = [] } = usePriorityZones()
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -138,6 +141,49 @@ export function MissionMap({ layers, onMapReady }: Props) {
         properties: { weight: (d.confidence ?? 80) / 100 },
       })),
   }), [detections])
+
+  // Coverage grid — one polygon per 0.1° cell, colored by camera count bucket.
+  // Polygon format from coverage_service: "lat,lng lat,lng ..." (space-separated)
+  const coverageGridGeoJson = useMemo(() => {
+    function parseCellPolygon(poly: string): [number, number][] {
+      return poly.trim().split(/\s+/).map((pair) => {
+        const [lat, lng] = pair.split(",").map(Number)
+        return [lng, lat] as [number, number]
+      })
+    }
+    return {
+      type: "FeatureCollection" as const,
+      features: coverageCells.map((cell) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [parseCellPolygon(cell.polygon)],
+        },
+        properties: { bucket: cell.cameraCountBucket },
+      })),
+    }
+  }, [coverageCells])
+
+  // Priority zones — dark areas for pilot routing (high = 0 cameras, medium = 1-3)
+  const priorityZonesGeoJson = useMemo(() => {
+    function parseCellPolygon(poly: string): [number, number][] {
+      return poly.trim().split(/\s+/).map((pair) => {
+        const [lat, lng] = pair.split(",").map(Number)
+        return [lng, lat] as [number, number]
+      })
+    }
+    return {
+      type: "FeatureCollection" as const,
+      features: priorityZones.map((zone) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [parseCellPolygon(zone.polygon)],
+        },
+        properties: { priority: zone.priority, label: zone.label },
+      })),
+    }
+  }, [priorityZones])
 
   // Always open on Carrollton, GA — drones appear as markers wherever they are
   const center = { longitude: -85.0766, latitude: 33.5801 }
@@ -247,6 +293,95 @@ export function MissionMap({ layers, onMapReady }: Props) {
                 "line-opacity": 0.45,
                 "line-width": 1,
                 "line-dasharray": [4, 3],
+              }}
+            />
+          </Source>
+        )}
+
+        {/* Coverage density grid (admin) — 0.1° cells colored by camera count bucket */}
+        {layers.coverage && coverageGridGeoJson.features.length > 0 && (
+          <Source id="coverage-grid" type="geojson" data={coverageGridGeoJson}>
+            <Layer
+              id="coverage-grid-fill"
+              type="fill"
+              paint={{
+                "fill-color": [
+                  "match", ["get", "bucket"],
+                  "0",   "#ef4444",   // red   — no cameras
+                  "1-3", "#f59e0b",   // amber — sparse
+                  "4+",  "#22c55e",   // green — well covered
+                  "transparent",
+                ],
+                "fill-opacity": 0.18,
+              }}
+            />
+            <Layer
+              id="coverage-grid-outline"
+              type="line"
+              paint={{
+                "line-color": [
+                  "match", ["get", "bucket"],
+                  "0",   "#ef4444",
+                  "1-3", "#f59e0b",
+                  "4+",  "#22c55e",
+                  "transparent",
+                ],
+                "line-opacity": 0.35,
+                "line-width": 0.5,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* Priority zones (pilot) — dark zones where pilots should fly first */}
+        {layers.zones && priorityZonesGeoJson.features.length > 0 && (
+          <Source id="priority-zones" type="geojson" data={priorityZonesGeoJson}>
+            <Layer
+              id="priority-zones-fill"
+              type="fill"
+              paint={{
+                "fill-color": [
+                  "match", ["get", "priority"],
+                  "high",   "#ef4444",
+                  "medium", "#f97316",
+                  "#ef4444",
+                ],
+                "fill-opacity": [
+                  "match", ["get", "priority"],
+                  "high",   0.30,
+                  "medium", 0.18,
+                  0.18,
+                ],
+              }}
+            />
+            <Layer
+              id="priority-zones-outline"
+              type="line"
+              paint={{
+                "line-color": [
+                  "match", ["get", "priority"],
+                  "high",   "#ef4444",
+                  "medium", "#f97316",
+                  "#ef4444",
+                ],
+                "line-opacity": 0.6,
+                "line-width": 1,
+                "line-dasharray": [5, 3],
+              }}
+            />
+            <Layer
+              id="priority-zones-label"
+              type="symbol"
+              layout={{
+                "text-field": ["get", "label"],
+                "text-size": 10,
+                "text-anchor": "center",
+              }}
+              paint={{
+                "text-color": "#ffffff",
+                "text-opacity": 0.7,
+                "text-halo-color": "#000000",
+                "text-halo-width": 1,
               }}
             />
           </Source>
@@ -488,13 +623,16 @@ export function MissionMap({ layers, onMapReady }: Props) {
         </div>
         {[
           { color: "#ff6b35", label: "Flock ALPR Camera" },
+          { color: "#ef4444", label: "Dark zone (0 cameras)", square: true },
+          { color: "#f59e0b", label: "Sparse (1–3 cameras)", square: true },
+          { color: "#22c55e", label: "Covered (4+ cameras)", square: true },
           { color: "#7b61ff", label: "Active Drone" },
           { color: "#ffaa00", label: "Detection" },
           { color: "#ff3355", label: "Watchlist Hit" },
           { color: "#38bdf8", label: "Flight Trail" },
-        ].map(({ color, label }) => (
+        ].map(({ color, label, square }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            <div style={{ width: 10, height: 10, borderRadius: square ? 2 : "50%", background: color, opacity: square ? 0.7 : 1, flexShrink: 0 }} />
             <span>{label}</span>
           </div>
         ))}

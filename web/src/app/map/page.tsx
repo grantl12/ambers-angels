@@ -9,6 +9,7 @@ import { TopBar } from "@/components/layout/top-bar"
 export type LayerState = {
   flock: boolean
   coverage: boolean
+  zones: boolean
   drones: boolean
   heat: boolean
   hits: boolean
@@ -18,6 +19,7 @@ export default function MapPage() {
   const [layers, setLayers] = useState<LayerState>({
     flock: true,
     coverage: true,
+    zones: true,
     drones: true,
     heat: true,
     hits: true,
