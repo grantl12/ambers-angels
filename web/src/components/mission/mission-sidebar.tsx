@@ -135,12 +135,33 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
   { key: "coverage", label: "Camera Coverage",      color: "bg-orange-400/40" },
   { key: "zones",    label: "Dark Zones (Pilot)",   color: "bg-red-500" },
   { key: "drones",   label: "Active Drones",        color: "bg-violet-400" },
-  { key: "heat",     label: "Detection Heatmap",    color: "bg-amber-400" },
+  { key: "heat",     label: "Deadspace Heat",        color: "bg-red-500" },
   { key: "hits",     label: "Watchlist Hits",       color: "bg-red-400" },
 ]
 
 export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFlockSearch }: Props) {
   const [collapsed, setCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(288) // 288 = w-72
+  const isDragging = useRef(false)
+
+  function startResize(e: React.MouseEvent) {
+    isDragging.current = true
+    const startX = e.clientX
+    const startW = sidebarWidth
+    function onMove(ev: MouseEvent) {
+      if (!isDragging.current) return
+      const next = Math.min(480, Math.max(200, startW + ev.clientX - startX))
+      setSidebarWidth(next)
+    }
+    function onUp() {
+      isDragging.current = false
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
   const [flockZip, setFlockZip]       = useState("")
   const [flockRadius, setFlockRadius] = useState(10)
   const [flockLoading, setFlockLoading] = useState(false)
@@ -208,7 +229,16 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
   }
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-white/10 bg-black/60 text-white backdrop-blur-sm overflow-hidden">
+    <aside
+      className="relative flex h-full shrink-0 flex-col border-r border-white/10 bg-black/60 text-white backdrop-blur-sm overflow-hidden"
+      style={{ width: sidebarWidth }}
+    >
+      {/* Resize handle */}
+      <div
+        onMouseDown={startResize}
+        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-sky-500/40 transition-colors z-10"
+        title="Drag to resize"
+      />
 
       {/* Mission header */}
       <div className="px-4 pt-4 pb-3 border-b border-white/10 shrink-0">
@@ -290,7 +320,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
                       onChange={(e) => setFlockRadius(Number(e.target.value))}
                       className="rounded bg-neutral-800 border border-white/10 px-1.5 py-1 text-xs text-white/70 focus:outline-none"
                     >
-                      {[5, 10, 15, 25, 50].map((r) => (
+                      {[5, 10, 15, 25].map((r) => (
                         <option key={r} value={r}>{r} mi</option>
                       ))}
                     </select>

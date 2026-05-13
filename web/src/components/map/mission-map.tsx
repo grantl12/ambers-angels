@@ -136,17 +136,25 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     }
   }, [alertZones])
 
-  // Heatmap GeoJSON from detections with GPS
+  // Deadspace heatmap — shows coverage GAPS, not detections.
+  // 0 cameras = weight 1.0 (red/dangerous), 1-3 = 0.45 (orange), 4+ = 0 (invisible).
+  // Feeds from coverage cells so it only shows when the Deadspace Planner is active.
   const heatmapGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
-    features: detections
-      .filter((d) => d.lat != null && d.lng != null)
-      .map((d) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [d.lng!, d.lat!] },
-        properties: { weight: (d.confidence ?? 80) / 100 },
-      })),
-  }), [detections])
+    features: coverageCells
+      .map((cell) => {
+        const weight =
+          cell.cameraCountBucket === "0"   ? 1.0 :
+          cell.cameraCountBucket === "1-3" ? 0.45 : 0
+        if (weight === 0) return null
+        return {
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: [cell.centroidLng, cell.centroidLat] },
+          properties: { weight },
+        }
+      })
+      .filter(Boolean),
+  }), [coverageCells])
 
   // Coverage grid — one polygon per 0.1° cell, colored by camera count bucket.
   // Polygon format from coverage_service: "lat,lng lat,lng ..." (space-separated)
@@ -401,7 +409,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
-        {/* Detection heatmap */}
+        {/* Deadspace heatmap — coverage gaps from Flock, red = unmonitored */}
         {layers.heat && (
           <Source id="heatmap" type="geojson" data={heatmapGeoJson}>
             <Layer
@@ -409,16 +417,16 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               type="heatmap"
               paint={{
                 "heatmap-weight": ["get", "weight"],
-                "heatmap-intensity": 1,
-                "heatmap-radius": 30,
-                "heatmap-opacity": 0.7,
+                "heatmap-intensity": 1.4,
+                "heatmap-radius": 40,
+                "heatmap-opacity": 0.65,
                 "heatmap-color": [
                   "interpolate", ["linear"], ["heatmap-density"],
-                  0,    "rgba(0,255,136,0)",
-                  0.2,  "#00ff88",
-                  0.5,  "#ffaa00",
-                  0.8,  "#ff3355",
-                  1,    "#ff0040",
+                  0,    "rgba(0,0,0,0)",
+                  0.15, "rgba(251,191,36,0.3)",
+                  0.4,  "#f59e0b",
+                  0.7,  "#ef4444",
+                  1,    "#b91c1c",
                 ],
               }}
             />
@@ -641,7 +649,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           { color: "#f59e0b", label: "Sparse (1–3 cameras)", square: true },
           { color: "#22c55e", label: "Covered (4+ cameras)", square: true },
           { color: "#7b61ff", label: "Active Drone" },
-          { color: "#ffaa00", label: "Detection" },
+          { color: "#ef4444", label: "Deadspace (unmonitored)" },
           { color: "#ff3355", label: "Watchlist Hit" },
           { color: "#38bdf8", label: "Flight Trail" },
         ].map(({ color, label, square }) => (

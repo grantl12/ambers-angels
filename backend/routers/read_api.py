@@ -29,6 +29,8 @@ _DEFLOCK_INDEX_URL = "https://cdn.deflock.me/regions/index.json"
 _DEFLOCK_HEADERS   = {"User-Agent": "AmberAngels-mission-scraper/1.0"}
 
 
+_MAX_TILES = 16  # safety cap — prevents timeout on very large bbox searches
+
 def _fetch_flock_for_bbox(db, south: float, north: float, west: float, east: float) -> None:
     """
     Pull cameras from the DeFlock CDN tile API for the given bbox and upsert
@@ -49,10 +51,15 @@ def _fetch_flock_for_bbox(db, south: float, north: float, west: float, east: flo
     lon_max = math.floor(east  / tile_size) * tile_size
 
     rows: list[dict] = []
+    tile_count = 0
     lat = lat_min
     while lat <= lat_max + 1e-9:
         lon = lon_min
         while lon <= lon_max + 1e-9:
+            tile_count += 1
+            if tile_count > _MAX_TILES:
+                logger.warning("DeFlock tile cap reached (%d tiles) — truncating fetch", _MAX_TILES)
+                break
             url = tile_url.replace("{lat}/{lon}", f"{lat}/{lon}")
             try:
                 cameras = _requests.get(url, headers=_DEFLOCK_HEADERS, timeout=15).json()

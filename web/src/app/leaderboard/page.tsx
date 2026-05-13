@@ -132,8 +132,10 @@ export default function LeaderboardPage() {
         )}
 
         {isError && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-10 text-center text-sm text-red-400">
-            Failed to load leaderboard data.
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-10 text-center space-y-2">
+            <div className="text-2xl">🏆</div>
+            <div className="text-sm font-semibold text-amber-400">Coming Soon</div>
+            <div className="text-xs text-white/40">Pilot rankings will appear here once missions are underway.</div>
           </div>
         )}
 
