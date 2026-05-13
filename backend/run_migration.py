@@ -27,6 +27,8 @@ ALTER TABLE pilots ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS alert_scope        VARCHAR(20) DEFAULT 'local';
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS alert_range_miles  INT DEFAULT 25;
 UPDATE pilots SET alert_scope = 'nationwide' WHERE role = 'admin' AND (alert_scope IS NULL OR alert_scope = 'local');
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS active     BOOLEAN   DEFAULT TRUE;
+ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
 """
 
 try:

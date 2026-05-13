@@ -304,18 +304,15 @@ def _extract_source_program(headline: str, alert_type: dict) -> str:
 
 def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
     """
-    Parse CAP XML and return alert dicts for any monitored missing-person event.
+    Parse CAP XML and return alert dicts for monitored missing-person events.
 
-    Each dict contains:
-        identifier    — unique CAP identifier
-        sent          — ISO datetime string
-        headline      — short headline
-        description   — full alert description
-        area          — geographic area description
-        polygon       — raw polygon string or None
-        plates        — list of extracted plate candidates
-        alert_type    — ALERT_REGISTRY entry dict
-        source_program — human-readable program name extracted from headline
+    Returns two kinds of dicts, distinguished by msg_type:
+      msg_type="alert"  — new or updated alert (same fields as before)
+      msg_type="cancel" — cancellation; has a `references` list of original identifiers
+
+    Alerts are sorted so all "alert" entries come before "cancel" entries,
+    ensuring we've registered an alert in _seen_identifiers before processing
+    its cancellation in the same poll cycle.
     """
     try:
         root = ET.fromstring(xml_bytes)
@@ -331,6 +328,43 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
         alert_nodes = root.findall(".//alert")
 
     for alert in alert_nodes:
+        def find_text(tag: str) -> str:
+            el = alert.find(f"cap:{tag}", ns) or alert.find(tag)
+            return el.text.strip() if el is not None and el.text else ""
+
+        identifier = find_text("identifier")
+        sent       = find_text("sent")
+        msg_type   = find_text("msgType") or "Alert"
+        headline   = alert.findtext(".//cap:headline",    namespaces=ns) or alert.findtext(".//headline")    or ""
+        area_desc  = alert.findtext(".//cap:areaDesc",    namespaces=ns) or alert.findtext(".//areaDesc")    or ""
+
+        if msg_type == "Cancel":
+            refs_raw = find_text("references")
+            # CAP references format: "sender,identifier,sent ..." (space-separated)
+            references = [
+                part.split(",")[1].strip()
+                for part in refs_raw.split()
+                if part.count(",") >= 1
+            ]
+            if not references:
+                continue
+            alerts.append({
+                "msg_type":        "cancel",
+                "identifier":      identifier,
+                "sent":            sent,
+                "headline":        headline.strip(),
+                "description":     "",
+                "area":            area_desc.strip(),
+                "polygon":         None,
+                "references":      references,
+                "plates":          [],
+                "vehicle_profile": {},
+                "alert_type":      None,
+                "source_program":  "",
+            })
+            continue
+
+        # ── Active alert ──────────────────────────────────────────────────────
         event_codes = [
             e.text for e in alert.findall(".//cap:eventCode/cap:value", ns)
         ] + [
@@ -338,41 +372,35 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
         ]
         event_codes = [c for c in event_codes if c]
 
-        # Skip anything that isn't even in a monitored category
         if not any(code in _MONITORED_CODES for code in event_codes):
             continue
 
-        def find_text(tag: str) -> str:
-            el = alert.find(f"cap:{tag}", ns) or alert.find(tag)
-            return el.text.strip() if el is not None and el.text else ""
+        description = alert.findtext(".//cap:description", namespaces=ns) or alert.findtext(".//description") or ""
+        polygon     = alert.findtext(".//cap:polygon",     namespaces=ns) or alert.findtext(".//polygon")
 
-        identifier  = find_text("identifier")
-        sent        = find_text("sent")
-        headline    = alert.findtext(".//cap:headline",     namespaces=ns) or alert.findtext(".//headline")    or ""
-        description = alert.findtext(".//cap:description",  namespaces=ns) or alert.findtext(".//description") or ""
-        area_desc   = alert.findtext(".//cap:areaDesc",     namespaces=ns) or alert.findtext(".//areaDesc")    or ""
-        polygon     = alert.findtext(".//cap:polygon",      namespaces=ns) or alert.findtext(".//polygon")
-
-        combined = f"{headline} {description}"
+        combined   = f"{headline} {description}"
         alert_type = _classify_alert(event_codes, combined)
 
         if alert_type is None:
-            # Has a monitored code but no keyword match — not a missing person alert
             continue
 
         alerts.append({
+            "msg_type":        "alert",
             "identifier":      identifier,
             "sent":            sent,
             "headline":        headline.strip(),
             "description":     description.strip(),
             "area":            area_desc.strip(),
             "polygon":         polygon,
+            "references":      [],
             "plates":          _extract_plates(combined),
             "vehicle_profile": _extract_vehicle_profile(combined),
             "alert_type":      alert_type,
             "source_program":  _extract_source_program(headline, alert_type),
         })
 
+    # Process active alerts before cancellations in the same poll cycle
+    alerts.sort(key=lambda a: 0 if a["msg_type"] == "alert" else 1)
     return alerts
 
 
@@ -482,6 +510,134 @@ async def _add_vehicle_target(session_factory, alert: dict) -> bool:
             logger.error("Vehicle target insert failed: %s", e)
             await session.rollback()
             return False
+
+
+# ---------------------------------------------------------------------------
+# Alert cancellation
+# ---------------------------------------------------------------------------
+
+async def _deactivate_by_references(
+    session_factory,
+    references: list[str],
+) -> list[str]:
+    """
+    Called when a CAP Cancel message is received. Marks watchlist entries as
+    inactive and expires matching vehicle_targets. The alert description always
+    contains 'ID: {fema_identifier}' so we match on that substring.
+    Returns the list of plate texts that were deactivated.
+    """
+    if not references:
+        return []
+
+    deactivated: list[str] = []
+    async with session_factory() as session:
+        try:
+            # Expire vehicle targets whose fema_identifier is in the references list
+            await session.execute(
+                text("""
+                    UPDATE vehicle_targets
+                    SET expires_at = NOW()
+                    WHERE fema_identifier = ANY(:refs)
+                      AND (expires_at IS NULL OR expires_at > NOW())
+                """),
+                {"refs": references},
+            )
+
+            # Deactivate watchlist entries — descriptions contain 'ID: {ident}'
+            for ref in references:
+                rows = await session.execute(
+                    text("""
+                        UPDATE watchlist
+                        SET active = FALSE, removed_at = NOW()
+                        WHERE active = TRUE
+                          AND description LIKE :pattern
+                        RETURNING plate_text
+                    """),
+                    {"pattern": f"%ID: {ref}%"},
+                )
+                deactivated.extend(r[0] for r in rows.fetchall())
+
+            await session.commit()
+        except Exception as e:
+            logger.error("Alert deactivation failed: %s", e)
+            await session.rollback()
+
+    return deactivated
+
+
+async def _notify_cancelled(
+    webhook_url: str,
+    alert: dict,
+    deactivated_plates: list[str],
+) -> None:
+    """Discord notification when an alert is officially cancelled."""
+    plates_fmt = (
+        ", ".join(f"`{p}`" for p in deactivated_plates)
+        if deactivated_plates
+        else "none on watchlist"
+    )
+    content = (
+        f"✅ **ALERT CANCELLED — STAND DOWN** ✅\n"
+        f"**Headline:** {alert['headline'] or 'Cancellation received'}\n"
+        f"**Area:** {alert['area'] or '—'}\n"
+        f"**Plates removed from watchlist:** {plates_fmt}\n"
+        f"📋 This alert has been officially cancelled by the issuing authority."
+    )
+    await _post_discord(webhook_url, content)
+
+
+async def _push_notify_cancelled(session_factory, alert: dict) -> None:
+    """Push-notify pilots (admin + nationwide + watch-area) that an alert was cancelled."""
+    try:
+        async with session_factory() as session:
+            rows = await session.execute(
+                text("""
+                    SELECT DISTINCT expo_push_token
+                    FROM pilots
+                    WHERE status = 'approved'
+                      AND expo_push_token IS NOT NULL
+                      AND (
+                        role = 'admin'
+                        OR alert_scope = 'nationwide'
+                        OR (
+                          watch_areas IS NOT NULL
+                          AND array_length(watch_areas, 1) > 0
+                          AND EXISTS (
+                              SELECT 1 FROM unnest(watch_areas) wa
+                              WHERE :area ILIKE '%' || wa || '%'
+                          )
+                        )
+                      )
+                """),
+                {"area": alert["area"] or ""},
+            )
+            tokens = [r[0] for r in rows.fetchall()]
+    except Exception as e:
+        logger.error("Cancelled-alert pilot query failed: %s", e)
+        return
+
+    if not tokens:
+        return
+
+    messages = [
+        {
+            "to":       tok,
+            "title":    "✅ Alert Cancelled — Stand Down",
+            "body":     alert["headline"] or "An active alert in your area has been cancelled.",
+            "sound":    "default",
+            "priority": "high",
+        }
+        for tok in tokens
+    ]
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=messages,
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+            )
+    except Exception as e:
+        logger.error("Cancelled-alert push failed: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -726,22 +882,36 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
         ident = alert["identifier"]
         if ident in _seen_identifiers:
             continue
-
         _seen_identifiers.add(ident)
+
+        # ── Cancellation ──────────────────────────────────────────────────────
+        if alert["msg_type"] == "cancel":
+            refs = alert["references"]
+            # Only act if we've seen at least one of the referenced alerts
+            if not any(r in _seen_identifiers for r in refs):
+                continue
+            logger.info("ALERT CANCELLED — references: %s", refs)
+            deactivated = await _deactivate_by_references(session_factory, refs)
+            if deactivated:
+                logger.info("Deactivated plates: %s", deactivated)
+            if webhook_url:
+                await _notify_cancelled(webhook_url, alert, deactivated)
+            await _push_notify_cancelled(session_factory, alert)
+            continue
+
+        # ── Active alert ──────────────────────────────────────────────────────
         atype = alert["alert_type"]
         logger.info(
             "%s detected: %s | %s | Area: %s",
             atype["short"], alert["source_program"], alert["headline"], alert["area"]
         )
 
-        # Always store vehicle profile (useful even when plates are present)
         stored = await _add_vehicle_target(session_factory, alert)
         if stored:
             profile = alert.get("vehicle_profile", {})
             vdesc = " ".join(filter(None, [profile.get("color"), profile.get("body_type"), profile.get("make")])).title()
             logger.info("Vehicle target stored: %s", vdesc or "profile incomplete")
 
-        # Notify pilots watching this geographic area regardless of their location
         await _notify_watching_pilots(session_factory, alert)
 
         if not alert["plates"]:

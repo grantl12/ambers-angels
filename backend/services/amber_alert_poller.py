@@ -32,6 +32,9 @@ from services.fema_connector import (
     _notify_watching_pilots,
     _notify_no_plate,
     _notify_plates,
+    _deactivate_by_references,
+    _notify_cancelled,
+    _push_notify_cancelled,
     ALERT_REGISTRY,
 )
 
@@ -236,8 +239,24 @@ async def _process_alerts(
         ident = alert["identifier"]
         if ident in _seen_identifiers:
             continue
-
         _seen_identifiers.add(ident)
+
+        # ── Cancellation ──────────────────────────────────────────────────────
+        if alert.get("msg_type") == "cancel":
+            refs = alert.get("references", [])
+            if not any(r in _seen_identifiers for r in refs):
+                continue
+            logger.info("[%s] ALERT CANCELLED — references: %s", source, refs)
+            deactivated = await _deactivate_by_references(session_factory, refs)
+            if deactivated:
+                logger.info("[%s] Deactivated plates: %s", source, deactivated)
+            if webhook_url:
+                await _notify_cancelled(webhook_url, alert, deactivated)
+            await _push_notify_cancelled(session_factory, alert)
+            processed += 1
+            continue
+
+        # ── Active alert ──────────────────────────────────────────────────────
         last_alert_seen_at = datetime.now(timezone.utc)
         atype = alert["alert_type"]
 
