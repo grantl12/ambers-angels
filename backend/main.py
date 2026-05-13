@@ -50,6 +50,7 @@ from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
 from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets
 from services.amber_alert_poller import amber_background_loop
+from services.ncmec_poller import ncmec_background_loop
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from services.frame_preprocessor import apply_clahe, enhance_alpr_results
@@ -90,10 +91,17 @@ async def lifespan(app: FastAPI):
             webhook_url=_webhook,
         )
     )
+    ncmec_task = asyncio.create_task(
+        ncmec_background_loop(
+            session_factory=database.AsyncSessionLocal,
+            webhook_url=_webhook,
+        )
+    )
     yield
     fema_task.cancel()
     amber_task.cancel()
-    for t in (fema_task, amber_task):
+    ncmec_task.cancel()
+    for t in (fema_task, amber_task, ncmec_task):
         try:
             await t
         except asyncio.CancelledError:

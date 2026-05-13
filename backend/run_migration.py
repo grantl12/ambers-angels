@@ -29,6 +29,21 @@ ALTER TABLE pilots ADD COLUMN IF NOT EXISTS alert_range_miles  INT DEFAULT 25;
 UPDATE pilots SET alert_scope = 'nationwide' WHERE role = 'admin' AND (alert_scope IS NULL OR alert_scope = 'local');
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS active     BOOLEAN   DEFAULT TRUE;
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS ncmec_cases (
+    guid          TEXT PRIMARY KEY,
+    name          TEXT,
+    age_now       INT,
+    state         VARCHAR(2),
+    city          TEXT,
+    missing_since DATE,
+    poster_url    TEXT,
+    photo_url     TEXT,
+    first_seen_at TIMESTAMPTZ DEFAULT NOW(),
+    last_seen_at  TIMESTAMPTZ DEFAULT NOW(),
+    resolved_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS ncmec_cases_state_idx ON ncmec_cases (state);
+CREATE INDEX IF NOT EXISTS ncmec_cases_resolved_idx ON ncmec_cases (resolved_at) WHERE resolved_at IS NULL;
 """
 
 try:
