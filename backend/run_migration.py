@@ -26,7 +26,7 @@ ALTER TABLE pilots ADD COLUMN IF NOT EXISTS auth_provider      TEXT DEFAULT 'ema
 ALTER TABLE pilots ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS alert_scope        VARCHAR(20) DEFAULT 'local';
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS alert_range_miles  INT DEFAULT 25;
-UPDATE pilots SET alert_scope = 'nationwide' WHERE role = 'admin' AND (alert_scope IS NULL OR alert_scope = 'local');
+UPDATE pilots SET alert_scope = 'nationwide' WHERE role IN ('admin', 'coordinator') AND (alert_scope IS NULL OR alert_scope = 'local');
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS active     BOOLEAN   DEFAULT TRUE;
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS ncmec_cases (
@@ -44,6 +44,16 @@ CREATE TABLE IF NOT EXISTS ncmec_cases (
 );
 CREATE INDEX IF NOT EXISTS ncmec_cases_state_idx ON ncmec_cases (state);
 CREATE INDEX IF NOT EXISTS ncmec_cases_resolved_idx ON ncmec_cases (resolved_at) WHERE resolved_at IS NULL;
+CREATE TABLE IF NOT EXISTS alert_resolutions (
+    id                  SERIAL PRIMARY KEY,
+    resolved_by         TEXT NOT NULL,
+    role                TEXT NOT NULL,
+    fema_identifier     TEXT,
+    ncmec_guid          TEXT,
+    reason              TEXT NOT NULL,
+    plates_deactivated  TEXT[],
+    resolved_at         TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 try:

@@ -110,7 +110,7 @@ def _sync_db():
 # Missions
 # ---------------------------------------------------------------------------
 
-@router.get("/missions/active")
+@router.get("/missions/active", dependencies=[Depends(get_current_pilot)])
 def get_active_missions():
     db = database.SessionLocal()
     try:
@@ -171,7 +171,7 @@ def end_mission(mission_id: str):
     finally:
         db.close()
 
-@router.get("/missions/all")
+@router.get("/missions/all", dependencies=[Depends(require_coordinator)])
 def get_all_missions():
     db = database.SessionLocal()
     try:
@@ -195,7 +195,7 @@ def get_all_missions():
         db.close()
 
 
-@router.get("/missions/{mission_id}/debrief")
+@router.get("/missions/{mission_id}/debrief", dependencies=[Depends(require_coordinator)])
 def get_mission_debrief(mission_id: str):
     db = database.SessionLocal()
     try:
@@ -305,7 +305,7 @@ def get_mission_debrief(mission_id: str):
 # Telemetry — latest position per drone
 # ---------------------------------------------------------------------------
 
-@router.get("/telemetry/latest")
+@router.get("/telemetry/latest", dependencies=[Depends(require_coordinator)])
 def get_latest_telemetry(mission_id: Optional[str] = None):
     db = database.SessionLocal()
     try:
@@ -338,7 +338,7 @@ def get_latest_telemetry(mission_id: Optional[str] = None):
 # Telemetry — flight trail
 # ---------------------------------------------------------------------------
 
-@router.get("/telemetry/trail")
+@router.get("/telemetry/trail", dependencies=[Depends(require_coordinator)])
 def get_telemetry_trail(
     drone_id: str = Query("drone1"),
     minutes: int = Query(30, ge=1, le=1440),
@@ -385,7 +385,7 @@ def get_telemetry_trail(
 # Detections feed
 # ---------------------------------------------------------------------------
 
-@router.get("/detections/feed")
+@router.get("/detections/feed", dependencies=[Depends(get_current_pilot)])
 def get_detections_feed(
     limit: int = Query(50, ge=1, le=200),
     status: Optional[str] = None,
@@ -563,7 +563,7 @@ def get_coverage_map():
 # FEMA alerts — active vehicle targets with polygon / centroid
 # ---------------------------------------------------------------------------
 
-@router.get("/fema/alerts")
+@router.get("/fema/alerts", dependencies=[Depends(get_current_pilot)])
 def get_fema_alerts():
     db = database.SessionLocal()
     try:
@@ -599,7 +599,7 @@ def get_fema_alerts():
 # Pilot leaderboard — per-pilot aggregated stats
 # ---------------------------------------------------------------------------
 
-@router.get("/pilots/leaderboard")
+@router.get("/pilots/leaderboard", dependencies=[Depends(get_current_pilot)])
 def get_pilot_leaderboard():
     db = database.SessionLocal()
     try:
@@ -676,7 +676,7 @@ def get_my_badges(payload: dict = Depends(get_current_pilot)):
 # Watchlist — for the event feed to badge alert plates
 # ---------------------------------------------------------------------------
 
-@router.get("/alerts/history")
+@router.get("/alerts/history", dependencies=[Depends(get_current_pilot)])
 def get_alert_history(limit: int = Query(200, le=500)):
     db = database.SessionLocal()
     try:
@@ -712,7 +712,7 @@ def get_alert_history(limit: int = Query(200, le=500)):
         db.close()
 
 
-@router.get("/watchlist")
+@router.get("/watchlist", dependencies=[Depends(get_current_pilot)])
 def get_watchlist():
     db = database.SessionLocal()
     try:
