@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="580" font-family="system-ui, -apple-system, sans-serif">
+  
+  <rect width="820" height="580" fill="#050a0f"></rect>
+
+  
+  <text x="410" y="34" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="700">What You See on the Map</text>
+  <line x1="40" y1="46" x2="780" y2="46" stroke="rgba(56,189,248,0.3)" stroke-width="1"></line>
+
+  
+  
+  <rect x="40" y="56" width="500" height="440" fill="#1a1f1a" rx="8" stroke="rgba(255,255,255,0.08)" stroke-width="1"></rect>
+
+  
+  <line x1="40" y1="150" x2="540" y2="150" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="40" y1="250" x2="540" y2="250" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="40" y1="350" x2="540" y2="350" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="40" y1="440" x2="540" y2="440" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="140" y1="56" x2="140" y2="496" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="240" y1="56" x2="240" y2="496" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="340" y1="56" x2="340" y2="496" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+  <line x1="440" y1="56" x2="440" y2="496" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
+
+  
+  <line x1="40" y1="300" x2="540" y2="280" stroke="rgba(255,255,255,0.08)" stroke-width="5"></line>
+  <line x1="280" y1="56" x2="290" y2="496" stroke="rgba(255,255,255,0.06)" stroke-width="3"></line>
+  <line x1="40" y1="400" x2="540" y2="390" stroke="rgba(255,255,255,0.05)" stroke-width="3"></line>
+
+  
+  <polygon points="100,120 280,90 380,140 360,300 240,340 110,280" fill="rgba(245,158,11,0.15)" stroke="#f59e0b" stroke-width="2"></polygon>
+
+  
+  <polygon points="200,200 320,180 360,260 300,320 180,300" fill="rgba(239,68,68,0.12)" stroke="#ef4444" stroke-width="1.5"></polygon>
+
+  
+  <circle cx="230" cy="210" r="18" fill="rgba(0,0,0,0.7)" stroke="#f59e0b" stroke-width="2"></circle>
+  <text x="230" y="216" text-anchor="middle" font-size="16">🚨</text>
+
+  
+  <circle cx="380" cy="370" r="18" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="1.5"></circle>
+  <text x="380" y="376" text-anchor="middle" font-size="16">🚁</text>
+
+  
+  <circle cx="130" cy="420" r="16" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" stroke-width="1.5"></circle>
+  <text x="130" y="426" text-anchor="middle" font-size="14">🚗</text>
+
+  
+  <rect x="200" y="64" width="140" height="26" fill="rgba(10,15,22,0.9)" rx="13" stroke="rgba(167,139,250,0.3)" stroke-width="1"></rect>
+  <text x="270" y="81" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600">3 volunteers online</text>
+
+  <rect x="210" y="96" width="120" height="24" fill="rgba(10,15,22,0.9)" rx="12" stroke="rgba(245,158,11,0.35)" stroke-width="1"></rect>
+  <text x="270" y="112" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="600">2 active alerts</text>
+
+  
+  <rect x="48" y="460" width="484" height="44" fill="rgba(234,88,12,0.88)" rx="8" stroke="rgba(251,146,60,0.5)" stroke-width="1"></rect>
+  <text x="290" y="479" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">⚠  4.2 mi outside search area</text>
+  <text x="290" y="495" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="10">AMBER ALERT · Carroll County</text>
+
+  
+  
+  <line x1="270" y1="130" x2="580" y2="100" stroke="rgba(245,158,11,0.4)" stroke-width="1" stroke-dasharray="4,3"></line>
+  <rect x="582" y="72" width="200" height="52" fill="rgba(245,158,11,0.06)" rx="6" stroke="rgba(245,158,11,0.25)" stroke-width="1"></rect>
+  <text x="592" y="90" fill="#f59e0b" font-size="11" font-weight="700">AMBER Alert search zone</text>
+  <text x="592" y="105" fill="rgba(255,255,255,0.5)" font-size="10">Polygon from FEMA feed</text>
+  <text x="592" y="118" fill="rgba(255,255,255,0.5)" font-size="10">Refreshes every 60 seconds</text>
+
+  
+  <line x1="300" y1="250" x2="582" y2="170" stroke="rgba(239,68,68,0.4)" stroke-width="1" stroke-dasharray="4,3"></line>
+  <rect x="582" y="144" width="200" height="40" fill="rgba(239,68,68,0.06)" rx="6" stroke="rgba(239,68,68,0.25)" stroke-width="1"></rect>
+  <text x="592" y="161" fill="#ef4444" font-size="11" font-weight="700">Mattie&#39;s Call / missing adult</text>
+  <text x="592" y="176" fill="rgba(255,255,255,0.5)" font-size="10">Color-coded by alert type</text>
+
+  
+  <line x1="248" y1="210" x2="582" y2="234" stroke="rgba(245,158,11,0.35)" stroke-width="1" stroke-dasharray="4,3"></line>
+  <rect x="582" y="214" width="200" height="40" fill="rgba(255,255,255,0.03)" rx="6" stroke="rgba(255,255,255,0.08)" stroke-width="1"></rect>
+  <text x="592" y="231" fill="#ffffff" font-size="11" font-weight="700">Alert pin — tap to see details</text>
+  <text x="592" y="246" fill="rgba(255,255,255,0.5)" font-size="10">Type, headline, area name</text>
+
+  
+  <line x1="398" y1="370" x2="582" y2="320" stroke="rgba(167,139,250,0.4)" stroke-width="1" stroke-dasharray="4,3"></line>
+  <rect x="582" y="296" width="200" height="52" fill="rgba(167,139,250,0.05)" rx="6" stroke="rgba(167,139,250,0.2)" stroke-width="1"></rect>
+  <text x="592" y="314" fill="#a78bfa" font-size="11" font-weight="700">DJI drone volunteer</text>
+  <text x="592" y="329" fill="rgba(255,255,255,0.5)" font-size="10">Tap: altitude, heading, speed</text>
+  <text x="592" y="344" fill="rgba(255,255,255,0.5)" font-size="10">Updates every 5 seconds</text>
+
+  
+  <line x1="146" y1="420" x2="582" y2="396" stroke="rgba(56,189,248,0.4)" stroke-width="1" stroke-dasharray="4,3"></line>
+  <rect x="582" y="376" width="200" height="40" fill="rgba(56,189,248,0.05)" rx="6" stroke="rgba(56,189,248,0.2)" stroke-width="1"></rect>
+  <text x="592" y="393" fill="#38bdf8" font-size="11" font-weight="700">Phone-mode volunteer</text>
+  <text x="592" y="408" fill="rgba(255,255,255,0.5)" font-size="10">Driving, scanning from car</text>
+
+  
+  <line x1="290" y1="460" x2="582" y2="452" stroke="rgba(234,88,12,0.5)" stroke-width="1" stroke-dasharray="4,3"></line>
+  <rect x="582" y="432" width="200" height="52" fill="rgba(234,88,12,0.07)" rx="6" stroke="rgba(234,88,12,0.25)" stroke-width="1"></rect>
+  <text x="592" y="450" fill="#fb923c" font-size="11" font-weight="700">Out-of-range warning</text>
+  <text x="592" y="465" fill="rgba(255,255,255,0.5)" font-size="10">Fires when you exceed your</text>
+  <text x="592" y="479" fill="rgba(255,255,255,0.5)" font-size="10">Alert Range setting</text>
+</svg>

@@ -42,6 +42,15 @@ recordings/
 !graphics/*.svg
 !web/public/*.png
 !web/public/**/*.png
+!grants/Handoff/**
+!mobile/app-store-screenshots/**
+
+# Claude Code local settings
+.claude/
+
+# Saved browser pages (not part of the codebase)
+Amber's\ Angels\ —\ AI-Powered\ Missing\ Person\ Search.html
+Amber's\ Angels\ —\ AI-Powered\ Missing\ Person\ Search_files/
 
 # OS/editor
 .DS_Store
@@ -64,6 +73,10 @@ grants/*.pdf
 grants/*.txt
 grants/*.html
 grants/*_files/
+grants/*.xlsx
+grants/*.png
+grants/update_score_*.py
+grants/New\ Text\ Document.txt
 
 # Design source files
 AMBER\ Angels/

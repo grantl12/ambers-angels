@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1320px; height: 2868px; overflow: hidden;
+    background: #050a0f; font-family: -apple-system, 'SF Pro Display', sans-serif;
+    position: relative;
+  }
+
+  /* Background */
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 1000px 800px at 50% 35%, rgba(245,158,11,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 800px 600px at 20% 70%, rgba(239,68,68,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 600px 400px at 80% 80%, rgba(59,130,246,0.04) 0%, transparent 60%),
+      #050a0f;
+  }
+
+  /* Status bar */
+  .status-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 54px;
+    z-index: 100;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 0 40px 8px;
+  }
+  .status-time { color: #fff; font-size: 28px; font-weight: 700; }
+  .status-icons { display: flex; gap: 10px; align-items: center; }
+  .status-icons svg { fill: white; }
+
+  /* Hero section */
+  .hero {
+    position: absolute; top: 100px; left: 0; right: 0;
+    text-align: center; padding: 0 80px;
+  }
+  .hero-icon { font-size: 120px; margin-bottom: 32px; display: block;
+    filter: drop-shadow(0 0 40px rgba(245,158,11,0.4)); }
+  .hero-title {
+    font-size: 80px; font-weight: 900; color: #fff;
+    line-height: 1.05; margin-bottom: 20px; letter-spacing: -2px;
+  }
+  .hero-amber { color: #f59e0b; }
+  .hero-sub {
+    font-size: 30px; color: rgba(255,255,255,0.5); font-weight: 500;
+    line-height: 1.5; margin-bottom: 48px;
+  }
+
+  /* Alert type grid */
+  .alert-grid {
+    position: absolute; top: 720px; left: 60px; right: 60px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .alert-card {
+    border-radius: 24px; padding: 40px 36px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .alert-card.amber   { background: rgba(245,158,11,0.1); border: 2px solid rgba(245,158,11,0.4); }
+  .alert-card.silver  { background: rgba(148,163,184,0.08); border: 2px solid rgba(148,163,184,0.3); }
+  .alert-card.blue    { background: rgba(37,99,235,0.1); border: 2px solid rgba(59,130,246,0.4); }
+  .alert-card.matties { background: rgba(220,38,38,0.1); border: 2px solid rgba(220,38,38,0.4); }
+  .alert-card.mipa    { background: rgba(202,138,4,0.1); border: 2px solid rgba(202,138,4,0.35); }
+  .alert-card.ema     { background: rgba(217,119,6,0.1); border: 2px solid rgba(217,119,6,0.35); }
+
+  .ac-badge {
+    display: inline-block; border-radius: 8px;
+    padding: 8px 18px; font-size: 22px; font-weight: 900; letter-spacing: 1.5px;
+    align-self: flex-start;
+  }
+  .amber .ac-badge  { background: #f59e0b; color: #000; }
+  .silver .ac-badge { background: #94a3b8; color: #000; }
+  .blue .ac-badge   { background: #2563eb; color: #fff; }
+  .matties .ac-badge{ background: #dc2626; color: #fff; }
+  .mipa .ac-badge   { background: #ca8a04; color: #000; }
+  .ema .ac-badge    { background: #d97706; color: #000; }
+
+  .ac-title { font-size: 28px; font-weight: 800; color: #fff; line-height: 1.2; }
+  .ac-desc  { font-size: 20px; color: rgba(255,255,255,0.5); line-height: 1.4; }
+
+  /* Feature strip */
+  .feature-strip {
+    position: absolute; top: 2280px; left: 0; right: 0;
+    padding: 0 60px;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .feature-strip-title {
+    font-size: 26px; font-weight: 700; color: rgba(255,255,255,0.3);
+    letter-spacing: 3px; text-transform: uppercase;
+    text-align: center; margin-bottom: 40px;
+  }
+  .feature-row {
+    display: flex; align-items: center; gap: 28px;
+    padding: 28px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .feature-row:last-child { border-bottom: none; }
+  .feature-icon { font-size: 44px; flex-shrink: 0; width: 64px; text-align: center; }
+  .feature-text { flex: 1; }
+  .feature-name { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .feature-desc { font-size: 22px; color: rgba(255,255,255,0.4); line-height: 1.4; }
+
+  /* Notification card mockup */
+  .notif-card {
+    position: absolute; top: 560px; left: 60px; right: 60px;
+    background: rgba(10,15,22,0.95);
+    border: 1px solid rgba(245,158,11,0.4);
+    border-radius: 24px; padding: 28px 32px;
+    display: flex; align-items: flex-start; gap: 20px;
+    box-shadow: 0 0 40px rgba(245,158,11,0.15);
+  }
+  .notif-icon { font-size: 40px; flex-shrink: 0; }
+  .notif-body { flex: 1; }
+  .notif-app { font-size: 18px; color: rgba(255,255,255,0.35); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .notif-title { font-size: 26px; font-weight: 800; color: #f59e0b; margin-bottom: 4px; }
+  .notif-body-text { font-size: 22px; color: rgba(255,255,255,0.6); line-height: 1.4; }
+  .notif-time { font-size: 18px; color: rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <span class="status-time">9:41</span>
+  <div class="status-icons">
+    <svg width="22" height="16" viewBox="0 0 22 16"><rect x="0" y="4" width="4" height="12" rx="1"/><rect x="6" y="2" width="4" height="14" rx="1"/><rect x="12" y="0" width="4" height="16" rx="1"/><rect x="18" y="0" width="4" height="16" rx="1" opacity="0.3"/></svg>
+    <svg width="24" height="16" viewBox="0 0 24 16"><path d="M12 3C7 3 2.8 5.2 0 8.6l2 2C4.2 7.7 7.9 6 12 6s7.8 1.7 10 4.6l2-2C21.2 5.2 17 3 12 3zM12 9c-2.6 0-5 1-6.8 2.7l2 2C8.4 12.6 10.1 12 12 12s3.6.6 4.8 1.7l2-2C16.9 10 14.6 9 12 9zM12 15l2 2-2 2-2-2 2-2z"/></svg>
+    <svg width="40" height="18" viewBox="0 0 40 18"><rect x="0" y="3" width="34" height="14" rx="4" stroke="white" stroke-width="1.5" fill="none"/><rect x="34.5" y="7" width="3" height="6" rx="1.5" fill="white" opacity="0.6"/><rect x="2" y="5" width="28" height="10" rx="2" fill="white"/></svg>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <span class="hero-icon">🚨</span>
+  <div class="hero-title">Instant alerts.<br>Every <span class="hero-amber">case type.</span></div>
+  <div class="hero-sub">Get notified the moment an alert fires<br>anywhere in your watch areas</div>
+</div>
+
+<!-- Notification mockup -->
+<div class="notif-card">
+  <span class="notif-icon">🚨</span>
+  <div class="notif-body">
+    <div class="notif-app">Amber's Angels</div>
+    <div class="notif-title">AMBER ALERT — Carroll County, GA</div>
+    <div class="notif-body-text">Missing child. White Ford F-150. Plate GHF-8821.<br>Tap to view search area on map.</div>
+  </div>
+  <span class="notif-time">now</span>
+</div>
+
+<!-- Alert type grid -->
+<div class="alert-grid">
+
+  <div class="alert-card amber">
+    <span class="ac-badge">AMBER</span>
+    <div class="ac-title">Missing Child</div>
+    <div class="ac-desc">Child abduction emergencies with vehicle and plate info</div>
+  </div>
+
+  <div class="alert-card silver">
+    <span class="ac-badge">SILVER</span>
+    <div class="ac-title">Missing Senior</div>
+    <div class="ac-desc">Endangered elderly or cognitively impaired adults</div>
+  </div>
+
+  <div class="alert-card blue">
+    <span class="ac-badge">BLUE</span>
+    <div class="ac-title">Missing Officer</div>
+    <div class="ac-desc">Law enforcement officer in distress or missing</div>
+  </div>
+
+  <div class="alert-card matties">
+    <span class="ac-badge">MATTIE'S</span>
+    <div class="ac-title">Missing Adult</div>
+    <div class="ac-desc">Endangered missing adults across all age groups</div>
+  </div>
+
+  <div class="alert-card mipa">
+    <span class="ac-badge">MIPA</span>
+    <div class="ac-title">Indigenous Alert</div>
+    <div class="ac-desc">Missing Indigenous Persons Alert activations</div>
+  </div>
+
+  <div class="alert-card ema">
+    <span class="ac-badge">EMA</span>
+    <div class="ac-title">EMA Alert</div>
+    <div class="ac-desc">State Emergency Management Agency activations</div>
+  </div>
+
+</div>
+
+<!-- Feature strip -->
+<div class="feature-strip">
+  <div class="feature-strip-title">How it works</div>
+
+  <div class="feature-row">
+    <span class="feature-icon">🚁</span>
+    <div class="feature-text">
+      <div class="feature-name">Fly your drone or drive your car</div>
+      <div class="feature-desc">DJI SDK integration or phone camera — both work</div>
+    </div>
+  </div>
+
+  <div class="feature-row">
+    <span class="feature-icon">🔍</span>
+    <div class="feature-text">
+      <div class="feature-name">AI scans every plate automatically</div>
+      <div class="feature-desc">Frames upload in real time, matched against active alerts</div>
+    </div>
+  </div>
+
+  <div class="feature-row">
+    <span class="feature-icon">📍</span>
+    <div class="feature-text">
+      <div class="feature-name">GPS-tagged hits go to coordinators</div>
+      <div class="feature-desc">Every match includes exact location for rapid response</div>
+    </div>
+  </div>
+
+  <div class="feature-row">
+    <span class="feature-icon">🏅</span>
+    <div class="feature-text">
+      <div class="feature-name">Earn badges for your missions</div>
+      <div class="feature-desc">Track your contribution and level up with the community</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

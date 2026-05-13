@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="2868" viewBox="0 0 1320 2868">
+    <defs>
+      <linearGradient id="bg_screen-05-privacy" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0e0a02"></stop>
+        <stop offset="22%" stop-color="#0c0d11"></stop>
+        <stop offset="60%" stop-color="#070a0e"></stop>
+        <stop offset="100%" stop-color="#050a0f"></stop>
+      </linearGradient>
+      <radialGradient id="glow_screen-05-privacy" cx="50%" cy="-10%" r="80%">
+        <stop offset="0%" stop-color="rgba(245,158,11,0.20)"></stop>
+        <stop offset="100%" stop-color="rgba(245,158,11,0)"></stop>
+      </radialGradient>
+    </defs>
+
+    <rect width="1320" height="2868" fill="url(#bg_screen-05-privacy)"></rect>
+    <rect width="1320" height="2868" fill="url(#glow_screen-05-privacy)" opacity="0.85"></rect>
+
+    <g opacity="0.08" fill="#f59e0b">
+      <circle cx="30" cy="60" r="1.4"></circle><circle cx="90" cy="60" r="1.4"></circle><circle cx="150" cy="60" r="1.4"></circle><circle cx="210" cy="60" r="1.4"></circle><circle cx="270" cy="60" r="1.4"></circle><circle cx="330" cy="60" r="1.4"></circle><circle cx="390" cy="60" r="1.4"></circle><circle cx="450" cy="60" r="1.4"></circle><circle cx="510" cy="60" r="1.4"></circle><circle cx="570" cy="60" r="1.4"></circle><circle cx="630" cy="60" r="1.4"></circle><circle cx="690" cy="60" r="1.4"></circle><circle cx="750" cy="60" r="1.4"></circle><circle cx="810" cy="60" r="1.4"></circle><circle cx="870" cy="60" r="1.4"></circle><circle cx="930" cy="60" r="1.4"></circle><circle cx="990" cy="60" r="1.4"></circle><circle cx="1050" cy="60" r="1.4"></circle><circle cx="1110" cy="60" r="1.4"></circle><circle cx="1170" cy="60" r="1.4"></circle><circle cx="1230" cy="60" r="1.4"></circle><circle cx="1290" cy="60" r="1.4"></circle><circle cx="30" cy="120" r="1.4"></circle><circle cx="90" cy="120" r="1.4"></circle><circle cx="150" cy="120" r="1.4"></circle><circle cx="210" cy="120" r="1.4"></circle><circle cx="270" cy="120" r="1.4"></circle><circle cx="330" cy="120" r="1.4"></circle><circle cx="390" cy="120" r="1.4"></circle><circle cx="450" cy="120" r="1.4"></circle><circle cx="510" cy="120" r="1.4"></circle><circle cx="570" cy="120" r="1.4"></circle><circle cx="630" cy="120" r="1.4"></circle><circle cx="690" cy="120" r="1.4"></circle><circle cx="750" cy="120" r="1.4"></circle><circle cx="810" cy="120" r="1.4"></circle><circle cx="870" cy="120" r="1.4"></circle><circle cx="930" cy="120" r="1.4"></circle><circle cx="990" cy="120" r="1.4"></circle><circle cx="1050" cy="120" r="1.4"></circle><circle cx="1110" cy="120" r="1.4"></circle><circle cx="1170" cy="120" r="1.4"></circle><circle cx="1230" cy="120" r="1.4"></circle><circle cx="1290" cy="120" r="1.4"></circle><circle cx="30" cy="180" r="1.4"></circle><circle cx="90" cy="180" r="1.4"></circle><circle cx="150" cy="180" r="1.4"></circle><circle cx="210" cy="180" r="1.4"></circle><circle cx="270" cy="180" r="1.4"></circle><circle cx="330" cy="180" r="1.4"></circle><circle cx="390" cy="180" r="1.4"></circle><circle cx="450" cy="180" r="1.4"></circle><circle cx="510" cy="180" r="1.4"></circle><circle cx="570" cy="180" r="1.4"></circle><circle cx="630" cy="180" r="1.4"></circle><circle cx="690" cy="180" r="1.4"></circle><circle cx="750" cy="180" r="1.4"></circle><circle cx="810" cy="180" r="1.4"></circle><circle cx="870" cy="180" r="1.4"></circle><circle cx="930" cy="180" r="1.4"></circle><circle cx="990" cy="180" r="1.4"></circle><circle cx="1050" cy="180" r="1.4"></circle><circle cx="1110" cy="180" r="1.4"></circle><circle cx="1170" cy="180" r="1.4"></circle><circle cx="1230" cy="180" r="1.4"></circle><circle cx="1290" cy="180" r="1.4"></circle><circle cx="30" cy="240" r="1.4"></circle><circle cx="90" cy="240" r="1.4"></circle><circle cx="150" cy="240" r="1.4"></circle><circle cx="210" cy="240" r="1.4"></circle><circle cx="270" cy="240" r="1.4"></circle><circle cx="330" cy="240" r="1.4"></circle><circle cx="390" cy="240" r="1.4"></circle><circle cx="450" cy="240" r="1.4"></circle><circle cx="510" cy="240" r="1.4"></circle><circle cx="570" cy="240" r="1.4"></circle><circle cx="630" cy="240" r="1.4"></circle><circle cx="690" cy="240" r="1.4"></circle><circle cx="750" cy="240" r="1.4"></circle><circle cx="810" cy="240" r="1.4"></circle><circle cx="870" cy="240" r="1.4"></circle><circle cx="930" cy="240" r="1.4"></circle><circle cx="990" cy="240" r="1.4"></circle><circle cx="1050" cy="240" r="1.4"></circle><circle cx="1110" cy="240" r="1.4"></circle><circle cx="1170" cy="240" r="1.4"></circle><circle cx="1230" cy="240" r="1.4"></circle><circle cx="1290" cy="240" r="1.4"></circle><circle cx="30" cy="300" r="1.4"></circle><circle cx="90" cy="300" r="1.4"></circle><circle cx="150" cy="300" r="1.4"></circle><circle cx="210" cy="300" r="1.4"></circle><circle cx="270" cy="300" r="1.4"></circle><circle cx="330" cy="300" r="1.4"></circle><circle cx="390" cy="300" r="1.4"></circle><circle cx="450" cy="300" r="1.4"></circle><circle cx="510" cy="300" r="1.4"></circle><circle cx="570" cy="300" r="1.4"></circle><circle cx="630" cy="300" r="1.4"></circle><circle cx="690" cy="300" r="1.4"></circle><circle cx="750" cy="300" r="1.4"></circle><circle cx="810" cy="300" r="1.4"></circle><circle cx="870" cy="300" r="1.4"></circle><circle cx="930" cy="300" r="1.4"></circle><circle cx="990" cy="300" r="1.4"></circle><circle cx="1050" cy="300" r="1.4"></circle><circle cx="1110" cy="300" r="1.4"></circle><circle cx="1170" cy="300" r="1.4"></circle><circle cx="1230" cy="300" r="1.4"></circle><circle cx="1290" cy="300" r="1.4"></circle><circle cx="30" cy="360" r="1.4"></circle><circle cx="90" cy="360" r="1.4"></circle><circle cx="150" cy="360" r="1.4"></circle><circle cx="210" cy="360" r="1.4"></circle><circle cx="270" cy="360" r="1.4"></circle><circle cx="330" cy="360" r="1.4"></circle><circle cx="390" cy="360" r="1.4"></circle><circle cx="450" cy="360" r="1.4"></circle><circle cx="510" cy="360" r="1.4"></circle><circle cx="570" cy="360" r="1.4"></circle><circle cx="630" cy="360" r="1.4"></circle><circle cx="690" cy="360" r="1.4"></circle><circle cx="750" cy="360" r="1.4"></circle><circle cx="810" cy="360" r="1.4"></circle><circle cx="870" cy="360" r="1.4"></circle><circle cx="930" cy="360" r="1.4"></circle><circle cx="990" cy="360" r="1.4"></circle><circle cx="1050" cy="360" r="1.4"></circle><circle cx="1110" cy="360" r="1.4"></circle><circle cx="1170" cy="360" r="1.4"></circle><circle cx="1230" cy="360" r="1.4"></circle><circle cx="1290" cy="360" r="1.4"></circle><circle cx="30" cy="420" r="1.4"></circle><circle cx="90" cy="420" r="1.4"></circle><circle cx="150" cy="420" r="1.4"></circle><circle cx="210" cy="420" r="1.4"></circle><circle cx="270" cy="420" r="1.4"></circle><circle cx="330" cy="420" r="1.4"></circle><circle cx="390" cy="420" r="1.4"></circle><circle cx="450" cy="420" r="1.4"></circle><circle cx="510" cy="420" r="1.4"></circle><circle cx="570" cy="420" r="1.4"></circle><circle cx="630" cy="420" r="1.4"></circle><circle cx="690" cy="420" r="1.4"></circle><circle cx="750" cy="420" r="1.4"></circle><circle cx="810" cy="420" r="1.4"></circle><circle cx="870" cy="420" r="1.4"></circle><circle cx="930" cy="420" r="1.4"></circle><circle cx="990" cy="420" r="1.4"></circle><circle cx="1050" cy="420" r="1.4"></circle><circle cx="1110" cy="420" r="1.4"></circle><circle cx="1170" cy="420" r="1.4"></circle><circle cx="1230" cy="420" r="1.4"></circle><circle cx="1290" cy="420" r="1.4"></circle><circle cx="30" cy="480" r="1.4"></circle><circle cx="90" cy="480" r="1.4"></circle><circle cx="150" cy="480" r="1.4"></circle><circle cx="210" cy="480" r="1.4"></circle><circle cx="270" cy="480" r="1.4"></circle><circle cx="330" cy="480" r="1.4"></circle><circle cx="390" cy="480" r="1.4"></circle><circle cx="450" cy="480" r="1.4"></circle><circle cx="510" cy="480" r="1.4"></circle><circle cx="570" cy="480" r="1.4"></circle><circle cx="630" cy="480" r="1.4"></circle><circle cx="690" cy="480" r="1.4"></circle><circle cx="750" cy="480" r="1.4"></circle><circle cx="810" cy="480" r="1.4"></circle><circle cx="870" cy="480" r="1.4"></circle><circle cx="930" cy="480" r="1.4"></circle><circle cx="990" cy="480" r="1.4"></circle><circle cx="1050" cy="480" r="1.4"></circle><circle cx="1110" cy="480" r="1.4"></circle><circle cx="1170" cy="480" r="1.4"></circle><circle cx="1230" cy="480" r="1.4"></circle><circle cx="1290" cy="480" r="1.4"></circle><circle cx="30" cy="540" r="1.4"></circle><circle cx="90" cy="540" r="1.4"></circle><circle cx="150" cy="540" r="1.4"></circle><circle cx="210" cy="540" r="1.4"></circle><circle cx="270" cy="540" r="1.4"></circle><circle cx="330" cy="540" r="1.4"></circle><circle cx="390" cy="540" r="1.4"></circle><circle cx="450" cy="540" r="1.4"></circle><circle cx="510" cy="540" r="1.4"></circle><circle cx="570" cy="540" r="1.4"></circle><circle cx="630" cy="540" r="1.4"></circle><circle cx="690" cy="540" r="1.4"></circle><circle cx="750" cy="540" r="1.4"></circle><circle cx="810" cy="540" r="1.4"></circle><circle cx="870" cy="540" r="1.4"></circle><circle cx="930" cy="540" r="1.4"></circle><circle cx="990" cy="540" r="1.4"></circle><circle cx="1050" cy="540" r="1.4"></circle><circle cx="1110" cy="540" r="1.4"></circle><circle cx="1170" cy="540" r="1.4"></circle><circle cx="1230" cy="540" r="1.4"></circle><circle cx="1290" cy="540" r="1.4"></circle><circle cx="30" cy="600" r="1.4"></circle><circle cx="90" cy="600" r="1.4"></circle><circle cx="150" cy="600" r="1.4"></circle><circle cx="210" cy="600" r="1.4"></circle><circle cx="270" cy="600" r="1.4"></circle><circle cx="330" cy="600" r="1.4"></circle><circle cx="390" cy="600" r="1.4"></circle><circle cx="450" cy="600" r="1.4"></circle><circle cx="510" cy="600" r="1.4"></circle><circle cx="570" cy="600" r="1.4"></circle><circle cx="630" cy="600" r="1.4"></circle><circle cx="690" cy="600" r="1.4"></circle><circle cx="750" cy="600" r="1.4"></circle><circle cx="810" cy="600" r="1.4"></circle><circle cx="870" cy="600" r="1.4"></circle><circle cx="930" cy="600" r="1.4"></circle><circle cx="990" cy="600" r="1.4"></circle><circle cx="1050" cy="600" r="1.4"></circle><circle cx="1110" cy="600" r="1.4"></circle><circle cx="1170" cy="600" r="1.4"></circle><circle cx="1230" cy="600" r="1.4"></circle><circle cx="1290" cy="600" r="1.4"></circle><circle cx="30" cy="660" r="1.4"></circle><circle cx="90" cy="660" r="1.4"></circle><circle cx="150" cy="660" r="1.4"></circle><circle cx="210" cy="660" r="1.4"></circle><circle cx="270" cy="660" r="1.4"></circle><circle cx="330" cy="660" r="1.4"></circle><circle cx="390" cy="660" r="1.4"></circle><circle cx="450" cy="660" r="1.4"></circle><circle cx="510" cy="660" r="1.4"></circle><circle cx="570" cy="660" r="1.4"></circle><circle cx="630" cy="660" r="1.4"></circle><circle cx="690" cy="660" r="1.4"></circle><circle cx="750" cy="660" r="1.4"></circle><circle cx="810" cy="660" r="1.4"></circle><circle cx="870" cy="660" r="1.4"></circle><circle cx="930" cy="660" r="1.4"></circle><circle cx="990" cy="660" r="1.4"></circle><circle cx="1050" cy="660" r="1.4"></circle><circle cx="1110" cy="660" r="1.4"></circle><circle cx="1170" cy="660" r="1.4"></circle><circle cx="1230" cy="660" r="1.4"></circle><circle cx="1290" cy="660" r="1.4"></circle>
+    </g>
+
+    
+    
+      <text x="660" y="280" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="148" font-weight="900" fill="#fff" letter-spacing="-5">We protect</text>
+    
+      <text x="660" y="448" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="148" font-weight="900" fill="#f59e0b" letter-spacing="-5">everyone.</text>
+    
+
+    
+    <text x="660" y="620" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="50" font-weight="400" fill="rgba(255,255,255,0.65)">No video archive. Ever.</text>
+
+    
+    <rect x="200" y="760" width="920" height="1990" rx="110" fill="#0e1117" stroke="rgba(255,255,255,0.08)" stroke-width="2"></rect>
+    <rect x="204" y="764" width="912" height="1982" rx="106" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"></rect>
+    <clipPath id="screenClip"><rect x="218" y="778" width="884" height="1954" rx="92"></rect></clipPath>
+    <g clip-path="url(#screenClip)">
+      <rect x="218" y="778" width="884" height="1954" fill="#050a0f"></rect>
+      
+    <defs><linearGradient id="privBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0a0c12"></stop><stop offset="100%" stop-color="#050a0f"></stop></linearGradient></defs>
+    <rect x="218" y="778" width="884" height="1954" fill="url(#privBg)"></rect>
+    
+    <text x="298" y="914" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="36" font-weight="700" fill="#fff">9:41</text>
+    <g fill="#fff">
+      <rect x="918" y="906" width="6" height="10" rx="1"></rect>
+      <rect x="928" y="902" width="6" height="14" rx="1"></rect>
+      <rect x="938" y="898" width="6" height="18" rx="1"></rect>
+      <rect x="948" y="894" width="6" height="22" rx="1"></rect>
+      <rect x="976" y="896" width="42" height="20" rx="5" stroke="#fff" stroke-width="2" fill="none"></rect>
+      <rect x="980" y="900" width="32" height="12" rx="2"></rect>
+    </g>
+  
+
+    <text x="258" y="1042" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="44" font-weight="800" fill="#fff">Privacy</text>
+    <text x="258" y="1090" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.45)">How we handle your camera</text>
+
+    
+        <rect x="258" y="1078" width="804" height="200" rx="24" fill="rgba(255,255,255,0.04)" stroke="rgba(245,158,11,0.2)" stroke-width="1"></rect>
+        <rect x="284" y="1160" width="64" height="48" rx="8" fill="none" stroke="#f59e0b" stroke-width="4"></rect>
+                   <path d="M348,1174 L372,1156 L372,1212 L348,1196 Z" fill="none" stroke="#f59e0b" stroke-width="4" stroke-linejoin="round"></path>
+                   <line x1="284" y1="1216" x2="378" y2="1152" stroke="#ef4444" stroke-width="6" stroke-linecap="round"></line>
+        <text x="418" y="1148" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="32" font-weight="800" fill="#fff">No video archive</text>
+        <text x="418" y="1192" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">Frames are processed in memory and deleted</text>
+        <text x="418" y="1222" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">instantly. No recording.</text>
+      
+        <rect x="258" y="1318" width="804" height="200" rx="24" fill="rgba(255,255,255,0.04)" stroke="rgba(245,158,11,0.2)" stroke-width="1"></rect>
+        <circle cx="328" cy="1424" r="38" fill="none" stroke="#f59e0b" stroke-width="4"></circle>
+                   <circle cx="328" cy="1424" r="20" fill="none" stroke="#f59e0b" stroke-width="4"></circle>
+                   <circle cx="328" cy="1424" r="6" fill="#f59e0b"></circle>
+        <text x="418" y="1388" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="32" font-weight="800" fill="#fff">Mission-scoped only</text>
+        <text x="418" y="1432" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">Camera activates only when an AMBER Alert</text>
+        <text x="418" y="1462" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">fires in your area.</text>
+      
+        <rect x="258" y="1558" width="804" height="200" rx="24" fill="rgba(255,255,255,0.04)" stroke="rgba(245,158,11,0.2)" stroke-width="1"></rect>
+        <circle cx="328" cy="1646" r="16" fill="none" stroke="#f59e0b" stroke-width="4"></circle>
+                   <path d="M296,1702 a32,32 0 0 1 64,0" fill="none" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"></path>
+                   <path d="M346,1668 l8,8 l14,-14" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <text x="418" y="1628" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="32" font-weight="800" fill="#fff">Human reviews every alert</text>
+        <text x="418" y="1672" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">No AI-only escalation. A coordinator approves</text>
+        <text x="418" y="1702" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">every match.</text>
+      
+        <rect x="258" y="1798" width="804" height="200" rx="24" fill="rgba(255,255,255,0.04)" stroke="rgba(245,158,11,0.2)" stroke-width="1"></rect>
+        <rect x="296" y="1866" width="64" height="80" rx="6" fill="none" stroke="#f59e0b" stroke-width="4"></rect>
+                   <line x1="308" y1="1888" x2="348" y2="1888" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"></line>
+                   <line x1="308" y1="1906" x2="348" y2="1906" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"></line>
+                   <line x1="308" y1="1924" x2="336" y2="1924" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"></line>
+        <text x="418" y="1868" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="32" font-weight="800" fill="#fff">Public transparency report</text>
+        <text x="418" y="1912" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">Accuracy and retention published quarterly.</text>
+        <text x="418" y="1942" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.55)">Auditable by design.</text>
+      
+
+    <rect x="218" y="2528" width="884" height="200" fill="#0a0e14"></rect>
+    <line x1="218" y1="2528" x2="1102" y2="2528" stroke="rgba(255,255,255,0.08)" stroke-width="1"></line>
+    
+      <g transform="translate(318, 2578)">
+        <path d="M14,4 L34,2 L54,8 L54,30 L34,34 L14,28 Z" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="rgba(255,255,255,0.4)">Map</text>
+      </g>
+    
+      <g transform="translate(538, 2578)">
+        <path d="M8,12 H58 V46 H8 Z M16,12 L22,4 H44 L50,12 M33,20 a8,8 0 1,0 0.01,0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="rgba(255,255,255,0.4)">Camera</text>
+      </g>
+    
+      <g transform="translate(758, 2578)">
+        <path d="M8,12 H58 M8,24 H58 M8,36 H58" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="rgba(255,255,255,0.4)">Feed</text>
+      </g>
+    
+      <g transform="translate(978, 2578)">
+        <path d="M33,12 a10,10 0 1,0 0.01,0 M33,4 L33,12 M33,32 L33,40 M16,22 L24,22 M42,22 L50,22" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#f59e0b">Settings</text>
+      </g>
+    
+  
+    </g>
+    <rect x="520" y="800" width="280" height="36" rx="18" fill="#0a0c12"></rect>
+    <rect x="570" y="2680" width="180" height="8" rx="4" fill="rgba(255,255,255,0.3)"></rect>
+  
+
+    <text x="660" y="2810" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#f59e0b" letter-spacing="10">AMBER ANGELS</text>
+  </svg>

@@ -9,6 +9,7 @@ image embed so operators can see the triggering photo inline.
 import json
 import logging
 import os
+import urllib.parse
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from services.detection_models import AlertCreate
+
+SMS_CONFIDENCE_THRESHOLD = float(os.getenv("SMS_CONFIDENCE_THRESHOLD", "90"))
 
 # Tier → Discord embed color (decimal)
 _ALERT_COLORS = {
@@ -160,6 +163,63 @@ class AlertDispatcher:
                     logger.error("Discord returned %s: %s", resp.status_code, resp.text[:200])
             except Exception as e:
                 logger.error("Network error sending to Discord: %s", e)
+
+        # 3. SMS — fires when confidence meets threshold and Twilio is configured
+        if confidence and confidence >= SMS_CONFIDENCE_THRESHOLD:
+            await self._send_sms(plate, confidence, drone_id, location, alert_type)
+
+    # -------------------------------------------------------------------------
+
+    async def _send_sms(
+        self,
+        plate: str,
+        confidence: float,
+        drone_id: str,
+        location: Optional[dict],
+        alert_type: Optional[str],
+    ) -> None:
+        """Send SMS via Twilio when a plate is confirmed at high confidence."""
+        sid    = os.getenv("TWILIO_ACCOUNT_SID", "")
+        token  = os.getenv("TWILIO_AUTH_TOKEN", "")
+        from_  = os.getenv("TWILIO_FROM", "")
+        nums   = [n.strip() for n in os.getenv("SMS_ALERT_NUMBERS", "").split(",") if n.strip()]
+        if not all([sid, token, from_, nums]):
+            return
+
+        lat = location.get("lat") if location else None
+        lon = location.get("lon") or (location.get("lng") if location else None)
+        maps_line = f"https://maps.google.com/maps?q={lat},{lon}\n" if lat and lon else ""
+
+        body = (
+            f"WATCHLIST HIT — {(alert_type or 'AMBER').upper()}\n"
+            f"Plate: {plate}\n"
+            f"Confidence: {confidence:.0f}%\n"
+            f"Drone: {drone_id}\n"
+            f"{maps_line}"
+            f"— Amber's Angels"
+        )
+
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+        import base64
+        auth = base64.b64encode(f"{sid}:{token}".encode()).decode()
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for to in nums:
+                try:
+                    resp = await client.post(
+                        url,
+                        headers={
+                            "Authorization": f"Basic {auth}",
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        content=urllib.parse.urlencode({"From": from_, "To": to, "Body": body}).encode(),
+                    )
+                    if resp.status_code in (200, 201):
+                        logger.info("SMS sent to %s for plate %s", to, plate)
+                    else:
+                        logger.warning("Twilio SMS to %s returned %s", to, resp.status_code)
+                except Exception as e:
+                    logger.error("SMS send error: %s", e)
 
     # -------------------------------------------------------------------------
 

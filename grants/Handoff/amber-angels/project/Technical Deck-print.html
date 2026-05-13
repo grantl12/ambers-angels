@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AMBER Angels — Technical Deck</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<script type="application/json" id="speaker-notes">
+[
+"Hey — Grant here. Fourteen slides covering the actual stack, composite confidence scoring, FEMA ingestion, the screens volunteers and coordinators use, and how the system stays privacy-safe by topology. Let's go.",
+"At a thousand-foot view: smartphones and drones become distributed sensor nodes during active alerts. FEMA IPAWS is polled every five minutes. When a qualifying alert fires — AMBER, Silver, Mattie's, Purple, Blue — the suspect plate and vehicle profile are extracted from the CAP XML and written to the watchlist. Volunteers in the area get notified, mount their phones, and drive their normal routes. Frames flow to the unified worker, which runs ALPR plus YOLO. Composite scores trigger Discord alerts to coordinators. No raw frames are stored.",
+"Three tiers — edge, coordination, integrations. The edge is Expo plus React Native phones, plus an RTMP stream from drones flowing through nginx exec_push, plus phase-two DJI MSDK 5.17. The coordination tier is FastAPI on Python 3.10 with PostgreSQL, the unified worker that owns the shared frame queue, and the FEMA IPAWS poller as a background async task. The integration tier brings IPAWS in, fans Discord out, and lets coordinators view the live state through the Next.js 14 dashboard with Mapbox dark mode.",
+"This is the unified worker. RTMP video from drones, direct frames from the phone background service, and phase-two DJI MSDK all push into one shared frame queue inside a single process. That queue feeds OpenALPR for plate text and confidence, YOLOv8-nano for body type and dominant color, and Plate Recognizer cloud as an optional opt-in enrichment for high-confidence reads only. Then the AggregationService builds the composite score across a five-second window, EventService runs watchlist fuzzy match, and AlertDispatcher fires Discord with the full vehicle-corroboration verdict.",
+"This is the heart of the system — the composite confidence score. Plate-only ALPR is roughly thirty percent false positive in real-world conditions. Our score combines two independent signals. The ALPR signal is fifty percent highest-frame, thirty percent mean, ten percent median, plus repetition and consistency bonuses, minus a quality penalty for blur, skew, or partial plates. The YOLO signal adds up to seven points based on color consistency, body-type consistency, and average detection confidence across frames. Both signals must agree before we open an event.",
+"Aggregation runs in a five-second window. Detections grouped by drone and plate-prefix get fuzzy-matched together — OCR confusions like O for zero, B for eight, S for five are baked into the matcher. The window decides whether the event is HIGH_CONFIDENCE, PROBABLE, or stays as a raw observation. HIGH_CONFIDENCE requires score above ninety with at least three supporting frames and seventy-five percent dominant-plate ratio. PROBABLE is seventy-five plus, two frames, sixty percent ratio. Anything below stays raw — no event opened, no Discord fired.",
+"On the FEMA side, the connector polls IPAWS every five minutes by default. CAP XML is parsed for plate numbers and vehicle profile — color, body type, make. Plates write to the watchlist with vehicle profile attached. For alerts where no plate was found, a separate vehicle_targets row gets written so YOLO-only matching can still trigger. Re-poll uses a COALESCE upsert so a bare-plate entry gets backfilled if a later poll finds the vehicle profile. We support AMBER, Mattie's, Silver, Purple, MIPA, EMA, and Blue Alerts.",
+"Mobile is Expo bare workflow with React Native zero-eight-one. The standout piece is the phone-camera native module — an Android Foreground Service that keeps Camera2 plus GPS plus upload running while the user drives with another app open. AA does not need to be the visible screen. A persistent notification shows live frame count and a one-tap Stop button. iOS gets a more limited foreground mode. Phase two is DJI MSDK 5.17 native bindings for Mavic 3, Mini 4 Pro, Air 3, and Avata.",
+"Here's the actual screen flow inside the app. Login, mission map with priority-zone overlay, camera capture, detection feed, settings. The map shows the active alert polygon, the volunteer's own track, anonymized other-volunteer markers, and color-coded flight priority zones — high priority where Flock has zero coverage, medium where it has one to three. Out-of-range fires haptic plus visual when the volunteer drifts outside the search radius.",
+"This is the start-mission flow. IPAWS-driven push lands on phones in the alert region. Volunteer sees the suspect descriptor, alert ID, and last-known direction. One tap to start. The app drops into camera capture with the foreground service running. The user can lock the phone, switch to navigation, do anything — frames keep flowing. Tap stop from the persistent notification at any time without unlocking.",
+"For drone operators we use DJI MSDK 5.17 native bindings. The four-step pair-authenticate-sync-confirm flow is in our drone module. The drone streams RTMP into nginx with exec_push handing JPEG frames to the unified worker. Same cascade pipeline as the phone — no separate code path. Pilot needs Part 107 verified on their account before flight-mode unlocks.",
+"The web dashboard is Next.js 14 plus Tailwind. Routes worth knowing: slash-map is the live mission view, slash-missions starts and ends mission scope, slash-admin is the pilot approval queue and test-alert injection, slash-leaderboard, slash-debrief for post-mission reports, and the policy routes — slash-privacy, slash-terms, slash-retention. Three roles: Pilot, Coordinator, Admin. Coordinators see bucketed Flock coverage — zero, one to three, four-plus — never raw camera positions. Admins see everything.",
+"Privacy is enforced by the topology, not by policy. Raw frames hold in RAM only for the inference duration — there is no write path to disk for raw video. The platform is event-triggered — between IPAWS alerts, the inference pipeline is idle. Volunteers opt in per-mission — there is no always-on scanning mode. Telemetry purges after ninety days, detection records after one year. The watchlist contains only plates from active government alerts, never our own database of plate sightings.",
+"That's the system. FastAPI plus Postgres backend, unified worker with shared frame queue, OpenALPR plus YOLOv8 with composite confidence scoring, FEMA IPAWS poller every five minutes, Expo Foreground Service mobile, DJI MSDK 5.17 phase two, Next.js 14 dashboard with role-tiered Mapbox views. Privacy by topology, not by promise. Find me at info at amberangels dot org if you want to dig into any layer."
+]
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#050a0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#050a0f"/>
+    <g stroke="#f59e0b" stroke-width="3" fill="none">
+      <rect x="380" y="240" width="180" height="120" rx="8"/>
+      <rect x="640" y="240" width="180" height="120" rx="8"/>
+      <rect x="510" y="440" width="180" height="120" rx="8"/>
+      <line x1="470" y1="360" x2="600" y2="440"/>
+      <line x1="730" y1="360" x2="600" y2="440"/>
+    </g>
+    <text x="600" y="660" font-family="system-ui" font-size="36" font-weight="700" fill="#f59e0b" text-anchor="middle" letter-spacing="4">TECHNICAL DECK</text>
+  </svg>
+</template>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #f59e0b;
+  --sky: #38bdf8;
+  --green: #22c55e;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --ink: #050a0f;
+  --ink2: #0d1117;
+  --ink3: #111827;
+  --ink4: #1a2332;
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
+  --dim: rgba(255,255,255,0.38);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+}
+section {
+  width: 1920px; height: 1080px;
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--ink); color: var(--text);
+  position: relative; overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.mono, code { font-family: 'JetBrains Mono', monospace; }
+.sn { position: absolute; bottom: 40px; right: 56px; font-size: 24px; color: var(--dim); font-weight: 500; letter-spacing: 1px; }
+.brand { position: absolute; top: 40px; left: 56px; display: flex; align-items: center; gap: 14px; z-index: 5; }
+.brand img { width: 40px; height: 40px; border-radius: 50%; }
+.brand span { font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.7); }
+.brand em { color: var(--amber); font-style: normal; }
+.tag { display: inline-block; font-size: 24px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--amber); border: 1px solid rgba(245,158,11,0.3); padding: 8px 18px; border-radius: 4px; background: rgba(245,158,11,0.07); }
+em.amber { color: var(--amber); font-style: normal; }
+
+/* ──── 01 TITLE ──── */
+#s1 { display:flex; align-items:center; justify-content:center; }
+#s1::after { content:''; position:absolute; right:-300px; top:-300px; width:1100px; height:1100px; background: radial-gradient(circle, rgba(245,158,11,0.10) 0%, transparent 60%); }
+.s1-inner { text-align: center; max-width: 1500px; padding: 0 80px; }
+.s1-logo { width: 100px; height: 100px; border-radius: 50%; margin-bottom: 32px; }
+.s1-org { font-size: 26px; font-weight: 700; letter-spacing: 5px; text-transform: uppercase; color: var(--amber); margin-bottom: 28px; opacity: 0.9; }
+.s1-h { font-size: 84px; font-weight: 700; line-height: 1.05; letter-spacing: -2px; color: #fff; margin-bottom: 28px; }
+.s1-h em { color: var(--amber); font-style: normal; }
+.s1-sub { font-size: 28px; color: var(--muted); max-width: 1200px; line-height: 1.55; margin: 0 auto 60px; }
+.s1-meta { display: flex; gap: 48px; padding-top: 32px; border-top: 1px solid var(--border); justify-content: center; flex-wrap: wrap; }
+.s1-mi-l { font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+.s1-mi-v { font-size: 26px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.s1-mi-v .a { color: var(--amber); }
+
+/* ──── 02 SYSTEM OVERVIEW ──── */
+#s2 { padding: 100px 96px 80px; display: flex; flex-direction: column; justify-content: center; }
+#s2 h2 { font-size: 60px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+#s2 h2 em { color: var(--amber); font-style: normal; }
+#s2 > p { font-size: 26px; color: var(--muted); line-height: 1.55; max-width: 1400px; margin-bottom: 56px; }
+.flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; align-items: stretch; }
+.flow-step { background: var(--ink2); border: 1px solid var(--border); border-radius: 14px; padding: 32px 28px; position: relative; display: flex; flex-direction: column; gap: 14px; }
+.flow-step.active { border-color: rgba(245,158,11,0.45); background: linear-gradient(180deg, rgba(245,158,11,0.10), var(--ink2)); }
+.flow-num { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; letter-spacing: 1px; color: var(--dim); }
+.flow-step.active .flow-num { color: var(--amber); }
+.flow-step h3 { font-size: 26px; font-weight: 700; color: #fff; line-height: 1.2; }
+.flow-step p { font-size: 24px; color: var(--muted); line-height: 1.45; }
+.flow-arrow { position: absolute; right: -16px; top: 50%; width: 16px; height: 2px; background: var(--border-strong); z-index: 1; }
+.flow-arrow::after { content: ''; position: absolute; right: 0; top: -4px; border-left: 7px solid var(--border-strong); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+
+/* ──── 03 ARCHITECTURE ──── */
+#s3 { background: var(--ink2); padding: 80px 96px 70px; display: flex; flex-direction: column; }
+#s3 h2 { font-size: 52px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 20px 0 28px; }
+#s3 h2 em { color: var(--amber); font-style: normal; }
+.arch { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+.arch-plane { display: flex; flex-direction: column; gap: 12px; }
+.arch-h { font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); padding-left: 4px; }
+.arch-box { background: var(--ink3); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+.arch-box.edge { border-color: rgba(56,189,248,0.3); }
+.arch-box.coord { border-color: rgba(245,158,11,0.3); }
+.arch-box.integ { border-color: rgba(167,139,250,0.3); }
+.arch-box .lbl { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 500; color: var(--dim); margin-bottom: 8px; }
+.arch-box h4 { font-size: 26px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+.arch-box p { font-size: 24px; color: var(--muted); line-height: 1.45; }
+.arch-foot { margin-top: 24px; padding: 22px 28px; background: var(--ink3); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 8px; font-size: 24px; color: var(--muted); line-height: 1.5; }
+.arch-foot strong { color: #fff; font-weight: 700; }
+.arch-foot .a { color: var(--amber); font-weight: 700; }
+
+/* ──── 04 UNIFIED WORKER ──── */
+#s4 { padding: 90px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s4 h2 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+#s4 h2 em { color: var(--amber); font-style: normal; }
+#s4 > p { font-size: 26px; color: var(--muted); line-height: 1.55; max-width: 1400px; margin-bottom: 40px; }
+.worker { display: grid; grid-template-columns: 280px 1fr 280px; gap: 28px; align-items: stretch; }
+.worker-col { display: flex; flex-direction: column; gap: 14px; }
+.worker-col h4 { font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+.src-card, .out-card { background: var(--ink2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; }
+.src-card .name, .out-card .name { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.src-card .meta, .out-card .meta { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--muted); line-height: 1.4; }
+.worker-core { background: linear-gradient(180deg, rgba(245,158,11,0.10), var(--ink2)); border: 1px solid rgba(245,158,11,0.4); border-radius: 16px; padding: 28px 28px; display: flex; flex-direction: column; gap: 14px; }
+.worker-core .core-h { display: flex; align-items: baseline; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.worker-core .core-h h3 { font-size: 30px; font-weight: 700; color: #fff; }
+.worker-core .core-h .pid { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--amber); }
+.stage-row { display: grid; grid-template-columns: 50px 1fr; gap: 14px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.stage-row:last-child { border-bottom: none; }
+.stage-row .n { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--amber); font-weight: 700; }
+.stage-row .b h5 { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.stage-row .b p { font-size: 24px; color: var(--muted); line-height: 1.4; }
+
+/* ──── 05 COMPOSITE SCORE ──── */
+#s5 { background: var(--ink2); padding: 90px 96px; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+.s5-l h2 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+.s5-l h2 em { color: var(--amber); font-style: normal; }
+.s5-l > p { font-size: 24px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+.score-formula { background: #0a0e14; border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; font-family: 'JetBrains Mono', monospace; font-size: 24px; line-height: 1.7; }
+.score-formula .lbl { color: var(--amber); }
+.score-formula .var { color: #93c5fd; }
+.score-formula .op { color: var(--dim); }
+.score-formula .num { color: #86efac; }
+.score-formula .c { color: rgba(255,255,255,0.4); }
+.score-tbl { display: grid; grid-template-columns: 1fr auto; row-gap: 12px; column-gap: 28px; margin-top: 28px; }
+.score-tbl-h { font-size: 24px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--amber); padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.score-tbl .row-l { font-size: 24px; color: var(--text); }
+.score-tbl .row-l .c { color: var(--dim); display: block; font-size: 24px; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.score-tbl .row-r { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--amber); font-weight: 700; }
+.score-tbl .div { grid-column: 1 / -1; height: 1px; background: var(--border); margin: 8px 0; }
+
+/* ──── 06 AGGREGATION WINDOW ──── */
+#s6 { padding: 90px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s6 h2 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+#s6 h2 em { color: var(--amber); font-style: normal; }
+#s6 > p { font-size: 24px; color: var(--muted); line-height: 1.6; max-width: 1400px; margin-bottom: 40px; }
+.cls-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; margin-bottom: 28px; }
+.cls-card { background: var(--ink2); border: 1px solid var(--border); border-radius: 14px; padding: 28px 30px; }
+.cls-card.high { border-color: rgba(34,197,94,0.4); background: linear-gradient(180deg, rgba(34,197,94,0.08), var(--ink2)); }
+.cls-card.prob { border-color: rgba(245,158,11,0.4); background: linear-gradient(180deg, rgba(245,158,11,0.08), var(--ink2)); }
+.cls-card.raw { border-color: rgba(255,255,255,0.12); }
+.cls-name { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.cls-name h4 { font-size: 30px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+.cls-name code { font-size: 24px; color: var(--dim); }
+.cls-row { display: grid; grid-template-columns: 1fr auto; padding: 12px 0; border-top: 1px solid var(--border); font-size: 24px; }
+.cls-row .l { color: var(--muted); }
+.cls-row .v { font-family: 'JetBrains Mono', monospace; color: #fff; font-weight: 700; }
+.cls-card.high .cls-row .v { color: var(--green); }
+.cls-card.prob .cls-row .v { color: var(--amber); }
+.ocr { background: var(--ink2); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; }
+.ocr h4 { font-size: 24px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--amber); margin-bottom: 12px; }
+.ocr-pairs { display: flex; gap: 14px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 24px; }
+.ocr-pair { background: var(--ink3); border: 1px solid var(--border); padding: 8px 14px; border-radius: 6px; color: rgba(255,255,255,0.85); }
+.ocr-pair .x { color: var(--amber); margin: 0 6px; }
+
+/* ──── 07 FEMA INGEST ──── */
+#s7 { background: var(--ink2); padding: 90px 96px; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+.s7-l h2 { font-size: 52px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+.s7-l h2 em { color: var(--amber); font-style: normal; }
+.s7-l > p { font-size: 24px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+.alerts-tbl { display: grid; grid-template-columns: 130px 1fr 100px; gap: 0; background: var(--ink3); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.alerts-tbl > div { padding: 12px 18px; border-bottom: 1px solid var(--border); font-size: 24px; }
+.alerts-tbl > div:nth-child(-n+3) { font-family: 'JetBrains Mono', monospace; font-size: 24px; letter-spacing: 1px; color: var(--amber); background: rgba(245,158,11,0.06); font-weight: 700; }
+.alerts-tbl > div:nth-last-child(-n+3) { border-bottom: none; }
+.alerts-tbl .code { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+.alerts-tbl .desc { color: var(--muted); }
+.alerts-tbl .hits { font-family: 'JetBrains Mono', monospace; color: var(--amber); text-align: right; }
+.cap { background: #0a0e14; border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; font-family: 'JetBrains Mono', monospace; font-size: 24px; line-height: 1.65; }
+.cap-head { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.cap-head .dot { width: 12px; height: 12px; border-radius: 50%; }
+.cap-head .file { margin-left: 12px; font-size: 24px; color: var(--dim); }
+.cap pre { white-space: pre-wrap; word-break: break-word; }
+.cap .c { color: rgba(255,255,255,0.35); }
+.cap .k { color: #c084fc; }
+.cap .s { color: #86efac; }
+.cap .f { color: #fbbf24; }
+.cap .v { color: #93c5fd; }
+.cap .n { color: #fda4af; }
+
+/* ──── SCREEN slides ──── */
+.screen-section { padding: 80px 96px 80px; display: flex; flex-direction: column; }
+.screen-section h2 { font-size: 50px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 20px 0 20px; }
+.screen-section h2 em { color: var(--amber); font-style: normal; }
+.screen-section > p { font-size: 24px; color: var(--muted); line-height: 1.55; max-width: 1200px; margin-bottom: 32px; }
+.screens-row { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; flex: 1; min-height: 0; }
+.screen-imgwrap { display: flex; align-items: center; justify-content: center; height: 100%; }
+.screen-imgwrap img { max-width: 100%; max-height: 720px; object-fit: contain; display: block; filter: drop-shadow(0 30px 60px rgba(0,0,0,0.5)); border-radius: 12px; }
+.screen-detail { display: flex; flex-direction: column; gap: 16px; }
+.screen-detail h3 { font-size: 30px; font-weight: 700; color: #fff; line-height: 1.2; }
+.screen-detail .desc { font-size: 24px; color: var(--muted); line-height: 1.55; margin-bottom: 8px; }
+.screen-points { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.screen-points li { display: grid; grid-template-columns: 36px 1fr; gap: 14px; align-items: baseline; padding: 16px 20px; background: var(--ink2); border: 1px solid var(--border); border-radius: 8px; }
+.screen-points .num { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--amber); font-weight: 700; }
+.screen-points .body { font-size: 24px; color: var(--text); line-height: 1.4; }
+.screen-points .body strong { color: #fff; font-weight: 700; }
+.screen-points .body code { background: var(--ink3); padding: 2px 8px; border-radius: 4px; font-size: 24px; color: var(--amber); }
+
+#s8 { background: var(--ink); }
+#s9 { background: var(--ink2); }
+#s10 { background: var(--ink); }
+#s11 { background: var(--ink2); }
+
+/* ──── 12 INTEGRATIONS ──── */
+#s12 { padding: 90px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s12 h2 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+#s12 h2 em { color: var(--amber); font-style: normal; }
+#s12 > p { font-size: 24px; color: var(--muted); line-height: 1.6; max-width: 1400px; margin-bottom: 40px; }
+.int-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.int-card { background: var(--ink2); border: 1px solid var(--border); border-radius: 12px; padding: 24px 26px; display: flex; flex-direction: column; gap: 8px; }
+.int-card .cat { font-family: 'JetBrains Mono', monospace; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
+.int-card h4 { font-size: 26px; font-weight: 700; color: #fff; }
+.int-card p { font-size: 24px; color: var(--muted); line-height: 1.45; flex: 1; }
+.int-card .meta { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--amber); padding-top: 8px; border-top: 1px solid var(--border); }
+
+/* ──── 13 PRIVACY ──── */
+#s13 { background: var(--ink2); padding: 90px 96px; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.s13-l h2 { font-size: 52px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; margin: 24px 0 24px; }
+.s13-l h2 em { color: var(--amber); font-style: normal; }
+.s13-l p { font-size: 24px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+.boundary { background: var(--ink3); border: 1px solid var(--border); border-radius: 16px; padding: 32px 36px; }
+.bd-row { display: grid; grid-template-columns: 1fr 24px 1fr; gap: 16px; align-items: stretch; padding: 12px 0; }
+.bd-row + .bd-row { border-top: 1px solid var(--border); }
+.bd-from, .bd-to { padding: 14px 16px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 24px; line-height: 1.4; }
+.bd-from { background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); color: rgba(255,255,255,0.85); }
+.bd-to.allow { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); color: rgba(255,255,255,0.85); }
+.bd-to.deny { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: rgba(255,255,255,0.85); }
+.bd-arr { display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 24px; font-weight: 700; }
+.bd-row .lbl { display: block; font-size: 24px; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 4px; text-transform: uppercase; font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+
+/* ──── 14 CLOSE ──── */
+#s14 { background: var(--amber); display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 80px; position: relative; }
+#s14::before { content:''; position:absolute; inset:0; background: repeating-linear-gradient(-45deg, transparent, transparent 50px, rgba(0,0,0,0.05) 50px, rgba(0,0,0,0.05) 51px); }
+.s14-logo { width: 92px; height: 92px; border-radius: 50%; margin-bottom: 32px; position: relative; z-index: 1; }
+.s14-org { font-size: 24px; font-weight: 700; letter-spacing: 5px; text-transform: uppercase; color: var(--ink); opacity: 0.55; margin-bottom: 24px; position: relative; z-index: 1; }
+.s14-h { font-size: 76px; font-weight: 700; color: var(--ink); letter-spacing: -2px; line-height: 1.1; max-width: 1500px; position: relative; z-index: 1; margin-bottom: 32px; }
+.s14-stack { font-family: 'JetBrains Mono', monospace; font-size: 26px; color: rgba(12,10,5,0.65); letter-spacing: 1px; max-width: 1500px; line-height: 1.7; position: relative; z-index: 1; margin-bottom: 56px; }
+.s14-contact { display: flex; gap: 80px; position: relative; z-index: 1; }
+.s14-c-l { font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(12,10,5,0.45); margin-bottom: 10px; }
+.s14-c-v { font-size: 28px; font-weight: 700; color: var(--ink); }
+</style>
+</head>
+<body>
+
+<deck-stage>
+
+  <!-- ── 01 TITLE ── -->
+  <section id="s1" data-screen-label="01 Title">
+    <div class="s1-inner">
+      <img src="mobile/assets/icon.png" class="s1-logo" alt="AA">
+      <div class="s1-org">AMBER Angels</div>
+      <h1 class="s1-h">A distributed sensor network<br>for <em>missing-persons response.</em></h1>
+      <p class="s1-sub">Architecture, scoring engine, FEMA pipeline, mobile runtime, and dashboard.</p>
+      <div class="s1-meta">
+        <div><div class="s1-mi-l">Backend</div><div class="s1-mi-v">FastAPI · PostgreSQL · PM2</div></div>
+        <div><div class="s1-mi-l">Edge</div><div class="s1-mi-v"><span class="a">Expo · OpenALPR · YOLOv8</span></div></div>
+        <div><div class="s1-mi-l">Web</div><div class="s1-mi-v">Next.js 14 · Mapbox</div></div>
+        <div><div class="s1-mi-l">Status</div><div class="s1-mi-v">Pilot · Carroll County, GA</div></div>
+      </div>
+    </div>
+    <div class="sn">01 / 14</div>
+  </section>
+
+  <!-- ── 02 SYSTEM OVERVIEW ── -->
+  <section id="s2" data-screen-label="02 System Overview">
+    <span class="tag">System Overview</span>
+    <h2>Idle by default. <em>Activated by IPAWS.</em></h2>
+    <p>The platform polls FEMA IPAWS every five minutes. Between alerts, the inference pipeline is fully idle — no continuous capture, no always-on scanning. When a qualifying alert fires, volunteers in the affected area are notified and the pipeline activates per-mission.</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">01 · POLL</div>
+        <h3>FEMA IPAWS</h3>
+        <p>CAP XML polled every 5 min. Plate + vehicle profile parsed and written to watchlist.</p>
+        <div class="flow-arrow"></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">02 · DISPATCH</div>
+        <h3>Volunteers notified</h3>
+        <p>Push to enrolled volunteers in alert polygon. Mount phone, tap START.</p>
+        <div class="flow-arrow"></div>
+      </div>
+      <div class="flow-step active">
+        <div class="flow-num">03 · INGEST</div>
+        <h3>Unified worker</h3>
+        <p>Drone RTMP + phone foreground service feed shared frame queue. ALPR + YOLO run per frame.</p>
+        <div class="flow-arrow"></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">04 · SCORE</div>
+        <h3>Composite confidence</h3>
+        <p>5-second window. ALPR + YOLO corroboration. HIGH / PROBABLE / raw classification.</p>
+        <div class="flow-arrow"></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">05 · ESCALATE</div>
+        <h3>Coordinator gate</h3>
+        <p>Discord webhook fires with full verdict. Human review before any LE notification.</p>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">02 / 14</div>
+  </section>
+
+  <!-- ── 03 ARCHITECTURE ── -->
+  <section id="s3" data-screen-label="03 Architecture">
+    <span class="tag">Architecture</span>
+    <h2>Three planes. <em>Strict boundaries.</em></h2>
+    <div class="arch">
+      <div class="arch-plane">
+        <div class="arch-h">Edge Plane</div>
+        <div class="arch-box edge"><div class="lbl">expo · android+ios</div><h4>Mobile client</h4><p>React Native 0.81. Foreground Service for background scanning. GPS at ~1Hz.</p></div>
+        <div class="arch-box edge"><div class="lbl">drone · rtmp</div><h4>Drone stream</h4><p>nginx exec_push pipes JPEG frames into the unified worker. Same path as phone.</p></div>
+        <div class="arch-box edge"><div class="lbl">phase 2 · dji msdk</div><h4>DJI MSDK 5.17</h4><p>Native Kotlin module. Mavic 3, Mini 4 Pro, Air 3, Avata.</p></div>
+      </div>
+      <div class="arch-plane">
+        <div class="arch-h">Coordination Plane</div>
+        <div class="arch-box coord"><div class="lbl">fastapi · py 3.10</div><h4>API + ingestion</h4><p>POST /ingest/frame. JWT auth. slowapi rate limiting. Async SQLAlchemy.</p></div>
+        <div class="arch-box coord"><div class="lbl">unified_worker.py</div><h4>Frame pipeline</h4><p>One process. Shared queue across all sources. ALPR + YOLO + scoring.</p></div>
+        <div class="arch-box coord"><div class="lbl">postgresql</div><h4>Detection store</h4><p>Events + watchlist + telemetry. Time-windowed retention. No raw video.</p></div>
+      </div>
+      <div class="arch-plane">
+        <div class="arch-h">Integration Plane</div>
+        <div class="arch-box integ"><div class="lbl">inbound · alerts</div><h4>FEMA IPAWS</h4><p>Public CAP feed. 5-min poll. Async background task on app startup.</p></div>
+        <div class="arch-box integ"><div class="lbl">outbound · alerts</div><h4>Discord webhook</h4><p>Full verdict embed: plate + confidence + frame + vehicle match.</p></div>
+        <div class="arch-box integ"><div class="lbl">web · next.js 14</div><h4>Coordinator dashboard</h4><p>Mapbox dark. /map · /admin · /missions · /leaderboard · /debrief.</p></div>
+      </div>
+    </div>
+    <div class="arch-foot"><strong>Hard constraint:</strong> there is no write path to disk for raw frames. <span class="a">Frames hold in RAM only for inference duration</span>; only structured detection metadata persists past the worker.</div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">03 / 14</div>
+  </section>
+
+  <!-- ── 04 UNIFIED WORKER ── -->
+  <section id="s4" data-screen-label="04 Unified Worker">
+    <span class="tag">The Unified Worker</span>
+    <h2>One process. <em>One frame queue.</em></h2>
+    <p>Every source — drone RTMP, phone background service, phase-two DJI MSDK — feeds into the same in-process queue. No duplicated inference paths, no per-source forks. ALPR and YOLO see the same frames in the same order.</p>
+    <div class="worker">
+      <div class="worker-col">
+        <h4>Sources</h4>
+        <div class="src-card"><div class="name">Drone RTMP</div><div class="meta">nginx exec_push<br>→ frames/drone/</div></div>
+        <div class="src-card"><div class="name">Phone Camera</div><div class="meta">Android Foreground Svc<br>POST /ingest/frame</div></div>
+        <div class="src-card"><div class="name">DJI MSDK 5.17</div><div class="meta">native Kotlin module<br>phase 2</div></div>
+      </div>
+      <div class="worker-core">
+        <div class="core-h">
+          <h3>unified_worker.py</h3>
+          <span class="pid">pid:worker · pm2-managed</span>
+        </div>
+        <div class="stage-row"><div class="n">01</div><div class="b"><h5>Frame queue (asyncio)</h5><p>Shared across all sources. Backpressure-aware.</p></div></div>
+        <div class="stage-row"><div class="n">02</div><div class="b"><h5>OpenALPR — plate text + confidence</h5><p>Local inference. Fuzzy-matched against watchlist.</p></div></div>
+        <div class="stage-row"><div class="n">03</div><div class="b"><h5>YOLOv8-nano — body type + dominant color</h5><p>HSV K-means on upper 60% of bbox; confidence per frame.</p></div></div>
+        <div class="stage-row"><div class="n">04</div><div class="b"><h5>Plate Recognizer (opt-in cloud)</h5><p>Make/model enrichment on high-confidence reads only.</p></div></div>
+        <div class="stage-row"><div class="n">05</div><div class="b"><h5>AggregationService → composite score</h5><p>5-second window. ALPR + YOLO corroboration. Classification.</p></div></div>
+      </div>
+      <div class="worker-col">
+        <h4>Outputs</h4>
+        <div class="out-card"><div class="name">Postgres</div><div class="meta">events table<br>raw_summary jsonb</div></div>
+        <div class="out-card"><div class="name">Discord</div><div class="meta">webhook embed<br>frame attached</div></div>
+        <div class="out-card"><div class="name">Dashboard</div><div class="meta">Next.js /map<br>live event feed</div></div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">04 / 14</div>
+  </section>
+
+  <!-- ── 05 COMPOSITE SCORE ── -->
+  <section id="s5" data-screen-label="05 Composite Score">
+    <div class="s5-l">
+      <span class="tag">The Differentiator</span>
+      <h2>Composite confidence — <em>not just plate text.</em></h2>
+      <p>Plate-only ALPR is roughly 30% false-positive in real-world conditions. We score every detection against two independent signals: ALPR text quality and YOLO vehicle corroboration. Both must agree before we open a HIGH_CONFIDENCE event.</p>
+      <p>Stored on every event as <code style="color:var(--amber);background:var(--ink3);padding:2px 8px;border-radius:4px;">raw_summary.vehicle_corroboration</code> — coordinators inspect exactly what contributed to the score.</p>
+      <div class="score-formula">
+<span class="c"># aggregation_service.py</span>
+<span class="lbl">aggregate_confidence</span> <span class="op">=</span>
+  <span class="num">0.50</span><span class="op">*</span><span class="var">max_alpr</span> <span class="op">+</span> <span class="num">0.30</span><span class="op">*</span><span class="var">mean_alpr</span> <span class="op">+</span> <span class="num">0.10</span><span class="op">*</span><span class="var">median_alpr</span>
+  <span class="op">+</span> <span class="var">repetition_bonus</span>     <span class="c"># +5 / +10 (2 / 3+ frames)</span>
+  <span class="op">+</span> <span class="var">consistency_bonus</span>    <span class="c"># +5 (≥75% agree)</span>
+  <span class="op">−</span> <span class="var">quality_penalty</span>      <span class="c"># blur, skew, partial</span>
+  <span class="op">+</span> <span class="var">yolo_corroboration</span>
+  <span class="c"># color + type + conf · max +7</span>
+      </div>
+    </div>
+    <div>
+      <div class="score-tbl">
+        <div class="score-tbl-h">Component</div>
+        <div class="score-tbl-h" style="text-align:right">Weight</div>
+
+        <div class="row-l">Highest single-frame ALPR confidence<span class="c">max(alpr.confidence)</span></div>
+        <div class="row-r">50%</div>
+        <div class="row-l">Mean ALPR confidence<span class="c">mean(alpr.confidence)</span></div>
+        <div class="row-r">30%</div>
+        <div class="row-l">Median ALPR confidence<span class="c">median(alpr.confidence)</span></div>
+        <div class="row-r">10%</div>
+        <div class="div"></div>
+        <div class="row-l">Repetition bonus<span class="c">+5 (2 frames) / +10 (3+ frames)</span></div>
+        <div class="row-r">additive</div>
+        <div class="row-l">Consistency bonus<span class="c">+5 if ≥75% reads agree</span></div>
+        <div class="row-r">additive</div>
+        <div class="row-l">Quality penalty<span class="c">motion_blur, skew, partial_plate, far_distance</span></div>
+        <div class="row-r">subtractive</div>
+        <div class="div"></div>
+        <div class="row-l">YOLO color consistency<span class="c">≥75% frames agree on color</span></div>
+        <div class="row-r">+2</div>
+        <div class="row-l">YOLO body-type consistency<span class="c">≥75% frames agree on type</span></div>
+        <div class="row-r">+2</div>
+        <div class="row-l">YOLO confidence signal<span class="c">(avg_conf − 0.5) × 6</span></div>
+        <div class="row-r">±3</div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">05 / 14</div>
+  </section>
+
+  <!-- ── 06 CLASSIFICATION ── -->
+  <section id="s6" data-screen-label="06 Aggregation Window">
+    <span class="tag">Aggregation Window</span>
+    <h2>Five-second window. <em>Three classifications.</em></h2>
+    <p>Detections grouped by drone and plate-prefix get fuzzy-matched together inside a five-second sliding window. The window decides whether the event opens for coordinator review, fires Discord, or stays a raw observation.</p>
+    <div class="cls-grid">
+      <div class="cls-card high">
+        <div class="cls-name"><h4>HIGH_CONFIDENCE</h4><code>≥ 90.0</code></div>
+        <div class="cls-row"><span class="l">Min score</span><span class="v">90.0</span></div>
+        <div class="cls-row"><span class="l">Min frames</span><span class="v">3</span></div>
+        <div class="cls-row"><span class="l">Dominant ratio</span><span class="v">≥ 75%</span></div>
+        <div class="cls-row"><span class="l">Action</span><span class="v">Discord fire</span></div>
+      </div>
+      <div class="cls-card prob">
+        <div class="cls-name"><h4>PROBABLE</h4><code>≥ 75.0</code></div>
+        <div class="cls-row"><span class="l">Min score</span><span class="v">75.0</span></div>
+        <div class="cls-row"><span class="l">Min frames</span><span class="v">2</span></div>
+        <div class="cls-row"><span class="l">Dominant ratio</span><span class="v">≥ 60%</span></div>
+        <div class="cls-row"><span class="l">Action</span><span class="v">Event opened</span></div>
+      </div>
+      <div class="cls-card raw">
+        <div class="cls-name"><h4>RAW</h4><code>&lt; 75.0</code></div>
+        <div class="cls-row"><span class="l">Score floor</span><span class="v">55.0</span></div>
+        <div class="cls-row"><span class="l">Min frames</span><span class="v">1</span></div>
+        <div class="cls-row"><span class="l">Dominant ratio</span><span class="v">—</span></div>
+        <div class="cls-row"><span class="l">Action</span><span class="v">Logged only</span></div>
+      </div>
+    </div>
+    <div class="ocr">
+      <h4>OCR confusion pairs · baked into fuzzy matcher</h4>
+      <div class="ocr-pairs">
+        <span class="ocr-pair">O<span class="x">↔</span>0</span>
+        <span class="ocr-pair">I<span class="x">↔</span>1</span>
+        <span class="ocr-pair">B<span class="x">↔</span>8</span>
+        <span class="ocr-pair">S<span class="x">↔</span>5</span>
+        <span class="ocr-pair">Z<span class="x">↔</span>2</span>
+        <span class="ocr-pair">G<span class="x">↔</span>6</span>
+        <span class="ocr-pair">+ single insertion / deletion tolerance</span>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">06 / 14</div>
+  </section>
+
+  <!-- ── 07 FEMA INGEST ── -->
+  <section id="s7" data-screen-label="07 FEMA Ingest">
+    <div class="s7-l">
+      <span class="tag">Alert Ingestion</span>
+      <h2>FEMA IPAWS → <em>watchlist, automatically.</em></h2>
+      <p>The connector polls IPAWS every 5 min. CAP XML is parsed for plate + vehicle profile (color, body type, make). Plates write to the watchlist; profile-only alerts (no plate) write to <code style="color:var(--amber)">vehicle_targets</code> so YOLO-only matching can still trigger.</p>
+      <p>Re-poll uses <code style="color:var(--amber)">COALESCE</code> upsert — a bare-plate entry gets backfilled with profile data if a later poll provides it.</p>
+      <div class="alerts-tbl" style="margin-top: 24px;">
+        <div>CAP CODE</div>
+        <div>ALERT PROGRAM</div>
+        <div>PRIORITY</div>
+        <div class="code">CAE</div>
+        <div class="desc">AMBER Alert · Levi's Call — child abduction</div>
+        <div class="hits">P1</div>
+        <div class="code">CEM</div>
+        <div class="desc">Mattie's Call — endangered adult</div>
+        <div class="hits">P2</div>
+        <div class="code">CEM</div>
+        <div class="desc">Silver Alert — missing senior</div>
+        <div class="hits">P2</div>
+        <div class="code">CEM</div>
+        <div class="desc">Purple Alert — developmental disability</div>
+        <div class="hits">P2</div>
+        <div class="code">CEM</div>
+        <div class="desc">MIPA · EMA — missing indigenous / endangered</div>
+        <div class="hits">P3</div>
+        <div class="code">LEW</div>
+        <div class="desc">Blue Alert — endangered law enforcement officer</div>
+        <div class="hits">P1</div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">
+        <div class="cap-head"><div class="dot" style="background:#ef4444"></div><div class="dot" style="background:#f59e0b"></div><div class="dot" style="background:#22c55e"></div><div class="file">services/fema_connector.py</div></div>
+<pre><span class="c"># every POLL_INTERVAL_SECONDS (default 300)</span>
+<span class="k">async def</span> <span class="f">poll_ipaws</span>():
+  xml = <span class="k">await</span> http.<span class="f">get</span>(<span class="v">FEMA_URL</span>).text()
+  <span class="k">for</span> alert <span class="k">in</span> <span class="f">parse_cap</span>(xml):
+    profile = <span class="f">extract_vehicle</span>(alert.description)
+    plates  = <span class="f">extract_plates</span>(alert.description)
+
+    <span class="k">if</span> plates:
+      <span class="k">for</span> p <span class="k">in</span> plates:
+        <span class="k">await</span> watchlist.<span class="f">upsert</span>(
+          plate=p,
+          color=profile.color,
+          body_type=profile.body,
+          make=profile.make,
+        )  <span class="c"># COALESCE — backfill on re-poll</span>
+    <span class="k">elif</span> profile.<span class="f">has_attrs</span>():
+      <span class="k">await</span> vehicle_targets.<span class="f">insert</span>(profile)
+
+    <span class="k">await</span> dispatcher.<span class="f">notify_volunteers</span>(
+      polygon=alert.polygon,
+      cap_code=alert.cap_code,
+    )</pre>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">07 / 14</div>
+  </section>
+
+  <!-- ── 08 SCREEN: MISSION START ── -->
+  <section id="s8" data-screen-label="08 Mission Start" class="screen-section">
+    <span class="tag">Active Alert</span>
+    <h2>Push lands → <em>mission start in two taps.</em></h2>
+    <div class="screens-row">
+      <div class="screen-imgwrap"><img src="graphics/03-start-mission.svg" alt="Start mission"></div>
+      <div class="screen-detail">
+        <h3>IPAWS-driven · geofenced · single action</h3>
+        <p class="desc">When IPAWS issues an alert in the volunteer's polygon, an Expo push notification fires. They see the suspect descriptor, alert ID, last-known direction — and one tap to start.</p>
+        <ul class="screen-points">
+          <li><span class="num">01</span><span class="body"><strong>Geofenced push</strong> — only volunteers inside the alert polygon are notified <code>expo-notifications</code></span></li>
+          <li><span class="num">02</span><span class="body"><strong>Suspect descriptor</strong> — vehicle make/color/body parsed from CAP and shown verbatim</span></li>
+          <li><span class="num">03</span><span class="body"><strong>Single-action start</strong> — no menus; tap to enter <code>CameraScreen</code> with foreground service running</span></li>
+          <li><span class="num">04</span><span class="body"><strong>Auto-stop on alert clear</strong> — IPAWS cancellation pushes a stop-mission state to active devices</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">08 / 14</div>
+  </section>
+
+  <!-- ── 09 SCREEN: BACKGROUND ── -->
+  <section id="s9" data-screen-label="09 Background Scanning" class="screen-section">
+    <span class="tag">Mobile Runtime</span>
+    <h2>Lock the phone. <em>Keep scanning.</em></h2>
+    <div class="screens-row">
+      <div class="screen-imgwrap"><img src="graphics/04-phone-background-mode.svg" alt="Background mode"></div>
+      <div class="screen-detail">
+        <h3>Android Foreground Service · persistent notification</h3>
+        <p class="desc">The flagship piece of the mobile stack. <code>modules/phone-camera</code> runs Camera2 + GPS + upload as an Android Foreground Service so the user can drive with their navigation app open. AA does not need to be visible.</p>
+        <ul class="screen-points">
+          <li><span class="num">01</span><span class="body"><strong>Foreground service</strong> — Camera2 + <code>expo-location</code> stay alive when screen off / app backgrounded</span></li>
+          <li><span class="num">02</span><span class="body"><strong>Persistent notification</strong> — live frame count + one-tap Stop without unlocking</span></li>
+          <li><span class="num">03</span><span class="body"><strong>Per-frame upload</strong> — POST <code>/ingest/frame</code> with GPS attached at ~1Hz</span></li>
+          <li><span class="num">04</span><span class="body"><strong>Out-of-range warning</strong> — fires when volunteer drifts outside the alert polygon</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">09 / 14</div>
+  </section>
+
+  <!-- ── 10 SCREEN: DRONE / DJI ── -->
+  <section id="s10" data-screen-label="10 Drone / DJI" class="screen-section">
+    <span class="tag">Phase 2 · Drone Integration</span>
+    <h2>DJI MSDK 5.17. <em>Same pipeline.</em></h2>
+    <div class="screens-row">
+      <div class="screen-imgwrap"><img src="graphics/07-dji-connection.svg" alt="DJI connection"></div>
+      <div class="screen-detail">
+        <h3>Pair · authenticate · sync · confirm</h3>
+        <p class="desc"><code>modules/dji-camera</code> is a native Kotlin module wrapping DJI MSDK V5. Mavic 3, Mini 4 Pro, Air 3, Avata supported. Drone video flows the same RTMP path as today — the unified worker treats it identically.</p>
+        <ul class="screen-points">
+          <li><span class="num">01</span><span class="body"><strong>Native MSDK 5.17</strong> — Kotlin module under <code>mobile/modules/dji-camera</code></span></li>
+          <li><span class="num">02</span><span class="body"><strong>Same cascade pipeline</strong> — drone frames hit the unified worker exactly like phone frames</span></li>
+          <li><span class="num">03</span><span class="body"><strong>GPS-tagged events</strong> — drone telemetry attached to every detection</span></li>
+          <li><span class="num">04</span><span class="body"><strong>Part 107 gating</strong> — pilot certificate verified on account before flight-mode unlocks</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">10 / 14</div>
+  </section>
+
+  <!-- ── 11 SCREEN: MAP / DASHBOARD ── -->
+  <section id="s11" data-screen-label="11 Live Map" class="screen-section">
+    <span class="tag">Coordinator Dashboard</span>
+    <h2>Live mission map. <em>Tiered visibility.</em></h2>
+    <div class="screens-row">
+      <div class="screen-imgwrap"><img src="graphics/05-mission-map.svg" alt="Live mission map"></div>
+      <div class="screen-detail">
+        <h3>Next.js 14 · Mapbox dark · role-tiered</h3>
+        <p class="desc">Three roles, three views. Pilots see their own track + flight priority zones. Coordinators see <strong>bucketed</strong> Flock coverage (0 / 1–3 / 4+ — never raw camera positions). Admins see everything plus pilot approvals + test alert injection.</p>
+        <ul class="screen-points">
+          <li><span class="num">01</span><span class="body"><strong>Flight priority zones</strong> — high-priority cells where Flock has 0 coverage; medium where 1–3</span></li>
+          <li><span class="num">02</span><span class="body"><strong>Detection markers</strong> — amber detected · red watchlist hit · density heatmap</span></li>
+          <li><span class="num">03</span><span class="body"><strong>Routes</strong> — <code>/map</code> · <code>/missions</code> · <code>/admin</code> · <code>/leaderboard</code> · <code>/debrief</code></span></li>
+          <li><span class="num">04</span><span class="body"><strong>Out-of-range fence</strong> — drift outside polygon fires haptic + visual warning</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">11 / 14</div>
+  </section>
+
+  <!-- ── 12 INTEGRATIONS ── -->
+  <section id="s12" data-screen-label="12 Integrations">
+    <span class="tag">Integrations</span>
+    <h2>What we depend on, <em>and what we own.</em></h2>
+    <p>Every external dependency was chosen so the system is auditable and self-hostable. The ML stack is open-source end-to-end. Self-hostable on any Ubuntu 20.04+ VPS with PostgreSQL, Node 18+, Python 3.10+.</p>
+    <div class="int-grid">
+      <div class="int-card"><div class="cat">inbound · alerts</div><h4>FEMA IPAWS</h4><p>Public CAP feed. AMBER, Silver, Mattie's, Purple, MIPA, EMA, Blue. 5-min poll.</p><div class="meta">CAP 1.2 · no auth</div></div>
+      <div class="int-card"><div class="cat">edge · ml</div><h4>OpenALPR + YOLOv8-nano</h4><p>Local ALPR + body-type classification. HSV K-means for color. All open-source.</p><div class="meta">AGPL · self-hosted</div></div>
+      <div class="int-card"><div class="cat">edge · ml</div><h4>Plate Recognizer (opt-in)</h4><p>Cloud make/model enrichment on high-confidence reads. Quota-conserved.</p><div class="meta">REST · throttled</div></div>
+      <div class="int-card"><div class="cat">edge · drone</div><h4>DJI MSDK 5.17 (phase 2)</h4><p>Native Kotlin. Mavic 3, Mini 4 Pro, Air 3, Avata. Part 107 gated.</p><div class="meta">Android first</div></div>
+      <div class="int-card"><div class="cat">mobile</div><h4>Expo + React Native 0.81</h4><p>Bare workflow. EAS Build cloud — no Mac required for iOS. OTA via expo-updates.</p><div class="meta">EAS · OTA</div></div>
+      <div class="int-card"><div class="cat">backend</div><h4>FastAPI + PostgreSQL</h4><p>Async SQLAlchemy. JWT (passlib + python-jose). slowapi rate limit. PM2 supervised.</p><div class="meta">Python 3.10</div></div>
+      <div class="int-card"><div class="cat">web</div><h4>Next.js 14 + Tailwind</h4><p>Mapbox GL dark. Server actions for mission management. Live event feed via polling.</p><div class="meta">App Router</div></div>
+      <div class="int-card"><div class="cat">outbound · ops</div><h4>Discord webhooks</h4><p>Coordinator alerts. Embed: plate + confidence + frame + vehicle match verdict.</p><div class="meta">webhook · per-channel</div></div>
+      <div class="int-card"><div class="cat">infra</div><h4>DigitalOcean + nginx + Certbot</h4><p>Single Droplet, self-hostable anywhere. nginx reverse-proxy. Let's Encrypt TLS.</p><div class="meta">PM2 supervised</div></div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">12 / 14</div>
+  </section>
+
+  <!-- ── 13 PRIVACY ── -->
+  <section id="s13" data-screen-label="13 Privacy Architecture">
+    <div class="s13-l">
+      <span class="tag">Privacy Architecture</span>
+      <h2>Enforced by the topology, <em>not by policy.</em></h2>
+      <p>There is <strong>no write path to disk for raw video frames</strong>. Frames hold in RAM only for inference duration. The platform is event-triggered — between IPAWS alerts, the inference pipeline is fully idle.</p>
+      <p>Telemetry purges after 90 days. Detection records after 1 year. The watchlist contains only plates from active government alerts — never our own database of plate sightings.</p>
+    </div>
+    <div class="boundary">
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Edge</span>raw video frame</div>
+        <div class="bd-arr">⨯</div>
+        <div class="bd-to deny"><span class="lbl">Cloud</span>denied · no write path</div>
+      </div>
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Pipeline</span>face / biometric</div>
+        <div class="bd-arr">⨯</div>
+        <div class="bd-to deny"><span class="lbl">Cloud</span>denied · not in pipeline</div>
+      </div>
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Edge</span>volunteer location</div>
+        <div class="bd-arr">→</div>
+        <div class="bd-to allow"><span class="lbl">Cloud</span>self-only · 90d retention</div>
+      </div>
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Worker</span>plate from non-alert vehicle</div>
+        <div class="bd-arr">⨯</div>
+        <div class="bd-to deny"><span class="lbl">Storage</span>denied · watchlist-gated</div>
+      </div>
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Worker</span>watchlist-matched event</div>
+        <div class="bd-arr">→</div>
+        <div class="bd-to allow"><span class="lbl">Discord</span>allowed · structured embed</div>
+      </div>
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Coordinator</span>reviewed + confirmed event</div>
+        <div class="bd-arr">→</div>
+        <div class="bd-to allow"><span class="lbl">LE Partner</span>allowed · post human gate</div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">13 / 14</div>
+  </section>
+
+  <!-- ── 14 CLOSE ── -->
+  <section id="s14" data-screen-label="14 Close">
+    <img src="mobile/assets/icon.png" class="s14-logo" alt="AA">
+    <div class="s14-org">AMBER Angels</div>
+    <h2 class="s14-h">Composite scoring,<br>structured-only telemetry,<br>privacy by topology.</h2>
+    <div class="s14-stack">FastAPI · PostgreSQL · OpenALPR · YOLOv8 · FEMA IPAWS · Expo · React Native · DJI MSDK · Next.js 14 · Mapbox · Discord · PM2</div>
+    <div class="s14-contact">
+      <div><div class="s14-c-l">Founder</div><div class="s14-c-v">Grant Lindberg</div></div>
+      <div><div class="s14-c-l">Email</div><div class="s14-c-v">info@amberangels.org</div></div>
+      <div><div class="s14-c-l">Web</div><div class="s14-c-v">amberangels.org</div></div>
+    </div>
+    <div class="sn" style="color:rgba(12,10,5,0.35);">14 / 14</div>
+  </section>
+
+</deck-stage>
+
+<script>
+(async () => {
+  try { await customElements.whenDefined('deck-stage'); } catch (e) {}
+  try { await document.fonts.ready; } catch (e) {}
+  setTimeout(() => { try { window.print(); } catch (e) {} }, 500);
+})();
+</script>
+</body>
+</html>

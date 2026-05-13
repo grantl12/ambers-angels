@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amber's Angels — AI-Powered Child Recovery Network</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --amber:      #f59e0b;
+  --amber-dim:  rgba(245,158,11,0.12);
+  --amber-mid:  rgba(245,158,11,0.25);
+  --sky:        #38bdf8;
+  --green:      #22c55e;
+  --purple:     #a78bfa;
+  --red:        #ef4444;
+  --ink:        #050a0f;
+  --ink-2:      #0d1117;
+  --ink-3:      #111827;
+  --border:     rgba(255,255,255,0.07);
+  --border-mid: rgba(255,255,255,0.12);
+  --text:       rgba(255,255,255,0.88);
+  --text-muted: rgba(255,255,255,0.5);
+  --text-dim:   rgba(255,255,255,0.3);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--ink);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, nav, button, a.btn { font-family: 'Space Grotesk', sans-serif; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.25); border-radius: 3px; }
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 56px; height: 64px;
+  background: rgba(5,10,15,0.88);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.nav-brand img { width: 34px; height: 34px; border-radius: 50%; }
+.nav-wordmark { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; color: #fff; letter-spacing: 0.3px; }
+.nav-wordmark em { font-style: normal; color: var(--amber); }
+.nav-links { display: flex; gap: 36px; list-style: none; }
+.nav-links a { font-size: 14px; color: var(--text-muted); text-decoration: none; transition: color 0.15s; font-family: 'Space Grotesk', sans-serif; font-weight: 500; }
+.nav-links a:hover { color: #fff; }
+.nav-cta {
+  background: var(--amber); color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px;
+  padding: 9px 20px; border-radius: 6px; text-decoration: none;
+  transition: opacity 0.15s;
+}
+.nav-cta:hover { opacity: 0.85; }
+
+/* ── SECTION LABEL ── */
+.label {
+  display: inline-block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 16px;
+  padding: 4px 10px;
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 4px;
+  background: rgba(245,158,11,0.06);
+}
+
+/* ── HERO ── */
+#hero {
+  min-height: 640px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 56px; align-items: center;
+  padding: 96px 56px 80px;
+  position: relative; overflow: hidden;
+  background: var(--ink);
+}
+/* scanline texture */
+#hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(245,158,11,0.015) 2px,
+    rgba(245,158,11,0.015) 3px
+  );
+  pointer-events: none;
+}
+/* amber glow orb */
+#hero::after {
+  content: '';
+  position: absolute;
+  right: -120px; top: -80px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(245,158,11,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-kicker {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--amber); opacity: 0.7;
+  margin-bottom: 24px;
+}
+.hero-stat {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 112px; font-weight: 700;
+  color: var(--amber); line-height: 1;
+  letter-spacing: -4px;
+}
+.hero-stat-detail {
+  margin-top: 16px;
+  font-size: 15px; line-height: 1.65;
+  color: var(--text-muted); max-width: 360px;
+}
+.hero-stat-detail strong { color: var(--text); font-weight: 600; }
+.hero-right {}
+.hero-headline {
+  font-size: 42px; font-weight: 700; line-height: 1.15;
+  color: #fff; margin-bottom: 20px;
+  letter-spacing: -0.5px;
+}
+.hero-headline em { font-style: normal; color: var(--amber); }
+.hero-body {
+  font-size: 16px; line-height: 1.7;
+  color: var(--text-muted); max-width: 440px;
+  margin-bottom: 36px;
+}
+.hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+.btn-primary {
+  display: inline-block;
+  background: var(--amber); color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+  padding: 14px 28px; border-radius: 7px; text-decoration: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-ghost {
+  display: inline-block;
+  border: 1.5px solid var(--border-mid); color: var(--text-muted);
+  font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px;
+  padding: 14px 28px; border-radius: 7px; text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-ghost:hover { border-color: rgba(255,255,255,0.28); color: #fff; }
+.hero-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.hero-badge {
+  font-size: 11px; font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600; letter-spacing: 0.5px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 5px 10px; border-radius: 4px;
+}
+
+/* ── GENERIC SECTION ── */
+section { padding: 88px 56px; }
+
+/* ── PROBLEM ── */
+#problem { background: var(--ink-2); border-top: 1px solid var(--border); }
+.problem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-top: 40px; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.stat-card {
+  background: var(--ink-3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 24px 22px;
+  transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: rgba(245,158,11,0.25); }
+.stat-num { font-family: 'Space Grotesk', sans-serif; font-size: 44px; font-weight: 700; color: var(--amber); line-height: 1; margin-bottom: 8px; }
+.stat-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.source-note { font-size: 11px; color: var(--text-dim); margin-top: 20px; font-style: italic; }
+
+/* Map placeholder */
+.map-box {
+  background: var(--ink-3); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  height: 280px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.map-box svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map-label {
+  z-index: 2; text-align: center;
+  font-size: 12px; color: var(--text-dim);
+  font-family: 'Space Grotesk', sans-serif;
+  pointer-events: none;
+}
+
+/* ── HOW IT WORKS ── */
+#how { background: var(--ink); border-top: 1px solid var(--border); }
+.flow-row { display: flex; align-items: flex-start; margin-top: 48px; position: relative; }
+.flow-step { flex: 1; padding: 0 16px; text-align: center; position: relative; }
+.flow-step:not(:last-child)::after {
+  content: '';
+  position: absolute; top: 31px; right: -4px;
+  width: 8px; height: 2px;
+  border-top: 2px dashed rgba(245,158,11,0.4);
+  width: calc(100% - 80px); left: calc(50% + 36px);
+}
+.step-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--ink-2);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 22px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.flow-step:hover .step-icon { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.06); }
+.step-highlight .step-icon { background: var(--amber); border-color: var(--amber); }
+.flow-step h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+.flow-step p { font-size: 12px; color: var(--text-muted); line-height: 1.55; max-width: 160px; margin: 0 auto; }
+.flow-note { margin-top: 28px; padding: 14px 20px; background: var(--ink-2); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 6px; font-size: 13px; color: var(--text-muted); }
+.flow-note strong { color: var(--amber); font-weight: 600; }
+
+/* ── PLATFORM ── */
+#platform { background: var(--ink-2); border-top: 1px solid var(--border); }
+.section-header { max-width: 640px; margin-bottom: 36px; }
+.section-header h2 { font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -0.3px; margin-bottom: 12px; }
+.section-header p { font-size: 16px; color: var(--text-muted); line-height: 1.65; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+.tab {
+  font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 500;
+  padding: 10px 20px; color: var(--text-muted); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--amber); border-color: var(--amber); }
+.panel { display: none; }
+.panel.active { display: block; }
+.diagram-frame {
+  background: #050a0f;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 880px;
+}
+.diagram-frame img { width: 100%; height: auto; display: block; }
+.diagram-caption { margin-top: 12px; font-size: 13px; color: var(--text-dim); }
+
+/* ── ALERTS TABLE ── */
+#alerts { background: var(--ink); border-top: 1px solid var(--border); }
+.alerts-table { width: 100%; border-collapse: collapse; margin-top: 36px; }
+.alerts-table th {
+  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-dim); text-align: left;
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+}
+.alerts-table td {
+  padding: 18px 20px; font-size: 14px; color: var(--text-muted);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle;
+}
+.alerts-table tr:last-child td { border-bottom: none; }
+.alerts-table tbody tr { transition: background 0.15s; }
+.alerts-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+.chip {
+  display: inline-block; padding: 4px 12px; border-radius: 4px;
+  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.chip-amber { background: var(--amber); color: var(--ink); }
+.chip-silver { background: #64748b; color: #fff; }
+.chip-mattie { background: #7c3aed; color: #fff; }
+.chip-purple { background: #8b5cf6; color: #fff; }
+.chip-blue { background: #0284c7; color: #fff; }
+.chip-trigger {
+  font-size: 11px; padding: 3px 9px;
+  background: rgba(255,255,255,0.05); color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 600;
+}
+
+/* ── PILOT ── */
+#pilot { background: var(--ink-2); border-top: 1px solid var(--border); }
+.pilot-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 48px; align-items: start; margin-top: 40px; }
+.pilot-goals { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.pilot-goal {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 18px 20px;
+  background: var(--ink-3); border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.2s;
+}
+.pilot-goal:hover { border-color: rgba(245,158,11,0.2); }
+.goal-num {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--amber); color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px;
+  flex-shrink: 0; margin-top: 1px;
+}
+.goal-text { font-size: 14px; color: var(--text-muted); line-height: 1.55; }
+.goal-text strong { color: var(--text); font-weight: 600; }
+
+.impact-card {
+  background: var(--ink-3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 28px 24px;
+}
+.impact-card h4 {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 20px;
+  font-family: 'Space Grotesk', sans-serif;
+}
+.impact-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px; gap: 12px;
+}
+.impact-row:last-child { border-bottom: none; }
+.impact-label { color: var(--text-muted); }
+.impact-val { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; color: var(--amber); white-space: nowrap; }
+.support-note { margin-top: 16px; font-size: 11px; color: var(--text-dim); line-height: 1.5; padding-top: 16px; border-top: 1px solid var(--border); }
+
+/* ── PRIVACY ── */
+#privacy { background: var(--ink); border-top: 1px solid var(--border); }
+.privacy-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; margin-top: 40px; }
+.pillar {
+  background: var(--ink-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 28px 22px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.pillar:hover { border-color: rgba(245,158,11,0.2); transform: translateY(-2px); }
+.pillar-icon {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+}
+.pillar h3 { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 10px; }
+.pillar p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+/* ── GET INVOLVED ── */
+#involve {
+  background: var(--amber);
+  padding: 88px 56px;
+  border-top: 1px solid rgba(245,158,11,0.5);
+}
+#involve .label { color: var(--ink); background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.12); }
+#involve h2 { font-size: 44px; font-weight: 700; color: var(--ink); margin-bottom: 14px; letter-spacing: -0.5px; }
+#involve .lead { font-size: 17px; color: rgba(12,10,5,0.6); max-width: 520px; margin-bottom: 48px; line-height: 1.65; }
+.involve-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 960px; }
+.involve-card {
+  background: var(--ink); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 32px 28px;
+  display: flex; flex-direction: column;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.involve-card:hover { border-color: rgba(245,158,11,0.25); transform: translateY(-3px); }
+.involve-card h3 { font-size: 18px; font-weight: 700; color: var(--amber); margin-bottom: 10px; }
+.involve-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px; flex: 1; }
+.involve-card a {
+  display: inline-block;
+  border: 1.5px solid var(--border-mid); color: rgba(255,255,255,0.65);
+  font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13px;
+  padding: 10px 18px; border-radius: 6px; text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+  width: fit-content;
+}
+.involve-card a:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── FOOTER ── */
+footer {
+  background: #020507;
+  padding: 36px 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-brand { display: flex; align-items: center; gap: 10px; }
+.footer-brand img { width: 26px; height: 26px; border-radius: 50%; }
+.footer-brand span { font-size: 13px; color: var(--text-dim); }
+.footer-links { display: flex; gap: 28px; }
+.footer-links a { font-size: 13px; color: var(--text-dim); text-decoration: none; transition: color 0.15s; }
+.footer-links a:hover { color: var(--text-muted); }
+
+/* ── SCROLL ANIMATIONS ── */
+.fade-up { opacity: 0; transform: translateY(24px); transition: opacity 0.55s ease, transform 0.55s ease; }
+.fade-up.visible { opacity: 1; transform: translateY(0); }
+
+/* ── ANCHOR OFFSET ── */
+[id] { scroll-margin-top: 72px; }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a class="nav-brand" href="#">
+    <img src="mobile/assets/icon.png" alt="AA">
+    <span class="nav-wordmark">Amber's <em>Angels</em></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#platform">Platform</a></li>
+    <li><a href="#alerts">Alert Types</a></li>
+    <li><a href="#pilot">Pilot</a></li>
+    <li><a href="#privacy">Privacy</a></li>
+  </ul>
+  <a href="#involve" class="nav-cta">Get Involved →</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <div>
+    <div class="hero-kicker">AMBER Alert Response Network</div>
+    <div class="hero-stat">76%</div>
+    <p class="hero-stat-detail">of abducted children who are murdered are killed within the <strong>first 3 hours</strong> of the abduction. The window is closing before law enforcement can cover the ground.</p>
+  </div>
+  <div class="hero-right">
+    <h1 class="hero-headline">Amber's Angels<br><em>closes that window.</em></h1>
+    <p class="hero-body">A community-driven AI search network. When an AMBER Alert fires, volunteers and drones fill the surveillance gaps law enforcement can't — and AI identifies the vehicle before it's too late.</p>
+    <div class="hero-ctas">
+      <a href="#involve" class="btn-primary">Become a Volunteer</a>
+      <a href="#involve" class="btn-ghost">Support the Mission</a>
+    </div>
+    <div class="hero-badges">
+      <span class="hero-badge">501(c)(3) In Formation</span>
+      <span class="hero-badge">Carroll County, GA Pilot</span>
+      <span class="hero-badge">SDVOSB Founded</span>
+      <span class="hero-badge">Privacy-First by Design</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── PROBLEM ── -->
+<section id="problem">
+  <div class="fade-up">
+    <span class="label">The Problem</span>
+    <div class="section-header">
+      <h2>The gap is real — and it's geographic.</h2>
+      <p>Carroll County, GA: 503 square miles. Fewer than 12 fixed license plate readers. Dozens of high-probability escape corridors with zero automated surveillance coverage.</p>
+    </div>
+  </div>
+  <div class="problem-grid fade-up">
+    <div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-num">3 hrs</div>
+          <div class="stat-desc">critical window — 76% of fatal abductions occur within this timeframe</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">&lt;12</div>
+          <div class="stat-desc">fixed LPR cameras covering 503 sq miles in Carroll County</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">~30%</div>
+          <div class="stat-desc">false positive rate for plate-only vehicle detection systems</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">&lt;5%</div>
+          <div class="stat-desc">false positive rate using our dual VMMC verification model</div>
+        </div>
+      </div>
+      <p class="source-note">Source: OJJDP / National Center for Missing &amp; Exploited Children</p>
+    </div>
+    <div>
+      <div class="map-box">
+        <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="280" fill="#111827"/>
+          <!-- road grid -->
+          <line x1="0" y1="140" x2="400" y2="136" stroke="rgba(255,255,255,0.1)" stroke-width="5"/>
+          <line x1="200" y1="0" x2="198" y2="280" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+          <line x1="0" y1="72" x2="400" y2="80" stroke="rgba(255,255,255,0.06)" stroke-width="2.5"/>
+          <line x1="0" y1="210" x2="400" y2="200" stroke="rgba(255,255,255,0.06)" stroke-width="2.5"/>
+          <line x1="105" y1="0" x2="100" y2="280" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
+          <line x1="300" y1="0" x2="304" y2="280" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
+          <!-- gap corridors -->
+          <rect x="20" y="90" width="70" height="52" fill="rgba(239,68,68,0.14)" rx="2"/>
+          <rect x="230" y="28" width="64" height="44" fill="rgba(239,68,68,0.14)" rx="2"/>
+          <rect x="240" y="155" width="60" height="48" fill="rgba(239,68,68,0.12)" rx="2"/>
+          <rect x="32" y="175" width="55" height="52" fill="rgba(239,68,68,0.11)" rx="2"/>
+          <rect x="118" y="180" width="52" height="40" fill="rgba(239,68,68,0.1)" rx="2"/>
+          <!-- LPR cameras -->
+          <circle cx="200" cy="138" r="8" fill="#f59e0b" opacity="0.9"/>
+          <circle cx="104" cy="72" r="8" fill="#f59e0b" opacity="0.9"/>
+          <circle cx="300" cy="200" r="8" fill="#f59e0b" opacity="0.9"/>
+          <circle cx="200" cy="78" r="8" fill="#f59e0b" opacity="0.7"/>
+          <!-- legend -->
+          <circle cx="20" cy="258" r="6" fill="#f59e0b"/>
+          <text x="32" y="263" fill="rgba(255,255,255,0.45)" font-size="11" font-family="system-ui">Fixed LPR</text>
+          <rect x="116" y="252" width="12" height="12" fill="rgba(239,68,68,0.5)" rx="1"/>
+          <text x="133" y="263" fill="rgba(255,255,255,0.45)" font-size="11" font-family="system-ui">Coverage gap</text>
+        </svg>
+      </div>
+      <p class="map-label" style="margin-top:10px; font-size:11px; color:var(--text-dim);">Carroll County, GA — illustrative coverage map</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how">
+  <div class="fade-up">
+    <span class="label">How It Works</span>
+    <div class="section-header">
+      <h2>Alert fires. Network activates. AI finds the vehicle.</h2>
+      <p>Every enrolled volunteer becomes a mobile sensor node. Our Cascade Inference engine identifies not just a license plate — but the specific make, model, and year range of the suspect vehicle. Even when plates are switched or missing.</p>
+    </div>
+  </div>
+  <div class="flow-row fade-up">
+    <div class="flow-step">
+      <div class="step-icon">📡</div>
+      <h3>FEMA IPAWS Fires</h3>
+      <p>Government-verified alert triggers platform activation automatically</p>
+    </div>
+    <div class="flow-step">
+      <div class="step-icon">📲</div>
+      <h3>Mission Push Sent</h3>
+      <p>Volunteers receive sector assignments based on Flight Priority Zones</p>
+    </div>
+    <div class="flow-step step-highlight">
+      <div class="step-icon">🔍</div>
+      <h3>Cascade Inference</h3>
+      <p>YOLOv8 + OpenALPR scans every frame for plate, make, model, and color</p>
+    </div>
+    <div class="flow-step">
+      <div class="step-icon">👤</div>
+      <h3>Human Review</h3>
+      <p>Every high-confidence hit reviewed by a coordinator before escalation</p>
+    </div>
+    <div class="flow-step">
+      <div class="step-icon">🚔</div>
+      <h3>Law Enforcement Alert</h3>
+      <p>Confirmed lead: GPS coordinates + photo sent directly to officers</p>
+    </div>
+  </div>
+  <div class="flow-note fade-up">
+    <strong>Cascade Inference:</strong> Our proprietary model identifies make, model, and year range — so coordinators can tell law enforcement "Blue 2018–2021 Honda CR-V, Highway 5, 14:32" even when the plate is obscured or switched. Reducing false positives from ~30% to &lt;5%.
+  </div>
+</section>
+
+<!-- ── PLATFORM ── -->
+<section id="platform">
+  <div class="fade-up">
+    <span class="label">The Platform</span>
+    <div class="section-header">
+      <h2>Built for field conditions. Zero extra hardware required.</h2>
+      <p>Volunteers use their existing smartphone. Drone pilots connect DJI hardware directly to our platform. Every frame is processed in real-time and deleted immediately — no surveillance archive, ever.</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab(event,'scan')">Phone Scanning</div>
+    <div class="tab" onclick="showTab(event,'drone')">DJI Drone Mode</div>
+    <div class="tab" onclick="showTab(event,'map')">Mission Map</div>
+    <div class="tab" onclick="showTab(event,'angles')">Camera Positioning</div>
+    <div class="tab" onclick="showTab(event,'mission')">Start a Mission</div>
+  </div>
+
+  <div class="panel active" id="tab-scan">
+    <div class="diagram-frame">
+      <object type="image/svg+xml" data="graphics/04-phone-background-mode.svg" style="width:100%;height:auto;display:block;pointer-events:none;">Phone background mode diagram</object>
+    </div>
+    <p class="diagram-caption">Scan-while-you-drive: a persistent foreground service keeps frame uploads running even when you navigate to Maps or Uber (Android). iOS: keep app foregrounded.</p>
+  </div>
+  <div class="panel" id="tab-drone">
+    <div class="diagram-frame">
+      <object type="image/svg+xml" data="graphics/07-dji-connection.svg" style="width:100%;height:auto;display:block;pointer-events:none;">DJI drone connection diagram</object>
+    </div>
+    <p class="diagram-caption">4-step DJI setup flow: power on → GPS lock → select Drone mode → Start Mission. GPS telemetry auto-attached to every uploaded frame.</p>
+  </div>
+  <div class="panel" id="tab-map">
+    <div class="diagram-frame">
+      <object type="image/svg+xml" data="graphics/05-mission-map.svg" style="width:100%;height:auto;display:block;pointer-events:none;">Mission map diagram</object>
+    </div>
+    <p class="diagram-caption">Coordinator dashboard: live volunteer positions, active alert polygons (FEMA feed, refreshed every 60s), out-of-range warnings, and tap-to-detail on every asset.</p>
+  </div>
+  <div class="panel" id="tab-angles">
+    <div class="diagram-frame">
+      <object type="image/svg+xml" data="graphics/01-drone-camera-angles.svg" style="width:100%;height:auto;display:block;pointer-events:none;">Camera positioning guide</object>
+    </div>
+    <p class="diagram-caption">Pilot positioning guide: operate from road shoulder or adjacent field — never over active lanes. 30–45° camera angle, ≤200 ft AGL, visual line of sight at all times (FAA Part 107).</p>
+  </div>
+  <div class="panel" id="tab-mission">
+    <div class="diagram-frame" style="max-width:560px;">
+      <object type="image/svg+xml" data="graphics/03-start-mission.svg" style="width:100%;height:auto;display:block;pointer-events:none;">Start a mission walkthrough</object>
+    </div>
+    <p class="diagram-caption">5-step in-app onboarding: volunteer mode → device identity → capture interval → save settings → go live. Settings persist across restarts.</p>
+  </div>
+</section>
+
+<!-- ── ALERT TYPES ── -->
+<section id="alerts">
+  <div class="fade-up">
+    <span class="label">Multi-Alert Response</span>
+    <div class="section-header">
+      <h2>Not just AMBER Alerts.</h2>
+      <p>Our platform activates across five government-issued alert types — protecting children, seniors, adults with disabilities, and endangered officers.</p>
+    </div>
+  </div>
+  <table class="alerts-table fade-up">
+    <thead>
+      <tr>
+        <th>Alert Type</th>
+        <th>Population Served</th>
+        <th>Trigger</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="chip chip-amber">AMBER Alert</span></td>
+        <td>Abducted children</td>
+        <td><span class="chip-trigger">FEMA IPAWS — automated</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-silver">Silver Alert</span></td>
+        <td>Missing seniors with dementia / Alzheimer's</td>
+        <td><span class="chip-trigger">FEMA IPAWS — automated</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-mattie">Mattie's Call</span></td>
+        <td>At-risk adults with developmental disabilities</td>
+        <td><span class="chip-trigger">FEMA IPAWS — automated</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-purple">Purple Alert</span></td>
+        <td>Missing persons with disabilities</td>
+        <td><span class="chip-trigger">State emergency system</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-blue">Blue Alert</span></td>
+        <td>Endangered law enforcement officers</td>
+        <td><span class="chip-trigger">State emergency system</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ── PILOT ── -->
+<section id="pilot">
+  <div class="fade-up">
+    <span class="label">Carroll County Pilot</span>
+    <div class="section-header">
+      <h2>On the ground in Georgia.</h2>
+      <p>Six-month deployment in Carroll County — 503 square miles, limited fixed infrastructure, active law enforcement partnership, and a community ready to mobilize.</p>
+    </div>
+  </div>
+  <div class="pilot-grid fade-up">
+    <ul class="pilot-goals">
+      <li class="pilot-goal">
+        <div class="goal-num">1</div>
+        <div class="goal-text">Enroll and train <strong>30 ground volunteers</strong> and <strong>5 Part 107-certified drone pilots</strong></div>
+      </li>
+      <li class="pilot-goal">
+        <div class="goal-num">2</div>
+        <div class="goal-text">Achieve operational readiness for <strong>live AMBER Alert response</strong></div>
+      </li>
+      <li class="pilot-goal">
+        <div class="goal-num">3</div>
+        <div class="goal-text">Demonstrate successful VMMC detection in <strong>field exercises with law enforcement observers</strong></div>
+      </li>
+      <li class="pilot-goal">
+        <div class="goal-num">4</div>
+        <div class="goal-text">Publish a <strong>public transparency report</strong> on detection accuracy and privacy compliance</div>
+      </li>
+    </ul>
+    <div>
+      <div class="impact-card">
+        <h4>Impact Math — Launch Day</h4>
+        <div class="impact-row"><span class="impact-label">Active search nodes</span><span class="impact-val">25</span></div>
+        <div class="impact-row"><span class="impact-label">Road miles per node / alert</span><span class="impact-val">~40 mi</span></div>
+        <div class="impact-row"><span class="impact-label">Total additional coverage</span><span class="impact-val">~1,000 mi</span></div>
+        <div class="impact-row"><span class="impact-label">False positive rate (VMMC)</span><span class="impact-val">&lt;5%</span></div>
+        <div class="impact-row"><span class="impact-label">vs. plate-only systems</span><span class="impact-val">~30%</span></div>
+        <p class="support-note">Letter of support from Carroll County law enforcement on file. Active support from local veteran community aligned with our SDVOSB founding.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRIVACY ── -->
+<section id="privacy">
+  <div class="fade-up">
+    <span class="label">Privacy First</span>
+    <div class="section-header">
+      <h2>We save lives without building a surveillance state.</h2>
+      <p>Every architectural decision begins with one question: what is the minimum data required for this mission? Raw footage is never stored. Innocent citizens are never profiled.</p>
+    </div>
+  </div>
+  <div class="privacy-grid fade-up">
+
+    <!-- No Video Archiving — custom SVG icon for visibility -->
+    <div class="pillar">
+      <div class="pillar-icon">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="12" width="22" height="16" rx="3" stroke="#f59e0b" stroke-width="2" fill="none"/>
+          <path d="M26 17l8-4v14l-8-4V17z" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linejoin="round"/>
+          <!-- red slash -->
+          <line x1="6" y1="34" x2="34" y2="6" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3>No Video Archiving</h3>
+      <p>Raw footage is processed in real-time and deleted immediately. We build no searchable database of innocent citizens.</p>
+    </div>
+
+    <!-- Operational Necessity -->
+    <div class="pillar">
+      <div class="pillar-icon">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="20" cy="20" r="14" stroke="#f59e0b" stroke-width="2" fill="none"/>
+          <circle cx="20" cy="20" r="7" stroke="#f59e0b" stroke-width="2" fill="none"/>
+          <circle cx="20" cy="20" r="2.5" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <h3>Operational Necessity Only</h3>
+      <p>We collect and store only data strictly required for the active search mission. Nothing more.</p>
+    </div>
+
+    <!-- Human in the Loop -->
+    <div class="pillar">
+      <div class="pillar-icon">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="20" cy="14" r="6" stroke="#f59e0b" stroke-width="2" fill="none"/>
+          <path d="M8 34c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M27 22l3 3 5-5" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3>Human in the Loop</h3>
+      <p>No AI result reaches law enforcement without human coordinator review. AI flags. Humans decide.</p>
+    </div>
+
+    <!-- Transparency -->
+    <div class="pillar">
+      <div class="pillar-icon">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="6" width="24" height="28" rx="3" stroke="#f59e0b" stroke-width="2" fill="none"/>
+          <line x1="13" y1="14" x2="27" y2="14" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="13" y1="20" x2="27" y2="20" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="13" y1="26" x2="21" y2="26" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3>Public Transparency</h3>
+      <p>Our data retention policies are public and rigorous. Published with every pilot transparency report.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── GET INVOLVED ── -->
+<section id="involve">
+  <span class="label">Join the Network</span>
+  <h2>Be there when it matters most.</h2>
+  <p class="lead">Every volunteer hour is time a child gets back. Every dollar funds the infrastructure that makes the search possible.</p>
+  <div class="involve-grid">
+    <div class="involve-card">
+      <h3>Volunteer — Ground</h3>
+      <p>Drive your normal routes during active alerts. Your phone does the work. No special hardware needed — just a car mount and the app.</p>
+      <a href="#">Apply to Volunteer →</a>
+    </div>
+    <div class="involve-card">
+      <h3>Volunteer — Drone</h3>
+      <p>Part 107 certified? Put your skills and your aircraft to work. DJI hardware connects directly to our platform in four steps.</p>
+      <a href="#">Register Your Drone →</a>
+    </div>
+    <div class="involve-card">
+      <h3>Fund the Mission</h3>
+      <p>We're a 501(c)(3) in formation. Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
+      <a href="mailto:admin@amberangels.org">Contact Grant Lindberg →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-brand">
+    <img src="mobile/assets/icon.png" alt="AA">
+    <span>Amber's Angels · 501(c)(3) in formation · admin@amberangels.org · amberangels.org</span>
+  </div>
+  <div class="footer-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">Transparency Report</a>
+    <a href="#">FAA Part 107</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+<script>
+// Tab switching
+function showTab(e, name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  e.target.classList.add('active');
+}
+
+// Scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// Apply tweaks to live page
+function applyTweaks(t) {
+  const root = document.documentElement;
+  root.style.setProperty('--amber', t.accentColor);
+  // Derive dim/mid from accent
+  root.style.setProperty('--amber-dim', t.accentColor + '1f');
+  root.style.setProperty('--amber-mid', t.accentColor + '40');
+  // Hero stat size
+  const stat = document.querySelector('.hero-stat');
+  if (stat) stat.style.fontSize = t.heroStatSize + 'px';
+  // Badges visibility
+  const badges = document.querySelector('.hero-badges');
+  if (badges) badges.style.display = t.showBadges ? 'flex' : 'none';
+  // CTA text
+  const ctas = document.querySelectorAll('.hero-ctas a');
+  if (ctas[0]) ctas[0].textContent = t.primaryCTA;
+  if (ctas[1]) ctas[1].textContent = t.secondaryCTA;
+  // Background tone
+  root.style.setProperty('--ink', t.darkMode ? '#000000' : '#050a0f');
+  root.style.setProperty('--ink-2', t.darkMode ? '#060a0f' : '#0d1117');
+  root.style.setProperty('--ink-3', t.darkMode ? '#0a0f14' : '#111827');
+}
+
+// Expose for tweaks panel
+window.__applyTweaks = applyTweaks;
+</script>
+
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#f59e0b",
+  "heroStatSize": 112,
+  "showBadges": true,
+  "darkMode": false,
+  "primaryCTA": "Become a Volunteer",
+  "secondaryCTA": "Support the Mission"
+}/*EDITMODE-END*/;
+
+function LandingTweaks() {
+  const [tweaks, setTweaks] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    window.__applyTweaks(tweaks);
+  }, [tweaks]);
+
+  return (
+    <TweaksPanel title="Landing Page">
+      <TweakSection label="Brand">
+        <TweakColor
+          label="Accent Color"
+          value={tweaks.accentColor}
+          onChange={v => setTweaks({ accentColor: v })}
+        />
+        <TweakToggle
+          label="Deeper black background"
+          value={tweaks.darkMode}
+          onChange={v => setTweaks({ darkMode: v })}
+        />
+      </TweakSection>
+      <TweakSection label="Hero">
+        <TweakSlider
+          label="Stat font size"
+          min={64} max={160} step={8}
+          value={tweaks.heroStatSize}
+          onChange={v => setTweaks({ heroStatSize: v })}
+        />
+        <TweakToggle
+          label="Show credential badges"
+          value={tweaks.showBadges}
+          onChange={v => setTweaks({ showBadges: v })}
+        />
+      </TweakSection>
+      <TweakSection label="CTAs">
+        <TweakText
+          label="Primary button"
+          value={tweaks.primaryCTA}
+          onChange={v => setTweaks({ primaryCTA: v })}
+        />
+        <TweakText
+          label="Secondary button"
+          value={tweaks.secondaryCTA}
+          onChange={v => setTweaks({ secondaryCTA: v })}
+        />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<LandingTweaks />);
+</script>
+
+</body>
+</html>

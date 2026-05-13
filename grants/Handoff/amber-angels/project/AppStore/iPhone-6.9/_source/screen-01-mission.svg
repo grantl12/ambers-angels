@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="2868" viewBox="0 0 1320 2868">
+    <defs>
+      <linearGradient id="bg_screen-01-mission" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0e0a02"></stop>
+        <stop offset="22%" stop-color="#0c0d11"></stop>
+        <stop offset="60%" stop-color="#070a0e"></stop>
+        <stop offset="100%" stop-color="#050a0f"></stop>
+      </linearGradient>
+      <radialGradient id="glow_screen-01-mission" cx="50%" cy="-10%" r="80%">
+        <stop offset="0%" stop-color="rgba(245,158,11,0.30)"></stop>
+        <stop offset="100%" stop-color="rgba(245,158,11,0)"></stop>
+      </radialGradient>
+    </defs>
+
+    <rect width="1320" height="2868" fill="url(#bg_screen-01-mission)"></rect>
+    <rect width="1320" height="2868" fill="url(#glow_screen-01-mission)" opacity="0.85"></rect>
+
+    <g opacity="0.08" fill="#f59e0b">
+      <circle cx="30" cy="60" r="1.4"></circle><circle cx="90" cy="60" r="1.4"></circle><circle cx="150" cy="60" r="1.4"></circle><circle cx="210" cy="60" r="1.4"></circle><circle cx="270" cy="60" r="1.4"></circle><circle cx="330" cy="60" r="1.4"></circle><circle cx="390" cy="60" r="1.4"></circle><circle cx="450" cy="60" r="1.4"></circle><circle cx="510" cy="60" r="1.4"></circle><circle cx="570" cy="60" r="1.4"></circle><circle cx="630" cy="60" r="1.4"></circle><circle cx="690" cy="60" r="1.4"></circle><circle cx="750" cy="60" r="1.4"></circle><circle cx="810" cy="60" r="1.4"></circle><circle cx="870" cy="60" r="1.4"></circle><circle cx="930" cy="60" r="1.4"></circle><circle cx="990" cy="60" r="1.4"></circle><circle cx="1050" cy="60" r="1.4"></circle><circle cx="1110" cy="60" r="1.4"></circle><circle cx="1170" cy="60" r="1.4"></circle><circle cx="1230" cy="60" r="1.4"></circle><circle cx="1290" cy="60" r="1.4"></circle><circle cx="30" cy="120" r="1.4"></circle><circle cx="90" cy="120" r="1.4"></circle><circle cx="150" cy="120" r="1.4"></circle><circle cx="210" cy="120" r="1.4"></circle><circle cx="270" cy="120" r="1.4"></circle><circle cx="330" cy="120" r="1.4"></circle><circle cx="390" cy="120" r="1.4"></circle><circle cx="450" cy="120" r="1.4"></circle><circle cx="510" cy="120" r="1.4"></circle><circle cx="570" cy="120" r="1.4"></circle><circle cx="630" cy="120" r="1.4"></circle><circle cx="690" cy="120" r="1.4"></circle><circle cx="750" cy="120" r="1.4"></circle><circle cx="810" cy="120" r="1.4"></circle><circle cx="870" cy="120" r="1.4"></circle><circle cx="930" cy="120" r="1.4"></circle><circle cx="990" cy="120" r="1.4"></circle><circle cx="1050" cy="120" r="1.4"></circle><circle cx="1110" cy="120" r="1.4"></circle><circle cx="1170" cy="120" r="1.4"></circle><circle cx="1230" cy="120" r="1.4"></circle><circle cx="1290" cy="120" r="1.4"></circle><circle cx="30" cy="180" r="1.4"></circle><circle cx="90" cy="180" r="1.4"></circle><circle cx="150" cy="180" r="1.4"></circle><circle cx="210" cy="180" r="1.4"></circle><circle cx="270" cy="180" r="1.4"></circle><circle cx="330" cy="180" r="1.4"></circle><circle cx="390" cy="180" r="1.4"></circle><circle cx="450" cy="180" r="1.4"></circle><circle cx="510" cy="180" r="1.4"></circle><circle cx="570" cy="180" r="1.4"></circle><circle cx="630" cy="180" r="1.4"></circle><circle cx="690" cy="180" r="1.4"></circle><circle cx="750" cy="180" r="1.4"></circle><circle cx="810" cy="180" r="1.4"></circle><circle cx="870" cy="180" r="1.4"></circle><circle cx="930" cy="180" r="1.4"></circle><circle cx="990" cy="180" r="1.4"></circle><circle cx="1050" cy="180" r="1.4"></circle><circle cx="1110" cy="180" r="1.4"></circle><circle cx="1170" cy="180" r="1.4"></circle><circle cx="1230" cy="180" r="1.4"></circle><circle cx="1290" cy="180" r="1.4"></circle><circle cx="30" cy="240" r="1.4"></circle><circle cx="90" cy="240" r="1.4"></circle><circle cx="150" cy="240" r="1.4"></circle><circle cx="210" cy="240" r="1.4"></circle><circle cx="270" cy="240" r="1.4"></circle><circle cx="330" cy="240" r="1.4"></circle><circle cx="390" cy="240" r="1.4"></circle><circle cx="450" cy="240" r="1.4"></circle><circle cx="510" cy="240" r="1.4"></circle><circle cx="570" cy="240" r="1.4"></circle><circle cx="630" cy="240" r="1.4"></circle><circle cx="690" cy="240" r="1.4"></circle><circle cx="750" cy="240" r="1.4"></circle><circle cx="810" cy="240" r="1.4"></circle><circle cx="870" cy="240" r="1.4"></circle><circle cx="930" cy="240" r="1.4"></circle><circle cx="990" cy="240" r="1.4"></circle><circle cx="1050" cy="240" r="1.4"></circle><circle cx="1110" cy="240" r="1.4"></circle><circle cx="1170" cy="240" r="1.4"></circle><circle cx="1230" cy="240" r="1.4"></circle><circle cx="1290" cy="240" r="1.4"></circle><circle cx="30" cy="300" r="1.4"></circle><circle cx="90" cy="300" r="1.4"></circle><circle cx="150" cy="300" r="1.4"></circle><circle cx="210" cy="300" r="1.4"></circle><circle cx="270" cy="300" r="1.4"></circle><circle cx="330" cy="300" r="1.4"></circle><circle cx="390" cy="300" r="1.4"></circle><circle cx="450" cy="300" r="1.4"></circle><circle cx="510" cy="300" r="1.4"></circle><circle cx="570" cy="300" r="1.4"></circle><circle cx="630" cy="300" r="1.4"></circle><circle cx="690" cy="300" r="1.4"></circle><circle cx="750" cy="300" r="1.4"></circle><circle cx="810" cy="300" r="1.4"></circle><circle cx="870" cy="300" r="1.4"></circle><circle cx="930" cy="300" r="1.4"></circle><circle cx="990" cy="300" r="1.4"></circle><circle cx="1050" cy="300" r="1.4"></circle><circle cx="1110" cy="300" r="1.4"></circle><circle cx="1170" cy="300" r="1.4"></circle><circle cx="1230" cy="300" r="1.4"></circle><circle cx="1290" cy="300" r="1.4"></circle><circle cx="30" cy="360" r="1.4"></circle><circle cx="90" cy="360" r="1.4"></circle><circle cx="150" cy="360" r="1.4"></circle><circle cx="210" cy="360" r="1.4"></circle><circle cx="270" cy="360" r="1.4"></circle><circle cx="330" cy="360" r="1.4"></circle><circle cx="390" cy="360" r="1.4"></circle><circle cx="450" cy="360" r="1.4"></circle><circle cx="510" cy="360" r="1.4"></circle><circle cx="570" cy="360" r="1.4"></circle><circle cx="630" cy="360" r="1.4"></circle><circle cx="690" cy="360" r="1.4"></circle><circle cx="750" cy="360" r="1.4"></circle><circle cx="810" cy="360" r="1.4"></circle><circle cx="870" cy="360" r="1.4"></circle><circle cx="930" cy="360" r="1.4"></circle><circle cx="990" cy="360" r="1.4"></circle><circle cx="1050" cy="360" r="1.4"></circle><circle cx="1110" cy="360" r="1.4"></circle><circle cx="1170" cy="360" r="1.4"></circle><circle cx="1230" cy="360" r="1.4"></circle><circle cx="1290" cy="360" r="1.4"></circle><circle cx="30" cy="420" r="1.4"></circle><circle cx="90" cy="420" r="1.4"></circle><circle cx="150" cy="420" r="1.4"></circle><circle cx="210" cy="420" r="1.4"></circle><circle cx="270" cy="420" r="1.4"></circle><circle cx="330" cy="420" r="1.4"></circle><circle cx="390" cy="420" r="1.4"></circle><circle cx="450" cy="420" r="1.4"></circle><circle cx="510" cy="420" r="1.4"></circle><circle cx="570" cy="420" r="1.4"></circle><circle cx="630" cy="420" r="1.4"></circle><circle cx="690" cy="420" r="1.4"></circle><circle cx="750" cy="420" r="1.4"></circle><circle cx="810" cy="420" r="1.4"></circle><circle cx="870" cy="420" r="1.4"></circle><circle cx="930" cy="420" r="1.4"></circle><circle cx="990" cy="420" r="1.4"></circle><circle cx="1050" cy="420" r="1.4"></circle><circle cx="1110" cy="420" r="1.4"></circle><circle cx="1170" cy="420" r="1.4"></circle><circle cx="1230" cy="420" r="1.4"></circle><circle cx="1290" cy="420" r="1.4"></circle><circle cx="30" cy="480" r="1.4"></circle><circle cx="90" cy="480" r="1.4"></circle><circle cx="150" cy="480" r="1.4"></circle><circle cx="210" cy="480" r="1.4"></circle><circle cx="270" cy="480" r="1.4"></circle><circle cx="330" cy="480" r="1.4"></circle><circle cx="390" cy="480" r="1.4"></circle><circle cx="450" cy="480" r="1.4"></circle><circle cx="510" cy="480" r="1.4"></circle><circle cx="570" cy="480" r="1.4"></circle><circle cx="630" cy="480" r="1.4"></circle><circle cx="690" cy="480" r="1.4"></circle><circle cx="750" cy="480" r="1.4"></circle><circle cx="810" cy="480" r="1.4"></circle><circle cx="870" cy="480" r="1.4"></circle><circle cx="930" cy="480" r="1.4"></circle><circle cx="990" cy="480" r="1.4"></circle><circle cx="1050" cy="480" r="1.4"></circle><circle cx="1110" cy="480" r="1.4"></circle><circle cx="1170" cy="480" r="1.4"></circle><circle cx="1230" cy="480" r="1.4"></circle><circle cx="1290" cy="480" r="1.4"></circle><circle cx="30" cy="540" r="1.4"></circle><circle cx="90" cy="540" r="1.4"></circle><circle cx="150" cy="540" r="1.4"></circle><circle cx="210" cy="540" r="1.4"></circle><circle cx="270" cy="540" r="1.4"></circle><circle cx="330" cy="540" r="1.4"></circle><circle cx="390" cy="540" r="1.4"></circle><circle cx="450" cy="540" r="1.4"></circle><circle cx="510" cy="540" r="1.4"></circle><circle cx="570" cy="540" r="1.4"></circle><circle cx="630" cy="540" r="1.4"></circle><circle cx="690" cy="540" r="1.4"></circle><circle cx="750" cy="540" r="1.4"></circle><circle cx="810" cy="540" r="1.4"></circle><circle cx="870" cy="540" r="1.4"></circle><circle cx="930" cy="540" r="1.4"></circle><circle cx="990" cy="540" r="1.4"></circle><circle cx="1050" cy="540" r="1.4"></circle><circle cx="1110" cy="540" r="1.4"></circle><circle cx="1170" cy="540" r="1.4"></circle><circle cx="1230" cy="540" r="1.4"></circle><circle cx="1290" cy="540" r="1.4"></circle><circle cx="30" cy="600" r="1.4"></circle><circle cx="90" cy="600" r="1.4"></circle><circle cx="150" cy="600" r="1.4"></circle><circle cx="210" cy="600" r="1.4"></circle><circle cx="270" cy="600" r="1.4"></circle><circle cx="330" cy="600" r="1.4"></circle><circle cx="390" cy="600" r="1.4"></circle><circle cx="450" cy="600" r="1.4"></circle><circle cx="510" cy="600" r="1.4"></circle><circle cx="570" cy="600" r="1.4"></circle><circle cx="630" cy="600" r="1.4"></circle><circle cx="690" cy="600" r="1.4"></circle><circle cx="750" cy="600" r="1.4"></circle><circle cx="810" cy="600" r="1.4"></circle><circle cx="870" cy="600" r="1.4"></circle><circle cx="930" cy="600" r="1.4"></circle><circle cx="990" cy="600" r="1.4"></circle><circle cx="1050" cy="600" r="1.4"></circle><circle cx="1110" cy="600" r="1.4"></circle><circle cx="1170" cy="600" r="1.4"></circle><circle cx="1230" cy="600" r="1.4"></circle><circle cx="1290" cy="600" r="1.4"></circle><circle cx="30" cy="660" r="1.4"></circle><circle cx="90" cy="660" r="1.4"></circle><circle cx="150" cy="660" r="1.4"></circle><circle cx="210" cy="660" r="1.4"></circle><circle cx="270" cy="660" r="1.4"></circle><circle cx="330" cy="660" r="1.4"></circle><circle cx="390" cy="660" r="1.4"></circle><circle cx="450" cy="660" r="1.4"></circle><circle cx="510" cy="660" r="1.4"></circle><circle cx="570" cy="660" r="1.4"></circle><circle cx="630" cy="660" r="1.4"></circle><circle cx="690" cy="660" r="1.4"></circle><circle cx="750" cy="660" r="1.4"></circle><circle cx="810" cy="660" r="1.4"></circle><circle cx="870" cy="660" r="1.4"></circle><circle cx="930" cy="660" r="1.4"></circle><circle cx="990" cy="660" r="1.4"></circle><circle cx="1050" cy="660" r="1.4"></circle><circle cx="1110" cy="660" r="1.4"></circle><circle cx="1170" cy="660" r="1.4"></circle><circle cx="1230" cy="660" r="1.4"></circle><circle cx="1290" cy="660" r="1.4"></circle>
+    </g>
+
+    
+    
+      <text x="660" y="280" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="148" font-weight="900" fill="#fff" letter-spacing="-5">Help bring</text>
+    
+      <text x="660" y="448" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="148" font-weight="900" fill="#f59e0b" letter-spacing="-5">them home.</text>
+    
+
+    
+    <text x="660" y="620" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="50" font-weight="400" fill="rgba(255,255,255,0.65)">Every second matters.</text>
+
+    
+    <rect x="200" y="760" width="920" height="1990" rx="110" fill="#0e1117" stroke="rgba(255,255,255,0.08)" stroke-width="2"></rect>
+    <rect x="204" y="764" width="912" height="1982" rx="106" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"></rect>
+    <clipPath id="screenClip"><rect x="218" y="778" width="884" height="1954" rx="92"></rect></clipPath>
+    <g clip-path="url(#screenClip)">
+      <rect x="218" y="778" width="884" height="1954" fill="#050a0f"></rect>
+      
+    <defs><linearGradient id="wp1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0a0c12"></stop><stop offset="100%" stop-color="#050a0f"></stop></linearGradient></defs>
+    <rect x="218" y="778" width="884" height="1954" fill="url(#wp1)"></rect>
+    
+    <text x="298" y="914" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="36" font-weight="700" fill="#fff">9:41</text>
+    <g fill="#fff">
+      <rect x="918" y="906" width="6" height="10" rx="1"></rect>
+      <rect x="928" y="902" width="6" height="14" rx="1"></rect>
+      <rect x="938" y="898" width="6" height="18" rx="1"></rect>
+      <rect x="948" y="894" width="6" height="22" rx="1"></rect>
+      <rect x="976" y="896" width="42" height="20" rx="5" stroke="#fff" stroke-width="2" fill="none"></rect>
+      <rect x="980" y="900" width="32" height="12" rx="2"></rect>
+    </g>
+  
+    <text x="660" y="1108" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="42" font-weight="500" fill="rgba(255,255,255,0.6)">Tuesday, May 12</text>
+    <text x="660" y="1278" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="180" font-weight="300" fill="#fff" letter-spacing="-8">9:41</text>
+
+    
+    <rect x="258" y="1438" width="804" height="420" rx="36" fill="rgba(255,255,255,0.06)" stroke="#f59e0b" stroke-width="3"></rect>
+    <rect x="258" y="1438" width="804" height="80" rx="36" fill="#f59e0b"></rect>
+    <rect x="258" y="1478" width="804" height="40" fill="#f59e0b"></rect>
+    <text x="290" y="1494" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="30" font-weight="900" fill="#050a0f" letter-spacing="4">AMBER ALERT</text>
+    <text x="1030" y="1494" text-anchor="end" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="26" font-weight="600" fill="rgba(5,10,15,0.7)">just now</text>
+
+    <rect x="290" y="1558" width="92" height="92" rx="22" fill="#f59e0b"></rect>
+    <text x="336" y="1626" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="46" font-weight="900" fill="#050a0f">AA</text>
+
+    <text x="406" y="1598" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="32" font-weight="700" fill="#fff">Active mission in your area</text>
+    <text x="406" y="1640" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.6)">Tap to view alert details</text>
+
+    <line x1="290" y1="1688" x2="1030" y2="1688" stroke="rgba(255,255,255,0.08)" stroke-width="2"></line>
+    <text x="290" y="1748" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="30" font-weight="500" fill="rgba(255,255,255,0.9)">Blue 2018 Honda Civic</text>
+    <text x="290" y="1792" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="30" fill="rgba(255,255,255,0.7)">Plate G6Y-4421 · I-20 east</text>
+    <text x="290" y="1836" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="24" fill="rgba(245,158,11,0.85)" font-weight="600" letter-spacing="2">SWIPE OR TAP TO RESPOND</text>
+
+    <rect x="300" y="2398" width="720" height="140" rx="70" fill="#f59e0b"></rect>
+    <text x="660" y="2492" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="46" font-weight="800" fill="#050a0f" letter-spacing="2">START MISSION</text>
+    <text x="660" y="2588" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.35)" letter-spacing="3">SLIDE TO DISMISS</text>
+  
+    </g>
+    <rect x="520" y="800" width="280" height="36" rx="18" fill="#0a0c12"></rect>
+    <rect x="570" y="2680" width="180" height="8" rx="4" fill="rgba(255,255,255,0.3)"></rect>
+  
+
+    <text x="660" y="2810" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#f59e0b" letter-spacing="10">AMBER ANGELS</text>
+  </svg>

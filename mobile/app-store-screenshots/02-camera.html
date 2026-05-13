@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1320px; height: 2868px; overflow: hidden;
+    background: #000; font-family: -apple-system, 'SF Pro Display', sans-serif;
+    position: relative;
+  }
+
+  /* Camera background */
+  .camera-bg {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(170deg, #0a1a08 0%, #0d1f0a 25%, #091208 50%, #0f1f0c 75%, #080e06 100%);
+  }
+
+  /* Simulated road/terrain through camera */
+  .cam-road {
+    position: absolute;
+    bottom: 30%; left: 35%; right: 35%;
+    height: 60%;
+    background: linear-gradient(to bottom, rgba(120,100,50,0.4), rgba(80,65,30,0.6));
+    clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
+  }
+  .cam-sidewalk-l {
+    position: absolute;
+    bottom: 30%; left: 0; width: 38%;
+    height: 60%;
+    background: linear-gradient(135deg, #1a2a15 0%, #0d1a09 100%);
+    clip-path: polygon(0% 0%, 100% 0%, 65% 100%, 0% 100%);
+  }
+  .cam-sidewalk-r {
+    position: absolute;
+    bottom: 30%; right: 0; width: 38%;
+    height: 60%;
+    background: linear-gradient(225deg, #1a2a15 0%, #0d1a09 100%);
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 35% 100%);
+  }
+  .cam-sky {
+    position: absolute; top: 0; left: 0; right: 0; height: 40%;
+    background: linear-gradient(180deg, #050a05 0%, #0a180a 100%);
+  }
+
+  /* Scan line effect */
+  .scan-overlay {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,255,100,0.02) 3px,
+      rgba(0,255,100,0.02) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* License plate detection box */
+  .plate-box {
+    position: absolute; z-index: 40;
+    border: 3px solid #22c55e;
+    border-radius: 4px;
+    box-shadow: 0 0 20px rgba(34,197,94,0.5), inset 0 0 20px rgba(34,197,94,0.05);
+  }
+  .plate-box::before {
+    content: '';
+    position: absolute; inset: -2px;
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 5px;
+  }
+  .plate-label {
+    position: absolute; top: -40px; left: 0;
+    background: #22c55e; color: #000;
+    font-size: 18px; font-weight: 800; letter-spacing: 2px;
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .plate-text-inside {
+    position: absolute; bottom: -36px; left: 0; right: 0;
+    text-align: center;
+    color: #22c55e; font-size: 20px; font-weight: 800; letter-spacing: 4px;
+    font-family: monospace;
+  }
+
+  /* Corner brackets on plate box */
+  .corner { position: absolute; width: 16px; height: 16px; border-color: #22c55e; border-style: solid; }
+  .tl { top: -4px; left: -4px; border-width: 3px 0 0 3px; }
+  .tr { top: -4px; right: -4px; border-width: 3px 3px 0 0; }
+  .bl { bottom: -4px; left: -4px; border-width: 0 0 3px 3px; }
+  .br { bottom: -4px; right: -4px; border-width: 0 3px 3px 0; }
+
+  /* HUD overlay */
+  .hud {
+    position: absolute; top: 110px; left: 30px; z-index: 80;
+    background: rgba(0,0,0,0.65);
+    border-radius: 14px; padding: 20px 24px; min-width: 260px;
+  }
+  .hud-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .hud-dot {
+    width: 18px; height: 18px; border-radius: 50%; background: #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+    flex-shrink: 0;
+  }
+  .hud-title { color: #fff; font-size: 28px; font-weight: 800; letter-spacing: 4px; }
+  .hud-sub { color: rgba(255,255,255,0.6); font-size: 22px; margin-bottom: 6px; }
+  .hud-sub-green { color: #22c55e; font-size: 22px; margin-bottom: 6px; }
+
+  /* Status bar */
+  .status-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 54px;
+    background: rgba(0,0,0,0.5); z-index: 100;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 0 40px 8px;
+  }
+  .status-time { color: #fff; font-size: 28px; font-weight: 700; }
+  .status-icons { display: flex; gap: 10px; align-items: center; }
+  .status-icons svg { fill: white; }
+
+  /* Mission button */
+  .mission-btn-wrap {
+    position: absolute; bottom: 240px; left: 0; right: 0;
+    display: flex; justify-content: center; z-index: 80;
+  }
+  .mission-btn {
+    background: #ef4444;
+    border-radius: 20px;
+    padding: 36px 80px;
+    box-shadow: 0 8px 40px rgba(239,68,68,0.5);
+  }
+  .mission-btn-text {
+    color: #fff; font-size: 32px; font-weight: 900; letter-spacing: 3px;
+  }
+
+  /* Frame counter ring */
+  .frame-counter {
+    position: absolute; top: 110px; right: 30px; z-index: 80;
+    background: rgba(0,0,0,0.65); border-radius: 16px;
+    padding: 20px 28px; text-align: center;
+    border: 1px solid rgba(56,189,248,0.3);
+  }
+  .frame-number { color: #38bdf8; font-size: 52px; font-weight: 900; line-height: 1; }
+  .frame-label { color: rgba(255,255,255,0.4); font-size: 18px; font-weight: 600; letter-spacing: 1px; margin-top: 4px; }
+
+  /* Bottom tab bar */
+  .tab-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 160px;
+    background: rgba(5,10,15,0.97);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: flex-start; justify-content: space-around;
+    padding-top: 16px; z-index: 100;
+  }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tab-icon { font-size: 36px; }
+  .tab-label { font-size: 18px; font-weight: 600; }
+  .tab.active .tab-label { color: #f59e0b; }
+  .tab:not(.active) .tab-label { color: rgba(255,255,255,0.35); }
+
+  /* Caption */
+  .caption {
+    position: absolute; bottom: 185px; left: 0; right: 0;
+    text-align: center; padding: 0 60px; z-index: 90;
+  }
+  .caption-pill {
+    display: inline-block;
+    background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4);
+    border-radius: 999px; padding: 10px 32px;
+    color: #22c55e; font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .caption-heading {
+    color: #fff; font-size: 54px; font-weight: 800; line-height: 1.1; margin-bottom: 12px;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.9);
+  }
+  .caption-sub {
+    color: rgba(255,255,255,0.55); font-size: 26px; font-weight: 500; line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<!-- Camera background -->
+<div class="camera-bg"></div>
+<div class="cam-sky"></div>
+<div class="cam-sidewalk-l"></div>
+<div class="cam-road"></div>
+<div class="cam-sidewalk-r"></div>
+<div class="scan-overlay"></div>
+
+<!-- License plate detection box -->
+<div class="plate-box" style="top: 1180px; left: 280px; width: 480px; height: 130px;">
+  <div class="plate-label">MATCH DETECTED</div>
+  <div class="plate-text-inside">GHF · 8821</div>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+</div>
+
+<!-- Second plate (not matched) -->
+<div class="plate-box" style="top: 980px; left: 760px; width: 280px; height: 80px; border-color: rgba(255,255,255,0.3); box-shadow: none;">
+  <div class="corner tl" style="border-color: rgba(255,255,255,0.3);"></div>
+  <div class="corner tr" style="border-color: rgba(255,255,255,0.3);"></div>
+  <div class="corner bl" style="border-color: rgba(255,255,255,0.3);"></div>
+  <div class="corner br" style="border-color: rgba(255,255,255,0.3);"></div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <span class="status-time">9:41</span>
+  <div class="status-icons">
+    <svg width="22" height="16" viewBox="0 0 22 16"><rect x="0" y="4" width="4" height="12" rx="1"/><rect x="6" y="2" width="4" height="14" rx="1"/><rect x="12" y="0" width="4" height="16" rx="1"/><rect x="18" y="0" width="4" height="16" rx="1" opacity="0.3"/></svg>
+    <svg width="40" height="18" viewBox="0 0 40 18"><rect x="0" y="3" width="34" height="14" rx="4" stroke="white" stroke-width="1.5" fill="none"/><rect x="34.5" y="7" width="3" height="6" rx="1.5" fill="white" opacity="0.6"/><rect x="2" y="5" width="28" height="10" rx="2" fill="white"/></svg>
+  </div>
+</div>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-row">
+    <div class="hud-dot"></div>
+    <span class="hud-title">LIVE</span>
+  </div>
+  <div class="hud-sub">DRONE-01  ·  every 5s  🚁</div>
+  <div class="hud-sub-green">DJI connected</div>
+  <div class="hud-sub">142 frames sent</div>
+</div>
+
+<!-- Frame counter -->
+<div class="frame-counter">
+  <div class="frame-number">142</div>
+  <div class="frame-label">FRAMES</div>
+</div>
+
+<!-- STOP MISSION button -->
+<div class="mission-btn-wrap">
+  <div class="mission-btn">
+    <span class="mission-btn-text">STOP MISSION</span>
+  </div>
+</div>
+
+<!-- Caption -->
+<div class="caption">
+  <div class="caption-pill">AI-Powered ALPR</div>
+  <div class="caption-heading">Scan license plates<br>from the sky</div>
+  <div class="caption-sub">DJI drone or phone camera.<br>AI checks every plate against active alerts.</div>
+</div>
+
+<!-- Bottom tab bar -->
+<div class="tab-bar">
+  <div class="tab">
+    <span class="tab-icon">🗺️</span>
+    <span class="tab-label">Map</span>
+  </div>
+  <div class="tab active">
+    <span class="tab-icon">📷</span>
+    <span class="tab-label" style="color:#f59e0b;">Camera</span>
+  </div>
+  <div class="tab">
+    <span class="tab-icon">📋</span>
+    <span class="tab-label">Feed</span>
+  </div>
+  <div class="tab">
+    <span class="tab-icon">⚙️</span>
+    <span class="tab-label">Settings</span>
+  </div>
+</div>
+
+</body>
+</html>

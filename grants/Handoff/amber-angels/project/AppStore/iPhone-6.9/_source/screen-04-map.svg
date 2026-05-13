@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="2868" viewBox="0 0 1320 2868">
+    <defs>
+      <linearGradient id="bg_screen-04-map" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0e0a02"></stop>
+        <stop offset="22%" stop-color="#0c0d11"></stop>
+        <stop offset="60%" stop-color="#070a0e"></stop>
+        <stop offset="100%" stop-color="#050a0f"></stop>
+      </linearGradient>
+      <radialGradient id="glow_screen-04-map" cx="50%" cy="-10%" r="80%">
+        <stop offset="0%" stop-color="rgba(56,189,248,0.22)"></stop>
+        <stop offset="100%" stop-color="rgba(245,158,11,0)"></stop>
+      </radialGradient>
+    </defs>
+
+    <rect width="1320" height="2868" fill="url(#bg_screen-04-map)"></rect>
+    <rect width="1320" height="2868" fill="url(#glow_screen-04-map)" opacity="0.85"></rect>
+
+    <g opacity="0.08" fill="#f59e0b">
+      <circle cx="30" cy="60" r="1.4"></circle><circle cx="90" cy="60" r="1.4"></circle><circle cx="150" cy="60" r="1.4"></circle><circle cx="210" cy="60" r="1.4"></circle><circle cx="270" cy="60" r="1.4"></circle><circle cx="330" cy="60" r="1.4"></circle><circle cx="390" cy="60" r="1.4"></circle><circle cx="450" cy="60" r="1.4"></circle><circle cx="510" cy="60" r="1.4"></circle><circle cx="570" cy="60" r="1.4"></circle><circle cx="630" cy="60" r="1.4"></circle><circle cx="690" cy="60" r="1.4"></circle><circle cx="750" cy="60" r="1.4"></circle><circle cx="810" cy="60" r="1.4"></circle><circle cx="870" cy="60" r="1.4"></circle><circle cx="930" cy="60" r="1.4"></circle><circle cx="990" cy="60" r="1.4"></circle><circle cx="1050" cy="60" r="1.4"></circle><circle cx="1110" cy="60" r="1.4"></circle><circle cx="1170" cy="60" r="1.4"></circle><circle cx="1230" cy="60" r="1.4"></circle><circle cx="1290" cy="60" r="1.4"></circle><circle cx="30" cy="120" r="1.4"></circle><circle cx="90" cy="120" r="1.4"></circle><circle cx="150" cy="120" r="1.4"></circle><circle cx="210" cy="120" r="1.4"></circle><circle cx="270" cy="120" r="1.4"></circle><circle cx="330" cy="120" r="1.4"></circle><circle cx="390" cy="120" r="1.4"></circle><circle cx="450" cy="120" r="1.4"></circle><circle cx="510" cy="120" r="1.4"></circle><circle cx="570" cy="120" r="1.4"></circle><circle cx="630" cy="120" r="1.4"></circle><circle cx="690" cy="120" r="1.4"></circle><circle cx="750" cy="120" r="1.4"></circle><circle cx="810" cy="120" r="1.4"></circle><circle cx="870" cy="120" r="1.4"></circle><circle cx="930" cy="120" r="1.4"></circle><circle cx="990" cy="120" r="1.4"></circle><circle cx="1050" cy="120" r="1.4"></circle><circle cx="1110" cy="120" r="1.4"></circle><circle cx="1170" cy="120" r="1.4"></circle><circle cx="1230" cy="120" r="1.4"></circle><circle cx="1290" cy="120" r="1.4"></circle><circle cx="30" cy="180" r="1.4"></circle><circle cx="90" cy="180" r="1.4"></circle><circle cx="150" cy="180" r="1.4"></circle><circle cx="210" cy="180" r="1.4"></circle><circle cx="270" cy="180" r="1.4"></circle><circle cx="330" cy="180" r="1.4"></circle><circle cx="390" cy="180" r="1.4"></circle><circle cx="450" cy="180" r="1.4"></circle><circle cx="510" cy="180" r="1.4"></circle><circle cx="570" cy="180" r="1.4"></circle><circle cx="630" cy="180" r="1.4"></circle><circle cx="690" cy="180" r="1.4"></circle><circle cx="750" cy="180" r="1.4"></circle><circle cx="810" cy="180" r="1.4"></circle><circle cx="870" cy="180" r="1.4"></circle><circle cx="930" cy="180" r="1.4"></circle><circle cx="990" cy="180" r="1.4"></circle><circle cx="1050" cy="180" r="1.4"></circle><circle cx="1110" cy="180" r="1.4"></circle><circle cx="1170" cy="180" r="1.4"></circle><circle cx="1230" cy="180" r="1.4"></circle><circle cx="1290" cy="180" r="1.4"></circle><circle cx="30" cy="240" r="1.4"></circle><circle cx="90" cy="240" r="1.4"></circle><circle cx="150" cy="240" r="1.4"></circle><circle cx="210" cy="240" r="1.4"></circle><circle cx="270" cy="240" r="1.4"></circle><circle cx="330" cy="240" r="1.4"></circle><circle cx="390" cy="240" r="1.4"></circle><circle cx="450" cy="240" r="1.4"></circle><circle cx="510" cy="240" r="1.4"></circle><circle cx="570" cy="240" r="1.4"></circle><circle cx="630" cy="240" r="1.4"></circle><circle cx="690" cy="240" r="1.4"></circle><circle cx="750" cy="240" r="1.4"></circle><circle cx="810" cy="240" r="1.4"></circle><circle cx="870" cy="240" r="1.4"></circle><circle cx="930" cy="240" r="1.4"></circle><circle cx="990" cy="240" r="1.4"></circle><circle cx="1050" cy="240" r="1.4"></circle><circle cx="1110" cy="240" r="1.4"></circle><circle cx="1170" cy="240" r="1.4"></circle><circle cx="1230" cy="240" r="1.4"></circle><circle cx="1290" cy="240" r="1.4"></circle><circle cx="30" cy="300" r="1.4"></circle><circle cx="90" cy="300" r="1.4"></circle><circle cx="150" cy="300" r="1.4"></circle><circle cx="210" cy="300" r="1.4"></circle><circle cx="270" cy="300" r="1.4"></circle><circle cx="330" cy="300" r="1.4"></circle><circle cx="390" cy="300" r="1.4"></circle><circle cx="450" cy="300" r="1.4"></circle><circle cx="510" cy="300" r="1.4"></circle><circle cx="570" cy="300" r="1.4"></circle><circle cx="630" cy="300" r="1.4"></circle><circle cx="690" cy="300" r="1.4"></circle><circle cx="750" cy="300" r="1.4"></circle><circle cx="810" cy="300" r="1.4"></circle><circle cx="870" cy="300" r="1.4"></circle><circle cx="930" cy="300" r="1.4"></circle><circle cx="990" cy="300" r="1.4"></circle><circle cx="1050" cy="300" r="1.4"></circle><circle cx="1110" cy="300" r="1.4"></circle><circle cx="1170" cy="300" r="1.4"></circle><circle cx="1230" cy="300" r="1.4"></circle><circle cx="1290" cy="300" r="1.4"></circle><circle cx="30" cy="360" r="1.4"></circle><circle cx="90" cy="360" r="1.4"></circle><circle cx="150" cy="360" r="1.4"></circle><circle cx="210" cy="360" r="1.4"></circle><circle cx="270" cy="360" r="1.4"></circle><circle cx="330" cy="360" r="1.4"></circle><circle cx="390" cy="360" r="1.4"></circle><circle cx="450" cy="360" r="1.4"></circle><circle cx="510" cy="360" r="1.4"></circle><circle cx="570" cy="360" r="1.4"></circle><circle cx="630" cy="360" r="1.4"></circle><circle cx="690" cy="360" r="1.4"></circle><circle cx="750" cy="360" r="1.4"></circle><circle cx="810" cy="360" r="1.4"></circle><circle cx="870" cy="360" r="1.4"></circle><circle cx="930" cy="360" r="1.4"></circle><circle cx="990" cy="360" r="1.4"></circle><circle cx="1050" cy="360" r="1.4"></circle><circle cx="1110" cy="360" r="1.4"></circle><circle cx="1170" cy="360" r="1.4"></circle><circle cx="1230" cy="360" r="1.4"></circle><circle cx="1290" cy="360" r="1.4"></circle><circle cx="30" cy="420" r="1.4"></circle><circle cx="90" cy="420" r="1.4"></circle><circle cx="150" cy="420" r="1.4"></circle><circle cx="210" cy="420" r="1.4"></circle><circle cx="270" cy="420" r="1.4"></circle><circle cx="330" cy="420" r="1.4"></circle><circle cx="390" cy="420" r="1.4"></circle><circle cx="450" cy="420" r="1.4"></circle><circle cx="510" cy="420" r="1.4"></circle><circle cx="570" cy="420" r="1.4"></circle><circle cx="630" cy="420" r="1.4"></circle><circle cx="690" cy="420" r="1.4"></circle><circle cx="750" cy="420" r="1.4"></circle><circle cx="810" cy="420" r="1.4"></circle><circle cx="870" cy="420" r="1.4"></circle><circle cx="930" cy="420" r="1.4"></circle><circle cx="990" cy="420" r="1.4"></circle><circle cx="1050" cy="420" r="1.4"></circle><circle cx="1110" cy="420" r="1.4"></circle><circle cx="1170" cy="420" r="1.4"></circle><circle cx="1230" cy="420" r="1.4"></circle><circle cx="1290" cy="420" r="1.4"></circle><circle cx="30" cy="480" r="1.4"></circle><circle cx="90" cy="480" r="1.4"></circle><circle cx="150" cy="480" r="1.4"></circle><circle cx="210" cy="480" r="1.4"></circle><circle cx="270" cy="480" r="1.4"></circle><circle cx="330" cy="480" r="1.4"></circle><circle cx="390" cy="480" r="1.4"></circle><circle cx="450" cy="480" r="1.4"></circle><circle cx="510" cy="480" r="1.4"></circle><circle cx="570" cy="480" r="1.4"></circle><circle cx="630" cy="480" r="1.4"></circle><circle cx="690" cy="480" r="1.4"></circle><circle cx="750" cy="480" r="1.4"></circle><circle cx="810" cy="480" r="1.4"></circle><circle cx="870" cy="480" r="1.4"></circle><circle cx="930" cy="480" r="1.4"></circle><circle cx="990" cy="480" r="1.4"></circle><circle cx="1050" cy="480" r="1.4"></circle><circle cx="1110" cy="480" r="1.4"></circle><circle cx="1170" cy="480" r="1.4"></circle><circle cx="1230" cy="480" r="1.4"></circle><circle cx="1290" cy="480" r="1.4"></circle><circle cx="30" cy="540" r="1.4"></circle><circle cx="90" cy="540" r="1.4"></circle><circle cx="150" cy="540" r="1.4"></circle><circle cx="210" cy="540" r="1.4"></circle><circle cx="270" cy="540" r="1.4"></circle><circle cx="330" cy="540" r="1.4"></circle><circle cx="390" cy="540" r="1.4"></circle><circle cx="450" cy="540" r="1.4"></circle><circle cx="510" cy="540" r="1.4"></circle><circle cx="570" cy="540" r="1.4"></circle><circle cx="630" cy="540" r="1.4"></circle><circle cx="690" cy="540" r="1.4"></circle><circle cx="750" cy="540" r="1.4"></circle><circle cx="810" cy="540" r="1.4"></circle><circle cx="870" cy="540" r="1.4"></circle><circle cx="930" cy="540" r="1.4"></circle><circle cx="990" cy="540" r="1.4"></circle><circle cx="1050" cy="540" r="1.4"></circle><circle cx="1110" cy="540" r="1.4"></circle><circle cx="1170" cy="540" r="1.4"></circle><circle cx="1230" cy="540" r="1.4"></circle><circle cx="1290" cy="540" r="1.4"></circle><circle cx="30" cy="600" r="1.4"></circle><circle cx="90" cy="600" r="1.4"></circle><circle cx="150" cy="600" r="1.4"></circle><circle cx="210" cy="600" r="1.4"></circle><circle cx="270" cy="600" r="1.4"></circle><circle cx="330" cy="600" r="1.4"></circle><circle cx="390" cy="600" r="1.4"></circle><circle cx="450" cy="600" r="1.4"></circle><circle cx="510" cy="600" r="1.4"></circle><circle cx="570" cy="600" r="1.4"></circle><circle cx="630" cy="600" r="1.4"></circle><circle cx="690" cy="600" r="1.4"></circle><circle cx="750" cy="600" r="1.4"></circle><circle cx="810" cy="600" r="1.4"></circle><circle cx="870" cy="600" r="1.4"></circle><circle cx="930" cy="600" r="1.4"></circle><circle cx="990" cy="600" r="1.4"></circle><circle cx="1050" cy="600" r="1.4"></circle><circle cx="1110" cy="600" r="1.4"></circle><circle cx="1170" cy="600" r="1.4"></circle><circle cx="1230" cy="600" r="1.4"></circle><circle cx="1290" cy="600" r="1.4"></circle><circle cx="30" cy="660" r="1.4"></circle><circle cx="90" cy="660" r="1.4"></circle><circle cx="150" cy="660" r="1.4"></circle><circle cx="210" cy="660" r="1.4"></circle><circle cx="270" cy="660" r="1.4"></circle><circle cx="330" cy="660" r="1.4"></circle><circle cx="390" cy="660" r="1.4"></circle><circle cx="450" cy="660" r="1.4"></circle><circle cx="510" cy="660" r="1.4"></circle><circle cx="570" cy="660" r="1.4"></circle><circle cx="630" cy="660" r="1.4"></circle><circle cx="690" cy="660" r="1.4"></circle><circle cx="750" cy="660" r="1.4"></circle><circle cx="810" cy="660" r="1.4"></circle><circle cx="870" cy="660" r="1.4"></circle><circle cx="930" cy="660" r="1.4"></circle><circle cx="990" cy="660" r="1.4"></circle><circle cx="1050" cy="660" r="1.4"></circle><circle cx="1110" cy="660" r="1.4"></circle><circle cx="1170" cy="660" r="1.4"></circle><circle cx="1230" cy="660" r="1.4"></circle><circle cx="1290" cy="660" r="1.4"></circle>
+    </g>
+
+    
+    
+      <text x="660" y="280" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="148" font-weight="900" fill="#fff" letter-spacing="-5">Coordinated</text>
+    
+      <text x="660" y="448" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="148" font-weight="900" fill="#38bdf8" letter-spacing="-5">in real time.</text>
+    
+
+    
+    <text x="660" y="620" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="50" font-weight="400" fill="rgba(255,255,255,0.65)">See where you’re needed.</text>
+
+    
+    <rect x="200" y="760" width="920" height="1990" rx="110" fill="#0e1117" stroke="rgba(255,255,255,0.08)" stroke-width="2"></rect>
+    <rect x="204" y="764" width="912" height="1982" rx="106" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"></rect>
+    <clipPath id="screenClip"><rect x="218" y="778" width="884" height="1954" rx="92"></rect></clipPath>
+    <g clip-path="url(#screenClip)">
+      <rect x="218" y="778" width="884" height="1954" fill="#050a0f"></rect>
+      
+    <defs><linearGradient id="mapBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d1418"></stop><stop offset="100%" stop-color="#161a20"></stop></linearGradient></defs>
+    <rect x="218" y="778" width="884" height="1954" fill="url(#mapBg)"></rect>
+    
+    <text x="298" y="914" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="36" font-weight="700" fill="#fff">9:41</text>
+    <g fill="#fff">
+      <rect x="918" y="906" width="6" height="10" rx="1"></rect>
+      <rect x="928" y="902" width="6" height="14" rx="1"></rect>
+      <rect x="938" y="898" width="6" height="18" rx="1"></rect>
+      <rect x="948" y="894" width="6" height="22" rx="1"></rect>
+      <rect x="976" y="896" width="42" height="20" rx="5" stroke="#fff" stroke-width="2" fill="none"></rect>
+      <rect x="980" y="900" width="32" height="12" rx="2"></rect>
+    </g>
+  
+
+    <g stroke="rgba(255,255,255,0.08)" fill="none">
+      <line x1="218" y1="1478" x2="1102" y2="1458" stroke-width="10"></line>
+      <line x1="218" y1="1778" x2="1102" y2="1818" stroke-width="8"></line>
+      <line x1="218" y1="2128" x2="1102" y2="2078" stroke-width="6"></line>
+      <line x1="478" y1="1038" x2="498" y2="2478" stroke-width="6"></line>
+      <line x1="838" y1="1038" x2="818" y2="2478" stroke-width="8"></line>
+      <line x1="338" y1="1298" x2="1038" y2="2308" stroke-width="4"></line>
+    </g>
+
+    <polygon points="398,1318 638,1218 888,1298 938,1558 798,1858 558,1918 368,1738" fill="rgba(245,158,11,0.18)" stroke="#f59e0b" stroke-width="4" stroke-dasharray="14,10"></polygon>
+
+    <circle cx="538" cy="1498" r="22" fill="rgba(56,189,248,0.15)"></circle>
+    <circle cx="538" cy="1498" r="10" fill="#38bdf8"></circle>
+    <circle cx="758" cy="1718" r="22" fill="rgba(56,189,248,0.15)"></circle>
+    <circle cx="758" cy="1718" r="10" fill="#38bdf8"></circle>
+    <circle cx="678" cy="1378" r="30" fill="rgba(167,139,250,0.2)"></circle>
+    <circle cx="678" cy="1378" r="14" fill="#a78bfa"></circle>
+    <circle cx="638" cy="2018" r="60" fill="rgba(34,197,94,0.18)"></circle>
+    <circle cx="638" cy="2018" r="36" fill="rgba(34,197,94,0.35)"></circle>
+    <circle cx="638" cy="2018" r="20" fill="#22c55e" stroke="#fff" stroke-width="4"></circle>
+
+    <rect x="258" y="978" width="804" height="200" rx="24" fill="rgba(10,14,20,0.92)" stroke="rgba(245,158,11,0.3)" stroke-width="2"></rect>
+    <text x="290" y="1026" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#f59e0b" letter-spacing="3">ACTIVE MISSION · AMBER 2204</text>
+    <text x="290" y="1078" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="36" font-weight="800" fill="#fff">Carroll County, GA</text>
+    <line x1="290" y1="1100" x2="1030" y2="1100" stroke="rgba(255,255,255,0.06)" stroke-width="1"></line>
+    <text x="290" y="1140" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.6)">3 volunteers active · 12.4 mi covered</text>
+    <text x="1030" y="1140" text-anchor="end" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#22c55e">● LIVE</text>
+
+    <rect x="690" y="1990" width="280" height="62" rx="12" fill="rgba(10,14,20,0.92)" stroke="rgba(34,197,94,0.5)" stroke-width="2"></rect>
+    <text x="830" y="2030" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#fff">You · 4.2 mi covered</text>
+
+    <rect x="258" y="2268" width="804" height="240" rx="24" fill="rgba(10,14,20,0.92)" stroke="rgba(255,255,255,0.08)" stroke-width="1"></rect>
+    <text x="320" y="2346" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="64" font-weight="800" fill="#f59e0b">247</text>
+    <text x="320" y="2392" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.5)" letter-spacing="2">FRAMES</text>
+    <line x1="418" y1="2318" x2="418" y2="2418" stroke="rgba(255,255,255,0.08)"></line>
+    <text x="516" y="2346" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="64" font-weight="800" fill="#f59e0b">3</text>
+    <text x="516" y="2392" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.5)" letter-spacing="2">HITS</text>
+    <line x1="614" y1="2318" x2="614" y2="2418" stroke="rgba(255,255,255,0.08)"></line>
+    <text x="712" y="2346" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="64" font-weight="800" fill="#f59e0b">4.2</text>
+    <text x="712" y="2392" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.5)" letter-spacing="2">MILES</text>
+    <line x1="810" y1="2318" x2="810" y2="2418" stroke="rgba(255,255,255,0.08)"></line>
+    <text x="930" y="2346" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="64" font-weight="800" fill="#22c55e">14:32</text>
+    <text x="930" y="2392" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.5)" letter-spacing="2">MISSION TIME</text>
+
+    <rect x="218" y="2528" width="884" height="200" fill="#0a0e14"></rect>
+    <line x1="218" y1="2528" x2="1102" y2="2528" stroke="rgba(255,255,255,0.08)" stroke-width="1"></line>
+    
+      <g transform="translate(318, 2578)">
+        <path d="M14,4 L34,2 L54,8 L54,30 L34,34 L14,28 Z" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#f59e0b">Map</text>
+      </g>
+    
+      <g transform="translate(538, 2578)">
+        <path d="M8,12 H58 V46 H8 Z M16,12 L22,4 H44 L50,12 M33,20 a8,8 0 1,0 0.01,0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="rgba(255,255,255,0.4)">Camera</text>
+      </g>
+    
+      <g transform="translate(758, 2578)">
+        <path d="M8,12 H58 M8,24 H58 M8,36 H58" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="rgba(255,255,255,0.4)">Feed</text>
+      </g>
+    
+      <g transform="translate(978, 2578)">
+        <path d="M33,12 a10,10 0 1,0 0.01,0 M33,4 L33,12 M33,32 L33,40 M16,22 L24,22 M42,22 L50,22" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linejoin="round"></path>
+        <text x="33" y="86" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="rgba(255,255,255,0.4)">Settings</text>
+      </g>
+    
+  
+    </g>
+    <rect x="520" y="800" width="280" height="36" rx="18" fill="#0a0c12"></rect>
+    <rect x="570" y="2680" width="180" height="8" rx="4" fill="rgba(255,255,255,0.3)"></rect>
+  
+
+    <text x="660" y="2810" text-anchor="middle" font-family="&#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#f59e0b" letter-spacing="10">AMBER ANGELS</text>
+  </svg>
