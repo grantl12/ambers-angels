@@ -259,7 +259,12 @@ def me(payload: dict = Depends(get_current_pilot)):
     db = database.SessionLocal()
     try:
         row = db.execute(
-            text("SELECT username, full_name, email, city, status, role, created_at, watch_areas, expo_push_token, notification_prefs FROM pilots WHERE username = :u"),
+            text("""
+                SELECT username, full_name, email, city, status, role, created_at,
+                       watch_areas, expo_push_token, notification_prefs,
+                       alert_scope, alert_range_miles
+                FROM pilots WHERE username = :u
+            """),
             {"u": payload["sub"]},
         ).fetchone()
         if not row:
@@ -275,6 +280,8 @@ def me(payload: dict = Depends(get_current_pilot)):
             "watchAreas":        row[7] or [],
             "expoPushToken":     row[8],
             "notificationPrefs": row[9] or ["push", "email"],
+            "alertScope":        row[10] or "local",
+            "alertRangeMiles":   row[11] or 25,
         }
     finally:
         db.close()
@@ -406,6 +413,26 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
             "watch_areas":  req.watch_areas,
             "notif_prefs":  req.notification_prefs,
         })
+        db.commit()
+        return {"status": "updated"}
+    finally:
+        db.close()
+
+
+class AlertPrefsRequest(BaseModel):
+    alert_scope:       str
+    alert_range_miles: Optional[int] = 25
+
+@router.patch("/me/alert-prefs")
+def update_alert_prefs(req: AlertPrefsRequest, payload: dict = Depends(get_current_pilot)):
+    if req.alert_scope not in ("nationwide", "local"):
+        raise HTTPException(status_code=400, detail="alert_scope must be 'nationwide' or 'local'")
+    db = database.SessionLocal()
+    try:
+        db.execute(
+            text("UPDATE pilots SET alert_scope = :scope, alert_range_miles = :miles WHERE username = :u"),
+            {"scope": req.alert_scope, "miles": req.alert_range_miles or 25, "u": payload["sub"]},
+        )
         db.commit()
         return {"status": "updated"}
     finally:

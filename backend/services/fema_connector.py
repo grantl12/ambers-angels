@@ -571,37 +571,37 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
 
 async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     """
-    Push-notify any approved pilots whose watch_areas list contains a string
-    that is a case-insensitive substring of the alert's area description.
-
-    Example: a pilot watching "Birmingham" will match an alert with area
-    "Jefferson County, AL (Birmingham area)" even if they are currently in
-    Carrollton, GA.
+    Push-notify approved pilots based on alert scope:
+      - Admins and pilots with alert_scope='nationwide' always receive notifications.
+      - Pilots with watch_areas receive notifications when any watched area is a
+        case-insensitive substring of the alert's area description.
 
     Notifications respect each pilot's notification_prefs:
       - 'push' in prefs → Expo device push (if token registered)
       - 'email' in prefs → email via SMTP
     Default is both, so pilots who haven't set a preference get everything.
     """
-    area_lower = alert["area"].lower()
-    if not area_lower:
-        return
-
     try:
         async with session_factory() as session:
             rows = await session.execute(
                 text("""
-                    SELECT email, full_name, expo_push_token, notification_prefs
+                    SELECT DISTINCT email, full_name, expo_push_token, notification_prefs
                     FROM pilots
                     WHERE status = 'approved'
-                      AND watch_areas IS NOT NULL
-                      AND array_length(watch_areas, 1) > 0
-                      AND EXISTS (
-                          SELECT 1 FROM unnest(watch_areas) wa
-                          WHERE :area ILIKE '%' || wa || '%'
+                      AND (
+                        role = 'admin'
+                        OR alert_scope = 'nationwide'
+                        OR (
+                          watch_areas IS NOT NULL
+                          AND array_length(watch_areas, 1) > 0
+                          AND EXISTS (
+                              SELECT 1 FROM unnest(watch_areas) wa
+                              WHERE :area ILIKE '%' || wa || '%'
+                          )
+                        )
                       )
                 """),
-                {"area": alert["area"]},
+                {"area": alert["area"] or ""},
             )
             matched = rows.fetchall()
     except Exception as e:

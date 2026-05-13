@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { apiPost } from "@/lib/api-client"
+import { apiGet, apiPatch, apiPost } from "@/lib/api-client"
 
 type Settings = {
   username: string
@@ -11,6 +11,7 @@ type Settings = {
   notifSoundFema: boolean
   notifSoundAmber: boolean
   notifOutsidePolygon: boolean
+  alertScope: "nationwide" | "local"
   alertRangeMiles: number
 }
 
@@ -21,6 +22,7 @@ const DEFAULTS: Settings = {
   notifSoundFema: true,
   notifSoundAmber: true,
   notifOutsidePolygon: true,
+  alertScope: "local",
   alertRangeMiles: 25,
 }
 
@@ -36,6 +38,7 @@ function loadSettings(): Settings {
       notifSoundFema:      localStorage.getItem("aa_notif_sound_fema")      !== "0",
       notifSoundAmber:     localStorage.getItem("aa_notif_sound_amber")     !== "0",
       notifOutsidePolygon: localStorage.getItem("aa_notif_outside_polygon") !== "0",
+      alertScope:          (localStorage.getItem("aa_alert_scope") as "nationwide" | "local") ?? "local",
       alertRangeMiles:     parseInt(localStorage.getItem("aa_alert_range_miles") ?? "25", 10),
     }
   } catch {
@@ -50,6 +53,7 @@ function saveSettings(s: Settings) {
   localStorage.setItem("aa_notif_sound_fema",       s.notifSoundFema      ? "1" : "0")
   localStorage.setItem("aa_notif_sound_amber",      s.notifSoundAmber     ? "1" : "0")
   localStorage.setItem("aa_notif_outside_polygon",  s.notifOutsidePolygon ? "1" : "0")
+  localStorage.setItem("aa_alert_scope",            s.alertScope)
   localStorage.setItem("aa_alert_range_miles",      String(s.alertRangeMiles))
 }
 
@@ -96,6 +100,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setSettings(loadSettings())
+    // Hydrate alertScope and alertRangeMiles from the API if logged in
+    apiGet<{ alertScope?: string; alertRangeMiles?: number; role?: string }>("/auth/me")
+      .then((me) => {
+        setSettings((prev) => ({
+          ...prev,
+          alertScope:      (me.alertScope as "nationwide" | "local") ?? prev.alertScope,
+          alertRangeMiles: me.alertRangeMiles ?? prev.alertRangeMiles,
+        }))
+      })
+      .catch(() => { /* not logged in — keep localStorage values */ })
   }, [])
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -107,6 +121,10 @@ export default function SettingsPage() {
     saveSettings(settings)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+    apiPatch("/auth/me/alert-prefs", {
+      alert_scope: settings.alertScope,
+      alert_range_miles: settings.alertRangeMiles,
+    }).catch(() => { /* not logged in — localStorage already saved */ })
   }
 
   async function requestBrowserNotifs() {
@@ -191,30 +209,59 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Alert range */}
+        {/* Alert Scope */}
         <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
-          <h2 className="text-xs uppercase tracking-widest text-white/40 mb-4">Alert Range</h2>
-          <label className="block text-sm text-white/70 mb-3">
-            Notify pilots within this distance of an active alert
-          </label>
-          <div className="flex gap-2 flex-wrap">
-            {RANGE_OPTIONS.map((miles) => (
-              <button
-                key={miles}
-                onClick={() => update("alertRangeMiles", miles)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                  settings.alertRangeMiles === miles
-                    ? "border-sky-500 bg-sky-500/20 text-sky-300"
-                    : "border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-white/30"
-                }`}
-              >
-                {miles} mi
-              </button>
-            ))}
+          <h2 className="text-xs uppercase tracking-widest text-white/40 mb-4">Alert Scope</h2>
+          <div className="flex rounded-lg border border-white/10 overflow-hidden mb-4">
+            <button
+              onClick={() => update("alertScope", "nationwide")}
+              className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${
+                settings.alertScope === "nationwide"
+                  ? "bg-sky-500 text-white"
+                  : "bg-white/5 text-white/40 hover:text-white/70"
+              }`}
+            >
+              Nationwide
+            </button>
+            <button
+              onClick={() => update("alertScope", "local")}
+              className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-l border-white/10 ${
+                settings.alertScope === "local"
+                  ? "bg-sky-500 text-white"
+                  : "bg-white/5 text-white/40 hover:text-white/70"
+              }`}
+            >
+              Near me
+            </button>
           </div>
-          <p className="mt-3 text-xs text-white/30">
-            Location services required for range-based filtering. Setting is saved now and applied when location is available.
-          </p>
+
+          {settings.alertScope === "nationwide" ? (
+            <p className="text-xs text-white/40">
+              You&apos;ll receive push notifications for every active alert across the country, regardless of your location.
+            </p>
+          ) : (
+            <>
+              <label className="block text-sm text-white/70 mb-3">Alert range</label>
+              <div className="flex gap-2 flex-wrap">
+                {RANGE_OPTIONS.map((miles) => (
+                  <button
+                    key={miles}
+                    onClick={() => update("alertRangeMiles", miles)}
+                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                      settings.alertRangeMiles === miles
+                        ? "border-sky-500 bg-sky-500/20 text-sky-300"
+                        : "border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-white/30"
+                    }`}
+                  >
+                    {miles} mi
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-white/30">
+                Location services required. Alerts within this radius of your current position will notify you.
+              </p>
+            </>
+          )}
         </section>
 
         {/* Change Password */}

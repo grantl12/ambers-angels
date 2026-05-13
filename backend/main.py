@@ -49,6 +49,7 @@ from services.aggregation_service import AggregationService, DetectionInput as A
 from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
 from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets
+from services.amber_alert_poller import amber_background_loop
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from services.frame_preprocessor import apply_clahe, enhance_alpr_results
@@ -76,18 +77,27 @@ _alert_dispatcher = AlertDispatcher(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(
+    _webhook = os.getenv("ALERT_WEBHOOK_URL", "")
+    fema_task = asyncio.create_task(
         fema_background_loop(
             session_factory=database.AsyncSessionLocal,
-            webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
+            webhook_url=_webhook,
+        )
+    )
+    amber_task = asyncio.create_task(
+        amber_background_loop(
+            session_factory=database.AsyncSessionLocal,
+            webhook_url=_webhook,
         )
     )
     yield
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    fema_task.cancel()
+    amber_task.cancel()
+    for t in (fema_task, amber_task):
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
 
 # ---------------------------------------------------------------------------
 # App
