@@ -2,9 +2,11 @@
 
 import dynamic from "next/dynamic"
 import type { LayerState } from "@/app/map/page"
+import type { FlockBbox } from "@/features/flock/api"
 
 type Props = {
   layers: LayerState
+  flockBbox?: FlockBbox
   onMapReady?: (flyTo: (lat: number, lng: number) => void) => void
 }
 

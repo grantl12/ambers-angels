@@ -8,7 +8,7 @@ import { env } from "@/lib/env"
 import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
-import type { FlockCamera } from "@/features/flock/api"
+import type { FlockCamera, FlockBbox } from "@/features/flock/api"
 import { useFlockCoverageMap, usePriorityZones } from "@/features/coverage/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
@@ -55,10 +55,11 @@ type TimeRange = "all" | "24h" | "7d" | "30d"
 
 type Props = {
   layers: LayerState
+  flockBbox?: FlockBbox
   onMapReady?: (flyTo: (lat: number, lng: number) => void) => void
 }
 
-export function MissionMap({ layers, onMapReady }: Props) {
+export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const mapRef = useRef<MapRef>(null)
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null)
   const [selectedFlock, setSelectedFlock]         = useState<FlockCamera | null>(null)
@@ -68,7 +69,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
   const { data: trail }              = useTelemetryTrail("drone1", 30)
   const { data: detections = [] }    = useDetectionsFeed(100)
   const { data: watchlist = [] }     = useWatchlist()
-  const { data: flockCameras = [] }  = useFlockCameras()
+  const { data: flockCameras = [] }  = useFlockCameras(flockBbox)
   const { data: alertZones = [] }    = useFemaAlerts()
   const { data: coverageCells = [] } = useFlockCoverageMap()
   const { data: priorityZones = [] } = usePriorityZones()
@@ -388,7 +389,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
         )}
 
         {/* Detection heatmap */}
-        {layers.heat && heatmapGeoJson.features.length > 0 && (
+        {layers.heat && (
           <Source id="heatmap" type="geojson" data={heatmapGeoJson}>
             <Layer
               id="heatmap-layer"
@@ -598,7 +599,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
           lineHeight: 1.4,
         }}
       >
-        ⚡ Flock-dark zones highlighted — prioritize these areas
+        ⚡ Enable Deadspace Planner to surface Flock gaps for coverage planning
       </div>
 
       {/* ── LEGEND ── */}
@@ -622,7 +623,7 @@ export function MissionMap({ layers, onMapReady }: Props) {
           Legend
         </div>
         {[
-          { color: "#ff6b35", label: "Flock ALPR Camera" },
+          { color: "#ff6b35", label: "Flock Camera (Deadspace)" },
           { color: "#ef4444", label: "Dark zone (0 cameras)", square: true },
           { color: "#f59e0b", label: "Sparse (1–3 cameras)", square: true },
           { color: "#22c55e", label: "Covered (4+ cameras)", square: true },

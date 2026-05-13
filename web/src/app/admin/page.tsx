@@ -76,6 +76,23 @@ export default function AdminPage() {
     } catch { /* silent */ }
   }, [])
 
+  // test discord notification
+  const [notifying, setNotifying] = useState(false)
+  const [notifyMsg, setNotifyMsg] = useState<string | null>(null)
+
+  async function sendTestNotification() {
+    setNotifying(true)
+    setNotifyMsg(null)
+    try {
+      await apiPost("/fema/test", {})
+      setNotifyMsg("Test notification sent — check Discord.")
+    } catch (e: unknown) {
+      setNotifyMsg(e instanceof Error ? e.message : "Send failed.")
+    } finally {
+      setNotifying(false)
+    }
+  }
+
   // test data clear
   const [clearing, setClearing] = useState(false)
   const [clearMsg, setClearMsg] = useState<string | null>(null)
@@ -299,6 +316,28 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* ── Test Notification ── */}
+        <section className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-sky-400">Test Discord Notification</h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              Triggers a live FEMA IPAWS poll and fires any matching alerts to Discord. Use this to verify the webhook is wired up correctly.
+            </p>
+          </div>
+          {notifyMsg && (
+            <div className={`text-xs px-3 py-2 rounded-lg ${notifyMsg.includes("sent") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+              {notifyMsg}
+            </div>
+          )}
+          <button
+            onClick={sendTestNotification}
+            disabled={notifying}
+            className="rounded-lg border border-sky-500/40 px-4 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-500/10 disabled:opacity-50 transition-colors"
+          >
+            {notifying ? "Sending…" : "Send test notification"}
+          </button>
         </section>
 
         {/* ── Pilot Approvals ── */}

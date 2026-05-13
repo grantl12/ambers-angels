@@ -6,6 +6,7 @@ import { useDetectionsFeed, useFemaAlerts, useWatchlist, type FemaAlert } from "
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import type { LayerState } from "@/app/map/page"
+import { zipToBbox, type FlockBbox } from "@/features/flock/api"
 
 function useUsername() {
   const [name, setName] = useState("Pilot")
@@ -125,10 +126,12 @@ type Props = {
   layers: LayerState
   onToggleLayer: (key: keyof LayerState) => void
   onFlyTo?: (lat: number, lng: number) => void
+  flockBbox?: FlockBbox
+  onFlockSearch?: (bbox: FlockBbox) => void
 }
 
 const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = [
-  { key: "flock",    label: "Flock ALPR Cameras",  color: "bg-orange-400" },
+  { key: "flock",    label: "Deadspace Planner",    color: "bg-orange-400" },
   { key: "coverage", label: "Camera Coverage",      color: "bg-orange-400/40" },
   { key: "zones",    label: "Dark Zones (Pilot)",   color: "bg-red-500" },
   { key: "drones",   label: "Active Drones",        color: "bg-violet-400" },
@@ -136,8 +139,23 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
   { key: "hits",     label: "Watchlist Hits",       color: "bg-red-400" },
 ]
 
-export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
+export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFlockSearch }: Props) {
   const [collapsed, setCollapsed] = useState(false)
+  const [flockZip, setFlockZip]       = useState("")
+  const [flockRadius, setFlockRadius] = useState(10)
+  const [flockLoading, setFlockLoading] = useState(false)
+  const [flockError, setFlockError]   = useState<string | null>(null)
+
+  async function handleFlockSearch(e: React.FormEvent) {
+    e.preventDefault()
+    if (!flockZip.trim()) return
+    setFlockLoading(true)
+    setFlockError(null)
+    const bbox = await zipToBbox(flockZip.trim(), flockRadius)
+    setFlockLoading(false)
+    if (!bbox) { setFlockError("Zip not found — try another."); return }
+    onFlockSearch?.(bbox)
+  }
   const { data: missions = [] }    = useActiveMissions()
   const { data: drones = [] }      = useLatestTelemetry()
   const { data: detections = [] }  = useDetectionsFeed(50)
@@ -234,27 +252,64 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo }: Props) {
         <div className="text-xs uppercase tracking-widest text-white/40 mb-3">Map Layers</div>
         <div className="space-y-2">
           {LAYER_LABELS.map(({ key, label, color }) => (
-            <div
-              key={key}
-              className="flex items-center justify-between cursor-pointer group"
-              onClick={() => onToggleLayer(key)}
-            >
-              <div className="flex items-center gap-2 text-sm text-white/70 group-hover:text-white transition-colors">
-                <div className={`w-2.5 h-2.5 rounded-sm shrink-0 ${color}`} />
-                {label}
-              </div>
-              {/* Toggle pill */}
+            <div key={key}>
               <div
-                className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${
-                  layers[key] ? "bg-sky-500" : "bg-white/10"
-                }`}
+                className="flex items-center justify-between cursor-pointer group"
+                onClick={() => onToggleLayer(key)}
               >
+                <div className="flex items-center gap-2 text-sm text-white/70 group-hover:text-white transition-colors">
+                  <div className={`w-2.5 h-2.5 rounded-sm shrink-0 ${color}`} />
+                  {label}
+                </div>
                 <div
-                  className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${
-                    layers[key] ? "left-4" : "left-0.5"
+                  className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${
+                    layers[key] ? "bg-sky-500" : "bg-white/10"
                   }`}
-                />
+                >
+                  <div
+                    className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${
+                      layers[key] ? "left-4" : "left-0.5"
+                    }`}
+                  />
+                </div>
               </div>
+
+              {/* Flock zip search — expands when layer is toggled on */}
+              {key === "flock" && layers.flock && (
+                <form onSubmit={handleFlockSearch} className="mt-2 space-y-1.5">
+                  <div className="flex gap-1.5">
+                    <input
+                      value={flockZip}
+                      onChange={(e) => setFlockZip(e.target.value)}
+                      placeholder="ZIP code"
+                      maxLength={5}
+                      className="flex-1 rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50"
+                    />
+                    <select
+                      value={flockRadius}
+                      onChange={(e) => setFlockRadius(Number(e.target.value))}
+                      className="rounded bg-neutral-800 border border-white/10 px-1.5 py-1 text-xs text-white/70 focus:outline-none"
+                    >
+                      {[5, 10, 15, 25, 50].map((r) => (
+                        <option key={r} value={r}>{r} mi</option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      disabled={flockLoading}
+                      className="rounded bg-orange-500/20 border border-orange-500/30 px-2 py-1 text-xs text-orange-400 hover:bg-orange-500/30 disabled:opacity-50 transition-colors"
+                    >
+                      {flockLoading ? "…" : "Go"}
+                    </button>
+                  </div>
+                  {flockError && <div className="text-[10px] text-red-400">{flockError}</div>}
+                  {flockBbox && !flockError && (
+                    <div className="text-[10px] text-orange-400/70">
+                      Showing cameras within {flockRadius} mi of {flockZip}
+                    </div>
+                  )}
+                </form>
+              )}
             </div>
           ))}
         </div>
