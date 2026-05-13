@@ -42,6 +42,7 @@ export default function LandingPage() {
           <li><a href="#pilot">Pilot</a></li>
           <li><a href="#privacy">Privacy</a></li>
         </ul>
+        <a href="/login" className={s.navSignIn}>Sign In</a>
         <a href="#involve" className={s.navCta}>Get Involved →</a>
       </nav>
 
