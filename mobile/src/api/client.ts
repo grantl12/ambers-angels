@@ -4,7 +4,7 @@
  */
 import { getToken } from "../lib/auth"
 
-let _baseUrl = "http://192.168.1.100:8000"
+let _baseUrl = "https://amberangels.org/api"
 
 export function setApiBaseUrl(url: string) {
   _baseUrl = url.replace(/\/$/, "")

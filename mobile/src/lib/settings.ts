@@ -17,7 +17,7 @@ export type AppSettings = {
 }
 
 export const DEFAULTS: AppSettings = {
-  apiBaseUrl: "http://157.245.125.103:8000",
+  apiBaseUrl: "https://amberangels.org/api",
   droneId: "phone-1",
   pilotId: "",
   captureIntervalSec: 5,
