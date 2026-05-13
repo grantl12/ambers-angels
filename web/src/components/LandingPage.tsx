@@ -175,9 +175,7 @@ export default function LandingPage() {
         {TABS.map(t => (
           <div key={t.key} className={activeTab === t.key ? s.panelActive : s.panel}>
             <div className={s.diagramFrame} style={t.key === 'mission' ? { maxWidth: 560 } : undefined}>
-              <object type="image/svg+xml" data={`/graphics/${t.svg}`} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}>
-                {t.label} diagram
-              </object>
+              <img src={`/graphics/${t.svg}`} alt={`${t.label} diagram`} style={{ width: '100%', height: 'auto', display: 'block' }} />
             </div>
             <p className={s.diagramCaption}>{t.caption}</p>
           </div>
