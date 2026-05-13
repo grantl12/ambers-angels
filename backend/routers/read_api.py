@@ -534,27 +534,45 @@ def get_flock_cameras(
 # ---------------------------------------------------------------------------
 
 @router.get("/coverage/priority-zones", dependencies=[Depends(get_current_pilot)])
-def get_priority_zones():
+def get_priority_zones(
+    south: Optional[float] = Query(None),
+    north: Optional[float] = Query(None),
+    west:  Optional[float] = Query(None),
+    east:  Optional[float] = Query(None),
+):
     """
     All authenticated pilots: low-coverage cells within the active FEMA search area.
+    If south/north/west/east are provided (Deadspace Planner bbox), use those instead.
     Returns derived priority labels only — no camera positions or counts.
     """
     db = database.SessionLocal()
     try:
-        return compute_priority_zones(db)
+        bbox = None
+        if all(v is not None for v in [south, north, west, east]):
+            bbox = {"south": south, "north": north, "west": west, "east": east}
+        return compute_priority_zones(db, bbox=bbox)
     finally:
         db.close()
 
 
 @router.get("/coverage/map", dependencies=[Depends(require_coordinator)])
-def get_coverage_map():
+def get_coverage_map(
+    south: Optional[float] = Query(None),
+    north: Optional[float] = Query(None),
+    west:  Optional[float] = Query(None),
+    east:  Optional[float] = Query(None),
+):
     """
     Coordinator + admin: full coverage grid with bucketed camera counts.
+    If south/north/west/east are provided (Deadspace Planner bbox), use those instead.
     Counts are bucketed ("0", "1-3", "4+") — never exact, never positions.
     """
     db = database.SessionLocal()
     try:
-        return compute_coverage_map(db)
+        bbox = None
+        if all(v is not None for v in [south, north, west, east]):
+            bbox = {"south": south, "north": north, "west": west, "east": east}
+        return compute_coverage_map(db, bbox=bbox)
     finally:
         db.close()
 

@@ -53,10 +53,15 @@ function buildPieSlice(
 
 type TimeRange = "all" | "24h" | "7d" | "30d"
 
+type MapControls = {
+  flyTo: (lat: number, lng: number) => void
+  fitBounds: (bbox: FlockBbox) => void
+}
+
 type Props = {
   layers: LayerState
   flockBbox?: FlockBbox
-  onMapReady?: (flyTo: (lat: number, lng: number) => void) => void
+  onMapReady?: (controls: MapControls) => void
 }
 
 export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
@@ -71,8 +76,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: watchlist = [] }     = useWatchlist()
   const { data: flockCameras = [] }  = useFlockCameras(flockBbox)
   const { data: alertZones = [] }    = useFemaAlerts()
-  const { data: coverageCells = [] } = useFlockCoverageMap()
-  const { data: priorityZones = [] } = usePriorityZones()
+  const { data: coverageCells = [] } = useFlockCoverageMap(flockBbox)
+  const { data: priorityZones = [] } = usePriorityZones(flockBbox)
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -192,8 +197,16 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const mappable = detections.filter((d) => d.lat != null && d.lng != null)
 
   function handleMapLoad() {
-    onMapReady?.((lat, lng) => {
-      mapRef.current?.flyTo({ center: [lng, lat], zoom: 16, duration: 1200 })
+    onMapReady?.({
+      flyTo: (lat, lng) => {
+        mapRef.current?.flyTo({ center: [lng, lat], zoom: 16, duration: 1200 })
+      },
+      fitBounds: (bbox) => {
+        mapRef.current?.fitBounds(
+          [[bbox.west, bbox.south], [bbox.east, bbox.north]],
+          { padding: 60, duration: 1200 }
+        )
+      },
     })
   }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { MapLoader } from "@/components/map/map-loader"
+import { MapLoader, type MapControls } from "@/components/map/map-loader"
 import { MissionSidebar } from "@/components/mission/mission-sidebar"
 import { EventFeed } from "@/components/mission/event-feed"
 import { TopBar } from "@/components/layout/top-bar"
@@ -27,14 +27,18 @@ export default function MapPage() {
   })
 
   const [flockBbox, setFlockBbox] = useState<FlockBbox | undefined>(undefined)
-
-  const flyToRef = useRef<((lat: number, lng: number) => void) | null>(null)
+  const mapControlsRef = useRef<MapControls | null>(null)
 
   const toggleLayer = (key: keyof LayerState) =>
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
 
   function flyTo(lat: number, lng: number) {
-    flyToRef.current?.(lat, lng)
+    mapControlsRef.current?.flyTo(lat, lng)
+  }
+
+  function handleFlockSearch(bbox: FlockBbox) {
+    setFlockBbox(bbox)
+    mapControlsRef.current?.fitBounds(bbox)
   }
 
   const [mobileSidebar, setMobileSidebar] = useState(false)
@@ -47,12 +51,12 @@ export default function MapPage() {
 
         {/* Sidebar — always visible on md+, drawer overlay on mobile */}
         <div className="hidden md:flex">
-          <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={flyTo} flockBbox={flockBbox} onFlockSearch={setFlockBbox} />
+          <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={flyTo} flockBbox={flockBbox} onFlockSearch={handleFlockSearch} />
         </div>
         {mobileSidebar && (
           <div className="absolute inset-0 z-30 flex md:hidden">
             <div className="flex h-full">
-              <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={(lat, lng) => { flyTo(lat, lng); setMobileSidebar(false) }} flockBbox={flockBbox} onFlockSearch={setFlockBbox} />
+              <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={(lat, lng) => { flyTo(lat, lng); setMobileSidebar(false) }} flockBbox={flockBbox} onFlockSearch={handleFlockSearch} />
             </div>
             <div className="flex-1 bg-black/50" onClick={() => setMobileSidebar(false)} />
           </div>
@@ -60,7 +64,7 @@ export default function MapPage() {
 
         {/* Map — always full width on mobile */}
         <div className="flex-1 relative">
-          <MapLoader layers={layers} flockBbox={flockBbox} onMapReady={(fn) => { flyToRef.current = fn }} />
+          <MapLoader layers={layers} flockBbox={flockBbox} onMapReady={(controls) => { mapControlsRef.current = controls }} />
 
           {/* Mobile toggle buttons */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-3 md:hidden">

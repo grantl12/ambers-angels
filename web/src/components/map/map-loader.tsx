@@ -4,10 +4,15 @@ import dynamic from "next/dynamic"
 import type { LayerState } from "@/app/map/page"
 import type { FlockBbox } from "@/features/flock/api"
 
+export type MapControls = {
+  flyTo: (lat: number, lng: number) => void
+  fitBounds: (bbox: FlockBbox) => void
+}
+
 type Props = {
   layers: LayerState
   flockBbox?: FlockBbox
-  onMapReady?: (flyTo: (lat: number, lng: number) => void) => void
+  onMapReady?: (controls: MapControls) => void
 }
 
 const DynamicMap = dynamic(

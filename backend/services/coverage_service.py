@@ -135,14 +135,20 @@ def _camera_counts_in_bbox(db, south: float, north: float, west: float, east: fl
 # Public API
 # ---------------------------------------------------------------------------
 
-def compute_priority_zones(db) -> list[dict]:
+def compute_priority_zones(db, bbox: dict | None = None) -> list[dict]:
     """
-    For pilots: cells within the active FEMA search area with low camera coverage.
+    For pilots: cells within the search area with low camera coverage.
+    bbox may be injected by the Deadspace Planner zip search; falls back to active FEMA alert.
 
     Returns: [{polygon, priority: "high"|"medium", label: str}]
     Well-covered cells (4+ cameras) are omitted entirely.
     """
-    bbox = _get_active_fema_bbox(db)
+    if bbox is None:
+        bbox = _get_active_fema_bbox(db)
+    else:
+        bbox = dict(bbox)
+        bbox.setdefault("centroid_lat", (bbox["south"] + bbox["north"]) / 2)
+        bbox.setdefault("centroid_lng", (bbox["west"]  + bbox["east"])  / 2)
     if not bbox:
         return []
 
@@ -170,15 +176,17 @@ def compute_priority_zones(db) -> list[dict]:
     return zones
 
 
-def compute_coverage_map(db) -> list[dict]:
+def compute_coverage_map(db, bbox: dict | None = None) -> list[dict]:
     """
-    For coordinators: all cells in the FEMA area with bucketed camera counts.
+    For coordinators: all cells in the search area with bucketed camera counts.
     Includes well-covered cells — needed for the coverage visualization.
+    bbox may be injected by the Deadspace Planner zip search; falls back to active FEMA alert.
 
     Returns: [{polygon, cameraCountBucket: "0"|"1-3"|"4+", centroidLat, centroidLng}]
     Bucket is never an exact count; positions are never returned.
     """
-    bbox = _get_active_fema_bbox(db)
+    if bbox is None:
+        bbox = _get_active_fema_bbox(db)
     if not bbox:
         return []
 
