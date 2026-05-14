@@ -11,8 +11,15 @@ const TABS = [
   { key: 'mission', label: 'Start a Mission',    svg: '03-start-mission.svg',         caption: '5-step in-app onboarding: volunteer mode → device identity → capture interval → save settings → go live. Settings persist across restarts.' },
 ]
 
+const DECKS = [
+  { label: 'Carrollton Pilot', href: '/deck/carrollton' },
+  { label: 'Grant Writer',     href: '/deck/grant'       },
+  { label: 'Technical',        href: '/deck/tech'        },
+]
+
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('scan')
+  const [deckOpen, setDeckOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -336,7 +343,46 @@ export default function LandingPage() {
         </div>
         <div className={s.footerLinks}>
           <a href="/privacy">Privacy Policy</a>
-          <a href="/deck">Pitch Deck</a>
+          <span style={{ position: 'relative' }}>
+            <button
+              onClick={() => setDeckOpen(o => !o)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, color: 'var(--text-dim)', fontFamily: 'inherit', transition: 'color 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
+            >
+              Pitch Decks ▾
+            </button>
+            {deckOpen && (
+              <>
+                <div onClick={() => setDeckOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+                <div style={{
+                  position: 'absolute', bottom: '100%', left: 0, marginBottom: 8, zIndex: 10,
+                  background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8, padding: '6px 0', minWidth: 180,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                }}>
+                  {DECKS.map(d => (
+                    <a
+                      key={d.href}
+                      href={d.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setDeckOpen(false)}
+                      style={{
+                        display: 'block', padding: '8px 16px', fontSize: 13,
+                        color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap',
+                        transition: 'background 0.1s, color 0.1s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
+                    >
+                      {d.label}
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </span>
           <a href="https://www.faa.gov/uas/commercial_operators/become_a_drone_pilot" target="_blank" rel="noopener noreferrer">FAA Part 107</a>
           <a href="/terms">Terms of Service</a>
           <a href="mailto:admin@amberangels.org">Contact</a>
