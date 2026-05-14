@@ -17,6 +17,19 @@ module.exports = {
       args: "start",
       cwd: "/home/ambers-angels/proj_dir/ambers-angels/web",
       autorestart: true,
+    },
+    {
+      name: "ambers-angels-worker",
+      script: "python3",
+      args: "worker/unified_worker.py",
+      cwd: "/home/ambers-angels/proj_dir/ambers-angels",
+      autorestart: true,
+      env: {
+        PYTHONPATH: "/home/ambers-angels/proj_dir/ambers-angels:/home/ambers-angels/proj_dir/ambers-angels/backend:/home/ambers-angels/proj_dir/ambers-angels/worker:/usr/lib/python2.7/dist-packages",
+        FRAMES_ROOT: "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates",
+        API_BASE: "http://127.0.0.1:8000",
+        PYTHONUNBUFFERED: "1",
+      },
     }
   ]
 }
