@@ -26,7 +26,9 @@ import {
 import {
   fetchPendingMissions,
   updateMissionStatus,
+  OPERATION_MODE_LABELS,
   type Mission,
+  type OperationMode,
 } from '../api/autonomous'
 
 // ---------------------------------------------------------------------------
@@ -191,6 +193,17 @@ export default function AutonomousMissionScreen() {
         <View style={styles.cardHeader}>
           <Text style={styles.alertId}>Alert {item.alert_id}</Text>
           <Text style={styles.statusBadge}>{item.status.toUpperCase()}</Text>
+        </View>
+
+        <View style={styles.modeBadgeRow}>
+          <Text style={[
+            styles.modeBadge,
+            item.operation_mode === 'vlos'             ? styles.modeVlos :
+            item.operation_mode === 'bvlos_tactical'   ? styles.modeBvlosTactical :
+                                                         styles.modeBvlosAutonomous,
+          ]}>
+            {OPERATION_MODE_LABELS[item.operation_mode] ?? item.operation_mode}
+          </Text>
         </View>
 
         <View style={styles.cardMeta}>
@@ -371,6 +384,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     overflow: 'hidden',
+  },
+  modeBadgeRow: {
+    marginBottom: 10,
+  },
+  modeBadge: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+  },
+  modeVlos: {
+    color: '#34d399',
+    backgroundColor: '#052e16',
+  },
+  modeBvlosTactical: {
+    color: '#fbbf24',
+    backgroundColor: '#1c0f00',
+  },
+  modeBvlosAutonomous: {
+    color: '#c084fc',
+    backgroundColor: '#1a0030',
   },
   cardMeta: {
     flexDirection: 'row',

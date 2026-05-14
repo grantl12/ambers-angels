@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS alert_resolutions (
     resolved_at         TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS can_dispatch_drones BOOLEAN DEFAULT FALSE;
+ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS operation_mode TEXT DEFAULT 'vlos';
+ALTER TABLE autonomous_drones   ADD COLUMN IF NOT EXISTS bvlos_authorized BOOLEAN DEFAULT FALSE;
+ALTER TABLE autonomous_drones   ADD COLUMN IF NOT EXISTS vlos_radius_m    INT     DEFAULT 400;
+CREATE INDEX IF NOT EXISTS autonomous_missions_mode_idx ON autonomous_missions (operation_mode);
 """
 
 try:

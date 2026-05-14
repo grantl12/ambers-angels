@@ -32,6 +32,9 @@ VALID_STATUSES = {
 # Create
 # ---------------------------------------------------------------------------
 
+VALID_OPERATION_MODES = {"vlos", "bvlos_tactical", "bvlos_autonomous"}
+
+
 async def create_mission(
     db: AsyncSession,
     alert_id: str,
@@ -39,6 +42,7 @@ async def create_mission(
     polygon_geojson: dict,
     altitude_m: float = 60.0,
     speed_mps: float = 8.0,
+    operation_mode: str = "vlos",
 ) -> dict:
     """
     Generate waypoints for the given polygon, insert an autonomous_missions row,
@@ -64,10 +68,10 @@ async def create_mission(
         text("""
             INSERT INTO autonomous_missions
                 (alert_id, drone_id, status, waypoints_json,
-                 altitude_m, speed_mps, coverage_area_sqkm, created_at)
+                 altitude_m, speed_mps, coverage_area_sqkm, operation_mode, created_at)
             VALUES
                 (:alert_id, :drone_id, 'pending', :waypoints_json,
-                 :altitude_m, :speed_mps, :coverage, NOW())
+                 :altitude_m, :speed_mps, :coverage, :operation_mode, NOW())
             RETURNING id, created_at
         """),
         {
@@ -77,6 +81,7 @@ async def create_mission(
             "altitude_m": altitude_m,
             "speed_mps": speed_mps,
             "coverage": coverage,
+            "operation_mode": operation_mode,
         },
     )
     row = result.fetchone()
@@ -87,6 +92,7 @@ async def create_mission(
         "alert_id": alert_id,
         "drone_id": drone_id,
         "status": "pending",
+        "operation_mode": operation_mode,
         "waypoints": waypoints,
         "waypoint_count": len(waypoints),
         "altitude_m": altitude_m,
@@ -133,7 +139,8 @@ async def list_missions(
                    altitude_m, speed_mps, coverage_area_sqkm,
                    created_at, dispatched_at, started_at, completed_at,
                    progress_pct, error_msg,
-                   jsonb_array_length(waypoints_json::jsonb) AS waypoint_count
+                   jsonb_array_length(waypoints_json::jsonb) AS waypoint_count,
+                   COALESCE(operation_mode, 'vlos') AS operation_mode
             FROM autonomous_missions
             {where}
             ORDER BY created_at DESC
@@ -160,6 +167,7 @@ async def list_missions(
             "progress_pct": r[11],
             "error_msg": r[12],
             "waypoint_count": r[13],
+            "operation_mode": r[14],
         })
     return missions
 
@@ -225,7 +233,8 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
             SELECT id, alert_id, drone_id, status, waypoints_json,
                    altitude_m, speed_mps, coverage_area_sqkm,
                    created_at, dispatched_at, started_at, completed_at,
-                   progress_pct, error_msg
+                   progress_pct, error_msg,
+                   COALESCE(operation_mode, 'vlos') AS operation_mode
             FROM autonomous_missions
             WHERE id = :mission_id
         """),
@@ -252,4 +261,5 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
         "completed_at": r[11].isoformat() if r[11] else None,
         "progress_pct": r[12],
         "error_msg": r[13],
+        "operation_mode": r[14],
     }

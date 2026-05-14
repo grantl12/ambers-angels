@@ -11,11 +11,20 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://157.245.125.103:8000
 // Types
 // ---------------------------------------------------------------------------
 
+export type OperationMode = 'vlos' | 'bvlos_tactical' | 'bvlos_autonomous'
+
+export const OPERATION_MODE_LABELS: Record<OperationMode, string> = {
+  vlos:             'VLOS · Part 107',
+  bvlos_tactical:   'Tactical BVLOS · Part 107 Waiver',
+  bvlos_autonomous: 'Autonomous BVLOS · Part 108',
+}
+
 export type Mission = {
   id: number
   alert_id: string
   drone_id: number
   status: string
+  operation_mode: OperationMode
   waypoints: WaypointMissionPoint[]
   altitude_m: number
   speed_mps: number

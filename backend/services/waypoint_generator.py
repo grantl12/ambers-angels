@@ -86,6 +86,24 @@ def estimate_mission_duration_minutes(
     return total_m / speed_mps / 60.0
 
 
+def check_vlos_radius(
+    waypoints: list[dict],
+    home_lat: float,
+    home_lng: float,
+    radius_m: float = 400.0,
+) -> tuple[bool, float]:
+    """
+    Return (within_radius, max_distance_m).
+    Returns True only when every waypoint is within radius_m of the pilot home position.
+    """
+    max_dist = 0.0
+    for wp in waypoints:
+        d = _haversine_m(home_lat, home_lng, wp["lat"], wp["lng"])
+        if d > max_dist:
+            max_dist = d
+    return max_dist <= radius_m, max_dist
+
+
 def mission_coverage_sqkm(polygon_geojson: dict) -> float:
     """Shoelace area formula on the projected polygon."""
     coords = _extract_exterior_coords(polygon_geojson)
