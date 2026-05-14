@@ -133,9 +133,28 @@ Update all three when architecture changes. Speaker notes are in the `const NOTE
 10. **`/deck` verify live** — `curl -I https://amberangels.org/deck/index.html` should 200. Check nginx config if 404.
 
 ### Architecture / Longer Term
+### Twilio SMS — Built, Needs Config
 
-- **Twilio EMS SMS** — direct SMS to law enforcement dispatch when a HIGH_CONFIDENCE hit fires, bypassing Discord. Already in CLAUDE.md TODO, not yet built.
-- **Alert cancellation pipeline** — when FEMA issues a cancellation CAP message, auto-deactivate watchlist entries and push stop-mission to active devices. Partial implementation in `alerts.py`.
+`backend/services/alert_dispatcher.py` fires SMS via Twilio on HIGH_CONFIDENCE hits (threshold: `SMS_CONFIDENCE_THRESHOLD`, default 90%). Fully implemented. Just needs these vars in `.env` on the server:
+```
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_FROM_NUMBER=+1...
+SMS_ALERT_NUMBERS=+1xxxxxxxxxx,+1xxxxxxxxxx   # LE dispatch contacts
+```
+When those vars are absent the SMS path silently skips — nothing breaks.
+
+### Alert Cancellation Pipeline — Built, One Gap
+
+Fully implemented in `backend/services/fema_connector.py` + `backend/routers/alerts.py`:
+- CAP `msg_type=Cancel` parsed in the FEMA poll loop
+- `_deactivate_by_references()` marks watchlist entries inactive
+- `_notify_cancelled()` fires Discord stand-down
+- `_push_notify_cancelled()` push-notifies all affected pilots
+- Manual override: `POST /alerts/resolve` (coordinator+)
+
+**One gap:** cancellation does not stop active autonomous missions. When autonomous dispatch is live, add a query to `autonomous_missions WHERE status='active' AND alert_id=:id` in the cancel path — mark them `aborted` and push stop-mission to the drone pilot.
+
 - **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires macOS build machine. Stub in place (`Platform.OS !== 'android'` guard).
 - **BVLOS waiver** — autonomous flights beyond visual line of sight require FAA Part 107.39 waiver. Current implementation assumes VLOS. Flag missions that exceed ~400m radius from pilot home as requiring waiver review before dispatch.
 - **Waypoint progress tracking** — `DJICameraModule.kt` fires `DJIMissionStateChanged` events but `progressPct` is always 0. True progress requires `WaypointMissionExecutionProgress` listener — add when JAR access is available to verify the V5 API.
