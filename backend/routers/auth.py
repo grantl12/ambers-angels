@@ -317,21 +317,23 @@ def list_pilots(payload: dict = Depends(require_admin)):
     db = database.SessionLocal()
     try:
         rows = db.execute(text("""
-            SELECT username, full_name, email, city, role, status, created_at, approved_at
+            SELECT username, full_name, email, city, role, status, created_at, approved_at,
+                   COALESCE(can_dispatch_drones, FALSE)
             FROM pilots
             WHERE status = 'approved'
             ORDER BY approved_at DESC
         """)).fetchall()
         return [
             {
-                "username":   r[0],
-                "fullName":   r[1],
-                "email":      r[2],
-                "city":       r[3],
-                "role":       r[4],
-                "status":     r[5],
-                "createdAt":  r[6].isoformat() if r[6] else None,
-                "approvedAt": r[7].isoformat() if r[7] else None,
+                "username":          r[0],
+                "fullName":          r[1],
+                "email":             r[2],
+                "city":              r[3],
+                "role":              r[4],
+                "status":            r[5],
+                "createdAt":         r[6].isoformat() if r[6] else None,
+                "approvedAt":        r[7].isoformat() if r[7] else None,
+                "canDispatchDrones": r[8],
             }
             for r in rows
         ]
@@ -465,6 +467,28 @@ def set_role(username: str, req: SetRoleRequest, _: dict = Depends(require_admin
         if not result:
             raise HTTPException(status_code=404, detail="Pilot not found")
         return {"username": username, "role": req.role}
+    finally:
+        db.close()
+
+
+class SetPermissionsRequest(BaseModel):
+    can_dispatch_drones: Optional[bool] = None
+
+@router.post("/admin/pilots/{username}/permissions")
+def set_permissions(username: str, req: SetPermissionsRequest, _: dict = Depends(require_admin)):
+    """Admin-only: toggle individual permission flags for a pilot."""
+    if req.can_dispatch_drones is None:
+        raise HTTPException(status_code=400, detail="No permission flags provided")
+    db = database.SessionLocal()
+    try:
+        result = db.execute(
+            text("UPDATE pilots SET can_dispatch_drones = :flag WHERE username = :u RETURNING username"),
+            {"flag": req.can_dispatch_drones, "u": username.strip().lower()},
+        ).fetchone()
+        db.commit()
+        if not result:
+            raise HTTPException(status_code=404, detail="Pilot not found")
+        return {"username": username, "can_dispatch_drones": req.can_dispatch_drones}
     finally:
         db.close()
 

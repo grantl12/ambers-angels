@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS alert_resolutions (
     plates_deactivated  TEXT[],
     resolved_at         TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS can_dispatch_drones BOOLEAN DEFAULT FALSE;
 """
 
 try:

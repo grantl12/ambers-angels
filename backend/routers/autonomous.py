@@ -68,8 +68,24 @@ async def plan_mission(
 ):
     """
     Generate a lawnmower waypoint path for the given polygon and create a
-    pending autonomous mission record.
+    pending autonomous mission record.  Requires admin role or the
+    can_dispatch_drones flag set by an admin.
     """
+    from sqlalchemy import text as sa_text
+
+    username = payload.get("sub") or payload.get("username", "")
+    role = payload.get("role", "")
+    if role != "admin":
+        row = await db.execute(
+            sa_text("SELECT can_dispatch_drones FROM pilots WHERE username = :u"),
+            {"u": username},
+        )
+        rec = row.fetchone()
+        if not rec or not rec[0]:
+            raise HTTPException(
+                status_code=403,
+                detail="Drone dispatch requires admin role or the can_dispatch_drones permission.",
+            )
     try:
         mission = await create_mission(
             db,

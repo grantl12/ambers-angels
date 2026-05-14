@@ -18,12 +18,13 @@ type CoordinatorRequest = {
 }
 
 type ApprovedPilot = {
-  username:   string
-  fullName:   string | null
-  email:      string
-  city:       string | null
-  role:       string
-  approvedAt: string | null
+  username:          string
+  fullName:          string | null
+  email:             string
+  city:              string | null
+  role:              string
+  approvedAt:        string | null
+  canDispatchDrones: boolean
 }
 
 type ManualPlate = {
@@ -190,6 +191,17 @@ export default function AdminPage() {
       alert(e instanceof Error ? e.message : "Role update failed.")
     } finally {
       setSettingRole(null)
+    }
+  }
+
+  async function setDispatchPermission(username: string, canDispatch: boolean) {
+    try {
+      await apiPost(`/auth/admin/pilots/${username}/permissions`, { can_dispatch_drones: canDispatch })
+      setApprovedPilots((prev) =>
+        prev.map((p) => p.username === username ? { ...p, canDispatchDrones: canDispatch } : p)
+      )
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Permission update failed.")
     }
   }
 
@@ -399,7 +411,18 @@ export default function AdminPage() {
                     <span className="ml-2 text-xs text-white/35">@{pilot.username}</span>
                     {pilot.city && <span className="ml-2 text-xs text-white/25">{pilot.city}</span>}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0">
+                    {(pilot.role === "coordinator" || pilot.role === "admin") && (
+                      <label className="flex items-center gap-1.5 cursor-pointer" title="Allow this coordinator to dispatch autonomous drone missions">
+                        <input
+                          type="checkbox"
+                          checked={!!pilot.canDispatchDrones}
+                          onChange={(e) => setDispatchPermission(pilot.username, e.target.checked)}
+                          className="accent-amber-500 w-3.5 h-3.5"
+                        />
+                        <span className="text-xs text-white/40">Dispatch drones</span>
+                      </label>
+                    )}
                     {settingRole === pilot.username ? (
                       <span className="text-xs text-white/40">Saving…</span>
                     ) : (
