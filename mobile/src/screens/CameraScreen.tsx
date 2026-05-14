@@ -286,7 +286,7 @@ export default function CameraScreen() {
       <View style={styles.center}>
         <Text style={styles.permText}>Camera access is required.</Text>
         <TouchableOpacity style={styles.btn} onPress={requestCamPermission}>
-          <Text style={styles.btnText}>Grant Permission</Text>
+          <Text style={styles.btnText}>Continue</Text>
         </TouchableOpacity>
       </View>
     )
