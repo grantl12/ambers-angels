@@ -47,7 +47,7 @@ Sincerely,
 
 Grant Lindberg
 Executive Director, Amber's Angels Inc.
-admin@amberangels.org
+info@amberangels.org
 [Phone Number]
 amberangels.org
 

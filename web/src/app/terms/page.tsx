@@ -63,8 +63,8 @@ export default function TermsPage() {
         <Section title="10. Contact">
           <p>
             Questions:{" "}
-            <a href="mailto:admin@amberangels.org" className="text-amber-400 hover:underline">
-              admin@amberangels.org
+            <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">
+              info@amberangels.org
             </a>
           </p>
           <p className="mt-1">Amber&apos;s Angels Inc. · 103 Springwood Dr · Carrollton, GA 30117</p>

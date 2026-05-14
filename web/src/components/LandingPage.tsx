@@ -70,7 +70,7 @@ export default function LandingPage() {
           </p>
           <div className={s.heroCtas}>
             <a href="#involve" className={s.btnPrimary}>Become a Volunteer</a>
-            <a href="mailto:admin@amberangels.org" className={s.btnGhost}>Grant &amp; Partnership Inquiries</a>
+            <a href="mailto:info@amberangels.org" className={s.btnGhost}>Grant &amp; Partnership Inquiries</a>
           </div>
           <div className={s.heroBadges}>
             <span className={s.heroBadge}>501(c)(3) Applied</span>
@@ -330,7 +330,7 @@ export default function LandingPage() {
           <div className={s.involveCard}>
             <h3>Fund the Mission</h3>
             <p>We&apos;ve filed for 501(c)(3) nonprofit status (EIN 42-2052151). Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
-            <a href="mailto:admin@amberangels.org">Contact Us →</a>
+            <a href="mailto:info@amberangels.org">Contact Us →</a>
           </div>
         </div>
       </section>
@@ -339,7 +339,7 @@ export default function LandingPage() {
       <footer className={s.footer}>
         <div className={s.footerBrand}>
           <img src="/aa-icon.png" alt="AA" />
-          <span>Amber&apos;s Angels · 501(c)(3) Applied · admin@amberangels.org · amberangels.org</span>
+          <span>Amber&apos;s Angels · 501(c)(3) Applied · info@amberangels.org · amberangels.org</span>
         </div>
         <div className={s.footerLinks}>
           <a href="/privacy">Privacy Policy</a>
@@ -385,7 +385,7 @@ export default function LandingPage() {
           </span>
           <a href="https://www.faa.gov/uas/commercial_operators/become_a_drone_pilot" target="_blank" rel="noopener noreferrer">FAA Part 107</a>
           <a href="/terms">Terms of Service</a>
-          <a href="mailto:admin@amberangels.org">Contact</a>
+          <a href="mailto:info@amberangels.org">Contact</a>
         </div>
       </footer>
 
