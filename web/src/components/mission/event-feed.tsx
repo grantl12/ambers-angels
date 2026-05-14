@@ -8,15 +8,15 @@ import type { Detection } from "@/features/detections/types"
 
 
 
-// Badge styling per alert type — matches the ALERT_REGISTRY in fema_connector.py
-const ALERT_BADGE: Record<string, { label: string; className: string }> = {
-  amber:   { label: "AMBER",   className: "bg-amber-500 text-black" },
-  matties: { label: "MATTIE'S", className: "bg-red-600 text-white" },
-  silver:  { label: "SILVER",  className: "bg-slate-300 text-black" },
-  blue:    { label: "BLUE",    className: "bg-blue-600 text-white" },
-  purple:  { label: "PURPLE",  className: "bg-purple-600 text-white" },
-  mipa:    { label: "MIPA",    className: "bg-yellow-500 text-black" },
-  ema:     { label: "EMA",     className: "bg-yellow-600 text-black" },
+// Badge colors match the canonical alert-type palette from landing.module.css
+const ALERT_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  amber:   { label: "AMBER",    bg: "#f59e0b", color: "#050a0f" },
+  matties: { label: "MATTIE'S", bg: "#7c3aed", color: "#fff"    },
+  silver:  { label: "SILVER",   bg: "#64748b", color: "#fff"    },
+  blue:    { label: "BLUE",     bg: "#0284c7", color: "#fff"    },
+  purple:  { label: "PURPLE",   bg: "#8b5cf6", color: "#fff"    },
+  mipa:    { label: "MIPA",     bg: "#eab308", color: "#050a0f" },
+  ema:     { label: "EMA",      bg: "#ca8a04", color: "#050a0f" },
 }
 
 type Props = {
@@ -136,7 +136,10 @@ export function EventFeed({ onFlyTo }: Props) {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {alertBadge && (
-                          <span className={`rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase ${alertBadge.className}`}>
+                          <span
+                            className="rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                            style={{ backgroundColor: alertBadge.bg, color: alertBadge.color }}
+                          >
                             {alertBadge.label}
                           </span>
                         )}

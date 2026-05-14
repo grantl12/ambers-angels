@@ -22,5 +22,10 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, button, [class*="font-bold"], [class*="font-semibold"] {
+  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, -apple-system, sans-serif;
 }

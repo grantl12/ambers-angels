@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native"
 import { loadSettings, saveSettings, type AppSettings, type VolunteerMode, DEFAULTS } from "../lib/settings"
-import { setApiBaseUrl, apiGet, apiPatch } from "../api/client"
+import { setApiBaseUrl, apiGet, apiPatch, apiPost } from "../api/client"
 import { clearAuth } from "../lib/auth"
 import { fetchMyBadges, type Badge } from "../api/badges"
 
@@ -32,16 +32,23 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   const [watchSaving, setWatchSaving] = useState(false)
   const [notifPrefs, setNotifPrefs] = useState<string[]>(["push", "email"])
   const [notifSaving, setNotifSaving] = useState(false)
+  const [pilotRole, setPilotRole] = useState<string>("pilot")
+  const [coordRequestedAt, setCoordRequestedAt] = useState<string | null>(null)
+  const [coordReason, setCoordReason] = useState("")
+  const [coordSubmitting, setCoordSubmitting] = useState(false)
+  const [coordDone, setCoordDone] = useState(false)
   const [badges, setBadges] = useState<Badge[]>([])
   const [badgesEarned, setBadgesEarned] = useState(0)
   const [badgesTotal, setBadgesTotal] = useState(0)
 
   useEffect(() => {
     loadSettings().then(setSettings)
-    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[] }>("/auth/me")
+    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[]; role?: string; coordinatorRequestedAt?: string | null }>("/auth/me")
       .then((data) => {
         setWatchAreas(data.watchAreas ?? [])
         setNotifPrefs(data.notificationPrefs ?? ["push", "email"])
+        setPilotRole(data.role ?? "pilot")
+        setCoordRequestedAt(data.coordinatorRequestedAt ?? null)
       })
       .catch(() => {})
     fetchMyBadges()
@@ -125,6 +132,19 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
       setNotifPrefs(notifPrefs) // revert
     } finally {
       setNotifSaving(false)
+    }
+  }
+
+  async function requestCoordinatorAccess() {
+    setCoordSubmitting(true)
+    try {
+      await apiPost("/auth/request-coordinator", { reason: coordReason || null })
+      setCoordRequestedAt(new Date().toISOString())
+      setCoordDone(true)
+    } catch {
+      Alert.alert("Error", "Could not submit request. Check your connection and try again.")
+    } finally {
+      setCoordSubmitting(false)
     }
   }
 
@@ -377,6 +397,43 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           )}
         </Section>
 
+        {/* Coordinator access — only visible to pilot-tier accounts */}
+        {pilotRole === "pilot" && (
+          <View style={styles.coordBox}>
+            <Text style={styles.coordTitle}>COORDINATOR ACCESS</Text>
+            <Text style={styles.coordBody}>
+              Coordinators are law-enforcement-adjacent personnel with access to mission coordination tools. Requests are reviewed by an admin.
+            </Text>
+            {coordRequestedAt || coordDone ? (
+              <View style={styles.coordSent}>
+                <Text style={styles.coordSentText}>Request submitted — an admin will review it shortly.</Text>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={[styles.input, styles.coordInput]}
+                  value={coordReason}
+                  onChangeText={setCoordReason}
+                  placeholder="Briefly describe your role (e.g. deputy sheriff, SAR coordinator)…"
+                  placeholderTextColor="rgba(56,189,248,0.3)"
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity
+                  style={[styles.coordBtn, coordSubmitting && { opacity: 0.5 }]}
+                  onPress={requestCoordinatorAccess}
+                  disabled={coordSubmitting}
+                >
+                  <Text style={styles.coordBtnText}>
+                    {coordSubmitting ? "Submitting…" : "Submit Request"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
         <TouchableOpacity
           style={[styles.saveBtn, saved && styles.saveBtnSaved]}
           onPress={handleSave}
@@ -600,4 +657,40 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   watchAddBtnText: { color: "#f59e0b", fontWeight: "700", fontSize: 13 },
+  coordBox: {
+    backgroundColor: "rgba(56,189,248,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.2)",
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+  },
+  coordTitle: {
+    fontSize: 10, fontWeight: "800", letterSpacing: 2,
+    color: "rgba(56,189,248,0.7)", textTransform: "uppercase",
+  },
+  coordBody: {
+    fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 18,
+  },
+  coordInput: {
+    minHeight: 72,
+    borderColor: "rgba(56,189,248,0.2)",
+    color: "rgba(255,255,255,0.85)",
+  },
+  coordBtn: {
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.4)",
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  coordBtnText: { color: "#38bdf8", fontSize: 13, fontWeight: "700" },
+  coordSent: {
+    backgroundColor: "rgba(56,189,248,0.08)",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.2)",
+  },
+  coordSentText: { color: "#7dd3fc", fontSize: 13, lineHeight: 18 },
 })
