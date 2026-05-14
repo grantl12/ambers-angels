@@ -3,22 +3,23 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getAuthState, setAuth } from "@/lib/auth"
-import { apiGet, apiPatch } from "@/lib/api-client"
+import { apiGet, apiPatch, apiPost } from "@/lib/api-client"
 
 type Pilot = {
-  username:  string
-  fullName:  string | null
-  email:     string
-  city:      string | null
-  status:    string
-  role:      string
-  createdAt: string | null
-  phone?:    string | null
-  drones?:   string[] | null
-  watchAreas?: string[] | null
-  part107?:  boolean
-  serviceRadiusMiles?: number | null
-  certNumber?: string | null
+  username:                string
+  fullName:                string | null
+  email:                   string
+  city:                    string | null
+  status:                  string
+  role:                    string
+  createdAt:               string | null
+  phone?:                  string | null
+  drones?:                 string[] | null
+  watchAreas?:             string[] | null
+  part107?:                boolean
+  serviceRadiusMiles?:     number | null
+  certNumber?:             string | null
+  coordinatorRequestedAt?: string | null
 }
 
 type Stats = {
@@ -46,7 +47,10 @@ export default function ProfilePage() {
     drones: [] as string[], part107: false, cert_number: "",
     watch_areas: [] as string[],
   })
-  const [watchInput, setWatchInput] = useState("")
+  const [watchInput,       setWatchInput]       = useState("")
+  const [coordReason,      setCoordReason]      = useState("")
+  const [coordRequesting,  setCoordRequesting]  = useState(false)
+  const [coordRequestDone, setCoordRequestDone] = useState(false)
 
   useEffect(() => {
     const auth = getAuthState()
@@ -78,6 +82,19 @@ export default function ProfilePage() {
       ...f,
       drones: f.drones.includes(val) ? f.drones.filter((d) => d !== val) : [...f.drones, val],
     }))
+  }
+
+  async function requestCoordinator() {
+    setCoordRequesting(true)
+    try {
+      await apiPost("/auth/request-coordinator", { reason: coordReason || null })
+      setPilot((p) => p ? { ...p, coordinatorRequestedAt: new Date().toISOString() } : p)
+      setCoordRequestDone(true)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Request failed.")
+    } finally {
+      setCoordRequesting(false)
+    }
   }
 
   async function save() {
@@ -283,6 +300,42 @@ export default function ProfilePage() {
             </>
           )}
         </div>
+
+        {/* Coordinator access request — only show for pilot-tier users */}
+        {pilot.role === "pilot" && (
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-sky-400">Request Coordinator Access</h2>
+              <p className="text-xs text-white/40 mt-1 leading-relaxed">
+                Coordinators are law-enforcement-adjacent personnel with access to mission coordination tools.
+                Requests are reviewed by an admin before access is granted.
+              </p>
+            </div>
+
+            {pilot.coordinatorRequestedAt || coordRequestDone ? (
+              <div className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-4 py-3 text-sm text-sky-300">
+                Request submitted — an admin will review it shortly.
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={coordReason}
+                  onChange={(e) => setCoordReason(e.target.value)}
+                  rows={3}
+                  placeholder="Briefly describe your role (e.g. deputy sheriff, SAR coordinator, retired LEO)…"
+                  className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder-white/20 focus:border-sky-500/50 focus:outline-none resize-none"
+                />
+                <button
+                  onClick={requestCoordinator}
+                  disabled={coordRequesting}
+                  className="rounded-lg border border-sky-500/40 px-4 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-500/10 disabled:opacity-50 transition-colors"
+                >
+                  {coordRequesting ? "Submitting…" : "Submit request"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         <button onClick={() => router.push("/map")}
           className="text-xs text-white/30 hover:text-white/60 transition-colors">

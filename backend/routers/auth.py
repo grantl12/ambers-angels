@@ -251,7 +251,7 @@ def me(payload: dict = Depends(get_current_pilot)):
             text("""
                 SELECT username, full_name, email, city, status, role, created_at,
                        watch_areas, expo_push_token, notification_prefs,
-                       alert_scope, alert_range_miles
+                       alert_scope, alert_range_miles, coordinator_requested_at
                 FROM pilots WHERE username = :u
             """),
             {"u": payload["sub"]},
@@ -259,18 +259,19 @@ def me(payload: dict = Depends(get_current_pilot)):
         if not row:
             raise HTTPException(status_code=404, detail="Pilot not found")
         return {
-            "username":          row[0],
-            "fullName":          row[1],
-            "email":             row[2],
-            "city":              row[3],
-            "status":            row[4],
-            "role":              row[5],
-            "createdAt":         row[6].isoformat() if row[6] else None,
-            "watchAreas":        row[7] or [],
-            "expoPushToken":     row[8],
-            "notificationPrefs": row[9] or ["push", "email"],
-            "alertScope":        row[10] or "local",
-            "alertRangeMiles":   row[11] or 25,
+            "username":                   row[0],
+            "fullName":                   row[1],
+            "email":                      row[2],
+            "city":                       row[3],
+            "status":                     row[4],
+            "role":                       row[5],
+            "createdAt":                  row[6].isoformat() if row[6] else None,
+            "watchAreas":                 row[7] or [],
+            "expoPushToken":              row[8],
+            "notificationPrefs":          row[9] or ["push", "email"],
+            "alertScope":                 row[10] or "local",
+            "alertRangeMiles":            row[11] or 25,
+            "coordinatorRequestedAt":     row[12].isoformat() if row[12] else None,
         }
     finally:
         db.close()
