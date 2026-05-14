@@ -47,6 +47,36 @@ CREATE INDEX IF NOT EXISTS ncmec_cases_resolved_idx ON ncmec_cases (resolved_at)
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS coordinator_requested_at     TIMESTAMPTZ;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS coordinator_request_reason   TEXT;
 CREATE INDEX IF NOT EXISTS pilots_coordinator_req_idx ON pilots (coordinator_requested_at) WHERE coordinator_requested_at IS NOT NULL;
+CREATE TABLE IF NOT EXISTS autonomous_drones (
+    id                  SERIAL PRIMARY KEY,
+    pilot_username      TEXT NOT NULL,
+    drone_model         TEXT NOT NULL DEFAULT 'DJI Mavic 3',
+    serial_number       TEXT,
+    home_lat            DOUBLE PRECISION,
+    home_lng            DOUBLE PRECISION,
+    max_flight_time_min INT DEFAULT 25,
+    camera_hfov_deg     REAL DEFAULT 84.0,
+    registered_at       TIMESTAMPTZ DEFAULT NOW(),
+    last_seen_at        TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS autonomous_missions (
+    id                  SERIAL PRIMARY KEY,
+    alert_id            TEXT,
+    drone_id            INT REFERENCES autonomous_drones(id),
+    status              TEXT DEFAULT 'pending',
+    waypoints_json      JSONB NOT NULL,
+    altitude_m          REAL DEFAULT 60.0,
+    speed_mps           REAL DEFAULT 8.0,
+    coverage_area_sqkm  REAL,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    dispatched_at       TIMESTAMPTZ,
+    started_at          TIMESTAMPTZ,
+    completed_at        TIMESTAMPTZ,
+    progress_pct        INT DEFAULT 0,
+    error_msg           TEXT
+);
+CREATE INDEX IF NOT EXISTS autonomous_missions_drone_status_idx
+    ON autonomous_missions (drone_id, status);
 CREATE TABLE IF NOT EXISTS alert_resolutions (
     id                  SERIAL PRIMARY KEY,
     resolved_by         TEXT NOT NULL,

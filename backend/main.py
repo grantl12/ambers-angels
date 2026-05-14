@@ -57,6 +57,7 @@ from services.frame_preprocessor import apply_clahe, enhance_alpr_results
 from routers.read_api import router as read_router
 from routers.auth import router as auth_router
 from routers.alerts import router as alerts_router
+from routers.autonomous import router as autonomous_router
 
 # Module-level singleton — must persist across requests to maintain the
 # 5-second aggregation window and active group state
@@ -119,6 +120,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(read_router)
 app.include_router(auth_router)
 app.include_router(alerts_router)
+app.include_router(autonomous_router)
 
 # Serve golden_frames as static files — thumbnails for alert detections
 os.makedirs(GOLDEN_DIR, exist_ok=True)

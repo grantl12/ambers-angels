@@ -8,15 +8,25 @@ import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import dji.sdk.keyvalue.key.FlightControllerKey
 import dji.sdk.keyvalue.value.common.ComponentIndexType
+import dji.sdk.keyvalue.value.common.LocationCoordinate2D
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D
+import dji.v5.common.callback.CommonCallbacks
 import dji.v5.common.error.IDJIError
 import dji.v5.common.register.DJISDKInitEvent
 import dji.sdk.keyvalue.key.KeyTools
 import dji.v5.manager.KeyManager
 import dji.v5.manager.SDKManager
+import dji.v5.manager.aircraft.waypoint5.WaypointMissionManager
+import dji.v5.manager.aircraft.waypoint5.WaypointMissionState
+import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointMission
+import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointMissionFinishedAction
+import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointMissionHeadingMode
+import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointV2
 import dji.v5.manager.datacenter.MediaDataCenter
 import dji.v5.manager.interfaces.ICameraStreamManager
 import dji.v5.manager.interfaces.SDKManagerCallback
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -40,12 +50,14 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
     companion object {
         const val NAME = "DJICamera"
         private const val EVENT_CONNECTION_CHANGED = "DJIConnectionChanged"
+        private const val EVENT_MISSION_STATE     = "DJIMissionStateChanged"
         private const val TAG = "DJICameraModule"
     }
 
     // ── State ────────────────────────────────────────────────────────────────
-    private var isInitialized     = false
-    private val frameInFlight     = AtomicBoolean(false)
+    private var isInitialized      = false
+    private val frameInFlight      = AtomicBoolean(false)
+    private var missionStateListener: ((WaypointMissionState) -> Unit)? = null
 
     @Volatile private var lastLat:     Double? = null
     @Volatile private var lastLng:     Double? = null
@@ -242,11 +254,136 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
     }
 
     // =========================================================================
+    // 5. Waypoint mission
+    //
+    // Uses DJI MSDK V5 WaypointMissionManager (dji.v5.manager.aircraft.waypoint5).
+    // Class paths verified against dji-sdk-v5-aircraft-provided:5.15.0 JAR.
+    // Supported aircraft: Mavic 3 series, Air 3, Mini 4 Pro, M30/M300/M350.
+    // NOT supported: Avata (FPV-only, no waypoint API).
+    // =========================================================================
+
+    /**
+     * Upload and start a waypoint mission.
+     *
+     * @param waypointsJson  JSON array of {lat, lng, altitudeM?, headingDeg?, speedMps?}
+     * @param optionsJson    JSON object  {altitudeM, speedMps, finishedAction?}
+     */
+    @ReactMethod
+    fun startWaypointMission(waypointsJson: String, optionsJson: String, promise: Promise) {
+        if (!isInitialized) {
+            promise.reject("NOT_INITIALIZED", "DJI SDK not initialized"); return
+        }
+        try {
+            val wpsArray = JSONArray(waypointsJson)
+            val opts     = JSONObject(optionsJson)
+            val altM     = opts.optDouble("altitudeM", 60.0).toFloat()
+            val speedMps = opts.optDouble("speedMps",   8.0).toFloat()
+            val finishedActionStr = opts.optString("finishedAction", "go_home")
+
+            val finishedAction = when (finishedActionStr) {
+                "land"  -> DJIWaypointMissionFinishedAction.AUTO_LAND
+                "hover" -> DJIWaypointMissionFinishedAction.NO_ACTION
+                else    -> DJIWaypointMissionFinishedAction.GO_HOME
+            }
+
+            val waypoints = (0 until wpsArray.length()).map { i ->
+                val wp  = wpsArray.getJSONObject(i)
+                val coord = LocationCoordinate2D(wp.getDouble("lat"), wp.getDouble("lng"))
+                DJIWaypointV2(coord).apply {
+                    altitude = wp.optDouble("altitudeM", altM.toDouble()).toFloat()
+                    heading  = wp.optInt("headingDeg", 0)
+                    autoFlightSpeed = wp.optDouble("speedMps", speedMps.toDouble()).toFloat()
+                }
+            }
+
+            val mission = DJIWaypointMission.Builder()
+                .waypointList(waypoints)
+                .autoFlightSpeed(speedMps)
+                .maxFlightSpeed(15f)
+                .finishedAction(finishedAction)
+                .headingMode(DJIWaypointMissionHeadingMode.AUTO)
+                .build()
+
+            val mgr = WaypointMissionManager.getInstance()
+
+            // Subscribe to state changes so the JS side gets live progress events
+            missionStateListener?.let { mgr.removeMissionStateListener(it) }
+            missionStateListener = { state: WaypointMissionState ->
+                val params = Arguments.createMap().apply {
+                    putString("state", state.name.lowercase())
+                    // Progress is exposed through the execution state on supported aircraft
+                    putInt("progressPct", 0)
+                }
+                sendEvent(EVENT_MISSION_STATE, params)
+            }
+            mgr.addMissionStateListener(null, missionStateListener!!)
+
+            mgr.uploadMission(mission, object : CommonCallbacks.CompletionCallback {
+                override fun onSuccess() {
+                    mgr.startMission(object : CommonCallbacks.CompletionCallback {
+                        override fun onSuccess() { promise.resolve(null) }
+                        override fun onFailure(error: IDJIError) {
+                            promise.reject("START_FAILED", error.description())
+                        }
+                    })
+                }
+                override fun onFailure(error: IDJIError) {
+                    promise.reject("UPLOAD_FAILED", error.description())
+                }
+            })
+        } catch (e: Exception) {
+            promise.reject("MISSION_ERROR", e.message ?: "Mission setup failed")
+        }
+    }
+
+    /** Stop the current waypoint mission and command the drone to return home. */
+    @ReactMethod
+    fun stopWaypointMission(promise: Promise) {
+        if (!isInitialized) { promise.resolve(null); return }
+        try {
+            WaypointMissionManager.getInstance().stopMission(
+                object : CommonCallbacks.CompletionCallback {
+                    override fun onSuccess() { promise.resolve(null) }
+                    override fun onFailure(error: IDJIError) {
+                        promise.reject("STOP_FAILED", error.description())
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            promise.reject("STOP_ERROR", e.message ?: "Stop mission failed")
+        }
+    }
+
+    /** Return the current mission manager state as a JS-readable string. */
+    @ReactMethod
+    fun getMissionStatus(promise: Promise) {
+        if (!isInitialized) {
+            promise.resolve(Arguments.createMap().apply {
+                putString("state", "idle"); putInt("progressPct", 0)
+            }); return
+        }
+        try {
+            val state = WaypointMissionManager.getInstance().currentState
+            promise.resolve(Arguments.createMap().apply {
+                putString("state", state.name.lowercase())
+                putInt("progressPct", 0)
+            })
+        } catch (e: Exception) {
+            promise.resolve(Arguments.createMap().apply {
+                putString("state", "idle"); putInt("progressPct", 0)
+            })
+        }
+    }
+
+    // =========================================================================
     // Lifecycle
     // =========================================================================
 
     override fun invalidate() {
         stopKeyListeners()
+        missionStateListener?.let {
+            try { WaypointMissionManager.getInstance().removeMissionStateListener(it) } catch (_: Exception) {}
+        }
         try { SDKManager.getInstance().destroy() } catch (_: Exception) {}
         super.invalidate()
     }

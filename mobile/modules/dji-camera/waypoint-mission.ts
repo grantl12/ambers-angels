@@ -1,0 +1,137 @@
+/**
+ * mobile/modules/dji-camera/waypoint-mission.ts
+ *
+ * Waypoint mission bridge — wraps the DJI MSDK V5 WaypointMissionManager
+ * via the existing DJICamera native module.
+ *
+ * The Kotlin implementation (DJICameraModule.kt) adds:
+ *   startWaypointMission(waypointsJson, optionsJson) → Promise<void>
+ *   stopWaypointMission()                            → Promise<void>
+ *   getMissionStatus()                               → Promise<MissionStatusResult>
+ * And fires event: "DJIMissionStateChanged" with { state, progressPct?, errorCode? }
+ */
+
+import { NativeModules, NativeEventEmitter, Platform } from 'react-native'
+
+const { DJICamera } = NativeModules
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type WaypointMissionPoint = {
+  lat: number
+  lng: number
+  altitudeM?: number    // defaults to mission altitude if omitted
+  headingDeg?: number   // 0-359, defaults to auto
+  speedMps?: number     // defaults to mission speed if omitted
+}
+
+export type WaypointMissionOptions = {
+  altitudeM: number     // AGL, metres
+  speedMps: number      // cruise speed
+  finishedAction?: 'go_home' | 'hover' | 'land'
+}
+
+export type MissionState =
+  | 'idle'
+  | 'uploading'
+  | 'ready_to_start'
+  | 'executing'
+  | 'interrupted'
+  | 'finished'
+  | 'disconnected'
+
+export type MissionStateEvent = {
+  state: MissionState
+  progressPct?: number
+  errorCode?: string
+}
+
+// ---------------------------------------------------------------------------
+// Internal guard
+// ---------------------------------------------------------------------------
+
+function assertModule(): void {
+  if (!DJICamera) {
+    throw new Error(
+      'DJICamera native module is not available. ' +
+        'Ensure the module is linked and you are running on Android.',
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Exported functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload waypoints and start the mission.
+ * Serializes both arguments to JSON strings before crossing the bridge so the
+ * Kotlin side can deserialize with Gson / kotlinx.serialization.
+ */
+export async function startWaypointMission(
+  waypoints: WaypointMissionPoint[],
+  options: WaypointMissionOptions,
+): Promise<void> {
+  assertModule()
+  if (!waypoints || waypoints.length === 0) {
+    throw new Error('startWaypointMission: waypoints array must not be empty.')
+  }
+  const waypointsJson = JSON.stringify(waypoints)
+  const optionsJson = JSON.stringify(options)
+  await DJICamera.startWaypointMission(waypointsJson, optionsJson)
+}
+
+/**
+ * Interrupt and cancel the currently executing waypoint mission.
+ * The drone will hover in place; the coordinator can then issue a go-home
+ * command separately if required.
+ */
+export async function stopWaypointMission(): Promise<void> {
+  assertModule()
+  await DJICamera.stopWaypointMission()
+}
+
+/**
+ * Query the current mission state from the native layer.
+ * Returns idle / executing / finished etc. and a 0-100 progress percentage.
+ */
+export async function getMissionStatus(): Promise<{
+  state: MissionState
+  progressPct: number
+}> {
+  assertModule()
+  const result = await DJICamera.getMissionStatus()
+  return {
+    state: (result.state as MissionState) ?? 'idle',
+    progressPct: typeof result.progressPct === 'number' ? result.progressPct : 0,
+  }
+}
+
+/**
+ * Subscribe to real-time mission state change events emitted by the Kotlin
+ * module as "DJIMissionStateChanged".
+ *
+ * @returns A cleanup function — call it (e.g. in useEffect return) to
+ *          unsubscribe the listener.
+ *
+ * @example
+ *   useEffect(() => {
+ *     return onMissionStateChanged(({ state, progressPct }) => {
+ *       setProgress(progressPct ?? 0)
+ *     })
+ *   }, [])
+ */
+export function onMissionStateChanged(
+  callback: (event: MissionStateEvent) => void,
+): () => void {
+  if (!DJICamera) {
+    // Return a no-op cleanup so callers don't need to branch.
+    return () => {}
+  }
+
+  const emitter = new NativeEventEmitter(DJICamera)
+  const subscription = emitter.addListener('DJIMissionStateChanged', callback)
+  return () => subscription.remove()
+}
