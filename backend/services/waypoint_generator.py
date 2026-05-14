@@ -1,20 +1,17 @@
 """
 backend/services/waypoint_generator.py
 
-Converts a GeoJSON polygon (alert search area) into a boustrophedon (lawnmower)
-waypoint path for autonomous drone coverage.
+Generates waypoint missions for autonomous drones.
 
-Algorithm:
-  1. Project polygon vertices to a local metric frame (origin = centroid).
-  2. Find the optimal sweep direction (minimize number of lanes = sweep along
-     the longest polygon extent).
-  3. Rotate frame to align with sweep direction.
-  4. Generate parallel transect lines at lane_spacing intervals across the bbox.
-  5. Clip each transect to the polygon via segment intersection.
-  6. Connect transects in alternating direction (boustrophedon).
-  7. Un-project back to WGS-84 lat/lng.
+Primary mode — Observation Post:
+  The drone flies to a single strategic position and hovers to watch.
+  Coordinator picks a target area (polygon or lat/lng); we compute the
+  centroid as the hover point.  ALPR + YOLO run on the live stream.
 
-Returns a list of dicts: {lat, lng, altitude_m, heading_deg, speed_mps}
+  generate_observation_point(polygon_geojson | lat/lng, altitude_m) → [waypoint]
+
+Fallback — Lawnmower (kept for future use):
+  generate_lawnmower(polygon_geojson, ...) → [waypoints]
 """
 
 import math
@@ -24,7 +21,43 @@ import numpy as np
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API — Observation Post (primary mode)
+# ---------------------------------------------------------------------------
+
+def generate_observation_point(
+    polygon_geojson: Optional[dict] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    altitude_m: float = 60.0,
+    speed_mps: float = 8.0,
+) -> list[dict]:
+    """
+    Return a single-waypoint mission: fly to the observation point and hover.
+
+    Supply either polygon_geojson (centroid is used) or explicit lat/lng.
+    Returns an empty list if neither is provided or the polygon is malformed.
+    """
+    if lat is not None and lng is not None:
+        obs_lat, obs_lng = lat, lng
+    elif polygon_geojson is not None:
+        coords = _extract_exterior_coords(polygon_geojson)
+        if len(coords) < 3:
+            return []
+        obs_lat, obs_lng = _centroid_latlon(coords)
+    else:
+        return []
+
+    return [{
+        "lat":         round(obs_lat, 8),
+        "lng":         round(obs_lng, 8),
+        "altitude_m":  altitude_m,
+        "heading_deg": 0.0,   # drone will use auto-heading toward subject area
+        "speed_mps":   speed_mps,
+    }]
+
+
+# ---------------------------------------------------------------------------
+# Public API — Lawnmower (kept for future area-coverage use)
 # ---------------------------------------------------------------------------
 
 def generate_lawnmower(
@@ -37,31 +70,22 @@ def generate_lawnmower(
 ) -> list[dict]:
     """
     Generate a boustrophedon (lawnmower) waypoint path for a GeoJSON polygon.
-
-    Returns a list of waypoint dicts: {lat, lng, altitude_m, heading_deg, speed_mps}.
-    Returns an empty list if the polygon is too small to generate min_waypoints.
+    Not the primary dispatch mode — use generate_observation_point instead.
     """
     coords = _extract_exterior_coords(polygon_geojson)
     if len(coords) < 3:
         return []
 
-    # Lane spacing: ground swath width per pass * (1 - overlap)
     lane_spacing = (
         2.0 * altitude_m * math.tan(math.radians(camera_hfov_deg / 2.0))
         * (1.0 - overlap_pct)
     )
 
-    # Project to local metric frame (origin = centroid)
     lat0, lng0 = _centroid_latlon(coords)
     pts_m = _project_to_metric(coords, lat0, lng0)
-
-    # Find sweep angle that minimises lane count
     sweep_angle = _optimal_sweep_angle(pts_m)
-
-    # Rotate points into sweep frame
     rot_pts = _rotate(pts_m, -sweep_angle)
 
-    # Generate transects in rotated frame, clip, then un-rotate + un-project
     waypoints = _build_waypoints(
         rot_pts, sweep_angle, lane_spacing,
         altitude_m, speed_mps, lat0, lng0,

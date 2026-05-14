@@ -207,13 +207,12 @@ export default function AutonomousMissionScreen() {
         </View>
 
         <View style={styles.cardMeta}>
-          <MetaItem label="Waypoints" value={String(item.waypoints.length)} />
-          <MetaItem label="Altitude" value={`${item.altitude_m} m`} />
+          <MetaItem label="Altitude" value={`${item.altitude_m} m AGL`} />
           <MetaItem label="Speed" value={`${item.speed_mps} m/s`} />
-          {item.coverage_area_sqkm != null && (
+          {item.observation_lat != null && item.observation_lng != null && (
             <MetaItem
-              label="Coverage"
-              value={`${item.coverage_area_sqkm.toFixed(2)} km²`}
+              label="Post"
+              value={`${item.observation_lat.toFixed(5)}, ${item.observation_lng.toFixed(5)}`}
             />
           )}
         </View>

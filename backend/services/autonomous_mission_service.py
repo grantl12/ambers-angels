@@ -16,10 +16,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.waypoint_generator import (
-    generate_lawnmower,
-    mission_coverage_sqkm,
-)
+from services.waypoint_generator import generate_observation_point
 
 logger = logging.getLogger(__name__)
 
@@ -39,39 +36,37 @@ async def create_mission(
     db: AsyncSession,
     alert_id: str,
     drone_id: int,
-    polygon_geojson: dict,
     altitude_m: float = 60.0,
     speed_mps: float = 8.0,
     operation_mode: str = "vlos",
+    # Observation point — supply one of these:
+    polygon_geojson: Optional[dict] = None,
+    obs_lat: Optional[float] = None,
+    obs_lng: Optional[float] = None,
 ) -> dict:
     """
-    Generate waypoints for the given polygon, insert an autonomous_missions row,
-    and return the full mission dict (including waypoints).
-    """
-    # Look up drone's camera HFOV (fall back to DJI Mavic 3 default)
-    row = await db.execute(
-        text("SELECT camera_hfov_deg FROM autonomous_drones WHERE id = :id"),
-        {"id": drone_id},
-    )
-    drone = row.fetchone()
-    hfov = float(drone[0]) if drone and drone[0] else 84.0
+    Create a single-waypoint observation-post mission.
 
-    waypoints = generate_lawnmower(
-        polygon_geojson,
+    The drone flies to the observation point (explicit lat/lng or polygon
+    centroid) and hovers to watch while the inference pipeline runs on its
+    live stream.
+    """
+    waypoints = generate_observation_point(
+        polygon_geojson=polygon_geojson,
+        lat=obs_lat,
+        lng=obs_lng,
         altitude_m=altitude_m,
         speed_mps=speed_mps,
-        camera_hfov_deg=hfov,
     )
-    coverage = mission_coverage_sqkm(polygon_geojson)
 
     result = await db.execute(
         text("""
             INSERT INTO autonomous_missions
                 (alert_id, drone_id, status, waypoints_json,
-                 altitude_m, speed_mps, coverage_area_sqkm, operation_mode, created_at)
+                 altitude_m, speed_mps, operation_mode, created_at)
             VALUES
                 (:alert_id, :drone_id, 'pending', :waypoints_json,
-                 :altitude_m, :speed_mps, :coverage, :operation_mode, NOW())
+                 :altitude_m, :speed_mps, :operation_mode, NOW())
             RETURNING id, created_at
         """),
         {
@@ -80,30 +75,30 @@ async def create_mission(
             "waypoints_json": json.dumps(waypoints),
             "altitude_m": altitude_m,
             "speed_mps": speed_mps,
-            "coverage": coverage,
             "operation_mode": operation_mode,
         },
     )
     row = result.fetchone()
     await db.commit()
 
+    obs = waypoints[0] if waypoints else {}
     return {
-        "id": row[0],
-        "alert_id": alert_id,
-        "drone_id": drone_id,
-        "status": "pending",
+        "id":             row[0],
+        "alert_id":       alert_id,
+        "drone_id":       drone_id,
+        "status":         "pending",
         "operation_mode": operation_mode,
-        "waypoints": waypoints,
-        "waypoint_count": len(waypoints),
-        "altitude_m": altitude_m,
-        "speed_mps": speed_mps,
-        "coverage_area_sqkm": round(coverage, 4),
-        "created_at": row[1].isoformat() if row[1] else None,
-        "dispatched_at": None,
-        "started_at": None,
-        "completed_at": None,
-        "progress_pct": 0,
-        "error_msg": None,
+        "observation_lat": obs.get("lat"),
+        "observation_lng": obs.get("lng"),
+        "waypoints":      waypoints,
+        "altitude_m":     altitude_m,
+        "speed_mps":      speed_mps,
+        "created_at":     row[1].isoformat() if row[1] else None,
+        "dispatched_at":  None,
+        "started_at":     None,
+        "completed_at":   None,
+        "progress_pct":   0,
+        "error_msg":      None,
     }
 
 
@@ -136,11 +131,12 @@ async def list_missions(
     result = await db.execute(
         text(f"""
             SELECT id, alert_id, drone_id, status,
-                   altitude_m, speed_mps, coverage_area_sqkm,
+                   altitude_m, speed_mps,
                    created_at, dispatched_at, started_at, completed_at,
                    progress_pct, error_msg,
-                   jsonb_array_length(waypoints_json::jsonb) AS waypoint_count,
-                   COALESCE(operation_mode, 'vlos') AS operation_mode
+                   COALESCE(operation_mode, 'vlos') AS operation_mode,
+                   (waypoints_json::jsonb -> 0 ->> 'lat')::double precision  AS obs_lat,
+                   (waypoints_json::jsonb -> 0 ->> 'lng')::double precision  AS obs_lng
             FROM autonomous_missions
             {where}
             ORDER BY created_at DESC
@@ -153,21 +149,21 @@ async def list_missions(
     missions = []
     for r in rows:
         missions.append({
-            "id": r[0],
-            "alert_id": r[1],
-            "drone_id": r[2],
-            "status": r[3],
-            "altitude_m": float(r[4]) if r[4] is not None else None,
-            "speed_mps": float(r[5]) if r[5] is not None else None,
-            "coverage_area_sqkm": float(r[6]) if r[6] is not None else None,
-            "created_at": r[7].isoformat() if r[7] else None,
-            "dispatched_at": r[8].isoformat() if r[8] else None,
-            "started_at": r[9].isoformat() if r[9] else None,
-            "completed_at": r[10].isoformat() if r[10] else None,
-            "progress_pct": r[11],
-            "error_msg": r[12],
-            "waypoint_count": r[13],
-            "operation_mode": r[14],
+            "id":              r[0],
+            "alert_id":        r[1],
+            "drone_id":        r[2],
+            "status":          r[3],
+            "altitude_m":      float(r[4]) if r[4] is not None else None,
+            "speed_mps":       float(r[5]) if r[5] is not None else None,
+            "created_at":      r[6].isoformat() if r[6] else None,
+            "dispatched_at":   r[7].isoformat() if r[7] else None,
+            "started_at":      r[8].isoformat() if r[8] else None,
+            "completed_at":    r[9].isoformat() if r[9] else None,
+            "progress_pct":    r[10],
+            "error_msg":       r[11],
+            "operation_mode":  r[12],
+            "observation_lat": r[13],
+            "observation_lng": r[14],
         })
     return missions
 
@@ -231,7 +227,7 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
     result = await db.execute(
         text("""
             SELECT id, alert_id, drone_id, status, waypoints_json,
-                   altitude_m, speed_mps, coverage_area_sqkm,
+                   altitude_m, speed_mps,
                    created_at, dispatched_at, started_at, completed_at,
                    progress_pct, error_msg,
                    COALESCE(operation_mode, 'vlos') AS operation_mode
@@ -245,21 +241,22 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
         return None
 
     waypoints = json.loads(r[4]) if r[4] else []
+    obs = waypoints[0] if waypoints else {}
     return {
-        "id": r[0],
-        "alert_id": r[1],
-        "drone_id": r[2],
-        "status": r[3],
-        "waypoints": waypoints,
-        "waypoint_count": len(waypoints),
-        "altitude_m": float(r[5]) if r[5] is not None else None,
-        "speed_mps": float(r[6]) if r[6] is not None else None,
-        "coverage_area_sqkm": float(r[7]) if r[7] is not None else None,
-        "created_at": r[8].isoformat() if r[8] else None,
-        "dispatched_at": r[9].isoformat() if r[9] else None,
-        "started_at": r[10].isoformat() if r[10] else None,
-        "completed_at": r[11].isoformat() if r[11] else None,
-        "progress_pct": r[12],
-        "error_msg": r[13],
-        "operation_mode": r[14],
+        "id":              r[0],
+        "alert_id":        r[1],
+        "drone_id":        r[2],
+        "status":          r[3],
+        "waypoints":       waypoints,
+        "observation_lat": obs.get("lat"),
+        "observation_lng": obs.get("lng"),
+        "altitude_m":      float(r[5]) if r[5] is not None else None,
+        "speed_mps":       float(r[6]) if r[6] is not None else None,
+        "created_at":      r[7].isoformat() if r[7] else None,
+        "dispatched_at":   r[8].isoformat() if r[8] else None,
+        "started_at":      r[9].isoformat() if r[9] else None,
+        "completed_at":    r[10].isoformat() if r[10] else None,
+        "progress_pct":    r[11],
+        "error_msg":       r[12],
+        "operation_mode":  r[13],
     }

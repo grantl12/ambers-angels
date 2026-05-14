@@ -36,7 +36,7 @@ from services.autonomous_mission_service import (
     list_missions,
     update_mission_status,
 )
-from services.waypoint_generator import check_vlos_radius
+from services.waypoint_generator import check_vlos_radius, generate_observation_point
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["autonomous"])
@@ -58,7 +58,10 @@ async def get_async_db():
 class PlanMissionRequest(BaseModel):
     alert_id: str
     drone_id: int
-    polygon_geojson: dict
+    # Observation point — supply one of these two forms:
+    obs_lat: Optional[float] = None          # explicit lat/lng (preferred)
+    obs_lng: Optional[float] = None
+    polygon_geojson: Optional[dict] = None  # fallback: centroid used
     altitude_m: float = 60.0
     speed_mps: float = 8.0
     operation_mode: str = "vlos"   # vlos | bvlos_tactical | bvlos_autonomous
@@ -148,6 +151,12 @@ async def plan_mission(
                    f"Must be one of: {sorted(VALID_OPERATION_MODES)}",
         )
 
+    if req.obs_lat is None and req.obs_lng is None and req.polygon_geojson is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Supply either obs_lat + obs_lng (explicit point) or polygon_geojson (centroid used).",
+        )
+
     await _check_dispatch_permission(payload, db)
 
     drone = await _fetch_drone(db, req.drone_id)
@@ -164,27 +173,7 @@ async def plan_mission(
                 ),
             )
 
-    try:
-        mission = await create_mission(
-            db,
-            alert_id=req.alert_id,
-            drone_id=req.drone_id,
-            polygon_geojson=req.polygon_geojson,
-            altitude_m=req.altitude_m,
-            speed_mps=req.speed_mps,
-            operation_mode=req.operation_mode,
-        )
-    except Exception as exc:
-        logger.error("plan_mission failed: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    if not mission.get("waypoints"):
-        raise HTTPException(
-            status_code=422,
-            detail="Polygon is too small to generate a valid mission path.",
-        )
-
-    # VLOS radius enforcement (post waypoint generation)
+    # VLOS radius pre-check — resolve observation point before hitting DB
     if req.operation_mode == "vlos":
         home_lat = drone.get("home_lat")
         home_lng = drone.get("home_lng")
@@ -192,24 +181,55 @@ async def plan_mission(
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "Drone home position is not set. The pilot must report a heartbeat "
-                    "with GPS position before a VLOS mission can be dispatched."
+                    "Drone home position is not set. The pilot must send a heartbeat "
+                    "with GPS before a VLOS mission can be dispatched."
                 ),
             )
-        within, max_dist = check_vlos_radius(
-            mission["waypoints"], home_lat, home_lng,
+        # Resolve the observation point to check radius before writing to DB
+        candidate = generate_observation_point(
+            polygon_geojson=req.polygon_geojson,
+            lat=req.obs_lat,
+            lng=req.obs_lng,
+            altitude_m=req.altitude_m,
+        )
+        if not candidate:
+            raise HTTPException(status_code=422, detail="Could not resolve an observation point.")
+
+        within, dist = check_vlos_radius(
+            candidate, home_lat, home_lng,
             radius_m=float(drone["vlos_radius_m"]),
         )
         if not within:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    f"VLOS mission exceeds the {drone['vlos_radius_m']} m radius limit. "
-                    f"Farthest waypoint is {max_dist:.0f} m from drone home. "
-                    "Reduce the search polygon or switch to bvlos_tactical if a Part 107 "
-                    "BVLOS waiver is on file."
+                    f"Observation point is {dist:.0f} m from drone home, exceeding the "
+                    f"{drone['vlos_radius_m']} m VLOS limit. Move the point closer or "
+                    "switch to bvlos_tactical if a Part 107 BVLOS waiver is on file."
                 ),
             )
+
+    try:
+        mission = await create_mission(
+            db,
+            alert_id=req.alert_id,
+            drone_id=req.drone_id,
+            altitude_m=req.altitude_m,
+            speed_mps=req.speed_mps,
+            operation_mode=req.operation_mode,
+            polygon_geojson=req.polygon_geojson,
+            obs_lat=req.obs_lat,
+            obs_lng=req.obs_lng,
+        )
+    except Exception as exc:
+        logger.error("plan_mission failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if not mission.get("observation_lat"):
+        raise HTTPException(
+            status_code=422,
+            detail="Could not resolve an observation point from the supplied input.",
+        )
 
     return mission
 

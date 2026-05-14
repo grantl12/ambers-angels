@@ -68,7 +68,7 @@ Coordinator access requires explicit request + admin approval (`POST /auth/reque
 - `backend/routers/auth.py` — registration (auto-approved), SSO, coordinator request flow
 - `backend/routers/alerts.py` — watchlist management, alert cancellation pipeline
 - `backend/routers/autonomous.py` — autonomous mission plan/dispatch/status
-- `backend/services/waypoint_generator.py` — GeoJSON polygon → boustrophedon waypoint path (pure numpy)
+- `backend/services/waypoint_generator.py` — observation post dispatch: accepts polygon (centroid used) or explicit lat/lng, returns single-waypoint hover mission. Lawnmower kept but not the active dispatch mode.
 - `backend/services/autonomous_mission_service.py` — mission CRUD
 - `backend/run_migration.py` — run this after DB schema changes: `python3 backend/run_migration.py`
 - `web/src/app/page.tsx` — landing page (NO redirect — always serves landing regardless of auth)
@@ -113,7 +113,7 @@ Update all three when architecture changes. Speaker notes are in the `const NOTE
    - **Map dispatch UI** (`web/src/app/map/` or mission-map component): coordinators (with `can_dispatch_drones`) see available swarm drones as a new layer on the mission map (amber drone icon at home position, grayed if `last_seen_at > 5 min`). Clicking a drone + an active alert polygon opens a dispatch modal → calls `POST /autonomous/plan`. 
    - This is the "relinquish to swarm" flow: pilot powers up drone at home, taps Join Swarm, coordinator dispatches a coverage-gap mission to it remotely.
 
-3. **Coverage gap auto-targeting** — when dispatching, pre-fill the polygon with the highest-priority uncovered zone from the Flock coverage layer (cells where `camera_count_bucket = '0'` within the active alert polygon). `waypoint_generator.py` already handles the polygon → path conversion.
+3. **Coverage gap auto-targeting** — when dispatching, suggest the highest-priority uncovered zone from the Flock coverage layer (cells where `camera_count_bucket = '0'` within the active alert polygon) as the pre-filled observation point. Coordinator can override by dropping a pin on any road/corridor.
 
 4. **`can_dispatch_drones` UI in admin panel** — checkbox on each coordinator's row in `web/src/app/admin/page.tsx`.
 

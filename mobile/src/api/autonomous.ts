@@ -25,10 +25,11 @@ export type Mission = {
   drone_id: number
   status: string
   operation_mode: OperationMode
+  observation_lat: number | null
+  observation_lng: number | null
   waypoints: WaypointMissionPoint[]
   altitude_m: number
   speed_mps: number
-  coverage_area_sqkm: number | null
   created_at: string
   progress_pct: number
 }
