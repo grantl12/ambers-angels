@@ -1,0 +1,37 @@
+Amber's Angels: Grant Inquiry Letter
+File Suggestion: grants/INQUIRY_LETTER_TEMPLATE.md
+
+[Grant Officer Name / Foundation Name]
+[Foundation Address]
+
+RE: Inquiry for Pilot Program Funding – Amber’s Angels Inc.
+
+Dear [Grant Officer Name],
+
+On behalf of Amber’s Angels Inc., a Georgia-based 501(c)(3) nonprofit in formation and a Service-Disabled Veteran-Owned entity, I am writing to inquire about potential support for our Carroll County Rapid Recovery Pilot Program.
+
+The Mission:
+Every year, the "Golden Hour" following a child abduction or missing person report determines the outcome of the search. While law enforcement does an incredible job, they are often limited by stationary technology and resource gaps. Amber’s Angels bridges this gap by deploying a distributed, volunteer-driven network of drone pilots and vehicle sensors.
+
+The Innovation:
+Unlike traditional systems, our platform utilizes custom YOLOv8 AI to identify suspect vehicles based on Vehicle Make, Model, and Color (VMMC). This allows us to track "lead vehicles" even when license plates are obscured or missing. Our "Privacy-by-Design" approach ensures that no raw video is archived, protecting the civil liberties of the Georgia citizens we serve.
+
+The Request:
+We are seeking a one-time grant of $5,000 to fund a 6-month pilot program in Carroll County. This funding will cover:
+
+Cloud-based AI inference infrastructure (DigitalOcean/Supabase).
+
+Part 107 Pilot Training scholarships for local volunteers.
+
+Field sensing hardware for mobile search nodes.
+
+As a veteran-led organization, we believe in technical excellence and community accountability. We would welcome the opportunity to submit a full proposal or provide a technical demonstration of our VMMC capabilities.
+
+Thank you for your time and for your commitment to Georgia’s safety.
+
+Sincerely,
+
+Grant Lindberg
+Executive Director, Amber's Angels Inc.
+[Your Phone Number]
+[Your Email Address]

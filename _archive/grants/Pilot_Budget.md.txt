@@ -1,0 +1,19 @@
+Budget Justification (The "Why")
+Infrastructure Efficiency: Unlike traditional law enforcement tech that costs $50k+ per unit, Amber’s Angels leverages a "Bring Your Own Drone" (BYOD) model. This budget covers the cloud-based "brain" of the system rather than expensive hardware.
+
+In-Kind Matching: We estimate that for every $1,000 in grant funding, our volunteer pilots provide over $5,000 in flight hours and search capability. This "5x Impact" is a major selling point for local Georgia donors.
+
+Scalability: This 6-month pilot serves as a "proof of concept" that can be duplicated across other Georgia counties using the same cloud infrastructure.
+
+
+Category,Item Description,Cost,Grant Rationale
+Technology,Inference Servers: DigitalOcean/Cloud GPU for YOLOv8 model training and real-time VMMC processing.,"$1,500","Critical for the ""VMMC Superiority"" mentioned in your strategy."
+Technology,API Services: Mapbox (geospatial tracking) & Supabase (encrypted detection logs).,$600,Required for real-time tracking of search assets.
+Equipment,Field Detection Kit: 2x Dedicated high-res mobile devices for vehicle-mounted sensing.,"$1,200","Provides the ""ground truth"" nodes for the sensor network."
+Equipment,Training/Field Ops: Part 107 Pilot Training scholarships for 3 local volunteers.,$450,Expands the volunteer pilot network in Georgia.
+Operations,Safety & Compliance: UAS liability insurance and data encryption audits.,"$1,250","Addresses the ""Privacy & Ethics"" concerns of grantors."
+TOTAL REQUEST,,"$5,000",
+
+
+
+1. The "Startup" Budget (Internal/SAM.gov)This is for your internal tracking and for the 1023-EZ application when you're ready. It shows how you're using your initial funds (self-funded or early donations) to get the "doors" open.CategoryItem DescriptionEst. Cost (Annual)Legal/AdminIRS 1023-EZ Fee, Georgia SOS Annual Registration, Notary~$400InfrastructureDigitalOcean Droplets, Supabase (Pro Tier), Mapbox API~$1,200OperationsInsurance (General Liability/Drones), PO Box~$800EquipmentDemo Drone (Mavic 3), Testing Mobile Devices~$2,500TOTAL~$4,9002. The "Program-Based" Budget (For Federal Grants)Grantors like FEMA or the DOJ want to see a budget that is broken down by the mission, not just the company. They want to know exactly what it costs to find a person.Personnel: (Even if you are $0 for now, list "Volunteer Hours" as an in-kind contribution. It shows high community value).Direct Costs: Drone pilot training, YOLOv8 server inference costs, field data transmission.Indirect Costs: Software licenses, platform maintenance.3. The "Financial Projections" (For SDVOSB/Business Plan)Since you are a veteran-led entity, if you ever go for "set-aside" contracts, they will want to see a 3-year projection.Pro-Tip: Focus on your "In-Kind" support. Since you have a volunteer network, being able to say: "We provide $50,000 worth of aerial search services for a hard cost of $2,000" is a winning metric for any grant.
