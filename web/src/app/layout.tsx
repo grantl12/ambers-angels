@@ -10,7 +10,26 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Amber's Angels",
-  description: "Drone surveillance and rescue coordination",
+  description: "Amber's Angels is a volunteer-driven AI platform helping law enforcement find missing children faster during active AMBER Alerts. Privacy-first. Veteran-founded. 501(c)(3).",
+  icons: {
+    icon: '/aa-icon.png',
+    apple: '/aa-icon.png',
+  },
+  openGraph: {
+    title: "Amber's Angels",
+    description: "Volunteer-driven AI platform helping law enforcement find missing children faster during active AMBER Alerts.",
+    url: "https://amberangels.org",
+    siteName: "Amber's Angels",
+    images: [{ url: "/aa-icon.png", width: 512, height: 512 }],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Amber's Angels",
+    description: "Volunteer-driven AI platform helping law enforcement find missing children faster during active AMBER Alerts.",
+    images: ["/aa-icon.png"],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

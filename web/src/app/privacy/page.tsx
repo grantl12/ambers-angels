@@ -8,9 +8,9 @@ export default function PrivacyPage() {
         </div>
 
         <Section title="Who we are">
-          Amber's Angels is a volunteer-run drone license plate recognition network dedicated to
-          assisting in the recovery of missing and abducted children. We operate as a 501(c)(3)
-          nonprofit (pending). Our server is located in the United States.
+          Amber's Angels is a volunteer-driven public safety platform dedicated to assisting in
+          the recovery of missing and abducted children. We have filed for 501(c)(3) nonprofit
+          status (EIN 42-2052151). Our server is located in the United States.
         </Section>
 
         <Section title="What we collect">

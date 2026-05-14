@@ -7,82 +7,67 @@ export default function TermsPage() {
           <p className="text-sm text-white/40">Effective date: April 2, 2026</p>
         </div>
 
-        <Section title="Agreement">
-          By registering as a pilot or using the Amber's Angels platform, you agree to these
-          Terms of Service. If you do not agree, do not use the platform.
+        <Section title="1. Acceptance">
+          By registering as a volunteer or accessing the Amber&apos;s Angels platform, you agree to
+          these Terms of Service. If you do not agree, do not use the platform.
         </Section>
 
-        <Section title="Eligibility">
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            <li>You must be at least 18 years of age.</li>
-            <li>You must receive administrator approval before gaining mission access.</li>
-            <li>You must comply with all applicable federal, state, and local laws governing your participation — whether operating a drone, a vehicle, or a phone camera.</li>
-            <li>If you operate an unmanned aircraft (drone), you are responsible for ensuring your operations comply with FAA regulations. An FAA Remote Pilot Certificate (Part 107) is strongly encouraged for drone operators and required where mandated by law.</li>
-            <li>Vehicle-mounted phone camera volunteers must comply with all applicable traffic laws, including laws prohibiting handheld device use while driving. Phone operation must be hands-free and must not distract the driver.</li>
+        <Section title="2. Eligibility">
+          You must be at least 18 years old to register. Drone pilots must hold a valid FAA Part
+          107 Remote Pilot Certificate and provide their certificate number at registration. By
+          registering, you agree to use the platform responsibly and in accordance with all
+          applicable laws.
+        </Section>
+
+        <Section title="3. Volunteer Conduct">
+          <p>Volunteers must:</p>
+          <ul className="list-disc pl-5 space-y-1 mt-2">
+            <li>Follow all applicable laws, including FAA regulations for drone operations</li>
+            <li>Never follow, confront, or engage with any person or vehicle during a mission</li>
+            <li>Never share operational details or detection information publicly</li>
+            <li>Comply with the Amber&apos;s Angels Volunteer Training Guide at all times</li>
           </ul>
         </Section>
 
-        <Section title="Volunteer status">
-          All volunteers are unpaid. Participation does not create an employment,
-          contractor, or agency relationship with Amber's Angels. You are solely responsible
-          for your own actions, equipment, and compliance with applicable law.
+        <Section title="4. No Emergency Services">
+          Amber&apos;s Angels is not an emergency service. Always call 911 in an emergency. The
+          platform is a search coordination tool — it does not replace law enforcement response.
         </Section>
 
-        <Section title="Safe and lawful operation">
-          <p className="mb-2">For drone operators:</p>
-          <ul className="list-disc pl-5 space-y-1 text-sm mb-4">
-            <li>Fly within FAA airspace rules, including altitude limits and restricted zones.</li>
-            <li>Do not fly over people, moving vehicles, or private property without permission unless responding to an active sanctioned mission.</li>
-            <li>Do not interfere with law enforcement, emergency responders, or active search operations.</li>
-            <li>Cease operations immediately if directed by law enforcement or air traffic control.</li>
-            <li>Carry your Remote Pilot Certificate or recreational registration when flying.</li>
-          </ul>
-          <p className="mb-2">For vehicle-mounted phone camera volunteers:</p>
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            <li>The phone must be mounted in a fixed holder — never held in hand while the vehicle is in motion.</li>
-            <li>You must obey all traffic laws at all times. The mission does not override road safety.</li>
-            <li>Do not enter private property or violate trespassing laws in the course of a search.</li>
-          </ul>
+        <Section title="5. Intellectual Property">
+          The Amber&apos;s Angels platform, including software, AI models, and content, is the
+          property of Amber&apos;s Angels Inc. Volunteers are granted a limited, non-transferable
+          license to use the mobile app solely for authorized search missions.
         </Section>
 
-        <Section title="Data and detections">
-          Detection data you generate belongs to Amber's Angels and is used solely for child
-          recovery efforts. You must not use the platform to surveil individuals for purposes
-          unrelated to active AMBER/SILVER alerts. Misuse of detection data is grounds for
-          immediate account termination and may be reported to authorities.
+        <Section title="6. Disclaimer of Warranties">
+          The platform is provided &ldquo;as is.&rdquo; Amber&apos;s Angels makes no warranties regarding
+          uptime, detection accuracy, or outcomes. We do not guarantee the recovery of any missing
+          person.
         </Section>
 
-        <Section title="Disclaimer of liability">
-          Amber's Angels is a volunteer nonprofit. THE PLATFORM IS PROVIDED "AS IS" WITHOUT
-          WARRANTY OF ANY KIND. WE ARE NOT LIABLE FOR ANY DAMAGE TO YOUR EQUIPMENT, INJURIES,
-          FINES, OR OTHER LOSSES ARISING FROM YOUR PARTICIPATION. You fly at your own risk.
-          Amber's Angels does not carry liability insurance covering volunteer pilots — you are
-          responsible for your own coverage.
+        <Section title="7. Limitation of Liability">
+          To the maximum extent permitted by law, Amber&apos;s Angels Inc. shall not be liable for any
+          indirect, incidental, or consequential damages arising from use of the platform.
         </Section>
 
-        <Section title="Indemnification">
-          You agree to indemnify and hold harmless Amber's Angels, its officers, and volunteers
-          from any claim arising out of your use of the platform or your drone operations.
+        <Section title="8. Termination">
+          We may suspend or terminate volunteer access at any time for violations of these terms
+          or the Volunteer Training Guide.
         </Section>
 
-        <Section title="Account termination">
-          Amber's Angels may suspend or terminate your account at any time for violation of
-          these terms, unsafe behavior, or for any reason at our discretion. Appeals may be
-          submitted to{" "}
-          <a href="mailto:admin@amberangels.org" className="text-amber-400 hover:underline">
-            admin@amberangels.org
-          </a>.
+        <Section title="9. Governing Law">
+          These terms are governed by the laws of the State of Georgia.
         </Section>
 
-        <Section title="Changes to these terms">
-          We may update these terms at any time. We will notify active pilots by email.
-          Continued use after changes constitutes acceptance.
-        </Section>
-
-        <Section title="Contact">
-          <a href="mailto:admin@amberangels.org" className="text-amber-400 hover:underline">
-            admin@amberangels.org
-          </a>
+        <Section title="10. Contact">
+          <p>
+            Questions:{" "}
+            <a href="mailto:admin@amberangels.org" className="text-amber-400 hover:underline">
+              admin@amberangels.org
+            </a>
+          </p>
+          <p className="mt-1">Amber&apos;s Angels Inc. · 103 Springwood Dr · Carrollton, GA 30117</p>
         </Section>
       </div>
     </main>

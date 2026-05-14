@@ -59,15 +59,15 @@ export default function LandingPage() {
         <div>
           <h1 className={s.heroHeadline}>Amber&apos;s Angels<br /><em>closes that window.</em></h1>
           <p className={s.heroBody}>
-            A community-driven AI search network. When an AMBER Alert fires, volunteers and drones fill the surveillance gaps law enforcement can&apos;t — and AI identifies the vehicle before it&apos;s too late.
+            A community-driven AI search network. When an AMBER Alert fires, volunteers and drones fill the coverage gaps law enforcement can&apos;t — and AI identifies the vehicle before it&apos;s too late.
           </p>
           <div className={s.heroCtas}>
             <a href="#involve" className={s.btnPrimary}>Become a Volunteer</a>
-            <a href="#involve" className={s.btnGhost}>Support the Mission</a>
+            <a href="mailto:admin@amberangels.org" className={s.btnGhost}>Grant &amp; Partnership Inquiries</a>
           </div>
           <div className={s.heroBadges}>
-            <span className={s.heroBadge}>501(c)(3) In Formation</span>
-            <span className={s.heroBadge}>Carroll County, GA Pilot</span>
+            <span className={s.heroBadge}>501(c)(3) Applied</span>
+            <span className={s.heroBadge}>Carrollton, GA Pilot</span>
             <span className={s.heroBadge}>SDVOSB Founded</span>
             <span className={s.heroBadge}>Privacy-First by Design</span>
           </div>
@@ -80,14 +80,14 @@ export default function LandingPage() {
           <span className={s.label}>The Problem</span>
           <div className={s.sectionHeader}>
             <h2>The gap is real — and it&apos;s geographic.</h2>
-            <p>Carroll County, GA: 503 square miles. Fewer than 12 fixed license plate readers. Dozens of high-probability escape corridors with zero automated surveillance coverage.</p>
+            <p>Carroll County, GA: 503 square miles. Significant road network with no fixed LPR coverage — residential streets, rural routes, and secondary roads where a suspect vehicle can disappear in minutes.</p>
           </div>
         </div>
         <div className={`${s.problemGrid} ${s.fadeUp}`}>
           <div>
             <div className={s.statGrid}>
               <div className={s.statCard}><div className={s.statNum}>3 hrs</div><div className={s.statDesc}>critical window — 76% of fatal abductions occur within this timeframe</div></div>
-              <div className={s.statCard}><div className={s.statNum}>&lt;12</div><div className={s.statDesc}>fixed LPR cameras covering 503 sq miles in Carroll County</div></div>
+              <div className={s.statCard}><div className={s.statNum}>503 sq mi</div><div className={s.statDesc}>Carroll County coverage area with significant fixed-camera gaps</div></div>
               <div className={s.statCard}><div className={s.statNum}>~30%</div><div className={s.statDesc}>false positive rate for plate-only vehicle detection systems</div></div>
               <div className={s.statCard}><div className={s.statNum}>&lt;5%</div><div className={s.statDesc}>false positive rate using our dual VMMC verification model</div></div>
             </div>
@@ -158,7 +158,7 @@ export default function LandingPage() {
           <span className={s.label}>The Platform</span>
           <div className={s.sectionHeader}>
             <h2>Built for field conditions. Zero extra hardware required.</h2>
-            <p>Volunteers use their existing smartphone. Drone pilots connect DJI hardware directly to our platform. Every frame is processed in real-time and deleted immediately — no surveillance archive, ever.</p>
+            <p>Volunteers use their existing smartphone. Drone pilots connect DJI hardware directly to our platform. Every frame is processed in real-time and deleted immediately — no video archive, ever.</p>
           </div>
         </div>
         <div className={s.tabs}>
@@ -212,10 +212,10 @@ export default function LandingPage() {
       {/* PILOT */}
       <section id="pilot" className={`${s.section} ${s.pilot}`}>
         <div className={s.fadeUp}>
-          <span className={s.label}>Carroll County Pilot</span>
+          <span className={s.label}>Carrollton Pilot Program</span>
           <div className={s.sectionHeader}>
             <h2>On the ground in Georgia.</h2>
-            <p>Six-month deployment in Carroll County — 503 square miles, limited fixed infrastructure, seeking active law enforcement partnership, and a community ready to mobilize.</p>
+            <p>Six-month deployment in Carrollton, Georgia — a community with significant coverage gaps in its road network, active law enforcement engagement, and a veteran community ready to mobilize.</p>
           </div>
         </div>
         <div className={`${s.pilotGrid} ${s.fadeUp}`}>
@@ -240,7 +240,7 @@ export default function LandingPage() {
                   <span className={s.impactVal}>{val}</span>
                 </div>
               ))}
-              <p className={s.supportNote}>Actively seeking formal law enforcement partnership with Carroll County. Active support from local veteran community aligned with our SDVOSB founding.</p>
+              <p className={s.supportNote}>Actively engaging local law enforcement. Active support from the Carrollton veteran community aligned with our SDVOSB founding.</p>
             </div>
           </div>
         </div>
@@ -322,8 +322,8 @@ export default function LandingPage() {
           </div>
           <div className={s.involveCard}>
             <h3>Fund the Mission</h3>
-            <p>We&apos;re a 501(c)(3) in formation. Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
-            <a href="mailto:info@amberangels.org">Contact Grant Lindberg →</a>
+            <p>We&apos;ve filed for 501(c)(3) nonprofit status (EIN 42-2052151). Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
+            <a href="mailto:admin@amberangels.org">Contact Us →</a>
           </div>
         </div>
       </section>
@@ -332,13 +332,14 @@ export default function LandingPage() {
       <footer className={s.footer}>
         <div className={s.footerBrand}>
           <img src="/aa-icon.png" alt="AA" />
-          <span>Amber&apos;s Angels · 501(c)(3) in formation · info@amberangels.org · amberangels.org</span>
+          <span>Amber&apos;s Angels · 501(c)(3) Applied · admin@amberangels.org · amberangels.org</span>
         </div>
         <div className={s.footerLinks}>
           <a href="/privacy">Privacy Policy</a>
           <a href="/deck">Pitch Deck</a>
           <a href="https://www.faa.gov/uas/commercial_operators/become_a_drone_pilot" target="_blank" rel="noopener noreferrer">FAA Part 107</a>
-          <a href="mailto:info@amberangels.org">Contact</a>
+          <a href="/terms">Terms of Service</a>
+          <a href="mailto:admin@amberangels.org">Contact</a>
         </div>
       </footer>
 
