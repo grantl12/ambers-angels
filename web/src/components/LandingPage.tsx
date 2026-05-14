@@ -13,7 +13,7 @@ const TABS = [
 
 const DECKS = [
   { label: 'Carrollton Pilot', href: '/deck/carrollton' },
-  { label: 'Grant Writer',     href: '/deck/grant'       },
+  { label: 'Financial Info',   href: '/deck/grant'       },
   { label: 'Technical',        href: '/deck/tech'        },
 ]
 
@@ -350,7 +350,7 @@ export default function LandingPage() {
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-muted)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
             >
-              Pitch Decks ▾
+              Information Sheets ▾
             </button>
             {deckOpen && (
               <>
