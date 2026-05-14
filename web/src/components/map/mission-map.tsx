@@ -153,7 +153,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           properties: { weight },
         }
       })
-      .filter(Boolean),
+      .filter((f): f is NonNullable<typeof f> => f !== null),
   }), [coverageCells])
 
   // Coverage grid — one polygon per 0.1° cell, colored by camera count bucket.
