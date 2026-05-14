@@ -19,6 +19,18 @@ export const OPERATION_MODE_LABELS: Record<OperationMode, string> = {
   bvlos_autonomous: 'Autonomous BVLOS · Part 108',
 }
 
+export type Drone = {
+  id: number
+  pilot_username: string
+  drone_model: string
+  serial_number: string | null
+  home_lat: number | null
+  home_lng: number | null
+  bvlos_authorized: boolean
+  vlos_radius_m: number
+  last_seen_at: string | null
+}
+
 export type Mission = {
   id: number
   alert_id: string
@@ -101,6 +113,27 @@ export async function fetchMissionById(
  *                          "aborted" | "completed"
  * @param progressPct - Optional 0-100 value persisted server-side.
  */
+export async function fetchMyDrones(token: string): Promise<Drone[]> {
+  const res = await fetch(`${API_BASE}/autonomous/drones/mine`, {
+    headers: authHeaders(token),
+  })
+  return parseResponse<Drone[]>(res)
+}
+
+export async function sendHeartbeat(
+  token: string,
+  droneId: number,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/autonomous/drones/${droneId}/heartbeat`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ lat, lng }),
+  })
+  await parseResponse<unknown>(res)
+}
+
 export async function updateMissionStatus(
   token: string,
   missionId: number,

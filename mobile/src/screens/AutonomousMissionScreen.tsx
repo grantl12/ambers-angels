@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -16,20 +17,27 @@ import {
   View,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import Geolocation from '@react-native-community/geolocation'
 
 import {
   startWaypointMission,
   stopWaypointMission,
   onMissionStateChanged,
+  getDroneLocation,
   type MissionState,
 } from '../../modules/dji-camera/waypoint-mission'
 import {
   fetchPendingMissions,
+  fetchMyDrones,
+  sendHeartbeat,
   updateMissionStatus,
   OPERATION_MODE_LABELS,
+  type Drone,
   type Mission,
   type OperationMode,
 } from '../api/autonomous'
+
+const HEARTBEAT_INTERVAL_MS = 30_000
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,8 +60,11 @@ export default function AutonomousMissionScreen() {
   const [error, setError] = useState<string | null>(null)
   const [active, setActive] = useState<ActiveMission | null>(null)
   const [actionPending, setActionPending] = useState(false)
+  const [myDrone, setMyDrone] = useState<Drone | null>(null)
+  const [swarmOnline, setSwarmOnline] = useState(false)
 
   const unsubRef = useRef<(() => void) | null>(null)
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // -------------------------------------------------------------------------
   // Bootstrap
@@ -83,6 +94,71 @@ export default function AutonomousMissionScreen() {
       loadMissions(token)
     }
   }, [token, loadMissions])
+
+  // -------------------------------------------------------------------------
+  // Drone lookup + swarm heartbeat
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!token) return
+
+    fetchMyDrones(token)
+      .then((drones) => { if (drones.length > 0) setMyDrone(drones[0]) })
+      .catch(() => { /* no drone registered — swarm unavailable */ })
+  }, [token])
+
+  const sendSwarmHeartbeat = useCallback(async (jwt: string, droneId: number) => {
+    try {
+      // Prefer DJI GPS when drone is connected; fall back to device GPS
+      let lat: number | null = null
+      let lng: number | null = null
+
+      if (Platform.OS === 'android') {
+        try {
+          const djPos = await getDroneLocation()
+          lat = djPos.lat
+          lng = djPos.lng
+        } catch {
+          // DJI not connected — use device GPS
+        }
+      }
+
+      if (lat === null || lng === null) {
+        await new Promise<void>((resolve, reject) => {
+          Geolocation.getCurrentPosition(
+            (pos) => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve() },
+            (err) => reject(err),
+            { enableHighAccuracy: false, timeout: 8000 },
+          )
+        })
+      }
+
+      if (lat !== null && lng !== null) {
+        await sendHeartbeat(jwt, droneId, lat, lng)
+        setSwarmOnline(true)
+      }
+    } catch {
+      // Non-fatal — coordinator will see the drone go gray after 5 min
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!token || !myDrone) return
+
+    // Fire immediately, then every 30 s
+    sendSwarmHeartbeat(token, myDrone.id)
+
+    heartbeatRef.current = setInterval(
+      () => sendSwarmHeartbeat(token, myDrone.id),
+      HEARTBEAT_INTERVAL_MS,
+    )
+
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      heartbeatRef.current = null
+      setSwarmOnline(false)
+    }
+  }, [token, myDrone, sendSwarmHeartbeat])
 
   // -------------------------------------------------------------------------
   // Mission state events
@@ -276,7 +352,16 @@ export default function AutonomousMissionScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Autonomous Missions</Text>
+        <View>
+          <Text style={styles.title}>Autonomous Missions</Text>
+          {myDrone && (
+            <Text style={[styles.swarmStatus, swarmOnline ? styles.swarmOnline : styles.swarmOffline]}>
+              {swarmOnline
+                ? `● Swarm online — ${myDrone.drone_model}`
+                : `○ ${myDrone.drone_model} · connecting…`}
+            </Text>
+          )}
+        </View>
         <TouchableOpacity
           onPress={() => loadMissions(token)}
           disabled={loading}
@@ -336,6 +421,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1a2332',
+  },
+  swarmStatus: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  swarmOnline: {
+    color: '#34d399',
+  },
+  swarmOffline: {
+    color: 'rgba(255,255,255,0.3)',
   },
   title: {
     color: '#f59e0b',

@@ -135,3 +135,16 @@ export function onMissionStateChanged(
   const subscription = emitter.addListener('DJIMissionStateChanged', callback)
   return () => subscription.remove()
 }
+
+/**
+ * Read the drone's current GPS position from DJI telemetry.
+ * Rejects if the SDK is not initialized or no GPS fix is available.
+ */
+export async function getDroneLocation(): Promise<{
+  lat: number
+  lng: number
+  altitude: number
+}> {
+  assertModule()
+  return DJICamera.getDroneLocation()
+}

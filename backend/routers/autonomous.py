@@ -371,3 +371,107 @@ async def update_drone_auth(
         "bvlos_authorized": bool(row[1]),
         "vlos_radius_m": row[2],
     }
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat + swarm presence
+# ---------------------------------------------------------------------------
+
+class HeartbeatRequest(BaseModel):
+    lat: float
+    lng: float
+
+
+@router.get("/autonomous/drones/mine")
+async def get_my_drones(
+    payload: dict = Depends(get_current_pilot),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Return the calling pilot's registered drones."""
+    username = payload.get("sub") or payload.get("username", "")
+    result = await db.execute(
+        text("""
+            SELECT id, pilot_username, drone_model, serial_number,
+                   home_lat, home_lng, max_flight_time_min, camera_hfov_deg,
+                   registered_at, last_seen_at,
+                   COALESCE(bvlos_authorized, FALSE) AS bvlos_authorized,
+                   COALESCE(vlos_radius_m, 400)      AS vlos_radius_m
+            FROM autonomous_drones
+            WHERE pilot_username = :u
+            ORDER BY registered_at DESC
+        """),
+        {"u": username},
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "id":                  r[0],
+            "pilot_username":      r[1],
+            "drone_model":         r[2],
+            "serial_number":       r[3],
+            "home_lat":            r[4],
+            "home_lng":            r[5],
+            "max_flight_time_min": r[6],
+            "camera_hfov_deg":     float(r[7]) if r[7] else None,
+            "registered_at":       r[8].isoformat() if r[8] else None,
+            "last_seen_at":        r[9].isoformat() if r[9] else None,
+            "bvlos_authorized":    bool(r[10]),
+            "vlos_radius_m":       r[11],
+        }
+        for r in rows
+    ]
+
+
+@router.post("/autonomous/drones/{drone_id}/heartbeat")
+async def drone_heartbeat(
+    drone_id: int,
+    req: HeartbeatRequest,
+    payload: dict = Depends(get_current_pilot),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Called by the mobile app every 30 s while the pilot is on the swarm screen.
+    Updates home_lat, home_lng, and last_seen_at so coordinators know the drone
+    is online and where its home position is.
+
+    Only the drone's registered pilot (or an admin) may send heartbeats.
+    """
+    username = payload.get("sub") or payload.get("username", "")
+    role = payload.get("role", "")
+
+    # Verify ownership unless admin
+    if role != "admin":
+        row = await db.execute(
+            text("SELECT pilot_username FROM autonomous_drones WHERE id = :id"),
+            {"id": drone_id},
+        )
+        rec = row.fetchone()
+        if not rec:
+            raise HTTPException(status_code=404, detail=f"Drone {drone_id} not found.")
+        if rec[0] != username:
+            raise HTTPException(status_code=403, detail="Not your drone.")
+
+    result = await db.execute(
+        text("""
+            UPDATE autonomous_drones
+            SET home_lat     = :lat,
+                home_lng     = :lng,
+                last_seen_at = NOW()
+            WHERE id = :id
+            RETURNING id, home_lat, home_lng, last_seen_at
+        """),
+        {"id": drone_id, "lat": req.lat, "lng": req.lng},
+    )
+    row = result.fetchone()
+    await db.commit()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Drone {drone_id} not found.")
+
+    return {
+        "ok":          True,
+        "drone_id":    row[0],
+        "home_lat":    row[1],
+        "home_lng":    row[2],
+        "last_seen_at": row[3].isoformat() if row[3] else None,
+    }
