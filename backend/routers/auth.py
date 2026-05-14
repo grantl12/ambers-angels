@@ -167,11 +167,11 @@ def register(req: RegisterRequest):
         if existing:
             raise HTTPException(status_code=400, detail="Username or email already registered")
 
-        # First pilot ever → auto-approve as admin
+        # First pilot ever → admin; all others auto-approved as pilot
         count = db.execute(text("SELECT COUNT(*) FROM pilots")).scalar()
         is_first = count == 0
-        pilot_status = "approved" if is_first else "pending"
-        pilot_role   = "admin"   if is_first else "pilot"
+        pilot_status = "approved"
+        pilot_role   = "admin" if is_first else "pilot"
 
         username = req.username.strip().lower()
         db.execute(text("""
@@ -198,20 +198,9 @@ def register(req: RegisterRequest):
             "notif_prefs":   req.notification_prefs or ["push", "email"],
             "status":        pilot_status,
             "role":          pilot_role,
-            "approved_at":   datetime.now(timezone.utc) if is_first else None,
+            "approved_at":   datetime.now(timezone.utc),
         })
         db.commit()
-
-        if pilot_status == "pending":
-            # Return a token that indicates pending — client shows "awaiting approval"
-            token = _make_token(username, pilot_role)
-            return TokenResponse(
-                access_token=token,
-                username=username,
-                full_name=req.full_name,
-                role=pilot_role,
-                status=pilot_status,
-            )
 
         token = _make_token(username, pilot_role)
         return TokenResponse(
@@ -475,6 +464,95 @@ def set_role(username: str, req: SetRoleRequest, _: dict = Depends(require_admin
         if not result:
             raise HTTPException(status_code=404, detail="Pilot not found")
         return {"username": username, "role": req.role}
+    finally:
+        db.close()
+
+
+class CoordinatorRequestBody(BaseModel):
+    reason: Optional[str] = None
+
+@router.post("/request-coordinator")
+def request_coordinator(req: CoordinatorRequestBody, payload: dict = Depends(get_current_pilot)):
+    """Any approved pilot can request elevation to coordinator tier."""
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT role, status FROM pilots WHERE username = :u"),
+            {"u": payload["sub"]},
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Account not found")
+        if row[1] != "approved":
+            raise HTTPException(status_code=403, detail="Account not yet active")
+        if row[0] in ("coordinator", "admin"):
+            raise HTTPException(status_code=400, detail="Already a coordinator or admin")
+        db.execute(
+            text("UPDATE pilots SET coordinator_requested_at = :now, coordinator_request_reason = :reason WHERE username = :u"),
+            {"now": datetime.now(timezone.utc), "reason": req.reason, "u": payload["sub"]},
+        )
+        db.commit()
+        return {"status": "requested"}
+    finally:
+        db.close()
+
+
+@router.get("/coordinator-requests")
+def list_coordinator_requests(payload: dict = Depends(require_admin)):
+    """Admin-only: pilots who have requested coordinator access."""
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT username, full_name, email, city, part107, coordinator_requested_at, coordinator_request_reason
+            FROM pilots
+            WHERE coordinator_requested_at IS NOT NULL
+              AND role NOT IN ('coordinator', 'admin')
+            ORDER BY coordinator_requested_at ASC
+        """)).fetchall()
+        return [
+            {
+                "username":    r[0],
+                "fullName":    r[1],
+                "email":       r[2],
+                "city":        r[3],
+                "part107":     r[4],
+                "requestedAt": r[5].isoformat() if r[5] else None,
+                "reason":      r[6],
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+@router.post("/approve-coordinator/{username}")
+def approve_coordinator(username: str, _: dict = Depends(require_admin)):
+    """Admin-only: grant coordinator role to a pilot who requested it."""
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("""
+                UPDATE pilots
+                SET role = 'coordinator', coordinator_requested_at = NULL, coordinator_request_reason = NULL
+                WHERE username = :u AND coordinator_requested_at IS NOT NULL
+                  AND role NOT IN ('coordinator', 'admin')
+                RETURNING email, full_name
+            """),
+            {"u": username.lower()},
+        ).fetchone()
+        db.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="No pending coordinator request for this user")
+        _send_email(
+            to=row[0],
+            subject="Coordinator access approved — Amber's Angels",
+            body=(
+                f"Hi {row[1] or username},\n\n"
+                "Your request for coordinator access on Amber's Angels has been approved.\n\n"
+                "You now have access to mission coordination tools at https://amberangels.org/map\n\n"
+                "— The Amber's Angels Team"
+            ),
+        )
+        return {"status": "approved", "username": username, "role": "coordinator"}
     finally:
         db.close()
 
@@ -755,8 +833,8 @@ def sso_complete(req: SSOCompleteRequest):
 
         count      = db.execute(text("SELECT COUNT(*) FROM pilots")).scalar()
         is_first   = count == 0
-        pilot_status = "approved" if is_first else "pending"
-        pilot_role   = "admin"   if is_first else "pilot"
+        pilot_status = "approved"
+        pilot_role   = "admin" if is_first else "pilot"
 
         _SSO_INSERT = {
             "apple": """
@@ -784,7 +862,7 @@ def sso_complete(req: SSOCompleteRequest):
             "sub":        sub,
             "status":     pilot_status,
             "role":       pilot_role,
-            "approved_at": datetime.now(timezone.utc) if is_first else None,
+            "approved_at": datetime.now(timezone.utc),
         })
         db.commit()
 

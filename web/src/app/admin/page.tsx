@@ -7,14 +7,14 @@ import { apiGet, apiPost, apiDelete } from "@/lib/api-client"
 
 // ── types ────────────────────────────────────────────────────────────────────
 
-type PendingPilot = {
-  username:  string
-  fullName:  string | null
-  email:     string
-  city:      string | null
-  drones:    string[] | null
-  part107:   boolean
-  createdAt: string | null
+type CoordinatorRequest = {
+  username:    string
+  fullName:    string | null
+  email:       string
+  city:        string | null
+  part107:     boolean
+  requestedAt: string | null
+  reason:      string | null
 }
 
 type ApprovedPilot = {
@@ -113,12 +113,11 @@ export default function AdminPage() {
     }
   }
 
-  // pilot approvals
-  const [pilots,        setPilots]        = useState<PendingPilot[]>([])
-  const [pilotsLoading, setPilotsLoading] = useState(true)
-  const [pilotsError,   setPilotsError]   = useState<string | null>(null)
-  const [approving,     setApproving]     = useState<string | null>(null)
-  const [pendingRoles,  setPendingRoles]  = useState<Record<string, string>>({})
+  // coordinator requests
+  const [coordRequests,   setCoordRequests]   = useState<CoordinatorRequest[]>([])
+  const [coordLoading,    setCoordLoading]    = useState(true)
+  const [coordError,      setCoordError]      = useState<string | null>(null)
+  const [approvingCoord,  setApprovingCoord]  = useState<string | null>(null)
 
   // approved pilots + role management
   const [approvedPilots,      setApprovedPilots]      = useState<ApprovedPilot[]>([])
@@ -132,15 +131,15 @@ export default function AdminPage() {
   // active manual alerts
   const [manualAlerts, setManualAlerts] = useState<ManualAlerts>({ plates: [], vehicles: [] })
 
-  const loadPilots = useCallback(async () => {
-    setPilotsLoading(true)
-    setPilotsError(null)
+  const loadCoordRequests = useCallback(async () => {
+    setCoordLoading(true)
+    setCoordError(null)
     try {
-      setPilots(await apiGet<PendingPilot[]>("/auth/pending"))
+      setCoordRequests(await apiGet<CoordinatorRequest[]>("/auth/coordinator-requests"))
     } catch {
-      setPilotsError("Failed to load pending pilots.")
+      setCoordError("Failed to load coordinator requests.")
     } finally {
-      setPilotsLoading(false)
+      setCoordLoading(false)
     }
   }, [])
 
@@ -159,28 +158,24 @@ export default function AdminPage() {
   useEffect(() => {
     const auth = getAuthState()
     if (!auth || auth.role !== "admin") { router.replace("/map"); return }
-    loadPilots()
+    loadCoordRequests()
     loadApprovedPilots()
     loadManualAlerts()
     loadHealth()
     const interval = setInterval(loadHealth, 10_000)
     return () => clearInterval(interval)
-  }, [router, loadPilots, loadApprovedPilots, loadManualAlerts, loadHealth])
+  }, [router, loadCoordRequests, loadApprovedPilots, loadManualAlerts, loadHealth])
 
-  async function approve(username: string) {
-    setApproving(username)
+  async function approveCoordinator(username: string) {
+    setApprovingCoord(username)
     try {
-      await apiPost(`/auth/approve/${username}`, {})
-      const role = pendingRoles[username] ?? "pilot"
-      if (role !== "pilot") {
-        await apiPost(`/auth/set-role/${username}`, { role })
-      }
-      setPilots((prev) => prev.filter((p) => p.username !== username))
+      await apiPost(`/auth/approve-coordinator/${username}`, {})
+      setCoordRequests((prev) => prev.filter((r) => r.username !== username))
       loadApprovedPilots()
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Approval failed.")
     } finally {
-      setApproving(null)
+      setApprovingCoord(null)
     }
   }
 
@@ -340,62 +335,49 @@ export default function AdminPage() {
           </button>
         </section>
 
-        {/* ── Pilot Approvals ── */}
+        {/* ── Coordinator Access Requests ── */}
         <section>
           <div className="mb-5">
-            <h1 className="text-xl font-bold text-white">Pilot Approvals</h1>
-            <p className="text-sm text-white/40 mt-1">New registrations waiting for approval</p>
+            <h1 className="text-xl font-bold text-white">Coordinator Requests</h1>
+            <p className="text-sm text-white/40 mt-1">Pilots requesting elevated coordinator access (LEO / mission-critical roles)</p>
           </div>
 
-          {pilotsLoading && <div className="text-sm text-white/40">Loading…</div>}
-          {pilotsError   && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{pilotsError}</div>}
-          {!pilotsLoading && !pilotsError && pilots.length === 0 && (
+          {coordLoading && <div className="text-sm text-white/40">Loading…</div>}
+          {coordError   && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{coordError}</div>}
+          {!coordLoading && !coordError && coordRequests.length === 0 && (
             <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-8 text-center text-sm text-white/40">
-              No pending approvals
+              No pending coordinator requests
             </div>
           )}
 
           <div className="space-y-3">
-            {pilots.map((pilot) => (
-              <div key={pilot.username} className="rounded-xl border border-white/10 bg-white/5 p-5">
+            {coordRequests.map((req) => (
+              <div key={req.username} className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-white">{pilot.fullName ?? pilot.username}</span>
-                      <span className="text-xs text-white/40">@{pilot.username}</span>
-                      {pilot.part107 && (
+                      <span className="font-semibold text-white">{req.fullName ?? req.username}</span>
+                      <span className="text-xs text-white/40">@{req.username}</span>
+                      {req.part107 && (
                         <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs text-sky-400">Part 107</span>
                       )}
                     </div>
                     <div className="text-xs text-white/50 space-y-0.5">
-                      <div>{pilot.email}</div>
-                      {pilot.city && <div>{pilot.city}</div>}
-                      {pilot.drones && pilot.drones.length > 0 && (
-                        <div className="text-white/30">{pilot.drones.join(", ")}</div>
-                      )}
-                      {pilot.createdAt && (
-                        <div className="text-white/25">Registered {new Date(pilot.createdAt).toLocaleDateString()}</div>
+                      <div>{req.email}</div>
+                      {req.city && <div>{req.city}</div>}
+                      {req.reason && <div className="text-white/70 italic">&ldquo;{req.reason}&rdquo;</div>}
+                      {req.requestedAt && (
+                        <div className="text-white/25">Requested {new Date(req.requestedAt).toLocaleDateString()}</div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <select
-                      value={pendingRoles[pilot.username] ?? "pilot"}
-                      onChange={(e) => setPendingRoles((prev) => ({ ...prev, [pilot.username]: e.target.value }))}
-                      className="rounded-lg bg-neutral-800 border border-white/10 px-2 py-2 text-xs text-white/70 focus:outline-none"
-                    >
-                      <option value="pilot">Pilot</option>
-                      <option value="coordinator">Coordinator</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <button
-                      onClick={() => approve(pilot.username)}
-                      disabled={approving === pilot.username}
-                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
-                    >
-                      {approving === pilot.username ? "Approving…" : "Approve"}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => approveCoordinator(req.username)}
+                    disabled={approvingCoord === req.username}
+                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50 transition-colors shrink-0"
+                  >
+                    {approvingCoord === req.username ? "Approving…" : "Approve as Coordinator"}
+                  </button>
                 </div>
               </div>
             ))}

@@ -734,9 +734,9 @@
 
   <!-- SUCCESS -->
   <div id="success-screen">
-    <div class="success-badge">✓ Application received</div>
+    <div class="success-badge">✓ Account created</div>
     <h2>You're in the network!</h2>
-    <p class="sub">Welcome to Amber's Angels. Your profile is under review — here's what to expect.</p>
+    <p class="sub">Welcome to Amber's Angels. Your account is active — you can sign in and start volunteering immediately.</p>
 
     <!-- Safety illustration SVG -->
     <div class="safety-illustration">
@@ -866,15 +866,15 @@
       <div class="next-step">
         <div class="step-num">1</div>
         <div class="step-text">
-          <strong>Review (within 24 h)</strong>
-          <span>Our team verifies your profile and activates your account. You'll get a push notification the moment you're approved.</span>
+          <strong>You're in — sign in now</strong>
+          <span>Your volunteer account is active immediately. Sign in to access the mission dashboard or download the app.</span>
         </div>
       </div>
       <div class="next-step">
         <div class="step-num">2</div>
         <div class="step-text">
           <strong>Download the app</strong>
-          <span>Install Amber's Angels on your phone. Sign in with the account you just created — the app will show a pending badge until approval clears.</span>
+          <span>Install Amber's Angels on your phone. Sign in with the account you just created and you're ready to go.</span>
         </div>
       </div>
       <div class="next-step">
@@ -1173,11 +1173,9 @@ async function submitForm() {
     const success = document.getElementById('success-screen')
     success.style.display = 'block'
 
-    if (data.status === 'approved') {
-      // First pilot auto-approved as admin — redirect straight to the dashboard
-      success.querySelector('.sub').textContent = 'Your account is ready. Redirecting to the dashboard…'
-      setTimeout(() => { window.location.href = '/login?from=/map&welcome=1' }, 2000)
-    }
+    // All pilots auto-approved — redirect to sign-in
+    success.querySelector('.sub').textContent = 'Your account is ready. Redirecting to sign-in…'
+    setTimeout(() => { window.location.href = '/login?from=/map&welcome=1' }, 2000)
   } catch (err) {
     btn.disabled = false
     btn.textContent = 'Join the Network ✓'

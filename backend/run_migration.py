@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS ncmec_cases (
 );
 CREATE INDEX IF NOT EXISTS ncmec_cases_state_idx ON ncmec_cases (state);
 CREATE INDEX IF NOT EXISTS ncmec_cases_resolved_idx ON ncmec_cases (resolved_at) WHERE resolved_at IS NULL;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS coordinator_requested_at     TIMESTAMPTZ;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS coordinator_request_reason   TEXT;
+CREATE INDEX IF NOT EXISTS pilots_coordinator_req_idx ON pilots (coordinator_requested_at) WHERE coordinator_requested_at IS NOT NULL;
 CREATE TABLE IF NOT EXISTS alert_resolutions (
     id                  SERIAL PRIMARY KEY,
     resolved_by         TEXT NOT NULL,
