@@ -293,18 +293,25 @@ async def _notify_resolved(webhook_url: str, cases: list[dict]) -> None:
         await _post_discord(webhook_url, content)
 
 
-async def _notify_new_case_with_target(
+async def _notify_new_case(
     webhook_url: str,
     case: dict,
+    has_vehicle_target: bool = False,
 ) -> None:
+    if has_vehicle_target:
+        header = f"🟠 **NEW NCMEC CASE — ACTIVE VEHICLE TARGET IN {case['state']}** 🟠"
+        footer = "\n⚠️ Cross-reference with active vehicle target in this state."
+    else:
+        header = f"🔴 **NEW MISSING CHILD — {case['state']}** 🔴"
+        footer = ""
     content = (
-        f"🟠 **NEW NCMEC CASE — ACTIVE FEMA TARGET IN {case['state']}** 🟠\n"
+        f"{header}\n"
         f"**{case['name']}**, age {case['age_now']} — "
         f"missing from {case['city']}, {case['state']} "
         f"since {case['missing_since'] or '?'}\n"
         f"📸 Photo: {case['photo_url']}\n"
-        f"🔗 {case['poster_url']}\n"
-        f"Cross-reference with active vehicle target in this state."
+        f"🔗 {case['poster_url']}"
+        f"{footer}"
     )
     await _post_discord(webhook_url, content)
 
@@ -403,9 +410,8 @@ async def _poll_state(
 
         if webhook_url:
             has_target = await _active_vehicle_target_in_state(session_factory, state)
-            if has_target:
-                for c in new_cases:
-                    await _notify_new_case_with_target(webhook_url, c)
+            for c in new_cases:
+                await _notify_new_case(webhook_url, c, has_vehicle_target=has_target)
 
 
 # ── Background loop ───────────────────────────────────────────────────────────

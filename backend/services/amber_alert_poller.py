@@ -49,10 +49,7 @@ EAS_URL        = (
     "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/eas/get/recent/"
     f"{EAS_LOOKBACK}"
 )
-AMBER_GOV_URLS = [
-    "https://amber.alert.gov/active-alerts",
-    "https://amber.alert.gov/",
-]
+AMBER_GOV_URLS: list[str] = []  # amber.alert.gov DNS does not resolve — disabled
 
 # Track last poll timestamps for health endpoint
 last_eas_poll_at:        Optional[datetime] = None

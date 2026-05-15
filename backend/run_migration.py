@@ -92,6 +92,7 @@ ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS operation_mode TEXT DEF
 ALTER TABLE autonomous_drones   ADD COLUMN IF NOT EXISTS bvlos_authorized BOOLEAN DEFAULT FALSE;
 ALTER TABLE autonomous_drones   ADD COLUMN IF NOT EXISTS vlos_radius_m    INT     DEFAULT 400;
 CREATE INDEX IF NOT EXISTS autonomous_missions_mode_idx ON autonomous_missions (operation_mode);
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS expo_push_token TEXT;
 """
 
 try:
