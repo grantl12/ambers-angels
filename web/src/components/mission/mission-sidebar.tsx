@@ -132,8 +132,8 @@ type Props = {
 
 const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = [
   { key: "flock",    label: "Deadspace Planner",    color: "bg-orange-400" },
-  { key: "coverage", label: "Camera Coverage",      color: "bg-orange-400/40" },
-  { key: "zones",    label: "Dark Zones (Pilot)",   color: "bg-red-500" },
+  { key: "coverage", label: "Road Coverage",        color: "bg-orange-400/40" },
+  { key: "zones",    label: "Dark Roads (Pilot)",   color: "bg-red-500" },
   { key: "drones",   label: "Active Drones",        color: "bg-violet-400" },
   { key: "swarm",    label: "Swarm Drones",         color: "bg-amber-400" },
   { key: "heat",     label: "Deadspace Heat",        color: "bg-red-500" },

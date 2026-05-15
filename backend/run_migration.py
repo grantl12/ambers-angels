@@ -98,6 +98,24 @@ CREATE TABLE IF NOT EXISTS processed_alerts (
     processed_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS processed_alerts_time_idx ON processed_alerts (processed_at);
+CREATE TABLE IF NOT EXISTS road_segments (
+    id              BIGSERIAL PRIMARY KEY,
+    osm_way_id      BIGINT NOT NULL,
+    osm_segment_idx INT    NOT NULL DEFAULT 0,
+    name            TEXT,
+    highway_type    TEXT,
+    geometry_json   JSONB  NOT NULL,
+    centroid_lat    DOUBLE PRECISION NOT NULL,
+    centroid_lng    DOUBLE PRECISION NOT NULL,
+    length_m        DOUBLE PRECISION,
+    bbox_south      DOUBLE PRECISION,
+    bbox_north      DOUBLE PRECISION,
+    bbox_west       DOUBLE PRECISION,
+    bbox_east       DOUBLE PRECISION,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (osm_way_id, osm_segment_idx)
+);
+CREATE INDEX IF NOT EXISTS road_segments_centroid_idx ON road_segments (centroid_lat, centroid_lng);
 """
 
 try:

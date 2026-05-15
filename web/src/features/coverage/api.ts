@@ -2,17 +2,15 @@ import { useQuery } from "@tanstack/react-query"
 import { apiGet } from "@/lib/api-client"
 import type { FlockBbox } from "@/features/flock/api"
 
-export type CoverageCell = {
-  polygon: string
-  cameraCountBucket: "0" | "1-3" | "4+"
+export type RoadSegment = {
+  id: number
+  name: string | null
+  highwayType: string
+  geometry: { type: "LineString"; coordinates: [number, number][] }
   centroidLat: number
   centroidLng: number
-}
-
-export type PriorityZone = {
-  polygon: string
-  priority: "high" | "medium"
-  label: string
+  coverageScore: number       // 0 = dark, 1–2 = sparse, 3+ = covered
+  priority?: "high" | "medium"  // present in priority-zones response only
 }
 
 function bboxParams(bbox?: FlockBbox): string {
@@ -20,20 +18,26 @@ function bboxParams(bbox?: FlockBbox): string {
   return `?south=${bbox.south}&north=${bbox.north}&west=${bbox.west}&east=${bbox.east}`
 }
 
-export function useFlockCoverageMap(bbox?: FlockBbox) {
-  return useQuery<CoverageCell[]>({
+/** Coordinator: all road segments colored by camera coverage score. */
+export function useRoadCoverage(bbox?: FlockBbox) {
+  return useQuery<RoadSegment[]>({
     queryKey: ["coverage", "map", bbox ?? null],
-    queryFn: () => apiGet<CoverageCell[]>(`/coverage/map${bboxParams(bbox)}`),
+    queryFn: () => apiGet<RoadSegment[]>(`/coverage/map${bboxParams(bbox)}`),
     refetchInterval: 5 * 60_000,
     staleTime:       4 * 60_000,
   })
 }
 
-export function usePriorityZones(bbox?: FlockBbox) {
-  return useQuery<PriorityZone[]>({
+/** Pilot: uncovered/sparse road segments within the active search area. */
+export function usePriorityRoads(bbox?: FlockBbox) {
+  return useQuery<RoadSegment[]>({
     queryKey: ["coverage", "priority-zones", bbox ?? null],
-    queryFn: () => apiGet<PriorityZone[]>(`/coverage/priority-zones${bboxParams(bbox)}`),
+    queryFn: () => apiGet<RoadSegment[]>(`/coverage/priority-zones${bboxParams(bbox)}`),
     refetchInterval: 5 * 60_000,
     staleTime:       4 * 60_000,
   })
 }
+
+// Legacy aliases for components not yet migrated
+export const useFlockCoverageMap = useRoadCoverage
+export const usePriorityZones    = usePriorityRoads

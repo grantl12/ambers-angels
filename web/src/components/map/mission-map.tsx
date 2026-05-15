@@ -9,7 +9,8 @@ import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera, FlockBbox } from "@/features/flock/api"
-import { useFlockCoverageMap, usePriorityZones } from "@/features/coverage/api"
+import { useRoadCoverage, usePriorityRoads } from "@/features/coverage/api"
+import type { RoadSegment } from "@/features/coverage/api"
 import { useSwarmDrones, isDroneOnline, dispatchMission, type SwarmDrone } from "@/features/autonomous/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
@@ -86,11 +87,11 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: trail }              = useTelemetryTrail("drone1", 30)
   const { data: detections = [] }    = useDetectionsFeed(100)
   const { data: watchlist = [] }     = useWatchlist()
-  const { data: flockCameras = [] }  = useFlockCameras(flockBbox)
-  const { data: alertZones = [] }    = useFemaAlerts()
-  const { data: coverageCells = [] } = useFlockCoverageMap(flockBbox)
-  const { data: priorityZones = [] } = usePriorityZones(flockBbox)
-  const { data: swarmDrones = [] }   = useSwarmDrones()
+  const { data: flockCameras = [] }   = useFlockCameras(flockBbox)
+  const { data: alertZones = [] }     = useFemaAlerts()
+  const { data: roadSegments = [] }   = useRoadCoverage(flockBbox)
+  const { data: priorityRoads = [] }  = usePriorityRoads(flockBbox)
+  const { data: swarmDrones = [] }    = useSwarmDrones()
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -149,68 +150,51 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     }
   }, [alertZones])
 
-  // Deadspace heatmap — shows coverage GAPS, not detections.
-  // 0 cameras = weight 1.0 (red/dangerous), 1-3 = 0.45 (orange), 4+ = 0 (invisible).
-  // Feeds from coverage cells so it only shows when the Deadspace Planner is active.
+  // Deadspace heatmap — built from road segment centroids, weighted by coverage gap.
+  // 0 cameras = weight 1.0 (worst gap), 1–2 = 0.4 (sparse), 3+ invisible.
   const heatmapGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
-    features: coverageCells
-      .map((cell) => {
-        const weight =
-          cell.cameraCountBucket === "0"   ? 1.0 :
-          cell.cameraCountBucket === "1-3" ? 0.45 : 0
+    features: roadSegments
+      .map((seg: RoadSegment) => {
+        const weight = seg.coverageScore === 0 ? 1.0 : seg.coverageScore <= 2 ? 0.4 : 0
         if (weight === 0) return null
         return {
           type: "Feature" as const,
-          geometry: { type: "Point" as const, coordinates: [cell.centroidLng, cell.centroidLat] },
+          geometry: { type: "Point" as const, coordinates: [seg.centroidLng, seg.centroidLat] },
           properties: { weight },
         }
       })
       .filter((f): f is NonNullable<typeof f> => f !== null),
-  }), [coverageCells])
+  }), [roadSegments])
 
-  // Coverage grid — one polygon per 0.1° cell, colored by camera count bucket.
-  // Polygon format from coverage_service: "lat,lng lat,lng ..." (space-separated)
-  const coverageGridGeoJson = useMemo(() => {
-    function parseCellPolygon(poly: string): [number, number][] {
-      return poly.trim().split(/\s+/).map((pair) => {
-        const [lat, lng] = pair.split(",").map(Number)
-        return [lng, lat] as [number, number]
-      })
-    }
-    return {
-      type: "FeatureCollection" as const,
-      features: coverageCells.map((cell) => ({
-        type: "Feature" as const,
-        geometry: {
-          type: "Polygon" as const,
-          coordinates: [parseCellPolygon(cell.polygon)],
-        },
-        properties: { bucket: cell.cameraCountBucket },
-      })),
-    }
-  }, [coverageCells])
+  // Road coverage map — LineString segments colored by camera coverage score.
+  const roadCoverageGeoJson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: roadSegments.map((seg: RoadSegment) => ({
+      type: "Feature" as const,
+      geometry: seg.geometry,
+      properties: {
+        coverageScore: seg.coverageScore,
+        highwayType:   seg.highwayType,
+        name:          seg.name ?? "",
+      },
+    })),
+  }), [roadSegments])
 
-  // Priority zones — dark areas for pilot routing (high = 0 cameras, medium = 1-3)
-  const priorityZonesGeoJson = useMemo(() => {
-    function parseCellPolygon(poly: string): [number, number][] {
-      return poly.trim().split(/\s+/).map((pair) => {
-        const [lat, lng] = pair.split(",").map(Number)
-        return [lng, lat] as [number, number]
-      })
-    }
-    return {
-      type: "FeatureCollection" as const,
-      features: priorityZones.map((zone) => ({
-        type: "Feature" as const,
-        geometry: {
-          type: "Polygon" as const,
-          coordinates: [parseCellPolygon(zone.polygon)],
-        },
-        properties: { priority: zone.priority, label: zone.label },
-      })),
-    }
-  }, [priorityZones])
+  // Priority roads — uncovered/sparse segments for pilot routing.
+  const priorityRoadsGeoJson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: priorityRoads.map((seg: RoadSegment) => ({
+      type: "Feature" as const,
+      geometry: seg.geometry,
+      properties: {
+        priority:      seg.priority ?? "high",
+        coverageScore: seg.coverageScore,
+        highwayType:   seg.highwayType,
+        name:          seg.name ?? "",
+      },
+    })),
+  }), [priorityRoads])
 
   function closeDispatchModal() {
     setSelectedSwarmDrone(null)
@@ -371,65 +355,45 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
-        {/* Coverage density grid (admin) — 0.1° cells colored by camera count bucket */}
-        {layers.coverage && coverageGridGeoJson.features.length > 0 && (
-          <Source id="coverage-grid" type="geojson" data={coverageGridGeoJson}>
+        {/* Road coverage map — segments colored by camera coverage score */}
+        {layers.coverage && roadCoverageGeoJson.features.length > 0 && (
+          <Source id="road-coverage" type="geojson" data={roadCoverageGeoJson}>
             <Layer
-              id="coverage-grid-fill"
-              type="fill"
-              paint={{
-                "fill-color": [
-                  "match", ["get", "bucket"],
-                  "0",   "#ef4444",   // red   — no cameras
-                  "1-3", "#f59e0b",   // amber — sparse
-                  "4+",  "#22c55e",   // green — well covered
-                  "transparent",
-                ],
-                "fill-opacity": 0.18,
-              }}
-            />
-            <Layer
-              id="coverage-grid-outline"
+              id="road-coverage-line"
               type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-color": [
-                  "match", ["get", "bucket"],
-                  "0",   "#ef4444",
-                  "1-3", "#f59e0b",
-                  "4+",  "#22c55e",
-                  "transparent",
+                  "interpolate", ["linear"], ["get", "coverageScore"],
+                  0, "#ef4444",   // 0 cameras  — red (dark road)
+                  1, "#f97316",   // 1 camera   — orange
+                  2, "#f59e0b",   // 2 cameras  — amber
+                  3, "#84cc16",   // 3 cameras  — lime
+                  4, "#22c55e",   // 4+ cameras — green
                 ],
-                "line-opacity": 0.35,
-                "line-width": 0.5,
+                "line-width": [
+                  "match", ["get", "highwayType"],
+                  "motorway",     5,
+                  "trunk",        4.5,
+                  "primary",      3.5,
+                  "secondary",    2.5,
+                  "tertiary",     2,
+                  "residential",  1.5,
+                  1.5,
+                ],
+                "line-opacity": 0.85,
               }}
             />
           </Source>
         )}
 
-        {/* Priority zones (pilot) — dark zones where pilots should fly first */}
-        {layers.zones && priorityZonesGeoJson.features.length > 0 && (
-          <Source id="priority-zones" type="geojson" data={priorityZonesGeoJson}>
+        {/* Priority roads (pilot) — uncovered/sparse road segments to fly first */}
+        {layers.zones && priorityRoadsGeoJson.features.length > 0 && (
+          <Source id="priority-roads" type="geojson" data={priorityRoadsGeoJson}>
             <Layer
-              id="priority-zones-fill"
-              type="fill"
-              paint={{
-                "fill-color": [
-                  "match", ["get", "priority"],
-                  "high",   "#ef4444",
-                  "medium", "#f97316",
-                  "#ef4444",
-                ],
-                "fill-opacity": [
-                  "match", ["get", "priority"],
-                  "high",   0.30,
-                  "medium", 0.18,
-                  0.18,
-                ],
-              }}
-            />
-            <Layer
-              id="priority-zones-outline"
+              id="priority-roads-glow"
               type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-color": [
                   "match", ["get", "priority"],
@@ -437,24 +401,39 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                   "medium", "#f97316",
                   "#ef4444",
                 ],
-                "line-opacity": 0.6,
-                "line-width": 1,
-                "line-dasharray": [5, 3],
+                "line-width": [
+                  "match", ["get", "highwayType"],
+                  "motorway",  8,
+                  "trunk",     7,
+                  "primary",   6,
+                  "secondary", 5,
+                  4,
+                ],
+                "line-opacity": 0.15,
+                "line-blur": 4,
               }}
             />
             <Layer
-              id="priority-zones-label"
-              type="symbol"
-              layout={{
-                "text-field": ["get", "label"],
-                "text-size": 10,
-                "text-anchor": "center",
-              }}
+              id="priority-roads-line"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "text-color": "#ffffff",
-                "text-opacity": 0.7,
-                "text-halo-color": "#000000",
-                "text-halo-width": 1,
+                "line-color": [
+                  "match", ["get", "priority"],
+                  "high",   "#ef4444",
+                  "medium", "#f97316",
+                  "#ef4444",
+                ],
+                "line-width": [
+                  "match", ["get", "highwayType"],
+                  "motorway",  3.5,
+                  "trunk",     3,
+                  "primary",   2.5,
+                  "secondary", 2,
+                  1.5,
+                ],
+                "line-opacity": 0.9,
+                "line-dasharray": ["step", ["zoom"], ["literal", [6, 3]], 14, ["literal", [4, 2]]],
               }}
             />
           </Source>
@@ -1041,13 +1020,13 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           Legend
         </div>
         {[
-          { color: "#ff6b35", label: "Flock Camera (Deadspace)" },
-          { color: "#ef4444", label: "Dark zone (0 cameras)", square: true },
-          { color: "#f59e0b", label: "Sparse (1–3 cameras)", square: true },
-          { color: "#22c55e", label: "Covered (4+ cameras)", square: true },
+          { color: "#ff6b35", label: "Flock Camera FOV" },
+          { color: "#ef4444", label: "Road — 0 cameras" },
+          { color: "#f97316", label: "Road — 1 camera" },
+          { color: "#f59e0b", label: "Road — 2 cameras" },
+          { color: "#22c55e", label: "Road — 3+ cameras" },
           { color: "#7b61ff", label: "Active Drone" },
-          { color: "#f59e0b", label: "Swarm Drone (home pos)", square: true },
-          { color: "#ef4444", label: "Deadspace (unmonitored)" },
+          { color: "#f59e0b", label: "Swarm Drone (home)", square: true },
           { color: "#ff3355", label: "Watchlist Hit" },
           { color: "#38bdf8", label: "Flight Trail" },
         ].map(({ color, label, square }) => (
