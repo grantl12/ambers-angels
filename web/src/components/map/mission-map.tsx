@@ -113,25 +113,27 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: aircraft = [] }       = useAirTraffic(flockBbox ?? mapViewport)
 
   // Rolling position history for aircraft contrails — keeps last 6 fixes (~6 min at 60s poll)
-  const _acTrailBuf = useRef(new Map<string, [number, number][]>())
-  const [aircraftTrails, setAircraftTrails] = useState(new Map<string, [number, number][]>())
+  // Use Record not Map — 'Map' is shadowed by the react-map-gl import above
+  type AcTrails = Record<string, [number, number][]>
+  const _acTrailBuf = useRef<AcTrails>({})
+  const [aircraftTrails, setAircraftTrails] = useState<AcTrails>({})
   useEffect(() => {
     if (!aircraft.length) return
-    const next = new Map(_acTrailBuf.current)
+    const next: AcTrails = { ..._acTrailBuf.current }
     for (const ac of aircraft) {
-      const prev = next.get(ac.icao24) ?? []
+      const prev = next[ac.icao24] ?? []
       const last = prev[prev.length - 1]
       if (!last || last[0] !== ac.lng || last[1] !== ac.lat) {
-        next.set(ac.icao24, [...prev.slice(-5), [ac.lng, ac.lat]])
+        next[ac.icao24] = [...prev.slice(-5), [ac.lng, ac.lat]]
       }
     }
     _acTrailBuf.current = next
-    setAircraftTrails(new Map(next))
+    setAircraftTrails({ ...next })
   }, [aircraft])
 
   const aircraftTrailsGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
-    features: Array.from(aircraftTrails.entries())
+    features: Object.entries(aircraftTrails)
       .filter(([, pts]) => pts.length >= 2)
       .map(([icao24, pts]) => ({
         type: "Feature" as const,
