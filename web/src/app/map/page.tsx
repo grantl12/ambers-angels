@@ -12,6 +12,7 @@ export type LayerState = {
   coverage: boolean
   zones: boolean
   drones: boolean
+  swarm: boolean
   heat: boolean
   hits: boolean
 }
@@ -22,6 +23,7 @@ export default function MapPage() {
     coverage: true,
     zones: true,
     drones: true,
+    swarm: true,
     heat: true,
     hits: true,
   })

@@ -10,6 +10,7 @@ import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detec
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera, FlockBbox } from "@/features/flock/api"
 import { useFlockCoverageMap, usePriorityZones } from "@/features/coverage/api"
+import { useSwarmDrones, isDroneOnline, dispatchMission, type SwarmDrone } from "@/features/autonomous/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
 
@@ -70,6 +71,17 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [selectedFlock, setSelectedFlock]         = useState<FlockCamera | null>(null)
   const [timeRange, setTimeRange]                 = useState<TimeRange>("all")
 
+  // Swarm dispatch state
+  const [selectedSwarmDrone, setSelectedSwarmDrone] = useState<SwarmDrone | null>(null)
+  const [dispatchAlertId, setDispatchAlertId]       = useState("")
+  const [dispatchLat, setDispatchLat]               = useState("")
+  const [dispatchLng, setDispatchLng]               = useState("")
+  const [dispatchAlt, setDispatchAlt]               = useState(60)
+  const [dispatchSpeed, setDispatchSpeed]           = useState(8)
+  const [dispatching, setDispatching]               = useState(false)
+  const [dispatchError, setDispatchError]           = useState<string | null>(null)
+  const [dispatchSuccess, setDispatchSuccess]       = useState(false)
+
   const { data: drones = [] }        = useLatestTelemetry()
   const { data: trail }              = useTelemetryTrail("drone1", 30)
   const { data: detections = [] }    = useDetectionsFeed(100)
@@ -78,6 +90,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: alertZones = [] }    = useFemaAlerts()
   const { data: coverageCells = [] } = useFlockCoverageMap(flockBbox)
   const { data: priorityZones = [] } = usePriorityZones(flockBbox)
+  const { data: swarmDrones = [] }   = useSwarmDrones()
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -198,6 +211,44 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
       })),
     }
   }, [priorityZones])
+
+  function closeDispatchModal() {
+    setSelectedSwarmDrone(null)
+    setDispatchAlertId("")
+    setDispatchLat("")
+    setDispatchLng("")
+    setDispatchError(null)
+  }
+
+  async function handleDispatch() {
+    if (!selectedSwarmDrone || !dispatchAlertId) return
+    const lat = parseFloat(dispatchLat)
+    const lng = parseFloat(dispatchLng)
+    if (isNaN(lat) || isNaN(lng)) {
+      setDispatchError("Enter a valid latitude and longitude.")
+      return
+    }
+    setDispatching(true)
+    setDispatchError(null)
+    try {
+      await dispatchMission({
+        alert_id: dispatchAlertId,
+        drone_id: selectedSwarmDrone.id,
+        obs_lat: lat,
+        obs_lng: lng,
+        altitude_m: dispatchAlt,
+        speed_mps: dispatchSpeed,
+        operation_mode: "vlos",
+      })
+      closeDispatchModal()
+      setDispatchSuccess(true)
+      setTimeout(() => setDispatchSuccess(false), 4000)
+    } catch (e: unknown) {
+      setDispatchError(e instanceof Error ? e.message : "Dispatch failed.")
+    } finally {
+      setDispatching(false)
+    }
+  }
 
   // Always open on Carrollton, GA — drones appear as markers wherever they are
   const center = { longitude: -85.0766, latitude: 33.5801 }
@@ -483,7 +534,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Popup>
         )}
 
-        {/* Drone markers */}
+        {/* Pilot telemetry drone markers */}
         {layers.drones && drones.map((drone) => (
           <Marker key={drone.droneId} longitude={drone.lng} latitude={drone.lat} anchor="center">
             <div className="relative flex items-center justify-center">
@@ -492,6 +543,66 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
             </div>
           </Marker>
         ))}
+
+        {/* Swarm drone markers (autonomous-capable, parked at home position) */}
+        {layers.swarm && swarmDrones
+          .filter((d) => d.home_lat != null && d.home_lng != null)
+          .map((drone) => {
+            const online = isDroneOnline(drone)
+            return (
+              <Marker
+                key={`swarm-${drone.id}`}
+                longitude={drone.home_lng!}
+                latitude={drone.home_lat!}
+                anchor="center"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation()
+                  setSelectedSwarmDrone(drone)
+                  setSelectedDetection(null)
+                  setSelectedFlock(null)
+                  // Pre-fill obs point from first available alert centroid
+                  const firstAlert = alertZones.find((a) => a.centroidLat != null && a.centroidLng != null)
+                  if (firstAlert?.centroidLat != null && firstAlert?.centroidLng != null) {
+                    setDispatchLat(firstAlert.centroidLat.toFixed(5))
+                    setDispatchLng(firstAlert.centroidLng.toFixed(5))
+                    setDispatchAlertId(String(firstAlert.id))
+                  }
+                }}
+              >
+                <div
+                  title={`${drone.drone_model} · ${drone.pilot_username}${online ? " · Online" : " · Offline"}`}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    background: online ? "rgba(245,158,11,0.15)" : "rgba(107,114,128,0.15)",
+                    border: `2px solid ${online ? "#f59e0b" : "#6b7280"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: 15,
+                    position: "relative",
+                  }}
+                >
+                  🚁
+                  {online && (
+                    <div style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: "#22c55e",
+                      border: "1.5px solid #050a0f",
+                    }} />
+                  )}
+                </div>
+              </Marker>
+            )
+          })
+        }
 
         {/* Detection markers */}
         {layers.hits && mappable.map((detection) => {
@@ -554,6 +665,292 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Popup>
         )}
       </Map>
+
+      {/* ── DISPATCH SUCCESS TOAST ── */}
+      {dispatchSuccess && (
+        <div style={{
+          position: "absolute",
+          top: 60,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 60,
+          background: "rgba(34,197,94,0.12)",
+          border: "1px solid rgba(34,197,94,0.4)",
+          borderRadius: 8,
+          padding: "10px 20px",
+          color: "#4ade80",
+          fontSize: 13,
+          fontWeight: 600,
+          backdropFilter: "blur(8px)",
+          whiteSpace: "nowrap",
+        }}>
+          Mission dispatched — drone will receive waypoint on next sync.
+        </div>
+      )}
+
+      {/* ── SWARM DISPATCH MODAL ── */}
+      {selectedSwarmDrone && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(3px)",
+          }}
+          onClick={closeDispatchModal}
+        >
+          <div
+            style={{
+              background: "#0a0f16",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 10,
+              padding: "20px 24px",
+              width: 380,
+              maxWidth: "calc(100vw - 32px)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>
+                  Swarm Dispatch
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#fff" }}>
+                  {selectedSwarmDrone.drone_model}
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+                  {selectedSwarmDrone.pilot_username} · Drone #{selectedSwarmDrone.id}
+                </div>
+              </div>
+              <button
+                onClick={closeDispatchModal}
+                style={{ fontSize: 18, color: "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Online status */}
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14, fontSize: 12 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                background: isDroneOnline(selectedSwarmDrone) ? "#22c55e" : "#6b7280",
+              }} />
+              <span style={{ color: isDroneOnline(selectedSwarmDrone) ? "#4ade80" : "#9ca3af" }}>
+                {isDroneOnline(selectedSwarmDrone)
+                  ? "Online — ready to receive mission"
+                  : "Offline — heartbeat > 5 min ago. Mission will queue until drone reconnects."}
+              </span>
+            </div>
+
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginBottom: 16 }} />
+
+            {/* Alert picker */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                Alert
+              </label>
+              {alertZones.length === 0 ? (
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
+                  No active alerts. Inject a test alert or wait for a FEMA feed.
+                </div>
+              ) : (
+                <select
+                  value={dispatchAlertId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setDispatchAlertId(id)
+                    const alert = alertZones.find((a) => String(a.id) === id)
+                    if (alert?.centroidLat != null && alert?.centroidLng != null) {
+                      setDispatchLat(alert.centroidLat.toFixed(5))
+                      setDispatchLng(alert.centroidLng.toFixed(5))
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 6,
+                    padding: "7px 10px",
+                    fontSize: 13,
+                    color: "#fff",
+                    outline: "none",
+                  }}
+                >
+                  <option value="">Select alert…</option>
+                  {alertZones.map((a) => (
+                    <option key={a.id} value={String(a.id)}>
+                      {a.headline || a.alertType.toUpperCase()}
+                      {a.area ? ` — ${a.area}` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Observation point */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                Observation Point
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 3 }}>Latitude</div>
+                  <input
+                    type="number"
+                    step="0.00001"
+                    value={dispatchLat}
+                    onChange={(e) => setDispatchLat(e.target.value)}
+                    placeholder="33.5801"
+                    style={{
+                      width: "100%",
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 6,
+                      padding: "6px 8px",
+                      fontSize: 12,
+                      color: "#fff",
+                      boxSizing: "border-box" as const,
+                      outline: "none",
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 3 }}>Longitude</div>
+                  <input
+                    type="number"
+                    step="0.00001"
+                    value={dispatchLng}
+                    onChange={(e) => setDispatchLng(e.target.value)}
+                    placeholder="-85.0766"
+                    style={{
+                      width: "100%",
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 6,
+                      padding: "6px 8px",
+                      fontSize: 12,
+                      color: "#fff",
+                      boxSizing: "border-box" as const,
+                      outline: "none",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Altitude + speed */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                  Altitude (m)
+                </label>
+                <input
+                  type="number"
+                  min={10}
+                  max={120}
+                  value={dispatchAlt}
+                  onChange={(e) => setDispatchAlt(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 6,
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    color: "#fff",
+                    boxSizing: "border-box" as const,
+                    outline: "none",
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                  Speed (m/s)
+                </label>
+                <input
+                  type="number"
+                  min={2}
+                  max={15}
+                  step={0.5}
+                  value={dispatchSpeed}
+                  onChange={(e) => setDispatchSpeed(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 6,
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    color: "#fff",
+                    boxSizing: "border-box" as const,
+                    outline: "none",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Error */}
+            {dispatchError && (
+              <div style={{
+                marginBottom: 12,
+                padding: "8px 12px",
+                background: "rgba(239,68,68,0.1)",
+                border: "1px solid rgba(239,68,68,0.3)",
+                borderRadius: 6,
+                fontSize: 12,
+                color: "#fca5a5",
+              }}>
+                {dispatchError}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={closeDispatchModal}
+                style={{
+                  flex: 1,
+                  padding: "9px 16px",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 6,
+                  color: "rgba(255,255,255,0.55)",
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDispatch}
+                disabled={dispatching || !dispatchAlertId || !dispatchLat || !dispatchLng}
+                style={{
+                  flex: 2,
+                  padding: "9px 16px",
+                  background: "rgba(245,158,11,0.12)",
+                  border: "1px solid rgba(245,158,11,0.35)",
+                  borderRadius: 6,
+                  color: "#f59e0b",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: dispatching ? "wait" : "pointer",
+                  opacity: (!dispatchAlertId || !dispatchLat || !dispatchLng) ? 0.4 : 1,
+                  transition: "opacity 0.15s",
+                }}
+              >
+                {dispatching ? "Dispatching…" : "Dispatch Mission"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── FILTER BAR ── */}
       <div
@@ -649,6 +1046,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           { color: "#f59e0b", label: "Sparse (1–3 cameras)", square: true },
           { color: "#22c55e", label: "Covered (4+ cameras)", square: true },
           { color: "#7b61ff", label: "Active Drone" },
+          { color: "#f59e0b", label: "Swarm Drone (home pos)", square: true },
           { color: "#ef4444", label: "Deadspace (unmonitored)" },
           { color: "#ff3355", label: "Watchlist Hit" },
           { color: "#38bdf8", label: "Flight Trail" },

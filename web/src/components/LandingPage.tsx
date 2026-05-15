@@ -144,8 +144,8 @@ export default function LandingPage() {
             { icon: '📡', title: 'FEMA IPAWS Fires',       body: 'Government-verified alert triggers platform activation automatically' },
             { icon: '📲', title: 'Mission Push Sent',       body: 'Volunteers receive sector assignments based on Flight Priority Zones' },
             { icon: '🔍', title: 'Cascade Inference',       body: 'YOLOv8 + OpenALPR scans every frame for plate, make, model, and color', highlight: true },
-            { icon: '👤', title: 'Human Review',            body: 'Every high-confidence hit reviewed by a coordinator before escalation' },
-            { icon: '🚔', title: 'Law Enforcement Alert',   body: 'Confirmed lead: GPS coordinates + photo sent directly to officers' },
+            { icon: '👤', title: 'Human Review',            body: 'Every high-confidence hit reviewed by a coordinator before any action is taken' },
+            { icon: '🎯', title: 'Lead Confirmed',            body: 'Coordinator-verified sighting — GPS coordinates, photo, and vehicle profile ready for responding teams' },
           ].map(step => (
             <div key={step.title} className={`${s.flowStep}${step.highlight ? ` ${s.stepHighlight}` : ''}`}>
               <div className={s.stepIcon}>{step.icon}</div>
