@@ -197,18 +197,20 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     }
   }, [alertZones])
 
-  // Road coverage map — only segments with no camera coverage (score = 0).
-  // Covered roads stay invisible; coordinators see only the gaps.
+  // Road coverage map — all through-roads, colored by coverage level.
+  // Uncovered roads pop red; covered roads nearly disappear.
   const roadCoverageGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: roadSegments
-      .filter((seg: RoadSegment) =>
-        COVERAGE_ROAD_CLASSES.has(seg.highwayType) && seg.coverageScore === 0
-      )
+      .filter((seg: RoadSegment) => COVERAGE_ROAD_CLASSES.has(seg.highwayType))
       .map((seg: RoadSegment) => ({
         type: "Feature" as const,
         geometry: seg.geometry,
-        properties: { highwayType: seg.highwayType },
+        properties: {
+          // cap at 2 for paint expressions — 2+ all treated as "covered"
+          score:       Math.min(seg.coverageScore, 2),
+          highwayType: seg.highwayType,
+        },
       })),
   }), [roadSegments])
 
@@ -422,7 +424,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
-        {/* Road coverage — uncovered (score=0) through-roads only, single dim red */}
+        {/* Road coverage — full network, color = coverage level.
+            Red = no cameras (gap corridor). Amber = sparse. Blue = covered (faint). */}
         {layers.coverage && roadCoverageGeoJson.features.length > 0 && (
           <Source id="road-coverage" type="geojson" data={roadCoverageGeoJson}>
             <Layer
@@ -430,7 +433,12 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-color": "#ef4444",
+                "line-color": [
+                  "interpolate", ["linear"], ["get", "score"],
+                  0, "#ef4444",  // red   — no cameras, escape corridor
+                  1, "#f59e0b",  // amber — 1 camera, sparse
+                  2, "#38bdf8",  // blue  — 2+ cameras, covered
+                ],
                 "line-width": [
                   "match", ["get", "highwayType"],
                   "motorway", 3,
@@ -438,7 +446,12 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                   "primary",  2,
                   1.5,
                 ],
-                "line-opacity": 0.45,
+                "line-opacity": [
+                  "interpolate", ["linear"], ["get", "score"],
+                  0, 0.65,  // uncovered stands out
+                  1, 0.35,  // sparse, visible but softer
+                  2, 0.12,  // covered nearly invisible — base map shows the road
+                ],
               }}
             />
           </Source>
