@@ -39,7 +39,8 @@ FRAMES_ROOT = os.getenv(
     "FRAMES_ROOT",
     "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates",
 )
-API_URL = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
+API_URL          = os.getenv("API_BASE", "http://127.0.0.1:8000") + "/detections/"
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 
 ALPR_COUNTRY     = os.getenv("ALPR_COUNTRY", "us")
 ALPR_CONFIG      = os.getenv("ALPR_CONFIG_FILE", "/etc/openalpr/openalpr.conf")
@@ -158,7 +159,8 @@ def process_frame(frame_path: str, drone_id: str) -> bool:
         }
 
         try:
-            resp = requests.post(API_URL, json=payload, timeout=5)
+            headers = {"X-Internal-Key": INTERNAL_API_KEY} if INTERNAL_API_KEY else {}
+            resp = requests.post(API_URL, json=payload, timeout=5, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
                 flag = "🚨" if data.get("alert_triggered") else "✅"

@@ -93,6 +93,11 @@ ALTER TABLE autonomous_drones   ADD COLUMN IF NOT EXISTS bvlos_authorized BOOLEA
 ALTER TABLE autonomous_drones   ADD COLUMN IF NOT EXISTS vlos_radius_m    INT     DEFAULT 400;
 CREATE INDEX IF NOT EXISTS autonomous_missions_mode_idx ON autonomous_missions (operation_mode);
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS expo_push_token TEXT;
+CREATE TABLE IF NOT EXISTS processed_alerts (
+    identifier  TEXT PRIMARY KEY,
+    processed_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS processed_alerts_time_idx ON processed_alerts (processed_at);
 """
 
 try:

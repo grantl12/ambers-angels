@@ -17,6 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -55,7 +56,7 @@ from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from services.frame_preprocessor import apply_clahe, enhance_alpr_results
 from routers.read_api import router as read_router
-from routers.auth import router as auth_router
+from routers.auth import router as auth_router, get_current_pilot, require_admin
 from routers.alerts import router as alerts_router
 from routers.autonomous import router as autonomous_router
 
@@ -126,9 +127,18 @@ app.include_router(autonomous_router)
 os.makedirs(GOLDEN_DIR, exist_ok=True)
 app.mount("/frames", StaticFiles(directory=GOLDEN_DIR), name="frames")
 
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+_bearer_optional = HTTPBearer(auto_error=False)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://amberangels.org",
+        "https://www.amberangels.org",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://localhost:19006",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -152,8 +162,8 @@ def read_root():
 
 
 @app.post("/fema/test")
-async def fema_test():
-    """Manually trigger a FEMA IPAWS poll — useful when no live alerts are active."""
+async def fema_test(_: dict = Depends(require_admin)):
+    """Manually trigger a FEMA IPAWS poll — admin only."""
     await poll_fema_ipaws(
         session_factory=database.AsyncSessionLocal,
         webhook_url=os.getenv("ALERT_WEBHOOK_URL", ""),
@@ -229,6 +239,10 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 
+_MAX_FRAME_BYTES = 25 * 1024 * 1024  # 25 MB
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+
+
 @app.post("/ingest/frame")
 async def ingest_frame(
     file: UploadFile = File(...),
@@ -242,6 +256,7 @@ async def ingest_frame(
     pilot_id: Optional[str] = Form(None),
     source: Optional[str] = Form(None),
     detected_at: Optional[str] = Form(None),
+    _pilot: dict = Depends(get_current_pilot),
 ):
     """
     Raw JPEG frame ingestion from native app (DJI SDK or phone camera).
@@ -249,6 +264,9 @@ async def ingest_frame(
     AggregationService → EventService pipeline as the RTMP worker.
     """
     from services.frame_preprocessor import run_alpr as _run_alpr
+
+    if file.content_type and file.content_type.lower() not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=415, detail="Only JPEG, PNG, or WebP frames are accepted.")
 
     ts = datetime.now(timezone.utc)
     if detected_at:
@@ -258,9 +276,13 @@ async def ingest_frame(
         except ValueError:
             pass
 
-    # Read frame bytes once — needed for both OpenALPR (file) and Plate Recognizer (bytes)
     frame_bytes = await file.read()
-    suffix = os.path.splitext(file.filename or "frame.jpg")[1] or ".jpg"
+    if len(frame_bytes) > _MAX_FRAME_BYTES:
+        raise HTTPException(status_code=413, detail="Frame exceeds 25 MB limit.")
+
+    suffix = os.path.splitext(file.filename or "frame.jpg")[1].lower() or ".jpg"
+    if suffix not in (".jpg", ".jpeg", ".png", ".webp"):
+        suffix = ".jpg"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(frame_bytes)
         tmp_path = tmp.name
@@ -398,8 +420,28 @@ async def ingest_frame(
     return {"status": "ok", "outcomes": outcomes, "capture_interval_ms": interval_ms}
 
 
+def _require_worker_or_pilot(
+    request: Request,
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),
+) -> dict:
+    """Allow the local RTMP worker (X-Internal-Key) or any authenticated pilot."""
+    key = request.headers.get("X-Internal-Key", "")
+    if INTERNAL_API_KEY and key == INTERNAL_API_KEY:
+        return {"role": "internal", "sub": "worker"}
+    if creds:
+        try:
+            from routers.auth import _decode_token
+            return _decode_token(creds.credentials)
+        except Exception:
+            pass
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+
 @app.post("/detections/")
-async def create_detection(det: schemas.DetectionCreate):
+async def create_detection(
+    det: schemas.DetectionCreate,
+    _auth: dict = Depends(_require_worker_or_pilot),
+):
     """
     Standard detection endpoint (used by RTMP worker).
     """

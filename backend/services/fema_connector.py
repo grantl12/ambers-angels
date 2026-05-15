@@ -648,7 +648,7 @@ async def _post_discord(webhook_url: str, content: str) -> None:
     if not webhook_url:
         return
     try:
-        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(webhook_url, json={"content": content})
         if resp.status_code not in (200, 204):
             logger.error("Discord returned %s", resp.status_code)
@@ -846,9 +846,36 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Seen-identifier cache
+# Seen-identifier cache  (in-memory + DB-backed so restarts don't re-fire)
 # ---------------------------------------------------------------------------
 _seen_identifiers: set[str] = set()
+
+
+async def _load_seen_identifiers(session_factory) -> None:
+    """Populate _seen_identifiers from DB on startup so restarts don't re-fire old alerts."""
+    async with session_factory() as session:
+        try:
+            rows = await session.execute(
+                text("SELECT identifier FROM processed_alerts WHERE processed_at > NOW() - INTERVAL '24 hours'")
+            )
+            for (ident,) in rows.fetchall():
+                _seen_identifiers.add(ident)
+            logger.info("[FEMA] Loaded %d processed identifiers from DB.", len(_seen_identifiers))
+        except Exception as e:
+            logger.warning("[FEMA] Could not load processed identifiers: %s", e)
+
+
+async def _persist_identifier(session_factory, ident: str) -> None:
+    """Persist a newly-seen identifier so it survives restarts."""
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                text("INSERT INTO processed_alerts (identifier) VALUES (:id) ON CONFLICT DO NOTHING"),
+                {"id": ident},
+            )
+            await session.commit()
+    except Exception as e:
+        logger.warning("[FEMA] Failed to persist identifier %s: %s", ident, e)
 
 
 # ---------------------------------------------------------------------------
@@ -859,7 +886,7 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
     logger.info("Polling IPAWS (%dm lookback)...", FEMA_LOOKBACK_MINUTES)
 
     try:
-        async with httpx.AsyncClient(timeout=15.0, verify=False) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
     except Exception as e:
         logger.error("IPAWS fetch error: %s", e)
@@ -883,6 +910,7 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
         if ident in _seen_identifiers:
             continue
         _seen_identifiers.add(ident)
+        await _persist_identifier(session_factory, ident)
 
         # ── Cancellation ──────────────────────────────────────────────────────
         if alert["msg_type"] == "cancel":
@@ -1051,6 +1079,7 @@ async def check_vehicle_targets(
 async def fema_background_loop(session_factory, webhook_url: Optional[str] = None) -> None:
     logger.info("FEMA connector started. Poll interval: %ds", POLL_INTERVAL_SECONDS)
     logger.info("Monitoring: %s", ", ".join(e["short"] for e in ALERT_REGISTRY))
+    await _load_seen_identifiers(session_factory)
     while True:
         try:
             await poll_fema_ipaws(session_factory, webhook_url)
