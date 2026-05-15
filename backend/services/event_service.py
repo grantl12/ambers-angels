@@ -134,7 +134,7 @@ class EventService:
           - MUST NOT be in cooldown
         """
         async with self.repository.session_factory() as session:
-            rows = await session.execute(text("SELECT plate, vehicle_color, vehicle_type, vehicle_make FROM watchlist"))
+            rows = await session.execute(text("SELECT plate_text, vehicle_color, vehicle_type, vehicle_make FROM watchlist WHERE active = TRUE"))
             watchlist = rows.fetchall()
 
         match_found = False
