@@ -74,6 +74,23 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [selectedAircraft, setSelectedAircraft]   = useState<Aircraft | null>(null)
   const [timeRange, setTimeRange]                 = useState<TimeRange>("all")
 
+  // Viewport bbox — updates as the map pans/zooms; drives coverage queries
+  const [mapViewport, setMapViewport] = useState<FlockBbox | undefined>(undefined)
+
+  // Road class filter for coverage layer
+  const ALL_ROAD_CLASSES = ["motorway", "trunk", "primary", "secondary", "tertiary"] as const
+  type RoadClass = typeof ALL_ROAD_CLASSES[number]
+  const [coverageClasses, setCoverageClasses] = useState<Set<RoadClass>>(
+    new Set(ALL_ROAD_CLASSES)
+  )
+  function toggleRoadClass(cls: RoadClass) {
+    setCoverageClasses((prev) => {
+      const next = new Set(prev)
+      if (next.has(cls)) { if (next.size > 1) next.delete(cls) } else next.add(cls)
+      return next
+    })
+  }
+
   // Swarm dispatch state
   const [selectedSwarmDrone, setSelectedSwarmDrone] = useState<SwarmDrone | null>(null)
   const [dispatchAlertId, setDispatchAlertId]       = useState("")
@@ -89,12 +106,15 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: trail }              = useTelemetryTrail("drone1", 30)
   const { data: detections = [] }    = useDetectionsFeed(100)
   const { data: watchlist = [] }     = useWatchlist()
-  const { data: flockCameras = [] }   = useFlockCameras(flockBbox)
+  // Flock cameras: load from explicit zip search bbox, or viewport when layer is on
+  const { data: flockCameras = [] }   = useFlockCameras(layers.flock ? (flockBbox ?? mapViewport) : undefined)
   const { data: alertZones = [] }     = useFemaAlerts()
-  const { data: roadSegments = [] }   = useRoadCoverage(flockBbox)
-  const { data: priorityRoads = [] }  = usePriorityRoads(flockBbox)
+  // Road coverage: always viewport-driven so panning to a new area shows gaps there
+  const coverageBbox = (layers.coverage || layers.zones) ? mapViewport : undefined
+  const { data: roadSegments = [] }   = useRoadCoverage(coverageBbox)
+  const { data: priorityRoads = [] }  = usePriorityRoads(coverageBbox)
   const { data: swarmDrones = [] }    = useSwarmDrones()
-  const { data: aircraft = [] }       = useAirTraffic(flockBbox)
+  const { data: aircraft = [] }       = useAirTraffic(flockBbox ?? mapViewport)
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -153,39 +173,21 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     }
   }, [alertZones])
 
-  // Deadspace heatmap — built from road segment centroids, weighted by coverage gap.
-  // 0 cameras = weight 1.0 (worst gap), 1–2 = 0.4 (sparse), 3+ invisible.
-  const _HEATMAP_WEIGHT: Record<string, number> = {
-    motorway:  1.0,
-    trunk:     0.95,
-    primary:   0.85,
-    secondary: 0.65,
-    tertiary:  0.4,
-  }
-  const heatmapGeoJson = useMemo(() => ({
-    type: "FeatureCollection" as const,
-    features: roadSegments
-      .filter((seg: RoadSegment) => seg.coverageScore === 0 && seg.highwayType in _HEATMAP_WEIGHT)
-      .map((seg: RoadSegment) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [seg.centroidLng, seg.centroidLat] },
-        properties: { weight: _HEATMAP_WEIGHT[seg.highwayType] },
-      })),
-  }), [roadSegments])
-
-  // Road coverage map — LineString segments colored by camera coverage score.
+  // Road coverage map — LineString segments colored by coverage score, filtered by selected classes.
   const roadCoverageGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
-    features: roadSegments.map((seg: RoadSegment) => ({
-      type: "Feature" as const,
-      geometry: seg.geometry,
-      properties: {
-        coverageScore: seg.coverageScore,
-        highwayType:   seg.highwayType,
-        name:          seg.name ?? "",
-      },
-    })),
-  }), [roadSegments])
+    features: roadSegments
+      .filter((seg: RoadSegment) => coverageClasses.has(seg.highwayType as RoadClass))
+      .map((seg: RoadSegment) => ({
+        type: "Feature" as const,
+        geometry: seg.geometry,
+        properties: {
+          coverageScore: seg.coverageScore,
+          highwayType:   seg.highwayType,
+          name:          seg.name ?? "",
+        },
+      })),
+  }), [roadSegments, coverageClasses])
 
   // Priority roads — uncovered/sparse segments for pilot routing.
   const priorityRoadsGeoJson = useMemo(() => ({
@@ -267,15 +269,28 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
 
   const mappable = detections.filter((d) => d.lat != null && d.lng != null)
 
+  function _updateViewport() {
+    const bounds = mapRef.current?.getBounds()
+    if (bounds) {
+      setMapViewport({
+        south: bounds.getSouth(),
+        north: bounds.getNorth(),
+        west:  bounds.getWest(),
+        east:  bounds.getEast(),
+      })
+    }
+  }
+
   function handleMapLoad() {
+    _updateViewport()
     onMapReady?.({
       flyTo: (lat, lng) => {
-        mapRef.current?.flyTo({ center: [lng, lat], zoom: 16, duration: 1200 })
+        mapRef.current?.flyTo({ center: [lng, lat], zoom: 15, duration: 1200 })
       },
       fitBounds: (bbox) => {
         mapRef.current?.fitBounds(
           [[bbox.west, bbox.south], [bbox.east, bbox.north]],
-          { padding: 60, duration: 1200 }
+          { padding: 60, duration: 1200, maxZoom: 13 }
         )
       },
     })
@@ -290,6 +305,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         mapboxAccessToken={env.mapboxToken}
         style={{ width: "100%", height: "100%" }}
         onLoad={handleMapLoad}
+        onMoveEnd={_updateViewport}
         onClick={() => { setSelectedDetection(null); setSelectedFlock(null); setSelectedAircraft(null) }}
       >
         <NavigationControl position="top-right" />
@@ -467,62 +483,42 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
-        {/* Deadspace heatmap — coverage gaps from Flock, red = unmonitored */}
-        {layers.heat && (
-          <Source id="heatmap" type="geojson" data={heatmapGeoJson}>
-            <Layer
-              id="heatmap-layer"
-              type="heatmap"
-              paint={{
-                "heatmap-weight": ["get", "weight"],
-                "heatmap-intensity": 0.5,
-                "heatmap-radius": 20,
-                "heatmap-opacity": 0.45,
-                "heatmap-color": [
-                  "interpolate", ["linear"], ["heatmap-density"],
-                  0,    "rgba(0,0,0,0)",
-                  0.2,  "rgba(251,191,36,0.25)",
-                  0.5,  "#f59e0b",
-                  0.8,  "#ef4444",
-                  1,    "#b91c1c",
-                ],
-              }}
-            />
-          </Source>
-        )}
-
         {/* Flock camera markers */}
-        {layers.flock && flockCameras.map((cam) => (
-          <Marker
-            key={cam.id}
-            longitude={cam.lng}
-            latitude={cam.lat}
-            anchor="center"
-            onClick={(e) => {
-              e.originalEvent.stopPropagation()
-              setSelectedFlock(cam)
-              setSelectedDetection(null)
-            }}
-          >
-            <div
-              title={cam.id}
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 3,
-                background: "#ff6b35",
-                border: "1.5px solid rgba(255,107,53,0.8)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: 11,
+        {layers.flock && flockCameras.map((cam) => {
+          const verified = !!cam.agency
+          return (
+            <Marker
+              key={cam.id}
+              longitude={cam.lng}
+              latitude={cam.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation()
+                setSelectedFlock(cam)
+                setSelectedDetection(null)
               }}
             >
-              📷
-            </div>
-          </Marker>
-        ))}
+              <div
+                title={verified ? `${cam.agency} · ${cam.id}` : `DeFlock · ${cam.id}`}
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 3,
+                  background: verified ? "#ff6b35" : "transparent",
+                  border: verified ? "1.5px solid rgba(255,107,53,0.9)" : "1.5px solid rgba(255,107,53,0.55)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  fontSize: 10,
+                  opacity: verified ? 1 : 0.7,
+                }}
+              >
+                {verified ? "📷" : "◉"}
+              </div>
+            </Marker>
+          )
+        })}
 
         {/* Flock popup */}
         {selectedFlock && (
@@ -614,7 +610,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         {/* Aircraft markers */}
         {layers.airspace && aircraft.map((ac) => {
           const altFt = ac.altitudeM != null ? ac.altitudeM * 3.281 : null
-          const color = altFt == null ? "#ffffff" : altFt < 500 ? "#ef4444" : altFt < 1500 ? "#f59e0b" : "#ffffff"
+          const color = altFt == null ? "#e2e8f0" : altFt < 500 ? "#ef4444" : altFt < 1500 ? "#f59e0b" : "#e2e8f0"
           const heading = ac.heading ?? 0
           return (
             <Marker
@@ -629,20 +625,24 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                 setSelectedFlock(null)
               }}
             >
-              <div
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 22 22"
+                style={{ transform: `rotate(${heading}deg)`, cursor: "pointer", overflow: "visible", display: "block" }}
                 title={`${ac.callsign ?? ac.icao24}${altFt != null ? ` · ${Math.round(altFt).toLocaleString()} ft` : ""}`}
-                style={{
-                  fontSize: 16,
-                  lineHeight: 1,
-                  cursor: "pointer",
-                  transform: `rotate(${heading}deg)`,
-                  filter: `drop-shadow(0 0 3px ${color})`,
-                  color,
-                  userSelect: "none",
-                }}
               >
-                ✈
-              </div>
+                <filter id={`glow-${ac.icao24}`}>
+                  <feGaussianBlur stdDeviation="1.5" result="blur" />
+                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+                <polygon
+                  points="11,1 18,20 11,15 4,20"
+                  fill={color}
+                  filter={altFt != null && altFt < 1500 ? `url(#glow-${ac.icao24})` : undefined}
+                  opacity={0.92}
+                />
+              </svg>
             </Marker>
           )
         })}
@@ -1097,29 +1097,76 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         ))}
       </div>
 
-      {/* ── DECONFLICT BANNER — hidden on mobile to avoid filter bar collision ── */}
-      <div
-        className="hidden md:flex"
-        style={{
-          position: "absolute",
-          top: 12,
-          right: 52,
-          zIndex: 10,
-          background: "rgba(255,107,53,0.1)",
-          border: "1px solid rgba(255,107,53,0.35)",
-          borderRadius: 6,
-          padding: "7px 12px",
-          fontSize: 11,
-          color: "#ff6b35",
-          alignItems: "center",
-          gap: 7,
-          backdropFilter: "blur(8px)",
-          maxWidth: 220,
-          lineHeight: 1.4,
-        }}
-      >
-        ⚡ Enable Deadspace Planner to surface Flock gaps for coverage planning
-      </div>
+      {/* ── ROAD CLASS FILTER — shown when coverage layer is active ── */}
+      {layers.coverage && (
+        <div
+          className="hidden md:flex"
+          style={{
+            position: "absolute",
+            top: 50,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10,
+            display: "flex",
+            gap: 4,
+            background: "rgba(10,15,22,0.88)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 6,
+            padding: 5,
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          {(["motorway", "trunk", "primary", "secondary", "tertiary"] as RoadClass[]).map((cls) => (
+            <button
+              key={cls}
+              onClick={() => toggleRoadClass(cls)}
+              style={{
+                fontFamily: "inherit",
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "1px",
+                textTransform: "uppercase",
+                padding: "3px 8px",
+                borderRadius: 4,
+                border: "1px solid",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                background: coverageClasses.has(cls) ? "rgba(255,107,53,0.18)" : "transparent",
+                borderColor: coverageClasses.has(cls) ? "rgba(255,107,53,0.55)" : "rgba(255,255,255,0.12)",
+                color: coverageClasses.has(cls) ? "#ff6b35" : "rgba(255,255,255,0.3)",
+              }}
+            >
+              {cls}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── COVERAGE PLANNER HINT ── */}
+      {!layers.flock && (
+        <div
+          className="hidden md:flex"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 52,
+            zIndex: 10,
+            background: "rgba(255,107,53,0.1)",
+            border: "1px solid rgba(255,107,53,0.35)",
+            borderRadius: 6,
+            padding: "7px 12px",
+            fontSize: 11,
+            color: "#ff6b35",
+            alignItems: "center",
+            gap: 7,
+            backdropFilter: "blur(8px)",
+            maxWidth: 220,
+            lineHeight: 1.4,
+          }}
+        >
+          Enable Coverage Planner to load Flock camera positions
+        </div>
+      )}
 
       {/* ── LEGEND ── */}
       <div
@@ -1142,8 +1189,9 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           Legend
         </div>
         {[
-          { color: "#ff6b35", label: "Flock Camera FOV" },
-          { color: "#ef4444", label: "Road — 0 cameras" },
+          { color: "#ff6b35",          label: "Flock (agency-tagged)" },
+          { color: "rgba(255,107,53,0.3)", label: "DeFlock (community)" },
+          { color: "#ef4444", label: "Road — no coverage" },
           { color: "#f97316", label: "Road — 1 camera" },
           { color: "#f59e0b", label: "Road — 2 cameras" },
           { color: "#22c55e", label: "Road — 3+ cameras" },
@@ -1151,8 +1199,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           { color: "#f59e0b", label: "Swarm Drone (home)", square: true },
           { color: "#ff3355", label: "Watchlist Hit" },
           { color: "#38bdf8", label: "Flight Trail" },
-          { color: "#ffffff", label: "Aircraft (ADS-B IN)", square: true },
-          { color: "#ef4444", label: "Aircraft <500 ft", square: true },
+          { color: "#e2e8f0", label: "Aircraft (ADS-B)" },
+          { color: "#ef4444", label: "Aircraft <500 ft" },
         ].map(({ color, label, square }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
             <div style={{ width: 10, height: 10, borderRadius: square ? 2 : "50%", background: color, opacity: square ? 0.7 : 1, flexShrink: 0 }} />

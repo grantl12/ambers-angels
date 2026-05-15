@@ -13,7 +13,6 @@ export type LayerState = {
   zones: boolean
   drones: boolean
   swarm: boolean
-  heat: boolean
   hits: boolean
   airspace: boolean
 }
@@ -25,7 +24,6 @@ export default function MapPage() {
     zones: true,
     drones: true,
     swarm: true,
-    heat: true,
     hits: true,
     airspace: true,
   })
