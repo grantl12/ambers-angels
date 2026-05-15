@@ -630,8 +630,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                 height="22"
                 viewBox="0 0 22 22"
                 style={{ transform: `rotate(${heading}deg)`, cursor: "pointer", overflow: "visible", display: "block" }}
-                title={`${ac.callsign ?? ac.icao24}${altFt != null ? ` · ${Math.round(altFt).toLocaleString()} ft` : ""}`}
               >
+                <title>{`${ac.callsign ?? ac.icao24}${altFt != null ? ` · ${Math.round(altFt).toLocaleString()} ft` : ""}`}</title>
                 <filter id={`glow-${ac.icao24}`}>
                   <feGaussianBlur stdDeviation="1.5" result="blur" />
                   <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
