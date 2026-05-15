@@ -23,11 +23,15 @@ import json
 import math
 from sqlalchemy import text
 
-# Camera effective range in metres (Flock cameras cover roughly 300–500m of road)
-MAX_RANGE_M = 400
+# Camera effective range in metres — Flock cameras influence a road corridor
+# well beyond plate-read range; 800m keeps adjacent roads out while covering
+# the same road across a typical camera spacing interval.
+MAX_RANGE_M = 800
 
-# ±FOV_HALF_DEG from camera heading = effective field of view (total 90°)
-FOV_HALF_DEG = 45
+# ±FOV_HALF_DEG from camera heading (total 160°).
+# Cameras mounted roadside cover the road in both adjacent directions;
+# the wide FOV prevents false negatives from minor heading misalignment.
+FOV_HALF_DEG = 80
 
 # Extra degrees of padding around bbox for coordinator view
 MAP_PAD_DEG = 0.3
@@ -136,8 +140,8 @@ def _fetch_cameras(db, south: float, north: float, west: float, east: float) -> 
         WHERE lat BETWEEN :south AND :north
           AND lng BETWEEN :west  AND :east
     """), {
-        "south": south - _CAM_PAD_DEG, "north": north + _CAM_PAD_DEG,
-        "west":  west  - _CAM_PAD_DEG, "east":  east  + _CAM_PAD_DEG,
+        "south": south - _CAM_PAD_DEG * 2, "north": north + _CAM_PAD_DEG * 2,
+        "west":  west  - _CAM_PAD_DEG * 2, "east":  east  + _CAM_PAD_DEG * 2,
     }).fetchall()
     return [(float(r[0]), float(r[1]), r[2]) for r in rows]
 
