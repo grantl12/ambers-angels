@@ -112,6 +112,34 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: swarmDrones = [] }    = useSwarmDrones()
   const { data: aircraft = [] }       = useAirTraffic(flockBbox ?? mapViewport)
 
+  // Rolling position history for aircraft contrails — keeps last 6 fixes (~6 min at 60s poll)
+  const _acTrailBuf = useRef<Map<string, [number, number][]>>(new Map())
+  const [aircraftTrails, setAircraftTrails] = useState<Map<string, [number, number][]>>(new Map())
+  useEffect(() => {
+    if (!aircraft.length) return
+    const next = new Map(_acTrailBuf.current)
+    for (const ac of aircraft) {
+      const prev = next.get(ac.icao24) ?? []
+      const last = prev[prev.length - 1]
+      if (!last || last[0] !== ac.lng || last[1] !== ac.lat) {
+        next.set(ac.icao24, [...prev.slice(-5), [ac.lng, ac.lat]])
+      }
+    }
+    _acTrailBuf.current = next
+    setAircraftTrails(new Map(next))
+  }, [aircraft])
+
+  const aircraftTrailsGeoJson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: Array.from(aircraftTrails.entries())
+      .filter(([, pts]) => pts.length >= 2)
+      .map(([icao24, pts]) => ({
+        type: "Feature" as const,
+        geometry: { type: "LineString" as const, coordinates: pts },
+        properties: { icao24 },
+      })),
+  }), [aircraftTrails])
+
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
     [watchlist]
@@ -169,19 +197,18 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     }
   }, [alertZones])
 
-  // Road coverage map — LineString segments colored by coverage score, filtered by selected classes.
+  // Road coverage map — only segments with no camera coverage (score = 0).
+  // Covered roads stay invisible; coordinators see only the gaps.
   const roadCoverageGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: roadSegments
-      .filter((seg: RoadSegment) => COVERAGE_ROAD_CLASSES.has(seg.highwayType))
+      .filter((seg: RoadSegment) =>
+        COVERAGE_ROAD_CLASSES.has(seg.highwayType) && seg.coverageScore === 0
+      )
       .map((seg: RoadSegment) => ({
         type: "Feature" as const,
         geometry: seg.geometry,
-        properties: {
-          coverageScore: seg.coverageScore,
-          highwayType:   seg.highwayType,
-          name:          seg.name ?? "",
-        },
+        properties: { highwayType: seg.highwayType },
       })),
   }), [roadSegments])
 
@@ -395,7 +422,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
-        {/* Road coverage map — segments colored by camera coverage score */}
+        {/* Road coverage — uncovered (score=0) through-roads only, single dim red */}
         {layers.coverage && roadCoverageGeoJson.features.length > 0 && (
           <Source id="road-coverage" type="geojson" data={roadCoverageGeoJson}>
             <Layer
@@ -403,77 +430,31 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-color": [
-                  "interpolate", ["linear"], ["get", "coverageScore"],
-                  0, "#ef4444",   // 0 cameras  — red (dark road)
-                  1, "#f97316",   // 1 camera   — orange
-                  2, "#f59e0b",   // 2 cameras  — amber
-                  3, "#84cc16",   // 3 cameras  — lime
-                  4, "#22c55e",   // 4+ cameras — green
-                ],
+                "line-color": "#ef4444",
                 "line-width": [
                   "match", ["get", "highwayType"],
-                  "motorway",     5,
-                  "trunk",        4.5,
-                  "primary",      3.5,
-                  "secondary",    2.5,
-                  "tertiary",     2,
-                  "residential",  1.5,
+                  "motorway", 3,
+                  "trunk",    2.5,
+                  "primary",  2,
                   1.5,
                 ],
-                "line-opacity": 0.85,
+                "line-opacity": 0.45,
               }}
             />
           </Source>
         )}
 
-        {/* Priority roads (pilot) — uncovered/sparse road segments to fly first */}
+        {/* Priority roads (pilot) — uncovered road segments to fly first */}
         {layers.zones && priorityRoadsGeoJson.features.length > 0 && (
           <Source id="priority-roads" type="geojson" data={priorityRoadsGeoJson}>
-            <Layer
-              id="priority-roads-glow"
-              type="line"
-              layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{
-                "line-color": [
-                  "match", ["get", "priority"],
-                  "high",   "#ef4444",
-                  "medium", "#f97316",
-                  "#ef4444",
-                ],
-                "line-width": [
-                  "match", ["get", "highwayType"],
-                  "motorway",  8,
-                  "trunk",     7,
-                  "primary",   6,
-                  "secondary", 5,
-                  4,
-                ],
-                "line-opacity": 0.15,
-                "line-blur": 4,
-              }}
-            />
             <Layer
               id="priority-roads-line"
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-color": [
-                  "match", ["get", "priority"],
-                  "high",   "#ef4444",
-                  "medium", "#f97316",
-                  "#ef4444",
-                ],
-                "line-width": [
-                  "match", ["get", "highwayType"],
-                  "motorway",  3.5,
-                  "trunk",     3,
-                  "primary",   2.5,
-                  "secondary", 2,
-                  1.5,
-                ],
-                "line-opacity": 0.9,
-                "line-dasharray": ["step", ["zoom"], ["literal", [6, 3]], 14, ["literal", [4, 2]]],
+                "line-color": "#f97316",
+                "line-width": 2,
+                "line-opacity": 0.55,
               }}
             />
           </Source>
@@ -602,6 +583,22 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
             )
           })
         }
+
+        {/* Aircraft contrails — fading position history behind each aircraft */}
+        {layers.airspace && aircraftTrailsGeoJson.features.length > 0 && (
+          <Source id="aircraft-trails" type="geojson" data={aircraftTrailsGeoJson}>
+            <Layer
+              id="aircraft-trails-line"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#7dd3fc",
+                "line-width": 1.5,
+                "line-opacity": 0.35,
+              }}
+            />
+          </Source>
+        )}
 
         {/* Aircraft markers — ✈ emoji + rotating direction arrow + age badge */}
         {layers.airspace && aircraft.map((ac) => {
