@@ -113,8 +113,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: aircraft = [] }       = useAirTraffic(flockBbox ?? mapViewport)
 
   // Rolling position history for aircraft contrails — keeps last 6 fixes (~6 min at 60s poll)
-  const _acTrailBuf = useRef<Map<string, [number, number][]>>(new Map())
-  const [aircraftTrails, setAircraftTrails] = useState<Map<string, [number, number][]>>(new Map())
+  const _acTrailBuf = useRef(new Map<string, [number, number][]>())
+  const [aircraftTrails, setAircraftTrails] = useState(new Map<string, [number, number][]>())
   useEffect(() => {
     if (!aircraft.length) return
     const next = new Map(_acTrailBuf.current)
