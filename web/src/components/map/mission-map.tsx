@@ -155,14 +155,21 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
 
   // Deadspace heatmap — built from road segment centroids, weighted by coverage gap.
   // 0 cameras = weight 1.0 (worst gap), 1–2 = 0.4 (sparse), 3+ invisible.
+  const _HEATMAP_WEIGHT: Record<string, number> = {
+    motorway:  1.0,
+    trunk:     0.95,
+    primary:   0.85,
+    secondary: 0.65,
+    tertiary:  0.4,
+  }
   const heatmapGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: roadSegments
-      .filter((seg: RoadSegment) => seg.coverageScore === 0)
+      .filter((seg: RoadSegment) => seg.coverageScore === 0 && seg.highwayType in _HEATMAP_WEIGHT)
       .map((seg: RoadSegment) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [seg.centroidLng, seg.centroidLat] },
-        properties: { weight: 1.0 },
+        properties: { weight: _HEATMAP_WEIGHT[seg.highwayType] },
       })),
   }), [roadSegments])
 
