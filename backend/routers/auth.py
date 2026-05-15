@@ -618,6 +618,60 @@ def logout():
 
 
 # ---------------------------------------------------------------------------
+# Account deletion (required by App Store Guideline 5.1.1(v))
+# ---------------------------------------------------------------------------
+
+@router.delete("/delete-account")
+async def delete_account(payload: dict = Depends(get_current_pilot)):
+    """
+    Permanently delete the calling pilot's account and associated personal data.
+    This is irreversible. The client must discard its JWT after calling this.
+    """
+    username = payload.get("sub") or payload.get("username", "")
+    if not username:
+        raise HTTPException(status_code=400, detail="Cannot identify account from token.")
+
+    async with database.AsyncSessionLocal() as session:
+        try:
+            # Anonymise telemetry (keep flight data, remove identity)
+            await session.execute(
+                text("UPDATE telemetry_points SET pilot_id = NULL WHERE pilot_id = :u"),
+                {"u": username},
+            )
+            # Remove drone registrations and their missions
+            await session.execute(
+                text("""
+                    DELETE FROM autonomous_missions
+                    WHERE drone_id IN (
+                        SELECT id FROM autonomous_drones WHERE pilot_username = :u
+                    )
+                """),
+                {"u": username},
+            )
+            await session.execute(
+                text("DELETE FROM autonomous_drones WHERE pilot_username = :u"),
+                {"u": username},
+            )
+            # Delete the account itself
+            result = await session.execute(
+                text("DELETE FROM pilots WHERE username = :u RETURNING username"),
+                {"u": username},
+            )
+            if not result.fetchone():
+                raise HTTPException(status_code=404, detail="Account not found.")
+            await session.commit()
+            logger.info("Account deleted: %s", username)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            await session.rollback()
+            logger.error("Account deletion failed for %s: %s", username, exc)
+            raise HTTPException(status_code=500, detail="Account deletion failed. Please try again.")
+
+    return {"ok": True, "message": "Account permanently deleted."}
+
+
+# ---------------------------------------------------------------------------
 # Self-service password reset (6-digit code via email)
 # ---------------------------------------------------------------------------
 

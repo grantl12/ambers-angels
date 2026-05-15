@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native"
 import { loadSettings, saveSettings, type AppSettings, type VolunteerMode, DEFAULTS } from "../lib/settings"
-import { setApiBaseUrl, apiGet, apiPatch, apiPost } from "../api/client"
+import { setApiBaseUrl, apiGet, apiPatch, apiPost, apiDelete } from "../api/client"
 import { clearAuth } from "../lib/auth"
 import { fetchMyBadges, type Badge } from "../api/badges"
 
@@ -40,6 +40,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   const [badges, setBadges] = useState<Badge[]>([])
   const [badgesEarned, setBadgesEarned] = useState(0)
   const [badgesTotal, setBadgesTotal] = useState(0)
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   useEffect(() => {
     loadSettings().then(setSettings)
@@ -156,6 +157,37 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
         onPress: async () => { await clearAuth(); onSignOut() },
       },
     ])
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all associated data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete My Account",
+          style: "destructive",
+          onPress: confirmDeleteAccount,
+        },
+      ],
+    )
+  }
+
+  async function confirmDeleteAccount() {
+    setDeletingAccount(true)
+    try {
+      await apiDelete<{ ok: boolean }>("/auth/delete-account")
+      await clearAuth()
+      onSignOut()
+    } catch (e: unknown) {
+      Alert.alert(
+        "Deletion Failed",
+        e instanceof Error ? e.message : "Could not delete account. Please try again or contact info@amberangels.org.",
+      )
+    } finally {
+      setDeletingAccount(false)
+    }
   }
 
   async function handleTest() {
@@ -444,10 +476,21 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
         </TouchableOpacity>
 
         {username && (
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>Signed in as <Text style={styles.accountName}>{username}</Text></Text>
-            <TouchableOpacity onPress={handleSignOut}>
-              <Text style={styles.signOutText}>Sign out</Text>
+          <View style={styles.accountSection}>
+            <View style={styles.accountRow}>
+              <Text style={styles.accountLabel}>Signed in as <Text style={styles.accountName}>{username}</Text></Text>
+              <TouchableOpacity onPress={handleSignOut}>
+                <Text style={styles.signOutText}>Sign out</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={[styles.deleteAccountBtn, deletingAccount && { opacity: 0.5 }]}
+              onPress={handleDeleteAccount}
+              disabled={deletingAccount}
+            >
+              <Text style={styles.deleteAccountText}>
+                {deletingAccount ? "Deleting account…" : "Delete Account"}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -629,15 +672,31 @@ const styles = StyleSheet.create({
   saveBtnSaved:     { backgroundColor: "rgba(34,197,94,0.15)", borderWidth: 1, borderColor: "rgba(34,197,94,0.4)" },
   saveBtnText:      { color: "#060a0f", fontWeight: "800", fontSize: 15 },
   saveBtnTextSaved: { color: "#22c55e" },
+  accountSection: {
+    gap: 8,
+    marginTop: 4,
+  },
   accountRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 16, paddingVertical: 12, marginTop: 4,
+    paddingHorizontal: 16, paddingVertical: 12,
   },
   accountLabel:  { fontSize: 13, color: "rgba(255,255,255,0.4)" },
   accountName:   { color: "rgba(255,255,255,0.7)", fontWeight: "600" },
   signOutText:   { fontSize: 13, color: "#f87171", fontWeight: "600" },
+  deleteAccountBtn: {
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.3)",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  deleteAccountText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "rgba(248,113,113,0.7)",
+  },
   watchChips:    { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
   watchChip: {
     borderWidth: 1,
