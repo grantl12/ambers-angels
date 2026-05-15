@@ -91,6 +91,13 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     })
   }
 
+  // Live clock for aircraft position-age countdown (ticks every second)
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000))
+  useEffect(() => {
+    const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [])
+
   // Swarm dispatch state
   const [selectedSwarmDrone, setSelectedSwarmDrone] = useState<SwarmDrone | null>(null)
   const [dispatchAlertId, setDispatchAlertId]       = useState("")
@@ -607,11 +614,15 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           })
         }
 
-        {/* Aircraft markers */}
+        {/* Aircraft markers — ✈ emoji + rotating direction arrow + age badge */}
         {layers.airspace && aircraft.map((ac) => {
           const altFt = ac.altitudeM != null ? ac.altitudeM * 3.281 : null
-          const color = altFt == null ? "#e2e8f0" : altFt < 500 ? "#ef4444" : altFt < 1500 ? "#f59e0b" : "#e2e8f0"
+          const arrowColor = altFt == null ? "#e2e8f0" : altFt < 500 ? "#ef4444" : altFt < 1500 ? "#f59e0b" : "#7dd3fc"
           const heading = ac.heading ?? 0
+          const ageSec = ac.timePosition != null ? nowSec - ac.timePosition : null
+          const ageLabel = ageSec == null ? null
+            : ageSec < 60 ? `${ageSec}s`
+            : `${Math.floor(ageSec / 60)}m${String(ageSec % 60).padStart(2, "0")}s`
           return (
             <Marker
               key={`ac-${ac.icao24}`}
@@ -625,24 +636,49 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                 setSelectedFlock(null)
               }}
             >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 22 22"
-                style={{ transform: `rotate(${heading}deg)`, cursor: "pointer", overflow: "visible", display: "block" }}
-              >
-                <title>{`${ac.callsign ?? ac.icao24}${altFt != null ? ` · ${Math.round(altFt).toLocaleString()} ft` : ""}`}</title>
-                <filter id={`glow-${ac.icao24}`}>
-                  <feGaussianBlur stdDeviation="1.5" result="blur" />
-                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                </filter>
-                <polygon
-                  points="11,1 18,20 11,15 4,20"
-                  fill={color}
-                  filter={altFt != null && altFt < 1500 ? `url(#glow-${ac.icao24})` : undefined}
-                  opacity={0.92}
-                />
-              </svg>
+              <div style={{ position: "relative", width: 32, height: 32, cursor: "pointer" }}>
+                {/* Directional arrow rotates with heading */}
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 32 32"
+                  style={{ position: "absolute", inset: 0, transform: `rotate(${heading}deg)`, pointerEvents: "none" }}
+                >
+                  <polygon points="16,3 19,14 16,12 13,14" fill={arrowColor} opacity={0.9} />
+                </svg>
+                {/* ✈ stays upright */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  lineHeight: 1,
+                  filter: altFt != null && altFt < 1500 ? `drop-shadow(0 0 4px ${arrowColor})` : undefined,
+                }}>
+                  ✈
+                </div>
+                {/* Age badge below icon */}
+                {ageLabel && (
+                  <div style={{
+                    position: "absolute",
+                    bottom: -11,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    fontSize: 9,
+                    fontFamily: "monospace",
+                    color: ageSec != null && ageSec > 120 ? "#f97316" : "#94a3b8",
+                    whiteSpace: "nowrap",
+                    background: "rgba(0,0,0,0.65)",
+                    borderRadius: 3,
+                    padding: "0 3px",
+                    pointerEvents: "none",
+                  }}>
+                    {ageLabel}
+                  </div>
+                )}
+              </div>
             </Marker>
           )
         })}
@@ -672,6 +708,11 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               {selectedAircraft.heading != null && (
                 <div className="text-neutral-600">
                   Heading: {Math.round(selectedAircraft.heading)}°
+                </div>
+              )}
+              {selectedAircraft.timePosition != null && (
+                <div className="text-neutral-500 text-xs mt-1">
+                  Position: {nowSec - selectedAircraft.timePosition}s ago
                 </div>
               )}
               <div className="mt-1 text-neutral-400 text-xs">{selectedAircraft.icao24}</div>

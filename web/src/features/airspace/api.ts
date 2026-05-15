@@ -10,6 +10,7 @@ export type Aircraft = {
   altitudeM: number | null
   velocityMs: number | null
   heading: number | null
+  timePosition: number | null  // Unix seconds from OpenSky; null when unavailable
 }
 
 function bboxParams(bbox?: FlockBbox): string {
