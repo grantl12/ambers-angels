@@ -472,15 +472,15 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               type="heatmap"
               paint={{
                 "heatmap-weight": ["get", "weight"],
-                "heatmap-intensity": 1.4,
-                "heatmap-radius": 40,
-                "heatmap-opacity": 0.65,
+                "heatmap-intensity": 0.5,
+                "heatmap-radius": 20,
+                "heatmap-opacity": 0.45,
                 "heatmap-color": [
                   "interpolate", ["linear"], ["heatmap-density"],
                   0,    "rgba(0,0,0,0)",
-                  0.15, "rgba(251,191,36,0.3)",
-                  0.4,  "#f59e0b",
-                  0.7,  "#ef4444",
+                  0.2,  "rgba(251,191,36,0.25)",
+                  0.5,  "#f59e0b",
+                  0.8,  "#ef4444",
                   1,    "#b91c1c",
                 ],
               }}
