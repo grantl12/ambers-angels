@@ -37,6 +37,22 @@ Every hour a child is missing, the chances of a safe recovery decline. Amber's A
 
 ---
 
+## Who Joins a Search
+
+Different volunteers can contribute in very different ways — and the platform is built to accommodate all of them.
+
+**Maria** has a phone mount on her car dashboard and ten minutes before her afternoon shift. She opens the app, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs in the background, uploading frames every ten seconds. She covers six miles of surface streets and scans 340 plates without ever opening AA again.
+
+**James** is a Part 107 pilot with a Mavic 3 and an afternoon free. He flies to the reported last-known location, launches, and begins a lawnmower search pattern over a large parking complex. He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server.
+
+**Gilberto** has his Part 107 certification, a Mavic 3, and a BVLOS (Beyond Visual Line of Sight) waiver on file — but today he can't leave. He's home with the kids. He opens the Autonomous Missions screen, powers on the drone in his backyard, and taps **Join Swarm**. The app sends a heartbeat every 30 seconds with his drone's home position. Two miles away, the coordinator sees an amber icon appear on the mission map: *Mavic 3 — Gilberto — online*.
+
+The coordinator selects a coverage gap — a neighborhood with no Flock cameras and no active ground volunteers — and opens the dispatch modal. Because the admin has already recorded Gilberto's BVLOS waiver number and set his drone as BVLOS-authorized, the coordinator can plan a `bvlos_tactical` mission without Gilberto needing to be on-scene. A waypoint is generated at the optimal observation point inside the search polygon. Gilberto's phone shows the pending mission: altitude, speed, and a **Maps link** to the exact destination.
+
+He accepts. The app uploads the waypoint plan to the DJI SDK. The drone takes off, flies autonomously to the observation post, and begins streaming ALPR frames while hovering. Gilberto watches the progress bar from his patio. When the alert is officially cancelled, the coordinator issues a stand-down: the mission is marked aborted, the drone returns home, and Gilberto's kids never even knew it happened.
+
+---
+
 ## You Don't Need a Drone
 
 One of the most important design decisions we made: **the platform works with any camera that can run our mobile app.** You do not need an FAA license, a $1,500 drone, or technical expertise to contribute.
@@ -142,6 +158,40 @@ Monitors all national missing and endangered person alert programs via FEMA IPAW
 - Vehicle profile from FEMA alert text compared against YOLO detections at alert time
 - Partial-profile alerts (no plate found) matched by color + body type via the `vehicle_targets` table
 
+### Autonomous Drone Swarm
+
+The platform's highest-leverage capability: a coordinator dispatches a drone to a specific observation point, and the pilot never has to leave home.
+
+**How it works:**
+
+1. A drone pilot with an FAA Part 107 certification powers on their drone and opens the Autonomous Missions screen. The app begins sending a heartbeat every 30 seconds — GPS coordinates, drone model, and connection status — to the backend.
+
+2. The coordinator sees every online drone on the mission map as an amber icon at its home position. Icons gray out after five minutes of silence (drone offline or app closed).
+
+3. The coordinator selects a drone, selects an active alert polygon, and opens the dispatch modal. The system auto-generates an observation point — typically the centroid of the highest-priority coverage-gap cell within the alert area — but the coordinator can drop a pin anywhere on a road or corridor to override it.
+
+4. A mission is created in `pending` status. The pilot's phone shows a mission card: alert type, operation mode, altitude, speed, and a tappable **Open in Maps** link to the exact destination so the pilot can evaluate the waypoint before accepting.
+
+5. The pilot taps **Accept & Launch**. The app uploads the waypoint plan to the DJI SDK, transitions the mission to `executing`, and the drone departs. A progress bar tracks the flight. The coordinator can monitor drone position in real time on the mission map.
+
+6. When the alert is cancelled — either by the issuing authority via a FEMA CAP Cancel message or manually by a coordinator — the backend automatically aborts any active missions tied to that alert. The pilot is notified and the drone is recalled.
+
+**FAA operational tiers** (enforced at dispatch):
+
+| Mode | Authorization required | Visual requirement |
+|---|---|---|
+| `vlos` | Part 107 standard | Drone must stay within 400m of home position |
+| `bvlos_tactical` | Part 107 BVLOS waiver on file | No visual required — admin records waiver number and sets authorization flag |
+| `bvlos_autonomous` | Part 108 (placeholder) | Same gate as tactical |
+
+The BVLOS authorization gate is hard-enforced at mission creation: the coordinator cannot dispatch a BVLOS mission to a drone unless an admin has explicitly set `bvlos_authorized = true` on that drone's record, confirming a valid FAA waiver number is on file. VLOS missions are additionally radius-checked at planning time — all waypoints must fall within the drone's configured `vlos_radius_m` from its registered home position.
+
+**Why this matters for coverage:**
+
+The Flock Safety fixed-camera network, while extensive, has gaps — neighborhoods, rural roads, and commercial areas with no permanent ALPR coverage. The swarm fills those gaps dynamically, directed by coverage analysis that already runs in the background. Coordinators see the gap; they pick a drone; the drone goes there. No physical presence required from the pilot, no manual flight path planning, no wasted altitude.
+
+This is a direct operational equivalent to Flock Safety's drone product — but built on volunteer hardware, dispatched by volunteer coordinators, and integrated into the same alert pipeline that already handles ingestion, plate matching, and notification.
+
 ### Mission Map
 Live Mapbox dark-mode dashboard:
 - Real-time drone positions with animated markers and flight trail
@@ -240,22 +290,22 @@ Full policies: [Privacy Policy](https://amberangels.org/privacy) · [Terms of Se
 ## Architecture
 
 ```
-Drone (RTMP stream)    Phone Camera (background service)    DJI SDK (phase 2)
+Drone (RTMP stream)    Phone Camera (background service)    DJI SDK (autonomous / direct)
         |                          |                               |
         v                          v                               v
   nginx exec_push          POST /ingest/frame  ←────────── Mobile App (Expo)
-  → JPEG frames/drone/                |
-        |                            |
-        └──── Unified Worker ────────┘
-              (shared frame queue, one process, all sources)
-                            |
-                            v
-              OpenALPR (plate text + confidence)
-              YOLOv8   (body type + color + yolo_conf)
-              Plate Recognizer (make/model, cloud, high-conf only)
-                            |
-                            v
-              AggregationService
+  → JPEG frames/drone/                |                           |
+        |                            |                    POST /autonomous/drones/{id}/heartbeat
+        └──── Unified Worker ────────┘                           |
+              (shared frame queue, one process, all sources)      v
+                            |                           Coordinator Map (web)
+                            v                                     |
+              OpenALPR (plate text + confidence)        POST /autonomous/plan
+              YOLOv8   (body type + color + yolo_conf)            |
+              Plate Recognizer (make/model, cloud, high-conf only) v
+                            |                         Pilot accepts → DJI SDK executes
+                            v                         waypoints → drone flies to obs post
+              AggregationService                               |
                 ├── ALPR composite (max/mean/median + bonuses/penalties)
                 └── YOLO corroboration (color consistency, type consistency, conf signal)
                             |
@@ -281,7 +331,8 @@ FEMA IPAWS Poller (every 5 min, background async task)
         ├── Parses CAP XML for plates + vehicle profile (color, body type, make)
         ├── Watchlist (plate + vehicle profile written together)
         ├── Vehicle targets (color/type/make for no-plate alerts, YOLO-matched)
-        └── Search polygon (for drone proximity warnings + pilot notifications)
+        ├── Search polygon (for drone proximity warnings + pilot notifications)
+        └── CAP Cancel → deactivates watchlist + aborts active swarm missions
 ```
 
 ---
@@ -295,9 +346,13 @@ ambers-angels/
 │   ├── schema.sql                # Database schema + additive migrations
 │   ├── routers/
 │   │   ├── read_api.py           # Dashboard data endpoints + mission management
-│   │   └── auth.py               # Pilot registration, login, approval, profile
+│   │   ├── auth.py               # Pilot registration, login, approval, coordinator requests
+│   │   ├── autonomous.py         # Swarm: drone registry, mission plan/dispatch/status
+│   │   └── alerts.py             # Manual alert resolution + audit log
 │   └── services/
-│       ├── fema_connector.py     # IPAWS polling, vehicle profile parsing, target matching
+│       ├── fema_connector.py     # IPAWS polling, vehicle profile parsing, cancel → abort missions
+│       ├── autonomous_mission_service.py # Mission CRUD, timeout cleanup, status lifecycle
+│       ├── waypoint_generator.py # Observation point generation, VLOS radius check
 │       ├── aggregation_service.py# Composite scoring: ALPR + YOLO corroboration
 │       ├── vehicle_classifier.py # YOLOv8 inference + dominant color extraction
 │       ├── event_service.py      # Watchlist matching + vehicle profile comparison
@@ -323,8 +378,8 @@ ambers-angels/
 │   │   ├── dji-camera/           # DJI MSDK V5 native module (Kotlin, phase 2)
 │   │   └── phone-camera/         # Android Foreground Service for background scanning
 │   └── src/
-│       ├── screens/              # Login, Camera, Map, Feed, Settings
-│       ├── api/                  # Authenticated API client
+│       ├── screens/              # Login, Camera, Map, Feed, Settings, AutonomousMissions
+│       ├── api/                  # Authenticated API client + autonomous mission API
 │       └── lib/                  # Auth (AsyncStorage JWT), settings, polygon math
 ├── worker/
 │   ├── unified_worker.py         # Shared frame queue — handles RTMP + direct frame sources
