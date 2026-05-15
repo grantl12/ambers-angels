@@ -12,6 +12,7 @@ import type { FlockCamera, FlockBbox } from "@/features/flock/api"
 import { useRoadCoverage, usePriorityRoads } from "@/features/coverage/api"
 import type { RoadSegment } from "@/features/coverage/api"
 import { useSwarmDrones, isDroneOnline, dispatchMission, type SwarmDrone } from "@/features/autonomous/api"
+import { useAirTraffic, type Aircraft } from "@/features/airspace/api"
 import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
 
@@ -70,6 +71,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const mapRef = useRef<MapRef>(null)
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null)
   const [selectedFlock, setSelectedFlock]         = useState<FlockCamera | null>(null)
+  const [selectedAircraft, setSelectedAircraft]   = useState<Aircraft | null>(null)
   const [timeRange, setTimeRange]                 = useState<TimeRange>("all")
 
   // Swarm dispatch state
@@ -92,6 +94,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const { data: roadSegments = [] }   = useRoadCoverage(flockBbox)
   const { data: priorityRoads = [] }  = usePriorityRoads(flockBbox)
   const { data: swarmDrones = [] }    = useSwarmDrones()
+  const { data: aircraft = [] }       = useAirTraffic(flockBbox)
 
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
@@ -196,6 +199,28 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     })),
   }), [priorityRoads])
 
+  // Airspace advisory: aircraft within 5 nm (9260 m) of obs point at < 914 m (3000 ft) AGL
+  const _NM5_M = 9260
+  const _FT3000_M = 914
+  function _hvDist(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6_371_000
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+  const nearbyAircraft = useMemo(() => {
+    const lat = parseFloat(dispatchLat)
+    const lng = parseFloat(dispatchLng)
+    if (isNaN(lat) || isNaN(lng)) return []
+    return aircraft.filter(
+      (ac) =>
+        ac.altitudeM != null &&
+        ac.altitudeM < _FT3000_M &&
+        _hvDist(lat, lng, ac.lat, ac.lng) < _NM5_M,
+    )
+  }, [aircraft, dispatchLat, dispatchLng])
+
   function closeDispatchModal() {
     setSelectedSwarmDrone(null)
     setDispatchAlertId("")
@@ -262,7 +287,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         mapboxAccessToken={env.mapboxToken}
         style={{ width: "100%", height: "100%" }}
         onLoad={handleMapLoad}
-        onClick={() => { setSelectedDetection(null); setSelectedFlock(null) }}
+        onClick={() => { setSelectedDetection(null); setSelectedFlock(null); setSelectedAircraft(null) }}
       >
         <NavigationControl position="top-right" />
 
@@ -583,6 +608,74 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           })
         }
 
+        {/* Aircraft markers */}
+        {layers.airspace && aircraft.map((ac) => {
+          const altFt = ac.altitudeM != null ? ac.altitudeM * 3.281 : null
+          const color = altFt == null ? "#ffffff" : altFt < 500 ? "#ef4444" : altFt < 1500 ? "#f59e0b" : "#ffffff"
+          const heading = ac.heading ?? 0
+          return (
+            <Marker
+              key={`ac-${ac.icao24}`}
+              longitude={ac.lng}
+              latitude={ac.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation()
+                setSelectedAircraft(ac)
+                setSelectedDetection(null)
+                setSelectedFlock(null)
+              }}
+            >
+              <div
+                title={`${ac.callsign ?? ac.icao24}${altFt != null ? ` · ${Math.round(altFt).toLocaleString()} ft` : ""}`}
+                style={{
+                  fontSize: 16,
+                  lineHeight: 1,
+                  cursor: "pointer",
+                  transform: `rotate(${heading}deg)`,
+                  filter: `drop-shadow(0 0 3px ${color})`,
+                  color,
+                  userSelect: "none",
+                }}
+              >
+                ✈
+              </div>
+            </Marker>
+          )
+        })}
+
+        {/* Aircraft popup */}
+        {selectedAircraft && (
+          <Popup
+            longitude={selectedAircraft.lng}
+            latitude={selectedAircraft.lat}
+            anchor="top"
+            onClose={() => setSelectedAircraft(null)}
+          >
+            <div className="min-w-[140px] text-sm text-neutral-900">
+              <div className="font-semibold text-base">
+                {selectedAircraft.callsign?.trim() || selectedAircraft.icao24.toUpperCase()}
+              </div>
+              <div className="mt-1 text-neutral-600">
+                Alt: {selectedAircraft.altitudeM != null
+                  ? `${Math.round(selectedAircraft.altitudeM * 3.281).toLocaleString()} ft`
+                  : "unknown"}
+              </div>
+              {selectedAircraft.velocityMs != null && (
+                <div className="text-neutral-600">
+                  Speed: {Math.round(selectedAircraft.velocityMs * 1.944)} kts
+                </div>
+              )}
+              {selectedAircraft.heading != null && (
+                <div className="text-neutral-600">
+                  Heading: {Math.round(selectedAircraft.heading)}°
+                </div>
+              )}
+              <div className="mt-1 text-neutral-400 text-xs">{selectedAircraft.icao24}</div>
+            </div>
+          </Popup>
+        )}
+
         {/* Detection markers */}
         {layers.hits && mappable.map((detection) => {
           const isAlert = watchlistPlates.has((detection.plateText ?? "").toUpperCase())
@@ -875,6 +968,32 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               </div>
             </div>
 
+            {/* Airspace advisory */}
+            {nearbyAircraft.length > 0 && (
+              <div style={{
+                marginBottom: 12,
+                padding: "8px 12px",
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.35)",
+                borderRadius: 6,
+                fontSize: 12,
+                color: "#fca5a5",
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 3 }}>
+                  ✈ {nearbyAircraft.length} aircraft within 5 nm below 3,000 ft
+                </div>
+                {nearbyAircraft.slice(0, 3).map((ac) => (
+                  <div key={ac.icao24} style={{ color: "rgba(252,165,165,0.7)", marginTop: 2 }}>
+                    {ac.callsign ?? ac.icao24} · {ac.altitudeM != null ? `${Math.round(ac.altitudeM * 3.281)} ft` : "—"}
+                    {ac.heading != null ? ` · ${Math.round(ac.heading)}°` : ""}
+                  </div>
+                ))}
+                <div style={{ marginTop: 4, color: "rgba(252,165,165,0.55)", fontSize: 11 }}>
+                  Verify airspace deconfliction before launch.
+                </div>
+              </div>
+            )}
+
             {/* Error */}
             {dispatchError && (
               <div style={{
@@ -1029,6 +1148,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           { color: "#f59e0b", label: "Swarm Drone (home)", square: true },
           { color: "#ff3355", label: "Watchlist Hit" },
           { color: "#38bdf8", label: "Flight Trail" },
+          { color: "#ffffff", label: "Aircraft (ADS-B IN)", square: true },
+          { color: "#ef4444", label: "Aircraft <500 ft", square: true },
         ].map(({ color, label, square }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
             <div style={{ width: 10, height: 10, borderRadius: square ? 2 : "50%", background: color, opacity: square ? 0.7 : 1, flexShrink: 0 }} />

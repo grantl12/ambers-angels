@@ -138,6 +138,7 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
   { key: "swarm",    label: "Swarm Drones",         color: "bg-amber-400" },
   { key: "heat",     label: "Deadspace Heat",        color: "bg-red-500" },
   { key: "hits",     label: "Watchlist Hits",       color: "bg-red-400" },
+  { key: "airspace", label: "Air Traffic",           color: "bg-sky-300" },
 ]
 
 export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFlockSearch }: Props) {

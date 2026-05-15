@@ -10,6 +10,7 @@ GET /detections/feed
 """
 
 import logging
+import time as _time
 from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -1020,3 +1021,96 @@ def clear_test_data():
         return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de}}
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Airspace traffic (ADS-B IN via OpenSky Network)
+# ---------------------------------------------------------------------------
+
+_OPENSKY_URL      = "https://opensky-network.org/api/states/all"
+_AIRSPACE_CACHE: dict[str, tuple[float, list]] = {}
+_AIRSPACE_TTL     = 60.0   # seconds — OpenSky anonymous rate limit is ~10s, we're polite
+
+
+def _resolve_fema_bbox(db) -> dict | None:
+    """Return a bbox covering all active FEMA alert polygons + 0.3° padding."""
+    rows = db.execute(text("""
+        SELECT polygon FROM vehicle_targets
+        WHERE (expires_at IS NULL OR expires_at > NOW())
+          AND polygon IS NOT NULL AND polygon <> ''
+    """)).fetchall()
+    lats, lngs = [], []
+    for (poly,) in rows:
+        for pair in (poly or "").strip().split():
+            try:
+                la, lo = pair.split(",", 1)
+                lats.append(float(la)); lngs.append(float(lo))
+            except Exception:
+                continue
+    if not lats:
+        return None
+    pad = 0.3
+    return {
+        "south": min(lats) - pad, "north": max(lats) + pad,
+        "west":  min(lngs) - pad, "east":  max(lngs) + pad,
+    }
+
+
+@router.get("/airspace/traffic", dependencies=[Depends(get_current_pilot)])
+def get_airspace_traffic(
+    south: Optional[float] = None,
+    north: Optional[float] = None,
+    west:  Optional[float] = None,
+    east:  Optional[float] = None,
+    db = Depends(database.get_db),
+):
+    """
+    Airborne aircraft in the area from OpenSky Network (ADS-B IN).
+    Bbox defaults to active FEMA alert area + padding if not supplied.
+    Results are cached 60 seconds to stay well within OpenSky's rate limits.
+    """
+    if None in (south, north, west, east):
+        bbox = _resolve_fema_bbox(db)
+        if not bbox:
+            # No active alerts — use Carrollton, GA as default view
+            south, north, west, east = 33.45, 33.70, -85.25, -84.95
+        else:
+            south, north, west, east = bbox["south"], bbox["north"], bbox["west"], bbox["east"]
+
+    cache_key = f"{round(south,1)},{round(north,1)},{round(west,1)},{round(east,1)}"
+    cached = _AIRSPACE_CACHE.get(cache_key)
+    if cached and _time.time() - cached[0] < _AIRSPACE_TTL:
+        return cached[1]
+
+    try:
+        resp = _requests.get(
+            _OPENSKY_URL,
+            params={"lamin": south, "lamax": north, "lomin": west, "lomax": east},
+            headers={"User-Agent": "AmberAngels-airspace/1.0"},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        states = resp.json().get("states") or []
+    except Exception as exc:
+        logger.warning("OpenSky fetch failed: %s", exc)
+        # Return stale cache rather than erroring
+        return _AIRSPACE_CACHE.get(cache_key, (0, []))[1]
+
+    aircraft = []
+    for s in states:
+        if len(s) < 11 or s[8]:          # skip on-ground aircraft
+            continue
+        if s[5] is None or s[6] is None:  # skip if no position
+            continue
+        aircraft.append({
+            "icao24":     s[0],
+            "callsign":   (s[1] or "").strip() or None,
+            "lng":        s[5],
+            "lat":        s[6],
+            "altitudeM":  s[7],           # barometric altitude in metres, may be null
+            "velocityMs": s[9],           # ground speed m/s, may be null
+            "heading":    s[10],          # true track degrees 0–360, may be null
+        })
+
+    _AIRSPACE_CACHE[cache_key] = (_time.time(), aircraft)
+    return aircraft
