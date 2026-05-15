@@ -410,8 +410,9 @@ async def _poll_state(
 
         if webhook_url:
             has_target = await _active_vehicle_target_in_state(session_factory, state)
-            for c in new_cases:
-                await _notify_new_case(webhook_url, c, has_vehicle_target=has_target)
+            if has_target:
+                for c in new_cases:
+                    await _notify_new_case(webhook_url, c, has_vehicle_target=True)
 
 
 # ── Background loop ───────────────────────────────────────────────────────────

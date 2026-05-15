@@ -8,6 +8,7 @@ Mission lifecycle:
   → active (drone executing) → completed | aborted | failed
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -21,7 +22,8 @@ from services.waypoint_generator import generate_observation_point
 logger = logging.getLogger(__name__)
 
 VALID_STATUSES = {
-    "pending", "dispatched", "uploading", "active", "completed", "aborted", "failed"
+    "pending", "dispatched", "uploading", "executing", "active",
+    "completed", "aborted", "failed",
 }
 
 
@@ -191,7 +193,7 @@ async def update_mission_status(
     ts_clause = ""
     if status == "dispatched":
         ts_clause = ", dispatched_at = NOW()"
-    elif status == "active":
+    elif status in ("active", "executing"):
         ts_clause = ", started_at = NOW()"
     elif status in ("completed", "aborted", "failed"):
         ts_clause = ", completed_at = NOW()"
@@ -260,3 +262,68 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
         "error_msg":       r[12],
         "operation_mode":  r[13],
     }
+
+
+# ---------------------------------------------------------------------------
+# Timeout cleanup
+# ---------------------------------------------------------------------------
+
+# Missions stuck in pre-flight statuses longer than these thresholds are failed.
+_DISPATCH_TIMEOUT_MINUTES  = 30    # pending/dispatched/uploading
+_ACTIVE_TIMEOUT_HOURS      = 4     # executing/active
+_CLEANUP_INTERVAL_SECONDS  = 300   # run cleanup every 5 minutes
+
+
+async def expire_stale_missions(session_factory) -> int:
+    """
+    Mark stuck missions as failed:
+      - pending/dispatched/uploading for > 30 min (drone never connected)
+      - executing/active for > 4 h (drone lost connection mid-flight)
+
+    Returns count of missions expired.
+    """
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                text("""
+                    UPDATE autonomous_missions
+                    SET status    = 'failed',
+                        error_msg = CASE
+                            WHEN status IN ('pending', 'dispatched', 'uploading')
+                                THEN 'Timed out waiting for drone to connect (30 min)'
+                            ELSE 'Mission exceeded maximum flight duration (4 h)'
+                        END,
+                        completed_at = NOW()
+                    WHERE status IN ('pending', 'dispatched', 'uploading',
+                                     'executing', 'active')
+                      AND (
+                            (status IN ('pending', 'dispatched', 'uploading')
+                             AND created_at < NOW() - INTERVAL '30 minutes')
+                          OR
+                            (status IN ('executing', 'active')
+                             AND started_at < NOW() - INTERVAL '4 hours')
+                      )
+                    RETURNING id, status, error_msg
+                """)
+            )
+            expired = result.fetchall()
+            await session.commit()
+            if expired:
+                logger.warning(
+                    "Expired %d stale mission(s): %s",
+                    len(expired),
+                    [(r[0], r[1]) for r in expired],
+                )
+            return len(expired)
+        except Exception as e:
+            logger.error("Mission timeout cleanup failed: %s", e)
+            await session.rollback()
+            return 0
+
+
+async def mission_timeout_loop(session_factory) -> None:
+    """Background task — runs expire_stale_missions every 5 minutes."""
+    logger.info("[MissionTimeout] Cleanup loop started (interval: %ds)", _CLEANUP_INTERVAL_SECONDS)
+    while True:
+        await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
+        await expire_stale_missions(session_factory)
