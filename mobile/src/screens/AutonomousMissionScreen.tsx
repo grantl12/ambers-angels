@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -285,13 +286,26 @@ export default function AutonomousMissionScreen() {
         <View style={styles.cardMeta}>
           <MetaItem label="Altitude" value={`${item.altitude_m} m AGL`} />
           <MetaItem label="Speed" value={`${item.speed_mps} m/s`} />
-          {item.observation_lat != null && item.observation_lng != null && (
-            <MetaItem
-              label="Post"
-              value={`${item.observation_lat.toFixed(5)}, ${item.observation_lng.toFixed(5)}`}
-            />
-          )}
         </View>
+        {item.observation_lat != null && item.observation_lng != null && (
+          <TouchableOpacity
+            style={styles.mapsLink}
+            onPress={() => {
+              const lat = item.observation_lat!
+              const lng = item.observation_lng!
+              const label = encodeURIComponent('Observation Post')
+              const url = Platform.OS === 'ios'
+                ? `maps://?ll=${lat},${lng}&q=${label}`
+                : `geo:${lat},${lng}?q=${lat},${lng}(${label})`
+              Linking.openURL(url)
+            }}
+          >
+            <Text style={styles.mapsLinkText}>
+              📍 Observation post — {item.observation_lat.toFixed(4)}, {item.observation_lng.toFixed(4)}
+            </Text>
+            <Text style={styles.mapsLinkCta}>Open in Maps →</Text>
+          </TouchableOpacity>
+        )}
 
         {isActive && active ? (
           <View style={styles.progressContainer}>
@@ -526,6 +540,29 @@ const styles = StyleSheet.create({
     color: '#d1d5db',
     fontSize: 13,
     fontWeight: '600',
+  },
+  mapsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0d1f35',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#1a3050',
+  },
+  mapsLinkText: {
+    color: '#93c5fd',
+    fontSize: 12,
+    flex: 1,
+  },
+  mapsLinkCta: {
+    color: '#60a5fa',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   acceptBtn: {
     backgroundColor: '#f59e0b',

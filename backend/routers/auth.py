@@ -578,6 +578,41 @@ def list_coordinator_requests(payload: dict = Depends(require_admin)):
         db.close()
 
 
+@router.post("/deny-coordinator/{username}")
+def deny_coordinator(username: str, _: dict = Depends(require_admin)):
+    """Admin-only: reject a coordinator request and clear the pending flag."""
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("""
+                UPDATE pilots
+                SET coordinator_requested_at = NULL, coordinator_request_reason = NULL
+                WHERE username = :u AND coordinator_requested_at IS NOT NULL
+                  AND role NOT IN ('coordinator', 'admin')
+                RETURNING email, full_name
+            """),
+            {"u": username.lower()},
+        ).fetchone()
+        db.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="No pending coordinator request for this user")
+        _send_email(
+            to=row[0],
+            subject="Coordinator request update — Amber's Angels",
+            body=(
+                f"Hi {row[1] or username},\n\n"
+                "Thank you for your interest in coordinator access on Amber's Angels.\n\n"
+                "At this time, your request has not been approved. You can reapply in the app "
+                "if your situation changes.\n\n"
+                "Your pilot account remains active — you can continue participating in missions.\n\n"
+                "— The Amber's Angels Team"
+            ),
+        )
+        return {"status": "denied", "username": username}
+    finally:
+        db.close()
+
+
 @router.post("/approve-coordinator/{username}")
 def approve_coordinator(username: str, _: dict = Depends(require_admin)):
     """Admin-only: grant coordinator role to a pilot who requested it."""

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { apiGet, apiPatch, apiPost } from "@/lib/api-client"
+import { useRouter } from "next/navigation"
+import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api-client"
 
 type Settings = {
   username: string
@@ -81,9 +82,12 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [settings, setSettings] = useState<Settings>(DEFAULTS)
   const [saved, setSaved] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [deletePhase, setDeletePhase] = useState<"idle" | "confirm" | "deleting">("idle")
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const [currentPw, setCurrentPw]   = useState("")
   const [newPw, setNewPw]           = useState("")
@@ -158,6 +162,20 @@ export default function SettingsPage() {
       alert_scope: settings.alertScope,
       alert_range_miles: settings.alertRangeMiles,
     }).catch(() => { /* not logged in — localStorage already saved */ })
+  }
+
+  async function handleDeleteAccount() {
+    if (deletePhase === "idle") { setDeletePhase("confirm"); return }
+    setDeletePhase("deleting")
+    setDeleteError(null)
+    try {
+      await apiDelete("/auth/delete-account")
+      localStorage.clear()
+      router.replace("/")
+    } catch (e: unknown) {
+      setDeleteError(e instanceof Error ? e.message : "Deletion failed. Try again or contact info@amberangels.org.")
+      setDeletePhase("idle")
+    }
   }
 
   async function requestBrowserNotifs() {
@@ -400,6 +418,41 @@ export default function SettingsPage() {
         >
           {saved ? "Saved!" : "Save Settings"}
         </button>
+
+        {/* Danger zone */}
+        <section className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-red-400">Delete Account</h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              Permanently deletes your account and all personal data. Flight telemetry is anonymized and retained for safety records. This cannot be undone.
+            </p>
+          </div>
+          {deleteError && (
+            <p className="text-xs text-red-400">{deleteError}</p>
+          )}
+          {deletePhase === "confirm" && (
+            <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              Are you sure? Click again to permanently delete your account.
+            </p>
+          )}
+          <div className="flex gap-2">
+            {deletePhase === "confirm" && (
+              <button
+                onClick={() => setDeletePhase("idle")}
+                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/40 hover:text-white/70 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deletePhase === "deleting"}
+              className="rounded-lg border border-red-500/40 px-4 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+            >
+              {deletePhase === "deleting" ? "Deleting…" : deletePhase === "confirm" ? "Yes, delete my account" : "Delete Account"}
+            </button>
+          </div>
+        </section>
       </div>
     </main>
   )

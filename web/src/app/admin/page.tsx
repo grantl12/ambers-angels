@@ -119,6 +119,7 @@ export default function AdminPage() {
   const [coordLoading,    setCoordLoading]    = useState(true)
   const [coordError,      setCoordError]      = useState<string | null>(null)
   const [approvingCoord,  setApprovingCoord]  = useState<string | null>(null)
+  const [denyingCoord,    setDenyingCoord]    = useState<string | null>(null)
 
   // approved pilots + role management
   const [approvedPilots,      setApprovedPilots]      = useState<ApprovedPilot[]>([])
@@ -177,6 +178,19 @@ export default function AdminPage() {
       alert(e instanceof Error ? e.message : "Approval failed.")
     } finally {
       setApprovingCoord(null)
+    }
+  }
+
+  async function denyCoordinator(username: string) {
+    if (!confirm(`Deny coordinator request from @${username}? They'll be emailed and can reapply later.`)) return
+    setDenyingCoord(username)
+    try {
+      await apiPost(`/auth/deny-coordinator/${username}`, {})
+      setCoordRequests((prev) => prev.filter((r) => r.username !== username))
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Denial failed.")
+    } finally {
+      setDenyingCoord(null)
     }
   }
 
@@ -383,13 +397,22 @@ export default function AdminPage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => approveCoordinator(req.username)}
-                    disabled={approvingCoord === req.username}
-                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50 transition-colors shrink-0"
-                  >
-                    {approvingCoord === req.username ? "Approving…" : "Approve as Coordinator"}
-                  </button>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => denyCoordinator(req.username)}
+                      disabled={denyingCoord === req.username || approvingCoord === req.username}
+                      className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-white/40 hover:text-white/70 hover:border-white/20 disabled:opacity-50 transition-colors"
+                    >
+                      {denyingCoord === req.username ? "Denying…" : "Deny"}
+                    </button>
+                    <button
+                      onClick={() => approveCoordinator(req.username)}
+                      disabled={approvingCoord === req.username || denyingCoord === req.username}
+                      className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50 transition-colors"
+                    >
+                      {approvingCoord === req.username ? "Approving…" : "Approve as Coordinator"}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

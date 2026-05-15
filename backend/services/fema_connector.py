@@ -558,6 +558,18 @@ async def _deactivate_by_references(
                 )
                 deactivated.extend(r[0] for r in rows.fetchall())
 
+            # Abort any active autonomous missions tied to these cancelled alerts
+            if references:
+                await session.execute(
+                    text("""
+                        UPDATE autonomous_missions
+                        SET status = 'aborted', completed_at = NOW()
+                        WHERE alert_id = ANY(:refs)
+                          AND status IN ('pending', 'dispatched', 'uploading', 'executing', 'active')
+                    """),
+                    {"refs": references},
+                )
+
             await session.commit()
         except Exception as e:
             logger.error("Alert deactivation failed: %s", e)

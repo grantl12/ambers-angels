@@ -162,7 +162,22 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   function handleDeleteAccount() {
     Alert.alert(
       "Delete Account",
-      "This will permanently delete your account and all associated data. This cannot be undone.",
+      "This will permanently delete your account and personal data, including your profile, drone registrations, and mission history. Flight telemetry is anonymized rather than deleted to maintain safety records. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: confirmDeleteStep2,
+        },
+      ],
+    )
+  }
+
+  function confirmDeleteStep2() {
+    Alert.alert(
+      "Confirm Account Deletion",
+      "Are you sure? Your Amber’s Angels account will be permanently removed.",
       [
         { text: "Cancel", style: "cancel" },
         {
