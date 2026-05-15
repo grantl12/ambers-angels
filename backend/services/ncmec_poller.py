@@ -391,8 +391,8 @@ async def _poll_state(
             logger.info("[NCMEC/%s] %d case(s) resolved: %s",
                         state, len(resolved), [r["name"] for r in resolved])
             last_resolved_at = datetime.now(timezone.utc)
-            if webhook_url:
-                await _notify_resolved(webhook_url, resolved)
+            # Discord notification intentionally skipped for resolved cases —
+            # coordinators don't need a channel pop for every case that ages out.
             for r in resolved:
                 await _push_notify_resolved(session_factory, r)
 

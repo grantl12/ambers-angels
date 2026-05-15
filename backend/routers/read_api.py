@@ -1103,14 +1103,46 @@ def get_airspace_traffic(
         if s[5] is None or s[6] is None:  # skip if no position
             continue
         aircraft.append({
-            "icao24":     s[0],
-            "callsign":   (s[1] or "").strip() or None,
-            "lng":        s[5],
-            "lat":        s[6],
-            "altitudeM":  s[7],           # barometric altitude in metres, may be null
-            "velocityMs": s[9],           # ground speed m/s, may be null
-            "heading":    s[10],          # true track degrees 0–360, may be null
+            "icao24":        s[0],
+            "callsign":      (s[1] or "").strip() or None,
+            "lng":           s[5],
+            "lat":           s[6],
+            "altitudeM":     s[7],   # barometric altitude in metres, may be null
+            "velocityMs":    s[9],   # ground speed m/s, may be null
+            "heading":       s[10],  # true track degrees 0–360, may be null
+            "timePosition":  s[3],   # Unix timestamp of last position update, may be null
         })
 
     _AIRSPACE_CACHE[cache_key] = (_time.time(), aircraft)
     return aircraft
+
+
+# ---------------------------------------------------------------------------
+# NCMEC recent cases feed
+# ---------------------------------------------------------------------------
+
+@router.get("/ncmec/recent", dependencies=[Depends(get_current_pilot)])
+def get_ncmec_recent(limit: int = 40, db=Depends(_sync_db)):
+    rows = db.execute(text("""
+        SELECT guid, name, age_now, state, city, missing_since,
+               poster_url, photo_url, first_seen_at, resolved_at
+        FROM ncmec_cases
+        WHERE last_seen_at > NOW() - INTERVAL '30 days'
+        ORDER BY first_seen_at DESC
+        LIMIT :limit
+    """), {"limit": limit}).fetchall()
+    return [
+        {
+            "guid":        r[0],
+            "name":        r[1],
+            "ageNow":      r[2],
+            "state":       r[3],
+            "city":        r[4],
+            "missingSince": r[5].isoformat() if r[5] else None,
+            "posterUrl":   r[6],
+            "photoUrl":    r[7],
+            "firstSeenAt": r[8].isoformat() if r[8] else None,
+            "resolvedAt":  r[9].isoformat() if r[9] else None,
+        }
+        for r in rows
+    ]
