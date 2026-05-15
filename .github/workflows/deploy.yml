@@ -19,6 +19,8 @@ jobs:
             cd /home/ambers-angels/proj_dir/ambers-angels
             git pull origin main
             cd web
+            # Heal any root-owned files left by manual plink commands
+            sudo chown -R ambers-angels:ambers-angels /home/ambers-angels/proj_dir/ambers-angels/web/.next /home/ambers-angels/proj_dir/ambers-angels/web/node_modules 2>/dev/null || true
             npm ci --prefer-offline
             npm run build
             ~/.local/bin/pm2 restart ambers-angels-web
