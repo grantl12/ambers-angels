@@ -251,7 +251,8 @@ def me(payload: dict = Depends(get_current_pilot)):
             text("""
                 SELECT username, full_name, email, city, status, role, created_at,
                        watch_areas, expo_push_token, notification_prefs,
-                       alert_scope, alert_range_miles, coordinator_requested_at
+                       alert_scope, alert_range_miles, coordinator_requested_at,
+                       sms_number, sms_alerts_enabled
                 FROM pilots WHERE username = :u
             """),
             {"u": payload["sub"]},
@@ -272,6 +273,8 @@ def me(payload: dict = Depends(get_current_pilot)):
             "alertScope":                 row[10] or "local",
             "alertRangeMiles":            row[11] or 25,
             "coordinatorRequestedAt":     row[12].isoformat() if row[12] else None,
+            "smsNumber":                  row[13],
+            "smsAlertsEnabled":           bool(row[14]) if row[14] is not None else False,
         }
     finally:
         db.close()
@@ -427,6 +430,32 @@ def update_alert_prefs(req: AlertPrefsRequest, payload: dict = Depends(get_curre
         )
         db.commit()
         return {"status": "updated"}
+    finally:
+        db.close()
+
+
+import re as _re
+_E164_RE = _re.compile(r"^\+1\d{10}$")
+
+class SmsSettingsRequest(BaseModel):
+    sms_number:        Optional[str]  = None   # E.164 US (+1XXXXXXXXXX) or null to clear
+    sms_alerts_enabled: bool          = False
+
+@router.patch("/me/sms-settings", dependencies=[Depends(require_coordinator)])
+def update_sms_settings(req: SmsSettingsRequest, payload: dict = Depends(get_current_pilot)):
+    num = req.sms_number.strip() if req.sms_number else None
+    if num and not _E164_RE.match(num):
+        raise HTTPException(status_code=400, detail="Phone number must be E.164 US format: +1XXXXXXXXXX")
+    # Disable alerts if number is cleared
+    enabled = req.sms_alerts_enabled and bool(num)
+    db = database.SessionLocal()
+    try:
+        db.execute(
+            text("UPDATE pilots SET sms_number = :num, sms_alerts_enabled = :enabled WHERE username = :u"),
+            {"num": num, "enabled": enabled, "u": payload["sub"]},
+        )
+        db.commit()
+        return {"status": "updated", "sms_number": num, "sms_alerts_enabled": enabled}
     finally:
         db.close()
 

@@ -183,6 +183,24 @@ class AlertDispatcher:
         token  = os.getenv("TWILIO_AUTH_TOKEN", "")
         from_  = os.getenv("TWILIO_FROM", "")
         nums   = [n.strip() for n in os.getenv("SMS_ALERT_NUMBERS", "").split(",") if n.strip()]
+
+        # Also send to coordinators/admins who opted in via the settings UI
+        try:
+            import database
+            from sqlalchemy import text as _text
+            _db = database.SessionLocal()
+            try:
+                rows = _db.execute(_text(
+                    "SELECT sms_number FROM pilots "
+                    "WHERE sms_alerts_enabled = true AND sms_number IS NOT NULL "
+                    "AND role IN ('coordinator', 'admin')"
+                )).fetchall()
+                nums = list({*nums, *(r[0] for r in rows)})
+            finally:
+                _db.close()
+        except Exception as _exc:
+            logger.warning("Could not load coordinator SMS numbers: %s", _exc)
+
         if not all([sid, token, from_, nums]):
             return
 

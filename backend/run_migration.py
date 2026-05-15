@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS road_segments (
     UNIQUE (osm_way_id, osm_segment_idx)
 );
 CREATE INDEX IF NOT EXISTS road_segments_centroid_idx ON road_segments (centroid_lat, centroid_lng);
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS sms_number        TEXT;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN DEFAULT FALSE;
 """
 
 try:

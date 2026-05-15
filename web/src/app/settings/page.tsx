@@ -15,6 +15,14 @@ type Settings = {
   alertRangeMiles: number
 }
 
+type Me = {
+  role?: string
+  alertScope?: string
+  alertRangeMiles?: number
+  smsNumber?: string | null
+  smsAlertsEnabled?: boolean
+}
+
 const DEFAULTS: Settings = {
   username: "Pilot",
   notifBrowser: false,
@@ -75,12 +83,35 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS)
   const [saved, setSaved] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const [currentPw, setCurrentPw]   = useState("")
   const [newPw, setNewPw]           = useState("")
   const [confirmPw, setConfirmPw]   = useState("")
   const [pwStatus, setPwStatus]     = useState<"idle" | "saving" | "ok" | "error">("idle")
   const [pwError, setPwError]       = useState<string | null>(null)
+
+  // SMS alert settings (coordinator/admin only)
+  const [smsNumber, setSmsNumber]           = useState("")
+  const [smsEnabled, setSmsEnabled]         = useState(false)
+  const [smsStatus, setSmsStatus]           = useState<"idle" | "saving" | "ok" | "error">("idle")
+  const [smsError, setSmsError]             = useState<string | null>(null)
+
+  async function handleSaveSms() {
+    setSmsError(null)
+    setSmsStatus("saving")
+    try {
+      await apiPatch("/auth/me/sms-settings", {
+        sms_number: smsNumber.trim() || null,
+        sms_alerts_enabled: smsEnabled,
+      })
+      setSmsStatus("ok")
+      setTimeout(() => setSmsStatus("idle"), 2500)
+    } catch (e: unknown) {
+      setSmsError(e instanceof Error ? e.message : "Failed to save SMS settings")
+      setSmsStatus("error")
+    }
+  }
 
   async function handleChangePassword() {
     setPwError(null)
@@ -100,14 +131,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setSettings(loadSettings())
-    // Hydrate alertScope and alertRangeMiles from the API if logged in
-    apiGet<{ alertScope?: string; alertRangeMiles?: number; role?: string }>("/auth/me")
+    apiGet<Me>("/auth/me")
       .then((me) => {
+        setUserRole(me.role ?? null)
         setSettings((prev) => ({
           ...prev,
           alertScope:      (me.alertScope as "nationwide" | "local") ?? prev.alertScope,
           alertRangeMiles: me.alertRangeMiles ?? prev.alertRangeMiles,
         }))
+        if (me.smsNumber) setSmsNumber(me.smsNumber)
+        if (me.smsAlertsEnabled) setSmsEnabled(me.smsAlertsEnabled)
       })
       .catch(() => { /* not logged in — keep localStorage values */ })
   }, [])
@@ -314,6 +347,47 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+
+        {/* SMS Alerts — coordinator/admin only */}
+        {(userRole === "coordinator" || userRole === "admin") && (
+          <section className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 mb-4">
+            <h2 className="text-xs uppercase tracking-widest text-amber-400/70 mb-1">SMS Alerts</h2>
+            <p className="text-xs text-white/40 mb-4">
+              Receive an SMS when a plate hit crosses the high-confidence threshold. One number per account. US numbers only (+1XXXXXXXXXX).
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-white/70 mb-1">Phone number</label>
+                <input
+                  type="tel"
+                  value={smsNumber}
+                  onChange={(e) => { setSmsNumber(e.target.value); setSmsStatus("idle"); setSmsError(null) }}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-amber-500/60 focus:outline-none font-mono"
+                  placeholder="+12225557890"
+                  maxLength={12}
+                />
+              </div>
+              <NotifRow
+                label="Enable SMS alerts"
+                description="Send a text to the number above on every high-confidence watchlist hit"
+                enabled={smsEnabled}
+                onToggle={() => { setSmsEnabled((v) => !v); setSmsStatus("idle") }}
+              />
+              {smsError && <p className="text-xs text-red-400">{smsError}</p>}
+              <button
+                onClick={handleSaveSms}
+                disabled={smsStatus === "saving"}
+                className={`w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+                  smsStatus === "ok"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30"
+                }`}
+              >
+                {smsStatus === "saving" ? "Saving…" : smsStatus === "ok" ? "Saved!" : "Save SMS settings"}
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Save */}
         <button
