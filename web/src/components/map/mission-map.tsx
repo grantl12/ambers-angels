@@ -158,16 +158,12 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const heatmapGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: roadSegments
-      .map((seg: RoadSegment) => {
-        const weight = seg.coverageScore === 0 ? 1.0 : seg.coverageScore <= 2 ? 0.4 : 0
-        if (weight === 0) return null
-        return {
-          type: "Feature" as const,
-          geometry: { type: "Point" as const, coordinates: [seg.centroidLng, seg.centroidLat] },
-          properties: { weight },
-        }
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null),
+      .filter((seg: RoadSegment) => seg.coverageScore === 0)
+      .map((seg: RoadSegment) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [seg.centroidLng, seg.centroidLat] },
+        properties: { weight: 1.0 },
+      })),
   }), [roadSegments])
 
   // Road coverage map — LineString segments colored by camera coverage score.
