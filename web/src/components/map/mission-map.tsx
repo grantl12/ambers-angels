@@ -77,19 +77,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   // Viewport bbox — updates as the map pans/zooms; drives coverage queries
   const [mapViewport, setMapViewport] = useState<FlockBbox | undefined>(undefined)
 
-  // Road class filter for coverage layer
-  const ALL_ROAD_CLASSES = ["motorway", "trunk", "primary", "secondary", "tertiary"] as const
-  type RoadClass = typeof ALL_ROAD_CLASSES[number]
-  const [coverageClasses, setCoverageClasses] = useState<Set<RoadClass>>(
-    new Set(ALL_ROAD_CLASSES)
-  )
-  function toggleRoadClass(cls: RoadClass) {
-    setCoverageClasses((prev) => {
-      const next = new Set(prev)
-      if (next.has(cls)) { if (next.size > 1) next.delete(cls) } else next.add(cls)
-      return next
-    })
-  }
+  // Through-roads shown in coverage layer — motorway/trunk/primary/secondary only
+  const COVERAGE_ROAD_CLASSES = new Set(["motorway", "trunk", "primary", "secondary"])
 
   // Live clock for aircraft position-age countdown (ticks every second)
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000))
@@ -184,7 +173,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const roadCoverageGeoJson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: roadSegments
-      .filter((seg: RoadSegment) => coverageClasses.has(seg.highwayType as RoadClass))
+      .filter((seg: RoadSegment) => COVERAGE_ROAD_CLASSES.has(seg.highwayType))
       .map((seg: RoadSegment) => ({
         type: "Feature" as const,
         geometry: seg.geometry,
@@ -194,7 +183,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           name:          seg.name ?? "",
         },
       })),
-  }), [roadSegments, coverageClasses])
+  }), [roadSegments])
 
   // Priority roads — uncovered/sparse segments for pilot routing.
   const priorityRoadsGeoJson = useMemo(() => ({
@@ -382,8 +371,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
-        {/* Flock coverage sectors (pie slices oriented by heading) */}
-        {layers.coverage && (
+        {/* Flock coverage sectors (pie slices oriented by heading) — Coverage Planner only */}
+        {layers.flock && (
           <Source id="flock-coverage" type="geojson" data={flockCoverageGeoJson}>
             <Layer
               id="flock-coverage-fill"
@@ -1138,76 +1127,6 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         ))}
       </div>
 
-      {/* ── ROAD CLASS FILTER — shown when coverage layer is active ── */}
-      {layers.coverage && (
-        <div
-          className="hidden md:flex"
-          style={{
-            position: "absolute",
-            top: 50,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10,
-            display: "flex",
-            gap: 4,
-            background: "rgba(10,15,22,0.88)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 6,
-            padding: 5,
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          {(["motorway", "trunk", "primary", "secondary", "tertiary"] as RoadClass[]).map((cls) => (
-            <button
-              key={cls}
-              onClick={() => toggleRoadClass(cls)}
-              style={{
-                fontFamily: "inherit",
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "1px",
-                textTransform: "uppercase",
-                padding: "3px 8px",
-                borderRadius: 4,
-                border: "1px solid",
-                cursor: "pointer",
-                transition: "all 0.15s",
-                background: coverageClasses.has(cls) ? "rgba(255,107,53,0.18)" : "transparent",
-                borderColor: coverageClasses.has(cls) ? "rgba(255,107,53,0.55)" : "rgba(255,255,255,0.12)",
-                color: coverageClasses.has(cls) ? "#ff6b35" : "rgba(255,255,255,0.3)",
-              }}
-            >
-              {cls}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── COVERAGE PLANNER HINT ── */}
-      {!layers.flock && (
-        <div
-          className="hidden md:flex"
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 52,
-            zIndex: 10,
-            background: "rgba(255,107,53,0.1)",
-            border: "1px solid rgba(255,107,53,0.35)",
-            borderRadius: 6,
-            padding: "7px 12px",
-            fontSize: 11,
-            color: "#ff6b35",
-            alignItems: "center",
-            gap: 7,
-            backdropFilter: "blur(8px)",
-            maxWidth: 220,
-            lineHeight: 1.4,
-          }}
-        >
-          Enable Coverage Planner to load Flock camera positions
-        </div>
-      )}
 
       {/* ── LEGEND ── */}
       <div
