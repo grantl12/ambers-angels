@@ -41,7 +41,7 @@ Every hour a child is missing, the chances of a safe recovery decline. Amber's A
 
 Different volunteers can contribute in very different ways — and the platform is built to accommodate all of them.
 
-**Maria** has a phone mount on her car dashboard and ten minutes before her afternoon shift. She opens the app, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs in the background, uploading frames every ten seconds. She covers six miles of surface streets and scans 340 plates without ever opening AA again.
+**Maria** has a phone mount on her car dashboard and a gap before her afternoon shift. She opens the app, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs in the background, uploading frames every ten seconds. She covers six miles of surface streets and scans 340 plates without ever opening AA again.
 
 **James** is a Part 107 pilot with a Mavic 3 and an afternoon free. He flies to the reported last-known location, launches, and begins a lawnmower search pattern over a large parking complex. He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server.
 

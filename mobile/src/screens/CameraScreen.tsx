@@ -320,6 +320,9 @@ export default function CameraScreen() {
           {active && Platform.OS === "android" && (
             <Text style={[styles.hudSub, { color: "#34d399" }]}>running in background</Text>
           )}
+          {active && Platform.OS === "ios" && (settings?.volunteerMode === "phone" || settings?.volunteerMode === "both") && (
+            <Text style={[styles.hudSub, { color: "#fbbf24" }]}>keep this screen open — scanning stops if you switch</Text>
+          )}
           {error && (
             <Text style={[styles.hudSub, { color: "#f87171" }]}>{error}</Text>
           )}

@@ -1,7 +1,8 @@
 /**
- * FeedScreen — live detection event feed, auto-refreshing every 5 seconds.
+ * FeedScreen — live detection event feed with relative timestamps and per-device filter.
  */
 import React, { useCallback, useEffect, useState } from "react"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import {
   FlatList,
   RefreshControl,
@@ -11,6 +12,20 @@ import {
   View,
 } from "react-native"
 import { fetchDetectionsFeed, type Detection } from "../api/detections"
+import { fetchAlertHistory, type AlertHistory } from "../api/alerts"
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function relativeTime(isoStr: string | null | undefined): string {
+  if (!isoStr) return ""
+  const diffSec = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000)
+  if (diffSec < 10)    return "just now"
+  if (diffSec < 3600)  return `${Math.floor(diffSec / 60)}m ago`
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
+  return `${Math.floor(diffSec / 86400)}d ago`
+}
 
 const ALERT_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
   amber:   { label: "AMBER",    bg: "#f59e0b", fg: "#000" },
@@ -22,12 +37,13 @@ const ALERT_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
   ema:     { label: "EMA",      bg: "#d97706", fg: "#000" },
 }
 
+// ---------------------------------------------------------------------------
+// Detection card
+// ---------------------------------------------------------------------------
+
 function DetectionCard({ item }: { item: Detection }) {
-  const isAlert = item.status === "alerted"
+  const isAlert   = item.status === "alerted"
   const alertBadge = item.alertType ? ALERT_BADGE[item.alertType.toLowerCase()] : null
-  const time = item.timestamp
-    ? new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : null
 
   return (
     <View style={[styles.card, isAlert && styles.cardAlert]}>
@@ -73,95 +89,193 @@ function DetectionCard({ item }: { item: Detection }) {
           <Text style={styles.metaText}>{item.confidence.toFixed(0)}%</Text>
         )}
         {item.lat != null && <Text style={styles.metaGps}>GPS</Text>}
-        {time && <Text style={styles.metaText}>{time}</Text>}
+        {item.timestamp && (
+          <Text style={styles.metaTime}>{relativeTime(item.timestamp)}</Text>
+        )}
       </View>
     </View>
   )
 }
 
-type Filter = "all" | "hits"
+// ---------------------------------------------------------------------------
+// Alert history card
+// ---------------------------------------------------------------------------
+
+function HistoryCard({ item }: { item: AlertHistory }) {
+  const alertBadge = item.alertType ? ALERT_BADGE[item.alertType.toLowerCase()] : null
+
+  return (
+    <View style={[styles.card, styles.cardAlert]}>
+      <View style={styles.cardRow}>
+        <Text style={styles.plateAlert}>
+          {item.plate || "—"}
+        </Text>
+        <View style={styles.badgeRow}>
+          {alertBadge && (
+            <View style={[styles.badge, { backgroundColor: alertBadge.bg }]}>
+              <Text style={[styles.badgeText, { color: alertBadge.fg }]}>{alertBadge.label}</Text>
+            </View>
+          )}
+          <View style={[styles.badge, { backgroundColor: "#22c55e" }]}>
+            <Text style={styles.badgeText}>DISPATCHED</Text>
+          </View>
+        </View>
+      </View>
+
+      {(item.vehicleColor || item.vehicleMake || item.vehicleType) && (
+        <Text style={styles.vehicle} numberOfLines={1}>
+          {[item.vehicleColor, item.vehicleMake, item.vehicleType]
+            .filter(Boolean)
+            .join(" ")}
+        </Text>
+      )}
+
+      <View style={styles.meta}>
+        {item.droneId && <Text style={styles.metaText}>{item.droneId}</Text>}
+        {item.confidence != null && item.confidence > 0 && (
+          <Text style={styles.metaText}>{item.confidence.toFixed(0)}%</Text>
+        )}
+        {item.sentAt && (
+          <Text style={styles.metaTime}>{relativeTime(item.sentAt)}</Text>
+        )}
+        {item.channel && (
+          <Text style={styles.metaText}>{item.channel}</Text>
+        )}
+      </View>
+    </View>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
+
+type Filter = "all" | "hits" | "mine" | "history"
 
 export default function FeedScreen() {
-  const [detections, setDetections] = useState<Detection[]>([])
-  const [refreshing, setRefreshing] = useState(false)
-  const [filter, setFilter] = useState<Filter>("all")
+  const [detections,  setDetections]  = useState<Detection[]>([])
+  const [history,     setHistory]     = useState<AlertHistory[]>([])
+  const [refreshing,  setRefreshing]  = useState(false)
+  const [filter,      setFilter]      = useState<Filter>("all")
+  const [myDeviceId,  setMyDeviceId]  = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    try {
-      const data = await fetchDetectionsFeed(50)
-      setDetections(data)
-    } catch {
-      // silently fail — show stale data
-    }
+  useEffect(() => {
+    AsyncStorage.getItem("aa_drone_id").then((id) => setMyDeviceId(id ?? null))
   }, [])
 
-  // Auto-refresh every 5 seconds
+  const loadDetections = useCallback(async () => {
+    try {
+      const data = await fetchDetectionsFeed(100)
+      setDetections(data)
+    } catch { /* show stale */ }
+  }, [])
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const data = await fetchAlertHistory(100)
+      setHistory(data)
+    } catch { /* show stale */ }
+  }, [])
+
+  // Live feed — auto-refresh every 5s
   useEffect(() => {
-    load()
-    const id = setInterval(load, 5000)
+    loadDetections()
+    const id = setInterval(loadDetections, 5000)
     return () => clearInterval(id)
-  }, [load])
+  }, [loadDetections])
+
+  // History — load once on mount, refresh on pull
+  useEffect(() => {
+    loadHistory()
+  }, [loadHistory])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await load()
+    await Promise.all([loadDetections(), loadHistory()])
     setRefreshing(false)
-  }, [load])
+  }, [loadDetections, loadHistory])
 
-  const visible = filter === "hits"
+  const visible: Detection[] = filter === "hits"
     ? detections.filter((d) => d.status === "alerted")
+    : filter === "mine"
+    ? detections.filter((d) => myDeviceId && d.droneId === myDeviceId)
     : detections
 
-  const hitCount = detections.filter((d) => d.status === "alerted").length
+  const hitCount  = detections.filter((d) => d.status === "alerted").length
+  const mineCount = myDeviceId ? detections.filter((d) => d.droneId === myDeviceId).length : 0
+
+  const filters: Array<{ key: Filter; label: string; count?: number; visible: boolean }> = [
+    { key: "all",     label: "All",     count: detections.length,  visible: true },
+    { key: "hits",    label: "Hits",    count: hitCount,           visible: true },
+    { key: "mine",    label: "Mine",    count: mineCount,          visible: !!myDeviceId },
+    { key: "history", label: "Alerts",  count: history.length,     visible: true },
+  ]
 
   return (
     <View style={styles.root}>
       {/* Filter bar */}
       <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={[styles.filterBtn, filter === "all" && styles.filterBtnActive]}
-          onPress={() => setFilter("all")}
-        >
-          <Text style={[styles.filterText, filter === "all" && styles.filterTextActive]}>
-            All  {detections.length > 0 && <Text style={styles.filterCount}>{detections.length}</Text>}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterBtn, filter === "hits" && styles.filterBtnActive]}
-          onPress={() => setFilter("hits")}
-        >
-          <Text style={[styles.filterText, filter === "hits" && styles.filterTextActive]}>
-            Hits  {hitCount > 0 && <Text style={styles.filterCount}>{hitCount}</Text>}
-          </Text>
-        </TouchableOpacity>
+        {filters.filter((f) => f.visible).map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.filterBtn, filter === f.key && styles.filterBtnActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
+              {f.label}
+              {(f.count != null && f.count > 0) ? (
+                <Text style={styles.filterCount}> {f.count}</Text>
+              ) : null}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <FlatList
-        data={visible}
-        keyExtractor={(d) => d.id}
-        renderItem={({ item }) => <DetectionCard item={item} />}
-        contentContainerStyle={[styles.list, visible.length === 0 && styles.listEmpty]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#38bdf8"
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>{filter === "hits" ? "🎯" : "📡"}</Text>
-            <Text style={styles.emptyTitle}>
-              {filter === "hits" ? "No hits yet" : "No detections yet"}
-            </Text>
-            <Text style={styles.emptyHint}>
-              {filter === "hits"
-                ? "Detections that match a watch-list plate will appear here."
-                : "Start a mission on the Camera tab to begin scanning plates."}
-            </Text>
-          </View>
-        }
-      />
+      {filter === "history" ? (
+        <FlatList
+          data={history}
+          keyExtractor={(d) => String(d.id)}
+          renderItem={({ item }) => <HistoryCard item={item} />}
+          contentContainerStyle={[styles.list, history.length === 0 && styles.listEmpty]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyIcon}>📋</Text>
+              <Text style={styles.emptyTitle}>No dispatched alerts</Text>
+              <Text style={styles.emptyHint}>
+                High-confidence watchlist hits that were sent to coordinators will appear here.
+              </Text>
+            </View>
+          }
+        />
+      ) : (
+        <FlatList
+          data={visible}
+          keyExtractor={(d) => d.id}
+          renderItem={({ item }) => <DetectionCard item={item} />}
+          contentContainerStyle={[styles.list, visible.length === 0 && styles.listEmpty]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyIcon}>{filter === "hits" ? "🎯" : filter === "mine" ? "📱" : "📡"}</Text>
+              <Text style={styles.emptyTitle}>
+                {filter === "hits" ? "No hits yet" : filter === "mine" ? "No detections from your device" : "No detections yet"}
+              </Text>
+              <Text style={styles.emptyHint}>
+                {filter === "hits"
+                  ? "Detections matching a watchlist plate will appear here."
+                  : filter === "mine"
+                  ? "Start a mission on the Camera tab to begin scanning."
+                  : "Start a mission on the Camera tab to begin scanning plates."}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   )
 }
@@ -177,7 +291,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.07)",
   },
   filterBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
@@ -190,8 +304,8 @@ const styles = StyleSheet.create({
   filterText:       { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.4)" },
   filterTextActive: { color: "#38bdf8" },
   filterCount:      { fontWeight: "800" },
-  list:       { padding: 12, gap: 8 },
-  listEmpty:  { flex: 1 },
+  list:             { padding: 12, gap: 8 },
+  listEmpty:        { flex: 1 },
   card: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
@@ -199,6 +313,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     gap: 4,
+    marginBottom: 8,
   },
   cardAlert: {
     borderColor: "rgba(239,68,68,0.4)",
@@ -206,8 +321,8 @@ const styles = StyleSheet.create({
   },
   cardRow:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   plate:      { fontFamily: "monospace", fontSize: 17, fontWeight: "700", color: "#fbbf24", letterSpacing: 2 },
-  plateAlert: { color: "#fbbf24" },
-  badgeRow:   { flexDirection: "row", gap: 4 },
+  plateAlert: { fontFamily: "monospace", fontSize: 17, fontWeight: "700", color: "#fbbf24", letterSpacing: 2 },
+  badgeRow:   { flexDirection: "row", gap: 4, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "55%" },
   badge: {
     borderRadius: 4,
     paddingHorizontal: 6,
@@ -215,9 +330,10 @@ const styles = StyleSheet.create({
   },
   badgeText:  { fontSize: 9, fontWeight: "800", letterSpacing: 0.5, color: "#fff" },
   vehicle:    { fontSize: 12, color: "rgba(255,255,255,0.55)", textTransform: "capitalize" },
-  meta:       { flexDirection: "row", gap: 10, marginTop: 2 },
+  meta:       { flexDirection: "row", gap: 10, marginTop: 2, flexWrap: "wrap" },
   metaText:   { fontSize: 11, color: "rgba(255,255,255,0.35)" },
   metaGps:    { fontSize: 11, color: "#34d399", fontWeight: "600" },
+  metaTime:   { fontSize: 11, color: "rgba(255,255,255,0.25)", marginLeft: "auto" },
   emptyWrap: {
     flex: 1,
     alignItems: "center",

@@ -4,6 +4,7 @@ import { Text } from "react-native"
 import CameraScreen from "../screens/CameraScreen"
 import FeedScreen from "../screens/FeedScreen"
 import MapScreen from "../screens/MapScreen"
+import AutonomousMissionScreen from "../screens/AutonomousMissionScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 
 type Props = {
@@ -14,10 +15,11 @@ type Props = {
 const Tab = createBottomTabNavigator()
 
 const ICON: Record<string, string> = {
-  Camera:   "📷",
-  Feed:     "📋",
-  Map:      "🗺",
-  Settings: "⚙️",
+  Camera:    "📷",
+  Feed:      "📋",
+  Map:       "🗺",
+  Missions:  "🚁",
+  Settings:  "⚙️",
 }
 
 export function TabNavigator({ username, onSignOut }: Props) {
@@ -36,9 +38,10 @@ export function TabNavigator({ username, onSignOut }: Props) {
         headerTitleStyle: { fontWeight: "700" },
       })}
     >
-      <Tab.Screen name="Camera"   component={CameraScreen}   options={{ title: "Camera" }} />
-      <Tab.Screen name="Feed"     component={FeedScreen}     options={{ title: "Event Feed" }} />
-      <Tab.Screen name="Map"      component={MapScreen}      options={{ title: "Mission Map" }} />
+      <Tab.Screen name="Camera"   component={CameraScreen}             options={{ title: "Camera" }} />
+      <Tab.Screen name="Feed"     component={FeedScreen}               options={{ title: "Event Feed" }} />
+      <Tab.Screen name="Map"      component={MapScreen}                options={{ title: "Mission Map" }} />
+      <Tab.Screen name="Missions" component={AutonomousMissionScreen}  options={{ title: "Missions" }} />
       <Tab.Screen name="Settings">
         {() => <SettingsScreen username={username} onSignOut={onSignOut} />}
       </Tab.Screen>
