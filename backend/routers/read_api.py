@@ -927,15 +927,18 @@ def create_manual_alert(req: ManualAlertRequest):
                 webhook_url = webhook_url,
             )
 
-        # Kick off flock scraper in background so cameras populate for this zone
+        # Kick off Flock camera scraper + road segment seeder in background.
+        # Both use the same bbox resolution (active FEMA alerts), so they'll
+        # populate data for this new alert zone automatically.
         if polygon_str:
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-            subprocess.Popen(
-                ["python3", "scripts/scrape_flock.py"],
-                cwd=project_root,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            for script in ("scripts/scrape_flock.py", "scripts/seed_road_segments.py"):
+                subprocess.Popen(
+                    ["python3", script],
+                    cwd=project_root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
         return {
             "created":    created,

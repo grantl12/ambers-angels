@@ -21,6 +21,7 @@ import asyncio
 import logging
 import os
 import re
+import subprocess
 import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
@@ -939,6 +940,16 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             profile = alert.get("vehicle_profile", {})
             vdesc = " ".join(filter(None, [profile.get("color"), profile.get("body_type"), profile.get("make")])).title()
             logger.info("Vehicle target stored: %s", vdesc or "profile incomplete")
+            # Seed Flock cameras + road segments for the alert bbox in the background.
+            # Both scripts use active FEMA polygons as their bbox source automatically.
+            _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            for _script in ("scripts/scrape_flock.py", "scripts/seed_road_segments.py"):
+                subprocess.Popen(
+                    ["python3", _script],
+                    cwd=_project_root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
         await _notify_watching_pilots(session_factory, alert)
 
