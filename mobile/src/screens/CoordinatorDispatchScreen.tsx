@@ -1,0 +1,500 @@
+/**
+ * CoordinatorDispatchScreen — mobile-native mission dispatch for coordinators.
+ *
+ * Shows all registered swarm drones with live/stale status. Tap a drone to
+ * open an inline dispatch form: alert picker, observation point, operation
+ * mode, altitude, speed. Mirrors the web map dispatch modal in a list-based
+ * layout optimised for one-handed use on a phone.
+ */
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import {
+  fetchAllDrones,
+  dispatchMission,
+  isDroneOnline,
+  OPERATION_MODE_LABELS,
+  type Drone,
+  type OperationMode,
+} from '../api/autonomous'
+import { fetchFemaAlerts, type FemaAlert } from '../api/fema'
+
+const OPERATION_MODES: OperationMode[] = ['vlos', 'bvlos_tactical']
+
+export default function CoordinatorDispatchScreen() {
+  const [token,     setToken]     = useState<string | null>(null)
+  const [drones,    setDrones]    = useState<Drone[]>([])
+  const [alerts,    setAlerts]    = useState<FemaAlert[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+
+  // Dispatch form state
+  const [selected,  setSelected]  = useState<Drone | null>(null)
+  const [alertId,   setAlertId]   = useState('')
+  const [obsLat,    setObsLat]    = useState('')
+  const [obsLng,    setObsLng]    = useState('')
+  const [mode,      setMode]      = useState<OperationMode>('vlos')
+  const [altitude,  setAltitude]  = useState('60')
+  const [speed,     setSpeed]     = useState('8')
+  const [dispatching, setDispatching] = useState(false)
+  const [successId, setSuccessId] = useState<number | null>(null)
+
+  useEffect(() => {
+    AsyncStorage.getItem('aa_token').then(setToken)
+  }, [])
+
+  const load = useCallback(async () => {
+    if (!token) return
+    setError(null)
+    try {
+      const [droneList, alertList] = await Promise.all([
+        fetchAllDrones(token),
+        fetchFemaAlerts(),
+      ])
+      setDrones(droneList)
+      setAlerts(alertList)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load data.')
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (token) load()
+  }, [token, load])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await load()
+    setRefreshing(false)
+  }, [load])
+
+  function selectDrone(drone: Drone) {
+    setSelected((prev) => prev?.id === drone.id ? null : drone)
+    setAlertId('')
+    setObsLat('')
+    setObsLng('')
+    setMode('vlos')
+    setSuccessId(null)
+  }
+
+  function pickAlert(id: string) {
+    setAlertId(id)
+    const a = alerts.find((a) => String(a.id) === id)
+    if (a?.centroidLat != null && a?.centroidLng != null) {
+      setObsLat(a.centroidLat.toFixed(5))
+      setObsLng(a.centroidLng.toFixed(5))
+    }
+  }
+
+  async function handleDispatch() {
+    if (!token || !selected || !alertId) return
+    const lat = parseFloat(obsLat)
+    const lng = parseFloat(obsLng)
+    const alt = parseFloat(altitude)
+    const spd = parseFloat(speed)
+    if (isNaN(lat) || isNaN(lng)) {
+      Alert.alert('Missing location', 'Enter a valid latitude and longitude for the observation post.')
+      return
+    }
+    if (mode === 'bvlos_tactical' && !selected.bvlos_authorized) {
+      Alert.alert('Not authorized', 'This drone does not have a BVLOS waiver on file. An admin must set authorization before BVLOS dispatch.')
+      return
+    }
+    setDispatching(true)
+    try {
+      const res = await dispatchMission(token, {
+        alert_id:       alertId,
+        drone_id:       selected.id,
+        obs_lat:        lat,
+        obs_lng:        lng,
+        altitude_m:     isNaN(alt) ? 60 : alt,
+        speed_mps:      isNaN(spd) ? 8  : spd,
+        operation_mode: mode,
+      })
+      setSuccessId(res.id)
+      setSelected(null)
+    } catch (e: unknown) {
+      Alert.alert('Dispatch failed', e instanceof Error ? e.message : 'Could not create mission.')
+    } finally {
+      setDispatching(false)
+    }
+  }
+
+  if (!token) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Not authenticated.</Text>
+      </View>
+    )
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color="#f59e0b" size="large" />
+      </View>
+    )
+  }
+
+  const onlineDrones  = drones.filter(isDroneOnline)
+  const offlineDrones = drones.filter((d) => !isDroneOnline(d))
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f59e0b" />}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Success toast */}
+        {successId != null && (
+          <View style={styles.successBanner}>
+            <Text style={styles.successText}>
+              Mission #{successId} dispatched — drone will receive waypoint on next sync.
+            </Text>
+          </View>
+        )}
+
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Drone list */}
+        <Text style={styles.sectionLabel}>Swarm Drones</Text>
+
+        {drones.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>No drones registered. Pilots register their drone via the Missions tab.</Text>
+          </View>
+        )}
+
+        {[...onlineDrones, ...offlineDrones].map((drone) => {
+          const online    = isDroneOnline(drone)
+          const isSelected = selected?.id === drone.id
+          const ageMin    = drone.last_seen_at
+            ? Math.floor((Date.now() - new Date(drone.last_seen_at).getTime()) / 60000)
+            : null
+
+          return (
+            <TouchableOpacity
+              key={drone.id}
+              style={[styles.droneCard, isSelected && styles.droneCardSelected]}
+              onPress={() => selectDrone(drone)}
+              activeOpacity={0.75}
+            >
+              <View style={styles.droneRow}>
+                <Text style={styles.droneEmoji}>🚁</Text>
+                <View style={styles.droneInfo}>
+                  <Text style={styles.droneModel}>{drone.drone_model}</Text>
+                  <Text style={styles.dronePilot}>{drone.pilot_username}</Text>
+                </View>
+                <View style={styles.droneStatus}>
+                  <View style={[styles.statusDot, online ? styles.dotOnline : styles.dotOffline]} />
+                  <Text style={[styles.statusText, online ? styles.statusOnline : styles.statusOffline]}>
+                    {online ? 'Online' : ageMin != null ? `${ageMin}m ago` : 'Never'}
+                  </Text>
+                </View>
+              </View>
+              {drone.bvlos_authorized && (
+                <View style={styles.bvlosChip}>
+                  <Text style={styles.bvlosChipText}>BVLOS</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )
+        })}
+
+        {/* Dispatch form — shown when a drone is selected */}
+        {selected && (
+          <View style={styles.dispatchBox}>
+            <Text style={styles.dispatchTitle}>
+              Dispatch — {selected.drone_model}
+            </Text>
+
+            {/* Alert picker */}
+            <Text style={styles.fieldLabel}>Active Alert</Text>
+            {alerts.length === 0 ? (
+              <Text style={styles.fieldHint}>No active alerts. Inject a test alert or wait for FEMA feed.</Text>
+            ) : (
+              <View style={styles.alertList}>
+                {alerts.map((a) => (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={[styles.alertChip, String(a.id) === alertId && styles.alertChipSelected]}
+                    onPress={() => pickAlert(String(a.id))}
+                  >
+                    <Text style={[styles.alertChipType, String(a.id) === alertId && styles.alertChipTypeSelected]}>
+                      {a.alertType.toUpperCase()}
+                    </Text>
+                    <Text style={[styles.alertChipText, String(a.id) === alertId && styles.alertChipTextSelected]} numberOfLines={1}>
+                      {a.headline || a.area || 'Alert'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Observation point */}
+            <Text style={styles.fieldLabel}>Observation Post</Text>
+            <Text style={styles.fieldHint}>Auto-filled from alert centroid. Override by entering coordinates.</Text>
+            <View style={styles.coordRow}>
+              <View style={styles.coordField}>
+                <Text style={styles.coordLabel}>Latitude</Text>
+                <TextInput
+                  style={styles.input}
+                  value={obsLat}
+                  onChangeText={setObsLat}
+                  placeholder="33.58010"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.coordField}>
+                <Text style={styles.coordLabel}>Longitude</Text>
+                <TextInput
+                  style={styles.input}
+                  value={obsLng}
+                  onChangeText={setObsLng}
+                  placeholder="-85.0766"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            {/* Operation mode */}
+            <Text style={styles.fieldLabel}>Operation Mode</Text>
+            <View style={styles.modeRow}>
+              {OPERATION_MODES.map((m) => {
+                const locked = m === 'bvlos_tactical' && !selected.bvlos_authorized
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      styles.modeBtn,
+                      mode === m && styles.modeBtnActive,
+                      locked && styles.modeBtnLocked,
+                    ]}
+                    onPress={() => !locked && setMode(m)}
+                    disabled={locked}
+                  >
+                    <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive, locked && styles.modeBtnTextLocked]}>
+                      {m === 'vlos' ? 'VLOS' : 'BVLOS Tactical'}
+                    </Text>
+                    {locked && (
+                      <Text style={styles.modeLockHint}>waiver required</Text>
+                    )}
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+
+            {/* Altitude + speed */}
+            <View style={styles.coordRow}>
+              <View style={styles.coordField}>
+                <Text style={styles.coordLabel}>Altitude (m AGL)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={altitude}
+                  onChangeText={setAltitude}
+                  keyboardType="numeric"
+                  placeholder="60"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                />
+              </View>
+              <View style={styles.coordField}>
+                <Text style={styles.coordLabel}>Speed (m/s)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={speed}
+                  onChangeText={setSpeed}
+                  keyboardType="numeric"
+                  placeholder="8"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                />
+              </View>
+            </View>
+
+            {/* Dispatch button */}
+            <TouchableOpacity
+              style={[
+                styles.dispatchBtn,
+                (!alertId || !obsLat || !obsLng || dispatching) && styles.dispatchBtnDisabled,
+              ]}
+              onPress={handleDispatch}
+              disabled={!alertId || !obsLat || !obsLng || dispatching}
+            >
+              {dispatching
+                ? <ActivityIndicator color="#050a0f" size="small" />
+                : <Text style={styles.dispatchBtnText}>Dispatch Mission</Text>
+              }
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelected(null)}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
+  )
+}
+
+const styles = StyleSheet.create({
+  root:    { flex: 1, backgroundColor: '#050a0f' },
+  center:  { flex: 1, backgroundColor: '#050a0f', alignItems: 'center', justifyContent: 'center' },
+  scroll:  { padding: 16, gap: 10 },
+
+  successBanner: {
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.35)',
+    borderRadius: 8, padding: 12, marginBottom: 4,
+  },
+  successText: { color: '#4ade80', fontSize: 13, fontWeight: '600' },
+
+  errorBanner: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
+    borderRadius: 8, padding: 12, marginBottom: 4,
+  },
+  errorBannerText: { color: '#f87171', fontSize: 13 },
+  errorText:       { color: '#f87171', fontSize: 14 },
+
+  sectionLabel: {
+    fontSize: 10, fontWeight: '800', letterSpacing: 2,
+    color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase',
+    marginTop: 4, marginBottom: 8,
+  },
+
+  emptyBox: {
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10, padding: 20, alignItems: 'center',
+  },
+  emptyText: { color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', lineHeight: 20 },
+
+  droneCard: {
+    backgroundColor: '#0d1117',
+    borderRadius: 10, borderWidth: 1, borderColor: '#1a2332',
+    padding: 14, marginBottom: 8,
+  },
+  droneCardSelected: {
+    borderColor: '#f59e0b',
+    backgroundColor: 'rgba(245,158,11,0.06)',
+  },
+  droneRow:   { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  droneEmoji: { fontSize: 24 },
+  droneInfo:  { flex: 1 },
+  droneModel: { fontSize: 15, fontWeight: '700', color: '#e2e8f0' },
+  dronePilot: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 1 },
+  droneStatus: { alignItems: 'flex-end', gap: 3 },
+  statusDot:  { width: 8, height: 8, borderRadius: 4 },
+  dotOnline:  { backgroundColor: '#22c55e' },
+  dotOffline: { backgroundColor: '#6b7280' },
+  statusText: { fontSize: 11, fontWeight: '600' },
+  statusOnline:  { color: '#4ade80' },
+  statusOffline: { color: '#9ca3af' },
+  bvlosChip: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    backgroundColor: 'rgba(192,132,252,0.12)',
+    borderWidth: 1, borderColor: 'rgba(192,132,252,0.35)',
+    borderRadius: 4, paddingHorizontal: 7, paddingVertical: 2,
+  },
+  bvlosChipText: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#c084fc' },
+
+  dispatchBox: {
+    marginTop: 8,
+    backgroundColor: '#0a0f1a',
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)',
+    borderRadius: 12, padding: 18, gap: 4,
+  },
+  dispatchTitle: {
+    fontSize: 14, fontWeight: '700', color: '#f59e0b',
+    marginBottom: 12, letterSpacing: 0.3,
+  },
+
+  fieldLabel: {
+    fontSize: 10, fontWeight: '800', letterSpacing: 2,
+    color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase',
+    marginTop: 12, marginBottom: 4,
+  },
+  fieldHint: {
+    fontSize: 11, color: 'rgba(255,255,255,0.25)', lineHeight: 16, marginBottom: 8,
+  },
+
+  alertList: { gap: 6, marginBottom: 4 },
+  alertChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  alertChipSelected: {
+    borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)',
+  },
+  alertChipType: {
+    fontSize: 9, fontWeight: '800', letterSpacing: 1,
+    color: 'rgba(255,255,255,0.35)', minWidth: 48,
+  },
+  alertChipTypeSelected: { color: '#f59e0b' },
+  alertChipText:         { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.55)' },
+  alertChipTextSelected: { color: '#e2e8f0' },
+
+  coordRow:  { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  coordField: { flex: 1 },
+  coordLabel: {
+    fontSize: 10, color: 'rgba(255,255,255,0.3)',
+    marginBottom: 4, fontWeight: '600',
+  },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 7, padding: 9,
+    fontSize: 13, color: '#fff', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  modeBtn: {
+    flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8, padding: 10, alignItems: 'center', gap: 2,
+  },
+  modeBtnActive:   { borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)' },
+  modeBtnLocked:   { opacity: 0.4 },
+  modeBtnText:     { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
+  modeBtnTextActive: { color: '#f59e0b' },
+  modeBtnTextLocked: { color: 'rgba(255,255,255,0.25)' },
+  modeLockHint:    { fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 1 },
+
+  dispatchBtn: {
+    marginTop: 16,
+    backgroundColor: '#f59e0b', borderRadius: 10,
+    paddingVertical: 13, alignItems: 'center',
+  },
+  dispatchBtnDisabled: { opacity: 0.4 },
+  dispatchBtnText:     { color: '#050a0f', fontWeight: '800', fontSize: 15 },
+
+  cancelBtn: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
+  cancelBtnText: { fontSize: 13, color: 'rgba(255,255,255,0.3)' },
+})

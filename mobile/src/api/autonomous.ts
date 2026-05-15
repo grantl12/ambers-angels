@@ -134,6 +134,43 @@ export async function sendHeartbeat(
   await parseResponse<unknown>(res)
 }
 
+/** Coordinator: fetch all registered swarm drones. */
+export async function fetchAllDrones(token: string): Promise<Drone[]> {
+  const res = await fetch(`${API_BASE}/autonomous/drones`, {
+    headers: authHeaders(token),
+  })
+  return parseResponse<Drone[]>(res)
+}
+
+export type DispatchRequest = {
+  alert_id:       string
+  drone_id:       number
+  obs_lat:        number
+  obs_lng:        number
+  altitude_m:     number
+  speed_mps:      number
+  operation_mode: OperationMode
+}
+
+/** Coordinator: create and dispatch a waypoint mission. */
+export async function dispatchMission(
+  token: string,
+  req:   DispatchRequest,
+): Promise<{ id: number }> {
+  const res = await fetch(`${API_BASE}/autonomous/plan`, {
+    method:  'POST',
+    headers: authHeaders(token),
+    body:    JSON.stringify(req),
+  })
+  return parseResponse<{ id: number }>(res)
+}
+
+/** Returns true if the drone sent a heartbeat within the last 5 minutes. */
+export function isDroneOnline(drone: Drone): boolean {
+  if (!drone.last_seen_at) return false
+  return Date.now() - new Date(drone.last_seen_at).getTime() < 5 * 60 * 1000
+}
+
 export async function updateMissionStatus(
   token: string,
   missionId: number,

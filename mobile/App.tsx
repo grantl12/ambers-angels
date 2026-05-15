@@ -56,6 +56,7 @@ export default function App() {
   const [ready,      setReady]      = useState(false)
   const [authed,     setAuthed]     = useState(false)
   const [username,   setUsername]   = useState<string | null>(null)
+  const [role,       setRole]       = useState<string>("pilot")
   const [ssoNewUser, setSSONewUser] = useState<{
     registrationToken: string
     email:             string | null
@@ -105,6 +106,7 @@ export default function App() {
       const auth = await getAuthState()
       if (auth) {
         setUsername(auth.username)
+        setRole(auth.role)
         setAuthed(true)
 
         // Sync pilotId from auth so telemetry is tagged correctly
@@ -122,7 +124,10 @@ export default function App() {
 
   function handleLogin() {
     getAuthState().then((auth) => {
-      if (auth) setUsername(auth.username)
+      if (auth) {
+        setUsername(auth.username)
+        setRole(auth.role)
+      }
       setAuthed(true)
       // Register push token on fresh login too
       registerPushToken()
@@ -168,7 +173,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <NavigationContainer ref={navRef}>
           <StatusBar style="light" />
-          <TabNavigator username={username} onSignOut={() => setAuthed(false)} />
+          <TabNavigator username={username} onSignOut={() => setAuthed(false)} role={role} />
         </NavigationContainer>
       </QueryClientProvider>
     </SafeAreaProvider>

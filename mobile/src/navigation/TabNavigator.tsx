@@ -5,11 +5,13 @@ import CameraScreen from "../screens/CameraScreen"
 import FeedScreen from "../screens/FeedScreen"
 import MapScreen from "../screens/MapScreen"
 import AutonomousMissionScreen from "../screens/AutonomousMissionScreen"
+import CoordinatorDispatchScreen from "../screens/CoordinatorDispatchScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 
 type Props = {
   username:   string | null
   onSignOut:  () => void
+  role:       string
 }
 
 const Tab = createBottomTabNavigator()
@@ -22,7 +24,8 @@ const ICON: Record<string, string> = {
   Settings:  "⚙️",
 }
 
-export function TabNavigator({ username, onSignOut }: Props) {
+export function TabNavigator({ username, onSignOut, role }: Props) {
+  const isCoordinator = role === "coordinator" || role === "admin"
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -41,7 +44,9 @@ export function TabNavigator({ username, onSignOut }: Props) {
       <Tab.Screen name="Camera"   component={CameraScreen}             options={{ title: "Camera" }} />
       <Tab.Screen name="Feed"     component={FeedScreen}               options={{ title: "Event Feed" }} />
       <Tab.Screen name="Map"      component={MapScreen}                options={{ title: "Mission Map" }} />
-      <Tab.Screen name="Missions" component={AutonomousMissionScreen}  options={{ title: "Missions" }} />
+      <Tab.Screen name="Missions" options={{ title: isCoordinator ? "Dispatch" : "Missions" }}>
+        {() => isCoordinator ? <CoordinatorDispatchScreen /> : <AutonomousMissionScreen />}
+      </Tab.Screen>
       <Tab.Screen name="Settings">
         {() => <SettingsScreen username={username} onSignOut={onSignOut} />}
       </Tab.Screen>
