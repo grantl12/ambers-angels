@@ -273,6 +273,12 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 5. **Update deck print versions** — `grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate files that must mirror the main deck content when updated.
 
+5a. **Update demo slides with real vehicle** — Any demo slide currently showing a generic/Toyota vehicle must be updated to match the actual test vehicle:
+   - **Vehicle**: white 2021 Tesla Model S
+   - **Plates**: handicap plates (exact plate string TBD — user will photograph and run through the pipeline)
+   - Once the plate photo is processed through the detection pipeline, use the real plate text and the actual ALPR/YOLO confidence output in the demo slide narrative
+   - This makes the demo authentic: the system is shown finding the exact car in the footage, not a made-up scenario
+
 6. **App Store Build 4** — in review. When approved:
    - Update App Store description to remove any "report criminal activity" language (see 2.1 rejection history above)
    - After CPD letter is signed, add partnership language to App Store description
