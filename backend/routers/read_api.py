@@ -9,7 +9,9 @@ GET /telemetry/trail
 GET /detections/feed
 """
 
+import asyncio
 import logging
+import threading
 import time as _time
 from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel
@@ -915,6 +917,32 @@ def create_manual_alert(req: ManualAlertRequest):
         db.commit()
 
         # ── Side-effects (best-effort, non-blocking) ──────────────────────────
+        # Push-notify pilots exactly as a real FEMA alert would.
+        from services.fema_connector import _notify_watching_pilots, ALERT_REGISTRY
+        _ATYPE_MAP = {a["key"]: a for a in ALERT_REGISTRY}
+        _TEST_ATYPE = {"key": "test", "name": "Test Alert", "short": "TEST",
+                       "emoji": "🟡", "cta": "Test alert — volunteers respond."}
+        atype_dict = _ATYPE_MAP.get(req.alert_type, _TEST_ATYPE)
+        _notify_headline = (
+            " ".join(filter(None, [req.color, req.body_type, req.make])).strip()
+            or req.description
+            or (f"Search zone — {req.area}" if req.area else None)
+            or (f"Plate {req.plate.upper()}" if req.plate else "Manual test alert")
+        )
+        alert_for_notify = {
+            "alert_type":     atype_dict,
+            "area":           req.area or "",
+            "headline":       _notify_headline,
+            "polygon":        polygon_str,
+            "source_program": "manual",
+        }
+        threading.Thread(
+            target=lambda: asyncio.run(
+                _notify_watching_pilots(database.AsyncSessionLocal, alert_for_notify)
+            ),
+            daemon=True,
+        ).start()
+
         webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
         if webhook_url and centroid:
             _discord_zone_embed(

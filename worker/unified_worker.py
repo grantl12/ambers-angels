@@ -204,7 +204,7 @@ def main():
     while True:
         pending = _iter_pending()
         if not pending:
-            time.sleep(0.5)
+            time.sleep(2)
             continue
             
         for frame_path, drone_id in pending:
