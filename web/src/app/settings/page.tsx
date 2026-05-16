@@ -213,7 +213,9 @@ export default function SettingsPage() {
             placeholder="Your name or callsign"
             maxLength={32}
           />
-          <p className="mt-1.5 text-xs text-white/30">Shown in the top bar. No account required.</p>
+          <p className="mt-1.5 text-xs text-white/30">
+            Local display label — shown in the top bar. Your registered username cannot be changed.
+          </p>
         </section>
 
         {/* Notifications */}
