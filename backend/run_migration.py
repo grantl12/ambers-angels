@@ -118,6 +118,10 @@ CREATE TABLE IF NOT EXISTS road_segments (
 CREATE INDEX IF NOT EXISTS road_segments_centroid_idx ON road_segments (centroid_lat, centroid_lng);
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS sms_number        TEXT;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS watch_areas        JSONB DEFAULT '[]';
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS notification_prefs JSONB DEFAULT '{}';
+ALTER TABLE autonomous_drones ADD COLUMN IF NOT EXISTS serial_number TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS autonomous_drones_serial_idx ON autonomous_drones (serial_number) WHERE serial_number IS NOT NULL;
 """
 
 try:
