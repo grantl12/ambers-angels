@@ -12,9 +12,10 @@ const TABS = [
 ]
 
 const DECKS = [
-  { label: 'Carrollton Pilot', href: '/deck/carrollton' },
-  { label: 'Financial Info',   href: '/deck/grant'       },
-  { label: 'Technical',        href: '/deck/tech'        },
+  { label: 'Carrollton Pilot',  href: '/deck/carrollton' },
+  { label: 'Financial Info',    href: '/deck/grant'       },
+  { label: 'Technical',         href: '/deck/tech'        },
+  { label: 'Volunteer Stories', href: '/deck/stories'     },
 ]
 
 export default function LandingPage() {

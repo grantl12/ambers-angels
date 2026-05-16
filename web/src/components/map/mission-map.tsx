@@ -74,8 +74,11 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [selectedAircraft, setSelectedAircraft]   = useState<Aircraft | null>(null)
   const [timeRange, setTimeRange]                 = useState<TimeRange>("all")
 
-  // Viewport bbox — updates as the map pans/zooms; drives coverage queries
+  // Viewport bbox — updates as the map pans/zooms (Flock + aircraft use this live)
   const [mapViewport, setMapViewport] = useState<FlockBbox | undefined>(undefined)
+  // Coverage bbox — only updates on explicit user action; prevents re-fetch on every pan
+  const [lockedCoverageBbox, setLockedCoverageBbox] = useState<FlockBbox | undefined>(undefined)
+  const [coverageStale, setCoverageStale] = useState(false)
 
   // Through-roads shown in coverage layer — motorway/trunk/primary/secondary only
   const COVERAGE_ROAD_CLASSES = new Set(["motorway", "trunk", "primary", "secondary"])
@@ -105,8 +108,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   // Flock cameras: load from explicit zip search bbox, or viewport when layer is on
   const { data: flockCameras = [] }   = useFlockCameras(layers.flock ? (flockBbox ?? mapViewport) : undefined)
   const { data: alertZones = [] }     = useFemaAlerts()
-  // Road coverage: always viewport-driven so panning to a new area shows gaps there
-  const coverageBbox = (layers.coverage || layers.zones) ? mapViewport : undefined
+  // Road coverage: locked bbox only — refresh on demand, not on every pan
+  const coverageBbox = (layers.coverage || layers.zones) ? lockedCoverageBbox : undefined
   const { data: roadSegments = [] }   = useRoadCoverage(coverageBbox)
   const { data: priorityRoads = [] }  = usePriorityRoads(coverageBbox)
   const { data: swarmDrones = [] }    = useSwarmDrones()
@@ -299,13 +302,24 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   function _updateViewport() {
     const bounds = mapRef.current?.getBounds()
     if (bounds) {
-      setMapViewport({
+      const next = {
         south: bounds.getSouth(),
         north: bounds.getNorth(),
         west:  bounds.getWest(),
         east:  bounds.getEast(),
-      })
+      }
+      setMapViewport(next)
+      // Mark coverage stale when the user pans away from the locked area
+      if (lockedCoverageBbox && (layers.coverage || layers.zones)) {
+        setCoverageStale(true)
+      }
     }
+  }
+
+  function refreshCoverage() {
+    if (!mapViewport) return
+    setLockedCoverageBbox(mapViewport)
+    setCoverageStale(false)
   }
 
   function handleMapLoad() {
@@ -323,8 +337,22 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     })
   }
 
+  const showCoverageBtn = (layers.coverage || layers.zones) && (!lockedCoverageBbox || coverageStale)
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      {/* Coverage load / refresh button — appears when layer is on and data is absent or stale */}
+      {showCoverageBtn && (
+        <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
+          <button
+            onClick={refreshCoverage}
+            className="flex items-center gap-2 rounded-full border border-orange-500/40 bg-black/80 px-4 py-2 text-xs font-semibold text-orange-400 backdrop-blur-sm hover:bg-orange-500/20 transition-colors shadow-lg"
+          >
+            <span>↻</span>
+            {lockedCoverageBbox ? "Refresh coverage for this area" : "Load coverage for this area"}
+          </button>
+        </div>
+      )}
       <Map
         ref={mapRef}
         initialViewState={{ ...center, zoom: 13 }}

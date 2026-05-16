@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amber's Angels — Volunteer Stories</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --amber:#f59e0b;--sky:#38bdf8;--green:#22c55e;--violet:#a78bfa;
+  --ink:#050a0f;--ink2:#0d1117;--ink3:#111827;--ink4:#1a2332;
+  --text:rgba(255,255,255,0.92);--muted:rgba(255,255,255,0.62);--dim:rgba(255,255,255,0.38);
+  --border:rgba(255,255,255,0.08);--border-mid:rgba(255,255,255,0.16);
+}
+section{
+  width:1920px;height:1080px;
+  font-family:'Inter',sans-serif;
+  background:var(--ink);color:var(--text);
+  position:relative;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.sg,h1,h2,h3,h4,.tag,.eyebrow{font-family:'Space Grotesk',sans-serif;}
+.mono,code{font-family:'JetBrains Mono',monospace;}
+
+.brand{position:absolute;top:48px;left:80px;display:flex;align-items:center;gap:12px;z-index:5;}
+.brand img{width:36px;height:36px;border-radius:50%;}
+.brand span{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;color:rgba(255,255,255,0.65);}
+.brand em{color:var(--amber);font-style:normal;}
+.sn{position:absolute;bottom:48px;right:80px;font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--dim);letter-spacing:1px;}
+
+.tag{display:inline-flex;align-items:center;gap:10px;font-size:18px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--amber);border:1px solid rgba(245,158,11,0.3);padding:8px 16px;border-radius:4px;background:rgba(245,158,11,0.07);}
+.tag .ic{font-size:24px;line-height:1;letter-spacing:0;}
+
+/* ─── 01 TITLE ─── */
+#s1{padding:120px 120px;display:flex;flex-direction:column;justify-content:center;gap:48px;}
+#s1::after{content:'';position:absolute;right:-280px;bottom:-280px;width:900px;height:900px;background:radial-gradient(circle,rgba(245,158,11,0.10) 0%,transparent 65%);pointer-events:none;}
+.cover-eyebrow{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--amber);}
+.cover-h{font-family:'Space Grotesk',sans-serif;font-size:120px;font-weight:700;line-height:0.98;letter-spacing:-3px;color:#fff;max-width:1500px;}
+.cover-h em{color:var(--amber);font-style:normal;}
+.cover-sub{font-size:30px;line-height:1.55;color:var(--muted);max-width:1300px;}
+.cover-sub strong{color:#fff;font-weight:600;}
+
+.persona-row{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:24px;max-width:1700px;}
+.persona-mini{background:var(--ink2);border:1px solid var(--border);border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:10px;}
+.persona-mini .glyph{font-size:36px;line-height:1;}
+.persona-mini .name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:#fff;}
+.persona-mini .mode{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--amber);letter-spacing:0.5px;}
+.persona-mini .quote{font-size:14px;color:var(--muted);line-height:1.5;}
+
+/* ─── persona slide layout ─── */
+.persona{padding:120px 80px 80px;height:100%;display:grid;grid-template-columns:1.2fr 1fr;gap:80px;align-items:center;}
+.persona.right-image{grid-template-columns:1fr 1.2fr;}
+.persona .body{display:flex;flex-direction:column;gap:24px;}
+.persona h2{font-family:'Space Grotesk',sans-serif;font-size:80px;font-weight:700;line-height:1;letter-spacing:-2.5px;color:#fff;}
+.persona h2 em{color:var(--amber);font-style:normal;}
+.persona .story p{font-size:24px;line-height:1.65;color:var(--muted);}
+.persona .story p + p{margin-top:14px;}
+.persona .story strong{color:#fff;font-weight:600;}
+.persona .story em{color:var(--amber);font-style:normal;}
+
+.stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:20px 0;}
+.stat-strip .stat{display:flex;flex-direction:column;gap:6px;padding:0 18px;border-right:1px solid var(--border);}
+.stat-strip .stat:last-child{border-right:none;}
+.stat-strip .stat:first-child{padding-left:0;}
+.stat-strip .stat .v{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;color:var(--amber);line-height:1;letter-spacing:-1px;}
+.stat-strip .stat .l{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-family:'Space Grotesk',sans-serif;}
+
+.persona-image{background:var(--ink2);border:1px solid var(--border);border-radius:18px;padding:32px;display:flex;align-items:center;justify-content:center;height:100%;min-height:640px;position:relative;overflow:hidden;}
+.persona-image::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(245,158,11,0.05) 0%,transparent 60%);}
+.persona-image img{width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 30px 60px rgba(0,0,0,0.5));position:relative;z-index:1;}
+.persona-image .caption{position:absolute;bottom:24px;left:32px;right:32px;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--dim);letter-spacing:0.5px;z-index:2;}
+.persona-image .caption .a{color:var(--amber);}
+
+/* ─── 06 CLOSING ─── */
+#s6{padding:120px 120px;display:flex;flex-direction:column;justify-content:center;gap:48px;}
+#s6::before{content:'';position:absolute;left:-200px;top:-200px;width:800px;height:800px;background:radial-gradient(circle,rgba(245,158,11,0.08) 0%,transparent 65%);}
+.close-h{font-family:'Space Grotesk',sans-serif;font-size:110px;font-weight:700;line-height:1;letter-spacing:-3px;color:#fff;position:relative;z-index:1;}
+.close-h em{color:var(--amber);font-style:normal;}
+.close-sub{font-size:30px;line-height:1.55;color:var(--muted);max-width:1300px;position:relative;z-index:1;}
+.close-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:24px;position:relative;z-index:1;}
+.close-card{background:var(--ink2);border:1px solid var(--border);border-radius:14px;padding:28px 30px;display:flex;flex-direction:column;gap:10px;}
+.close-card .glyph{font-size:36px;line-height:1;}
+.close-card .name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:#fff;}
+.close-card .contrib{font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--amber);}
+.close-card .mode{font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;}
+
+.close-foot{margin-top:40px;padding-top:32px;border-top:1px solid var(--border);display:flex;align-items:baseline;gap:24px;}
+.close-foot .num{font-family:'JetBrains Mono',monospace;font-size:80px;font-weight:700;color:var(--amber);line-height:1;letter-spacing:-2px;}
+.close-foot .lbl{font-size:22px;color:var(--muted);max-width:900px;line-height:1.5;}
+.close-foot .lbl strong{color:#fff;font-weight:600;}
+</style>
+<script type="application/json" id="speaker-notes">
+[
+"Four ways to help. One network. Maria has a phone mount. James has a Mavic 3. DeShawn drives for Uber Eats. Gilberto is a Part 107 pilot with a BVLOS waiver — but today he can't leave the house. Every one of them contributes a different kind of coverage. The app fits all four without ever asking them to be the same kind of volunteer.",
+"Maria has a phone mount on her car dashboard and a gap before her afternoon shift. She opens AA, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs in the background, uploading frames every ten seconds. She covers six miles of surface streets and scans three hundred and forty plates without ever opening AA again. This is the default volunteer mode. No special hardware, no certification, no extra time. Just the drive she was already taking.",
+"James is a Part 107 pilot with a Mavic 3 and an afternoon free. He flies to the reported last-known location, launches, and begins a lawnmower search pattern over a large parking complex. He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server. This is the heavyweight mode — the volunteer who shows up with FAA-certified hardware and time to fly. One drone covers a parking complex faster than a dozen cars could.",
+"DeShawn is an Uber Eats driver who covers thirty miles of delivery routes every weekday. During an active AMBER Alert in his zone, he mounts his phone, opens AA, taps START MISSION, and goes back to picking up orders. The app runs silently in the background — no interaction required. By the end of his shift he's scanned nearly two thousand plates across neighborhoods no fixed camera ever sees. The system flags a partial plate match at seven forty-three PM; coordinators cross-reference it and notify local officers. DeShawn doesn't know any of that. He just delivered dinner.",
+"Gilberto has his Part 107, a Mavic 3, and a BVLOS waiver on file — but today he can't leave. He's home with the kids. He opens the Autonomous Missions screen, powers on the drone in his backyard, and taps Join Swarm. The app sends a heartbeat every thirty seconds with his drone's home position. Two miles away, the coordinator sees an amber icon appear on the mission map: Mavic Three — Gilberto — online. When the next alert fires within range, his drone is dispatched automatically.",
+"Every mode is enough. Together they cover what fixed cameras can't. Maria's eighteen minutes. James's parking complex. DeShawn's two thousand plates. Gilberto's standby drone. None of them is the system. All of them are."
+]
+</script>
+</head>
+<body>
+
+<deck-stage>
+
+  <!-- 01 TITLE -->
+  <section id="s1" data-screen-label="01 Four Ways">
+    <div class="brand"><img src="assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="cover-eyebrow">Volunteer Stories</div>
+    <h1 class="cover-h">Four ways to help.<br><em>One network.</em></h1>
+    <p class="cover-sub">Maria has a phone mount. James has a Mavic 3. DeShawn drives for Uber Eats. Gilberto has a BVLOS waiver but can't leave the house today. <strong>The app fits all four.</strong></p>
+    <div class="persona-row">
+      <div class="persona-mini">
+        <span class="glyph">🚗</span>
+        <span class="name">Maria</span>
+        <span class="mode">phone-mounted · between shifts</span>
+        <span class="quote">Eighteen minutes. Six miles. Three hundred plates. Zero interactions.</span>
+      </div>
+      <div class="persona-mini">
+        <span class="glyph">🚁</span>
+        <span class="name">James</span>
+        <span class="mode">Part 107 · VLOS · on-site</span>
+        <span class="quote">Mavic 3, manual lawnmower over a parking complex. Visual range, the whole time.</span>
+      </div>
+      <div class="persona-mini">
+        <span class="glyph">🚗</span>
+        <span class="name">DeShawn</span>
+        <span class="mode">gig driver · background scan</span>
+        <span class="quote">Thirty miles. Nearly two thousand plates. He didn't know about the flag.</span>
+      </div>
+      <div class="persona-mini">
+        <span class="glyph">🚁</span>
+        <span class="name">Gilberto</span>
+        <span class="mode">BVLOS waiver · home swarm</span>
+        <span class="quote">Couldn't leave the house. Powered up the drone in the backyard. Tapped Join Swarm.</span>
+      </div>
+    </div>
+    <div class="sn">01 / 06</div>
+  </section>
+
+  <!-- 02 MARIA -->
+  <section id="s2" data-screen-label="02 Maria">
+    <div class="brand"><img src="assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="persona">
+      <div class="body">
+        <span class="tag"><span class="ic">🚗</span>Phone-mounted · between shifts</span>
+        <h2>Maria,<br><em>between shifts.</em></h2>
+        <div class="story">
+          <p>Maria has a phone mount on her car dashboard and a gap before her afternoon shift. She opens AA, <strong>taps START MISSION</strong>, and switches to Waze.</p>
+          <p>For the next eighteen minutes she drives her usual route. The app <em>runs in the background</em>, uploading frames every ten seconds. She covers six miles of surface streets and scans three hundred and forty plates <strong>without ever opening AA again.</strong></p>
+        </div>
+        <div class="stat-strip">
+          <div class="stat"><span class="v">18 min</span><span class="l">drive time</span></div>
+          <div class="stat"><span class="v">6 mi</span><span class="l">surface streets</span></div>
+          <div class="stat"><span class="v">340</span><span class="l">plates scanned</span></div>
+          <div class="stat"><span class="v">0</span><span class="l">interactions</span></div>
+        </div>
+      </div>
+      <div class="persona-image">
+        <img src="assets/graphics/04-phone-background-mode.svg" alt="Phone background mode">
+        <div class="caption">Android Foreground Service · <span class="a">persistent notification visible</span> · screen can lock</div>
+      </div>
+    </div>
+    <div class="sn">02 / 06</div>
+  </section>
+
+  <!-- 03 JAMES -->
+  <section id="s3" data-screen-label="03 James">
+    <div class="brand"><img src="assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="persona right-image">
+      <div class="persona-image">
+        <img src="assets/graphics/01-drone-camera-angles.svg" alt="Drone camera angles · on-site VLOS">
+        <div class="caption">VLOS · 30–45° camera angle · ≤200 ft AGL · <span class="a">FAA Part 107 §107.31</span></div>
+      </div>
+      <div class="body">
+        <span class="tag"><span class="ic">🚁</span>Part 107 · VLOS · on-site</span>
+        <h2>James<br>and his <em>Mavic 3.</em></h2>
+        <div class="story">
+          <p>James is a <strong>Part 107 pilot with a Mavic 3</strong> and an afternoon free. He flies to the reported last-known location, launches, and begins a <em>lawnmower search pattern</em> over a large parking complex.</p>
+          <p>He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server. <strong>One drone covers a parking complex faster than a dozen cars could.</strong></p>
+        </div>
+        <div class="stat-strip">
+          <div class="stat"><span class="v">Mavic 3</span><span class="l">aircraft</span></div>
+          <div class="stat"><span class="v">VLOS</span><span class="l">flight rules</span></div>
+          <div class="stat"><span class="v">Manual</span><span class="l">lawnmower</span></div>
+          <div class="stat"><span class="v">Part 107</span><span class="l">certified</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="sn">03 / 06</div>
+  </section>
+
+  <!-- 04 DESHAWN -->
+  <section id="s4" data-screen-label="04 DeShawn">
+    <div class="brand"><img src="assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="persona">
+      <div class="body">
+        <span class="tag"><span class="ic">🚗</span>Gig driver · background scan</span>
+        <h2>DeShawn<br><em>delivers dinner.</em></h2>
+        <div class="story">
+          <p>DeShawn is an <strong>Uber Eats driver</strong> who covers thirty miles of delivery routes every weekday. During an active AMBER Alert in his zone, he mounts his phone, opens AA, taps START MISSION, and goes back to picking up orders.</p>
+          <p>The app runs silently in the background. By the end of his shift he's scanned <strong>nearly 2,000 plates</strong> across neighborhoods no fixed camera ever sees. The system flags a <em>partial plate match at 7:43 PM</em>; coordinators cross-reference it and notify local officers.</p>
+          <p style="font-size:22px;color:var(--dim);font-style:italic;border-left:3px solid var(--amber);padding-left:14px;">DeShawn doesn't know any of that. He just delivered dinner.</p>
+        </div>
+        <div class="stat-strip">
+          <div class="stat"><span class="v">30 mi</span><span class="l">routes / shift</span></div>
+          <div class="stat"><span class="v">~2,000</span><span class="l">plates / shift</span></div>
+          <div class="stat"><span class="v">1</span><span class="l">partial match</span></div>
+          <div class="stat"><span class="v">0</span><span class="l">extra effort</span></div>
+        </div>
+      </div>
+      <div class="persona-image">
+        <img src="assets/graphics/03-start-mission.svg" alt="Start mission · gig driver">
+        <div class="caption">Tap once · drive your route · <span class="a">notification lives at the top of the tray</span></div>
+      </div>
+    </div>
+    <div class="sn">04 / 06</div>
+  </section>
+
+  <!-- 05 GILBERTO -->
+  <section id="s5" data-screen-label="05 Gilberto">
+    <div class="brand"><img src="assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="persona right-image">
+      <div class="persona-image">
+        <img src="assets/graphics/07-dji-connection.svg" alt="DJI connection · home swarm">
+        <div class="caption">Power on · Join Swarm · <span class="a">30-second heartbeat with home position</span></div>
+      </div>
+      <div class="body">
+        <span class="tag"><span class="ic">🚁</span>Part 107 BVLOS · home swarm</span>
+        <h2>Gilberto,<br><em>from the backyard.</em></h2>
+        <div class="story">
+          <p>Gilberto has his <strong>Part 107 certification, a Mavic 3, and a BVLOS waiver</strong> on file — but today he can't leave. He's home with the kids.</p>
+          <p>He opens the <em>Autonomous Missions</em> screen, powers on the drone in his backyard, and taps <strong>Join Swarm</strong>. The app sends a heartbeat every thirty seconds with the drone's home position.</p>
+          <p>Two miles away, the coordinator sees an amber icon appear on the mission map: <code style="background:var(--ink3);color:var(--amber);padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:20px;">Mavic 3 · Gilberto · online</code>. When the next alert fires within range, his drone is dispatched automatically.</p>
+        </div>
+        <div class="stat-strip">
+          <div class="stat"><span class="v">BVLOS</span><span class="l">waiver on file</span></div>
+          <div class="stat"><span class="v">Backyard</span><span class="l">home position</span></div>
+          <div class="stat"><span class="v">30s</span><span class="l">heartbeat</span></div>
+          <div class="stat"><span class="v">Auto</span><span class="l">dispatch</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="sn">05 / 06</div>
+  </section>
+
+  <!-- 06 CLOSING -->
+  <section id="s6" data-screen-label="06 Every Mode">
+    <div class="brand"><img src="assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="cover-eyebrow" style="position:relative;z-index:1;">All four · together</div>
+    <h1 class="close-h">Every mode is enough.<br><em>Together they cover what fixed cameras can't.</em></h1>
+    <p class="close-sub">None of them is the system. <strong>All of them are.</strong></p>
+    <div class="close-grid">
+      <div class="close-card">
+        <span class="glyph">🚗</span>
+        <span class="name">Maria</span>
+        <span class="contrib">340 plates · 18 min</span>
+        <span class="mode">phone-mounted · between shifts</span>
+      </div>
+      <div class="close-card">
+        <span class="glyph">🚁</span>
+        <span class="name">James</span>
+        <span class="contrib">parking complex · VLOS</span>
+        <span class="mode">Part 107 · manual lawnmower</span>
+      </div>
+      <div class="close-card">
+        <span class="glyph">🚗</span>
+        <span class="name">DeShawn</span>
+        <span class="contrib">~2,000 plates · 1 shift</span>
+        <span class="mode">gig driver · background scan</span>
+      </div>
+      <div class="close-card">
+        <span class="glyph">🚁</span>
+        <span class="name">Gilberto</span>
+        <span class="contrib">standby · auto-dispatch</span>
+        <span class="mode">BVLOS · home swarm</span>
+      </div>
+    </div>
+    <div class="close-foot">
+      <span class="num">4</span>
+      <span class="lbl">volunteer modes &middot; <strong>none of them requires the others.</strong> Every one of them fills a coverage gap fixed cameras can't reach.</span>
+    </div>
+    <div class="sn">06 / 06</div>
+  </section>
+
+</deck-stage>
+
+</body>
+</html>

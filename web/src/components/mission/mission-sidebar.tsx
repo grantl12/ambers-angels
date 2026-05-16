@@ -285,29 +285,29 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
               {/* Flock zip search — expands when layer is toggled on */}
               {key === "flock" && layers.flock && (
                 <form onSubmit={handleFlockSearch} className="mt-2 space-y-1.5">
+                  <input
+                    value={flockZip}
+                    onChange={(e) => setFlockZip(e.target.value)}
+                    placeholder="ZIP code"
+                    maxLength={5}
+                    className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50"
+                  />
                   <div className="flex gap-1.5">
-                    <input
-                      value={flockZip}
-                      onChange={(e) => setFlockZip(e.target.value)}
-                      placeholder="ZIP code"
-                      maxLength={5}
-                      className="flex-1 rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50"
-                    />
                     <select
                       value={flockRadius}
                       onChange={(e) => setFlockRadius(Number(e.target.value))}
-                      className="rounded bg-neutral-800 border border-white/10 px-1.5 py-1 text-xs text-white/70 focus:outline-none"
+                      className="flex-1 rounded bg-neutral-800 border border-white/10 px-1.5 py-1 text-xs text-white/70 focus:outline-none"
                     >
                       {[5, 10, 15, 25].map((r) => (
-                        <option key={r} value={r}>{r} mi</option>
+                        <option key={r} value={r}>{r} mi radius</option>
                       ))}
                     </select>
                     <button
                       type="submit"
                       disabled={flockLoading}
-                      className="rounded bg-orange-500/20 border border-orange-500/30 px-2 py-1 text-xs text-orange-400 hover:bg-orange-500/30 disabled:opacity-50 transition-colors"
+                      className="rounded bg-orange-500/20 border border-orange-500/30 px-3 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-500/30 disabled:opacity-50 transition-colors shrink-0"
                     >
-                      {flockLoading ? "…" : "Go"}
+                      {flockLoading ? "…" : "Search"}
                     </button>
                   </div>
                   {flockError && <div className="text-[10px] text-red-400">{flockError}</div>}
