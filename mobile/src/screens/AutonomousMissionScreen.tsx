@@ -19,6 +19,7 @@ import {
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Geolocation from '@react-native-community/geolocation'
+import { useFocusEffect } from '@react-navigation/native'
 
 import {
   startWaypointMission,
@@ -90,11 +91,15 @@ export default function AutonomousMissionScreen() {
     }
   }, [])
 
-  useEffect(() => {
-    if (token) {
+  // Load on mount (token ready) and re-load whenever tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) return
       loadMissions(token)
-    }
-  }, [token, loadMissions])
+      const id = setInterval(() => loadMissions(token), 30_000)
+      return () => clearInterval(id)
+    }, [token, loadMissions]),
+  )
 
   // -------------------------------------------------------------------------
   // Drone lookup + swarm heartbeat

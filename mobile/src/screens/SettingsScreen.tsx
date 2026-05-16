@@ -33,6 +33,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   const [notifPrefs, setNotifPrefs] = useState<string[]>(["push", "email"])
   const [notifSaving, setNotifSaving] = useState(false)
   const [pilotRole, setPilotRole] = useState<string>("pilot")
+  const [pilotStatus, setPilotStatus] = useState<string>("approved")
   const [coordRequestedAt, setCoordRequestedAt] = useState<string | null>(null)
   const [coordReason, setCoordReason] = useState("")
   const [coordSubmitting, setCoordSubmitting] = useState(false)
@@ -44,11 +45,12 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
 
   useEffect(() => {
     loadSettings().then(setSettings)
-    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[]; role?: string; coordinatorRequestedAt?: string | null }>("/auth/me")
+    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[]; role?: string; status?: string; coordinatorRequestedAt?: string | null }>("/auth/me")
       .then((data) => {
         setWatchAreas(data.watchAreas ?? [])
         setNotifPrefs(data.notificationPrefs ?? ["push", "email"])
         setPilotRole(data.role ?? "pilot")
+        setPilotStatus(data.status ?? "approved")
         setCoordRequestedAt(data.coordinatorRequestedAt ?? null)
       })
       .catch(() => {})
@@ -226,6 +228,31 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+
+        {/* Pending approval banner */}
+        {pilotStatus === "pending" && (
+          <View style={styles.pendingBanner}>
+            <Text style={styles.pendingBannerTitle}>Account pending approval</Text>
+            <Text style={styles.pendingBannerBody}>
+              Your registration is under review. An admin will approve your account before you can start scanning. Check back soon.
+            </Text>
+          </View>
+        )}
+
+        {/* Role badge for coordinators / admins */}
+        {(pilotRole === "coordinator" || pilotRole === "admin") && (
+          <View style={[styles.roleBadgeRow, pilotRole === "admin" && styles.roleBadgeAdmin]}>
+            <Text style={[styles.roleBadgeText, pilotRole === "admin" && styles.roleBadgeTextAdmin]}>
+              {pilotRole === "admin" ? "Admin" : "Coordinator"} account
+            </Text>
+            <Text style={[styles.roleBadgeSub, pilotRole === "admin" && styles.roleBadgeSubAdmin]}>
+              {pilotRole === "admin"
+                ? "Full system access — user management, test alerts, and drone dispatch"
+                : "Access to mission coordination tools and drone dispatch"}
+            </Text>
+          </View>
+        )}
+
         <Section title="Connection">
           <Field label="API Base URL" hint="e.g. http://192.168.1.100:8000">
             <TextInput
@@ -767,4 +794,27 @@ const styles = StyleSheet.create({
     borderColor: "rgba(56,189,248,0.2)",
   },
   coordSentText: { color: "#7dd3fc", fontSize: 13, lineHeight: 18 },
+  pendingBanner: {
+    backgroundColor: "rgba(251,146,60,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(251,146,60,0.3)",
+    borderRadius: 10,
+    padding: 14,
+    gap: 6,
+  },
+  pendingBannerTitle: { color: "#fb923c", fontSize: 13, fontWeight: "700" },
+  pendingBannerBody:  { color: "rgba(255,255,255,0.55)", fontSize: 12, lineHeight: 17 },
+  roleBadgeRow: {
+    backgroundColor: "rgba(56,189,248,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.2)",
+    borderRadius: 10,
+    padding: 14,
+    gap: 4,
+  },
+  roleBadgeAdmin:       { backgroundColor: "rgba(168,85,247,0.07)", borderColor: "rgba(168,85,247,0.2)" },
+  roleBadgeText:        { color: "#38bdf8", fontSize: 13, fontWeight: "700" },
+  roleBadgeTextAdmin:   { color: "#a78bfa" },
+  roleBadgeSub:         { color: "rgba(56,189,248,0.6)", fontSize: 11, lineHeight: 16 },
+  roleBadgeSubAdmin:    { color: "rgba(168,85,247,0.6)" },
 })

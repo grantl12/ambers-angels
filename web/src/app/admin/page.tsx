@@ -17,6 +17,16 @@ type CoordinatorRequest = {
   reason:      string | null
 }
 
+type PendingPilot = {
+  username:  string
+  fullName:  string | null
+  email:     string
+  city:      string | null
+  drones:    string[] | null
+  part107:   boolean
+  createdAt: string | null
+}
+
 type ApprovedPilot = {
   username:          string
   fullName:          string | null
@@ -114,6 +124,29 @@ export default function AdminPage() {
     }
   }
 
+  // pending user registrations
+  const [pendingPilots,   setPendingPilots]   = useState<PendingPilot[]>([])
+  const [approvingPilot,  setApprovingPilot]  = useState<string | null>(null)
+
+  const loadPendingPilots = useCallback(async () => {
+    try {
+      setPendingPilots(await apiGet<PendingPilot[]>("/auth/pending"))
+    } catch { /* silent */ }
+  }, [])
+
+  async function approvePilot(username: string) {
+    setApprovingPilot(username)
+    try {
+      await apiPost(`/auth/approve/${username}`, {})
+      setPendingPilots((prev) => prev.filter((p) => p.username !== username))
+      loadApprovedPilots()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Approval failed.")
+    } finally {
+      setApprovingPilot(null)
+    }
+  }
+
   // coordinator requests
   const [coordRequests,   setCoordRequests]   = useState<CoordinatorRequest[]>([])
   const [coordLoading,    setCoordLoading]    = useState(true)
@@ -160,13 +193,14 @@ export default function AdminPage() {
   useEffect(() => {
     const auth = getAuthState()
     if (!auth || auth.role !== "admin") { router.replace("/map"); return }
+    loadPendingPilots()
     loadCoordRequests()
     loadApprovedPilots()
     loadManualAlerts()
     loadHealth()
     const interval = setInterval(loadHealth, 10_000)
     return () => clearInterval(interval)
-  }, [router, loadCoordRequests, loadApprovedPilots, loadManualAlerts, loadHealth])
+  }, [router, loadPendingPilots, loadCoordRequests, loadApprovedPilots, loadManualAlerts, loadHealth])
 
   async function approveCoordinator(username: string) {
     setApprovingCoord(username)
@@ -360,6 +394,50 @@ export default function AdminPage() {
             {notifying ? "Sending…" : "Send test notification"}
           </button>
         </section>
+
+        {/* ── Pending Registrations ── */}
+        {pendingPilots.length > 0 && (
+          <section>
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-white">Pending Registrations</h2>
+              <p className="text-sm text-white/40 mt-1">New volunteers waiting for approval</p>
+            </div>
+            <div className="space-y-3">
+              {pendingPilots.map((pilot) => (
+                <div key={pilot.username} className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-white">{pilot.fullName ?? pilot.username}</span>
+                        <span className="text-xs text-white/40">@{pilot.username}</span>
+                        {pilot.part107 && (
+                          <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs text-sky-400">Part 107</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-white/50 space-y-0.5">
+                        <div>{pilot.email}</div>
+                        {pilot.city && <div>{pilot.city}</div>}
+                        {pilot.drones && pilot.drones.length > 0 && (
+                          <div>{pilot.drones.join(", ")}</div>
+                        )}
+                        {pilot.createdAt && (
+                          <div className="text-white/25">Registered {new Date(pilot.createdAt).toLocaleDateString()}</div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => approvePilot(pilot.username)}
+                      disabled={approvingPilot === pilot.username}
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors shrink-0"
+                    >
+                      {approvingPilot === pilot.username ? "Approving…" : "Approve"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Coordinator Access Requests ── */}
         <section>
