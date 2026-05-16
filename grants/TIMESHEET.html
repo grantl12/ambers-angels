@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Volunteer In-Kind Services — Grant Lindberg — Amber's Angels</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; font-size: 13px; color: #1a1a1a; background: #fff; padding: 48px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: bold; margin-bottom: 4px; }
+  h2 { font-size: 13px; font-weight: normal; color: #555; margin-bottom: 32px; letter-spacing: 0.3px; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 32px; border: 1px solid #ccc; }
+  .meta-block { padding: 12px 16px; border-right: 1px solid #ccc; }
+  .meta-block:last-child { border-right: none; }
+  .meta-block:nth-child(3), .meta-block:nth-child(4) { border-top: 1px solid #ccc; }
+  .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 3px; }
+  .meta-value { font-size: 13px; font-weight: bold; }
+  .meta-value.amber { color: #b45309; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+  thead th { background: #1a1a1a; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  thead th.right { text-align: right; }
+  tbody tr:nth-child(even) { background: #f9f9f9; }
+  tbody tr { border-bottom: 1px solid #e5e5e5; }
+  td { padding: 7px 10px; vertical-align: top; line-height: 1.4; }
+  td.right { text-align: right; font-variant-numeric: tabular-nums; }
+  td.phase { font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; background: #f4f4f4; border-top: 2px solid #ddd; }
+  td.phase-spacer { background: #f4f4f4; border-top: 2px solid #ddd; }
+  .subtotal td { background: #f0f0f0; font-weight: bold; border-top: 1px solid #bbb; }
+  .total-row td { background: #1a1a1a; color: #fff; font-weight: bold; font-size: 14px; }
+  .total-row td.amber { color: #fbbf24; }
+  .desc { color: #444; font-size: 12px; }
+  .note { font-size: 11px; color: #777; margin-top: 28px; border-top: 1px solid #ddd; padding-top: 16px; line-height: 1.7; }
+  .sig-block { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 48px; }
+  .sig-line { border-top: 1px solid #999; padding-top: 6px; font-size: 11px; color: #666; }
+  .sig-name { font-weight: bold; font-size: 13px; margin-top: 24px; margin-bottom: 2px; }
+  @media print {
+    body { padding: 24px; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Volunteer In-Kind Services — Technology Development</h1>
+<h2>Amber's Angels, Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 103 Springwood Dr, Carrollton, GA 30117</h2>
+
+<div class="meta">
+  <div class="meta-block">
+    <div class="meta-label">Contributor</div>
+    <div class="meta-value">Grant Lindberg</div>
+  </div>
+  <div class="meta-block">
+    <div class="meta-label">Role</div>
+    <div class="meta-value">Founder / Lead Engineer</div>
+  </div>
+  <div class="meta-block">
+    <div class="meta-label">Period of Service</div>
+    <div class="meta-value">March 22 – May 15, 2026</div>
+  </div>
+  <div class="meta-block">
+    <div class="meta-label">Hourly Rate (Fair Market Value)</div>
+    <div class="meta-value amber">$150.00 / hr</div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:110px">Date(s)</th>
+      <th>Description of Work</th>
+      <th class="right" style="width:60px">Hours</th>
+      <th class="right" style="width:90px">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- PHASE 1 -->
+    <tr><td class="phase">Phase 1 — Core MVP</td><td class="phase-spacer" colspan="3"></td></tr>
+
+    <tr>
+      <td>Mar 22</td>
+      <td><strong>Initial system build</strong><br><span class="desc">RTMP ingest server, frame recording pipeline, OpenALPR integration — first working plate-detection loop.</span></td>
+      <td class="right">4.0</td>
+      <td class="right">$600</td>
+    </tr>
+    <tr>
+      <td>Mar 23–25</td>
+      <td><strong>MVP pipeline stabilization</strong><br><span class="desc">Package configuration, Python environment, process management, integration testing across ingest and detection layers.</span></td>
+      <td class="right">11.0</td>
+      <td class="right">$1,650</td>
+    </tr>
+    <tr>
+      <td>Mar 26–27</td>
+      <td><strong>Fixes and environment hardening</strong><br><span class="desc">Minor pipeline corrections, dependency resolution.</span></td>
+      <td class="right">2.0</td>
+      <td class="right">$300</td>
+    </tr>
+    <tr>
+      <td>Mar 30–31</td>
+      <td><strong>Monorepo + mission map + volunteer portal</strong><br><span class="desc">Consolidated frontend into monorepo under <code>web/</code>. Built mission map (Mapbox), pilot registration portal, Flock camera scraper, AggregationService for detection windowing, telemetry ingest endpoints.</span></td>
+      <td class="right">9.0</td>
+      <td class="right">$1,350</td>
+    </tr>
+    <tr class="subtotal"><td colspan="2">Phase 1 Subtotal</td><td class="right">26.0</td><td class="right">$3,900</td></tr>
+
+    <!-- PHASE 2 -->
+    <tr><td class="phase">Phase 2 — Detection Pipeline, Auth &amp; Mobile App</td><td class="phase-spacer" colspan="3"></td></tr>
+
+    <tr>
+      <td>Apr 1</td>
+      <td><strong>FEMA IPAWS integration + full Expo mobile app</strong><br><span class="desc">Live FEMA CAP XML polling for AMBER/Silver/Blue/Mattie's/Purple alerts. YOLOv8 hybrid vehicle identification. Full Expo React Native mobile app: camera screen, GPS telemetry, detection feed, mission map, leaderboard, mission debrief. FEMA polygon distance warnings. Auth/login wall.</span></td>
+      <td class="right">10.0</td>
+      <td class="right">$1,500</td>
+    </tr>
+    <tr>
+      <td>Apr 2</td>
+      <td><strong>Auth, rate limiting, PM2, mobile auth</strong><br><span class="desc">Pilot registration approval flow, rate limiting, approval email, profile page, alert history, privacy/ToS pages. PM2 ecosystem config. Mobile auth + mission management UI.</span></td>
+      <td class="right">5.0</td>
+      <td class="right">$750</td>
+    </tr>
+    <tr>
+      <td>Apr 3</td>
+      <td><strong>DJI MSDK V5, push notifications, background scanning, badge system, E2E tests</strong><br><span class="desc">DJI MSDK V5 Kotlin native module (Avata/Mini3/Air3/Mavic3 camera + GPS). Android Foreground Service background phone scanning. Shared frame queue (one worker, all drones). Expo push token registration, watch-area push alerts, notification preference settings. FEMA polygon on map, tap-to-navigate. Pilot badge system (16 badges, 5 tiers). Self-service password reset via 6-digit email code. UI/UX polish pass. 31-test E2E suite for FEMA alert pipeline.</span></td>
+      <td class="right">12.0</td>
+      <td class="right">$1,800</td>
+    </tr>
+    <tr>
+      <td>Apr 4</td>
+      <td><strong>Frame preprocessing + composite confidence scoring</strong><br><span class="desc">Two-pass CLAHE + perspective deskew preprocessing pipeline. Composite confidence scoring with YOLO vehicle corroboration and vehicle profile matching. Discord image attachment on high-confidence hits.</span></td>
+      <td class="right">5.0</td>
+      <td class="right">$750</td>
+    </tr>
+    <tr>
+      <td>Apr 5</td>
+      <td><strong>Android compatibility</strong><br><span class="desc">Lowered minSdkVersion to 24 for broader Android device support.</span></td>
+      <td class="right">1.0</td>
+      <td class="right">$150</td>
+    </tr>
+    <tr>
+      <td>Apr 6</td>
+      <td><strong>DJI wiring, EAS OTA, coordinator role, adaptive frame rate</strong><br><span class="desc">Full DJI MSDK V5 Kotlin compilation and wiring. EAS OTA update integration. Adaptive phone frame rate driven by server detection signal. Mission debrief auto-selects from URL param. Coordinator role and flight priority zones. iOS build config. GPS coordinates in Discord alert embeds.</span></td>
+      <td class="right">8.0</td>
+      <td class="right">$1,200</td>
+    </tr>
+    <tr class="subtotal"><td colspan="2">Phase 2 Subtotal</td><td class="right">41.0</td><td class="right">$6,150</td></tr>
+
+    <!-- PHASE 3 -->
+    <tr><td class="phase">Phase 3 — Hardening, Grant Documentation &amp; SSO</td><td class="phase-spacer" colspan="3"></td></tr>
+
+    <tr>
+      <td>Apr 21</td>
+      <td><strong>Alpha hardening + CDC classifier + grants directory</strong><br><span class="desc">Secrets moved to .env, structured logging, HTTPS configuration. CDC generational vehicle classifier cascade integrated. Grants directory created: MISSION_AND_IMPACT.md, initial grant strategy documents.</span></td>
+      <td class="right">5.0</td>
+      <td class="right">$750</td>
+    </tr>
+    <tr>
+      <td>Apr 22</td>
+      <td><strong>GitHub Pages, domain migration, HTTPS, grant documents</strong><br><span class="desc">GitHub Pages volunteer/privacy site. Migrated to amberangels.org. HTTPS enable script. Grant documentation: strategy, technical whitepaper, annual budget, SCORE financial template with SDVOSB in-kind estimates.</span></td>
+      <td class="right">6.0</td>
+      <td class="right">$900</td>
+    </tr>
+    <tr>
+      <td>Apr 23</td>
+      <td><strong>Public landing page, nginx, pitch deck</strong><br><span class="desc">Public marketing landing page at root route. nginx server block for Next.js. Pitch deck hosted at /deck. Navigation, email, and image path corrections.</span></td>
+      <td class="right">5.0</td>
+      <td class="right">$750</td>
+    </tr>
+    <tr>
+      <td>Apr 24</td>
+      <td><strong>Google + Apple SSO</strong><br><span class="desc">Complete SSO backend: Google OAuth, Apple Sign In, JWKS caching, cross-platform client IDs. Frontend nav wired to SSO state.</span></td>
+      <td class="right">4.0</td>
+      <td class="right">$600</td>
+    </tr>
+    <tr class="subtotal"><td colspan="2">Phase 3 Subtotal</td><td class="right">20.0</td><td class="right">$3,000</td></tr>
+
+    <!-- PHASE 4 -->
+    <tr><td class="phase">Phase 4 — CI/CD, Deployment Infrastructure &amp; Coverage Analysis</td><td class="phase-spacer" colspan="3"></td></tr>
+
+    <tr>
+      <td>May 4</td>
+      <td><strong>Pitch deck v1 + SSO security hardening</strong><br><span class="desc">Carrollton PD pitch deck. SSO hardening: eliminated f-string SQL injection risk, Apple JWKS caching, pending-account bypass fix.</span></td>
+      <td class="right">4.0</td>
+      <td class="right">$600</td>
+    </tr>
+    <tr>
+      <td>May 8</td>
+      <td><strong>Auth middleware refactor + mobile build</strong><br><span class="desc">Dropped legacy auth middleware layer, switched mobile to app-bundle output type.</span></td>
+      <td class="right">1.0</td>
+      <td class="right">$150</td>
+    </tr>
+    <tr>
+      <td>May 10–11</td>
+      <td><strong>GitHub Actions CI/CD pipeline + infrastructure fixes</strong><br><span class="desc">GitHub Actions auto-deploy on push to main. nginx config corrections (www redirect, /api and /frames locations). SSH key/fingerprint setup and debugging. SVG explainer diagrams redrawn (DJI connection, camera angles). Landing page copy corrections.</span></td>
+      <td class="right">8.0</td>
+      <td class="right">$1,200</td>
+    </tr>
+    <tr>
+      <td>May 12</td>
+      <td><strong>Coverage grid, change password, RTMP settings, detection fixes</strong><br><span class="desc">Pilot dark-zone coverage grid with toggle controls. Change-password endpoint and settings UI. RTMP stream setup on mobile settings screen. Golden frame save path fix for Discord photo attachments. Alert dispatch wiring and VMMC confidence penalty.</span></td>
+      <td class="right">6.0</td>
+      <td class="right">$900</td>
+    </tr>
+    <tr class="subtotal"><td colspan="2">Phase 4 Subtotal</td><td class="right">19.0</td><td class="right">$2,850</td></tr>
+
+    <!-- PHASE 5 -->
+    <tr><td class="phase">Phase 5 — Full Feature Sprint (App Store, Swarm, Coverage, Decks)</td><td class="phase-spacer" colspan="3"></td></tr>
+
+    <tr>
+      <td>May 13</td>
+      <td><strong>Flock Deadspace Planner, NCMEC poller, RBAC, heatmap</strong><br><span class="desc">Flock camera coverage planner with zip-code search and dark-zone visualization. NCMEC per-state RSS poller for case resolution detection. CAP Cancel handling (alert ended → watchlist deactivation). Role-based access control for coordinator alert resolution. Coverage heatmap on mission map. Google SSO integrated into map page.</span></td>
+      <td class="right">5.5</td>
+      <td class="right">$825</td>
+    </tr>
+    <tr>
+      <td>May 14</td>
+      <td><strong>App Store resubmission, account deletion, autonomous drone waypoint missions, FAA tiers</strong><br><span class="desc">App Store guideline compliance: camera pre-prompt text (5.1.1iv), account deletion flow (5.1.1v), law-enforcement framing corrections (2.1). Autonomous drone waypoint mission system: plan/dispatch/status lifecycle, VLOS/BVLOS/BVLOS-autonomous FAA operational tiers, mission timeout cleanup, observation post dispatch. Swarm drone heartbeat endpoint and mobile beacon. PM2 worker process management. can_dispatch_drones admin permission flag.</span></td>
+      <td class="right">7.0</td>
+      <td class="right">$1,050</td>
+    </tr>
+    <tr>
+      <td>May 15</td>
+      <td><strong>Swarm dispatch map UI, ADS-B airspace, road coverage, coordinator tools, volunteer stories deck</strong><br><span class="desc">Swarm drone dispatch UI on mission map (drone icons, dispatch modal, observation point auto-fill). ADS-B IN live aircraft layer with airspace deconfliction warnings. Road segment heatmap replacing grid squares; coverage auto-seeded on every new FEMA alert. CI self-healing (root-owned node_modules fix, passwordless sudo). Per-coordinator SMS opt-in. Mission map sidebar overhaul with NCMEC case feed tab. Coordinator dispatch mobile screen with role-aware tab navigation. Admin pending users section. Volunteer stories deck (4-persona: phone-mounted, Part 107 VLOS, gig driver, BVLOS swarm). Test alert push notification pipeline. Worker idle CPU fix. Privacy language across stories deck.</span></td>
+      <td class="right">9.0</td>
+      <td class="right">$1,350</td>
+    </tr>
+    <tr class="subtotal"><td colspan="2">Phase 5 Subtotal</td><td class="right">21.5</td><td class="right">$3,225</td></tr>
+
+    <!-- TOTAL -->
+    <tr class="total-row">
+      <td colspan="2"><strong>TOTAL IN-KIND CONTRIBUTION</strong></td>
+      <td class="right amber"><strong>127.5</strong></td>
+      <td class="right amber"><strong>$19,125</strong></td>
+    </tr>
+
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Basis for fair market value:</strong> Rate of $150/hr reflects fair market value for senior independent contractor services encompassing full-stack web development (Next.js, FastAPI, PostgreSQL), cross-platform mobile development (Expo React Native, Android Kotlin native modules), AI/ML pipeline integration (YOLOv8, OpenALPR, Plate Recognizer), cloud infrastructure and DevOps (DigitalOcean, PM2, GitHub Actions, nginx), and systems architecture. This rate is consistent with independent contractor market rates for equivalent expertise in the Atlanta, GA metropolitan area and nationally.<br><br>
+  <strong>In-kind contribution documentation:</strong> Work is documented in full via the project git repository (github.com/grantl12/ambers-angels). Each line item corresponds to one or more dated commits. This timesheet may be used for IRS Form 990 Schedule O volunteer service documentation, grant application in-kind match calculations, and internal organizational records. Note: volunteer services are not deductible as a charitable contribution under IRC § 170, but the fair market value of donated services is recognized as an in-kind contribution for grant matching purposes per 2 CFR § 200.306.<br><br>
+  <strong>Organization:</strong> Amber's Angels, Inc. — 501(c)(3) applied, EIN 42-2052151, Carroll County, GA pilot program.
+</div>
+
+<div class="sig-block">
+  <div>
+    <div class="sig-name">Grant Lindberg</div>
+    <div style="font-size:11px;color:#666;margin-bottom:24px;">Founder / Lead Engineer, Amber's Angels</div>
+    <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+  </div>
+  <div>
+    <div class="sig-name">&nbsp;</div>
+    <div style="font-size:11px;color:#666;margin-bottom:24px;">Authorized Organization Representative</div>
+    <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+  </div>
+</div>
+
+</body>
+</html>
