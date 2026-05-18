@@ -18,9 +18,16 @@ jobs:
             set -e
             cd /home/ambers-angels/proj_dir/ambers-angels
             git pull origin main
+
+            # Run migrations (idempotent — safe to run every deploy)
+            python3 backend/run_migration.py
+
+            # Rebuild and restart frontend
             cd web
-            # Full clean to avoid ENOTEMPTY from partial installs or root-owned remnants
             sudo rm -rf .next node_modules
             npm ci --prefer-offline
             npm run build
-            ~/.local/bin/pm2 restart ambers-angels-web
+            cd ..
+
+            # Restart all three processes with fresh env
+            ~/.local/bin/pm2 restart ambers-angels-web ambers-angels-api ambers-angels-worker --update-env
