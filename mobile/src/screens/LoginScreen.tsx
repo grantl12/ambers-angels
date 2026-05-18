@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
-  Platform, ScrollView, Linking,
+  Platform, ScrollView,
 } from "react-native"
 import * as AppleAuthentication from "expo-apple-authentication"
 import * as Google from "expo-auth-session/providers/google"
@@ -409,7 +409,7 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
           {registerUrl && (
             <TouchableOpacity
               style={styles.registerBtn}
-              onPress={() => Linking.openURL(registerUrl)}
+              onPress={() => WebBrowser.openBrowserAsync(registerUrl!)}
             >
               <Text style={styles.registerBtnText}>No account? Register here</Text>
             </TouchableOpacity>
