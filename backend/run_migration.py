@@ -122,6 +122,19 @@ ALTER TABLE pilots ADD COLUMN IF NOT EXISTS watch_areas        JSONB DEFAULT '[]
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS notification_prefs JSONB DEFAULT '{}';
 ALTER TABLE autonomous_drones ADD COLUMN IF NOT EXISTS serial_number TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS autonomous_drones_serial_idx ON autonomous_drones (serial_number) WHERE serial_number IS NOT NULL;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS tos_version TEXT;
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMPTZ;
+ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS obs_acknowledged_at TIMESTAMPTZ;
+ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS bvlos_certificate TEXT;
+CREATE TABLE IF NOT EXISTS audit_log (
+    id          BIGSERIAL PRIMARY KEY,
+    username    TEXT NOT NULL,
+    action      TEXT NOT NULL,
+    details     JSONB DEFAULT '{}',
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_username_idx ON audit_log (username);
 """
 
 try:
