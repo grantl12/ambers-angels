@@ -25,15 +25,15 @@ jobs:
             /home/ambers-angels/.local/bin/pm2 set pm2-logrotate:max_size 50M
             /home/ambers-angels/.local/bin/pm2 set pm2-logrotate:retain 7
 
-            # Run DB migrations before restarting anything
+            # Run DB migrations (idempotent — safe to run every deploy)
             python3 backend/run_migration.py
 
-            # Restart API and worker so new backend code is live
-            /home/ambers-angels/.local/bin/pm2 restart ambers-angels-api ambers-angels-worker --update-env
-
-            # Build and restart web
+            # Rebuild frontend
             cd web
             sudo rm -rf .next node_modules
             npm ci --prefer-offline
             npm run build
-            ~/.local/bin/pm2 restart ambers-angels-web
+            cd ..
+
+            # Restart all three processes with fresh env
+            ~/.local/bin/pm2 restart ambers-angels-web ambers-angels-api ambers-angels-worker --update-env
