@@ -26,6 +26,8 @@ import {
   stopWaypointMission,
   onMissionStateChanged,
   getDroneLocation,
+  returnToHome,
+  getBatteryLevel,
   type MissionState,
 } from '../../modules/dji-camera/waypoint-mission'
 import {
@@ -49,6 +51,8 @@ type ActiveMission = {
   id: number
   state: MissionState
   progressPct: number
+  waypointIndex?: number
+  totalWaypoints?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +68,7 @@ export default function AutonomousMissionScreen() {
   const [actionPending, setActionPending] = useState(false)
   const [myDrone, setMyDrone] = useState<Drone | null>(null)
   const [swarmOnline, setSwarmOnline] = useState(false)
+  const [batteryPct, setBatteryPct] = useState<number | null>(null)
 
   const unsubRef = useRef<(() => void) | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -167,6 +172,43 @@ export default function AutonomousMissionScreen() {
   }, [token, myDrone, sendSwarmHeartbeat])
 
   // -------------------------------------------------------------------------
+  // Battery polling (Android only, while a mission is active)
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!active || Platform.OS !== 'android') return
+
+    const poll = async () => {
+      try {
+        const pct = await getBatteryLevel()
+        setBatteryPct(pct)
+      } catch {
+        // SDK not ready yet — ignore
+      }
+    }
+
+    poll()
+    const id = setInterval(poll, 30_000)
+    return () => clearInterval(id)
+  }, [active])
+
+  // -------------------------------------------------------------------------
+  // Return to Home
+  // -------------------------------------------------------------------------
+
+  const handleRTH = useCallback(async () => {
+    if (!token || !active) return
+    setActionPending(true)
+    try {
+      await returnToHome()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'RTH command failed.')
+    } finally {
+      setActionPending(false)
+    }
+  }, [token, active])
+
+  // -------------------------------------------------------------------------
   // Mission state events
   // -------------------------------------------------------------------------
 
@@ -175,9 +217,15 @@ export default function AutonomousMissionScreen() {
       // Tear down any previous subscription.
       unsubRef.current?.()
 
-      unsubRef.current = onMissionStateChanged(async ({ state, progressPct }) => {
+      unsubRef.current = onMissionStateChanged(async ({ state, progressPct, waypointIndex, totalWaypoints }) => {
         setActive((prev) =>
-          prev ? { ...prev, state, progressPct: progressPct ?? prev.progressPct } : prev,
+          prev ? {
+            ...prev,
+            state,
+            progressPct: progressPct ?? prev.progressPct,
+            waypointIndex: waypointIndex ?? prev.waypointIndex,
+            totalWaypoints: totalWaypoints ?? prev.totalWaypoints,
+          } : prev,
         )
 
         if (state === 'finished') {
@@ -321,20 +369,43 @@ export default function AutonomousMissionScreen() {
             </View>
             <Text style={styles.progressLabel}>
               {active.state === 'uploading'
-                ? 'Uploading…'
-                : `${active.progressPct}% — ${active.state}`}
+                ? 'Uploading waypoints…'
+                : active.totalWaypoints != null && active.totalWaypoints > 0
+                  ? `Waypoint ${(active.waypointIndex ?? 0) + 1} of ${active.totalWaypoints} · ${active.progressPct}%`
+                  : `${active.progressPct}% — ${active.state}`}
             </Text>
-            <TouchableOpacity
-              style={[styles.abortBtn, actionPending && styles.btnDisabled]}
-              onPress={handleAbort}
-              disabled={actionPending}
-            >
-              {actionPending ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.abortBtnText}>Abort Mission</Text>
+            {batteryPct !== null && (
+              <Text style={[
+                styles.batteryLabel,
+                batteryPct > 50 ? styles.batteryGreen :
+                batteryPct > 20 ? styles.batteryYellow :
+                                  styles.batteryRed,
+              ]}>
+                Battery {batteryPct}%{batteryPct <= 20 ? ' ⚠ LOW' : ''}
+              </Text>
+            )}
+            <View style={styles.actionRow}>
+              {active.state === 'executing' && (
+                <TouchableOpacity
+                  style={[styles.rthBtn, actionPending && styles.btnDisabled]}
+                  onPress={handleRTH}
+                  disabled={actionPending}
+                >
+                  <Text style={styles.rthBtnText}>Return to Home</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.abortBtn, active.state === 'executing' && styles.abortBtnNarrow, actionPending && styles.btnDisabled]}
+                onPress={handleAbort}
+                disabled={actionPending}
+              >
+                {actionPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.abortBtnText}>Abort</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <TouchableOpacity
@@ -599,7 +670,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  rthBtn: {
+    flex: 1,
+    backgroundColor: '#1e3a5f',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+  },
+  rthBtnText: {
+    color: '#93c5fd',
+    fontWeight: '700',
+    fontSize: 14,
+  },
   abortBtn: {
+    flex: 1,
     backgroundColor: '#7f1d1d',
     borderRadius: 8,
     paddingVertical: 10,
@@ -607,10 +697,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#991b1b',
   },
+  abortBtnNarrow: {
+    flex: 0,
+    paddingHorizontal: 20,
+  },
   abortBtnText: {
     color: '#fca5a5',
     fontWeight: '700',
     fontSize: 14,
+  },
+  batteryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  batteryGreen: {
+    color: '#34d399',
+  },
+  batteryYellow: {
+    color: '#fbbf24',
+  },
+  batteryRed: {
+    color: '#f87171',
   },
   btnDisabled: {
     opacity: 0.45,

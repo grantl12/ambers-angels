@@ -16,9 +16,12 @@ import dji.v5.common.register.DJISDKInitEvent
 import dji.sdk.keyvalue.key.KeyTools
 import dji.v5.manager.KeyManager
 import dji.v5.manager.SDKManager
+import dji.v5.manager.aircraft.flightcontroller.FlightControllerManager
 import dji.v5.manager.aircraft.waypoint5.WaypointMissionManager
 import dji.v5.manager.aircraft.waypoint5.WaypointMissionState
+import dji.v5.manager.aircraft.waypoint5.WaypointMissionExecutionProgress
 import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointMission
+import dji.sdk.keyvalue.key.BatteryKey
 import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointMissionFinishedAction
 import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointMissionHeadingMode
 import dji.v5.manager.aircraft.waypoint5.model.DJIWaypointV2
@@ -57,12 +60,14 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
     // ── State ────────────────────────────────────────────────────────────────
     private var isInitialized      = false
     private val frameInFlight      = AtomicBoolean(false)
-    private var missionStateListener: ((WaypointMissionState) -> Unit)? = null
+    private var missionStateListener:    ((WaypointMissionState) -> Unit)? = null
+    private var executionProgressListener: ((WaypointMissionExecutionProgress) -> Unit)? = null
 
-    @Volatile private var lastLat:     Double? = null
-    @Volatile private var lastLng:     Double? = null
-    @Volatile private var lastAlt:     Double? = null
-    @Volatile private var lastHeading: Double? = null
+    @Volatile private var lastLat:        Double? = null
+    @Volatile private var lastLng:        Double? = null
+    @Volatile private var lastAlt:        Double? = null
+    @Volatile private var lastHeading:    Double? = null
+    @Volatile private var lastBatteryPct: Int     = -1
 
     // ── Key listeners (keep refs so we can unlisten on destroy) ─────────────
     // Explicit `Unit` return avoids the `Unit?` inference from `?.let` that
@@ -78,6 +83,11 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
 
     private val headingKeyListener = { _: Double?, new: Double? ->
         new?.let { lastHeading = it }
+        Unit
+    }
+
+    private val batteryKeyListener = { _: Int?, new: Int? ->
+        new?.let { lastBatteryPct = it }
         Unit
     }
 
@@ -215,6 +225,39 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getBatteryLevel(promise: Promise) {
+        val pct = lastBatteryPct
+        if (pct < 0) {
+            promise.reject("NO_BATTERY", "Battery level not available")
+        } else {
+            promise.resolve(pct)
+        }
+    }
+
+    // =========================================================================
+    // 5. Return-to-home
+    // =========================================================================
+
+    @ReactMethod
+    fun returnToHome(promise: Promise) {
+        if (!isInitialized) {
+            promise.reject("NOT_INITIALIZED", "DJI SDK not initialized"); return
+        }
+        try {
+            FlightControllerManager.getInstance().startGoHome(
+                object : CommonCallbacks.CompletionCallback {
+                    override fun onSuccess() { promise.resolve(null) }
+                    override fun onFailure(error: IDJIError) {
+                        promise.reject("RTH_FAILED", error.description())
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            promise.reject("RTH_ERROR", e.message ?: "Return to home failed")
+        }
+    }
+
+    @ReactMethod
     fun getDroneHeading(promise: Promise) {
         val heading = lastHeading
         if (heading == null) {
@@ -240,6 +283,11 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
                 KeyTools.createKey(FlightControllerKey.KeyCompassHeading),
                 this,
                 headingKeyListener
+            )
+            KeyManager.getInstance().listen(
+                KeyTools.createKey(BatteryKey.KeyChargeRemainingInPercent),
+                this,
+                batteryKeyListener
             )
         } catch (e: Exception) {
             // Keys may be unavailable before a drone connects — non-fatal
@@ -306,17 +354,32 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
 
             val mgr = WaypointMissionManager.getInstance()
 
-            // Subscribe to state changes so the JS side gets live progress events
+            // State listener — fires on upload/execute/finish transitions
             missionStateListener?.let { mgr.removeMissionStateListener(it) }
             missionStateListener = { state: WaypointMissionState ->
                 val params = Arguments.createMap().apply {
                     putString("state", state.name.lowercase())
-                    // Progress is exposed through the execution state on supported aircraft
-                    putInt("progressPct", 0)
+                    putInt("progressPct", 0)  // overridden by execution progress listener below
                 }
                 sendEvent(EVENT_MISSION_STATE, params)
             }
             mgr.addMissionStateListener(null, missionStateListener!!)
+
+            // Execution progress listener — fires as drone moves between waypoints
+            executionProgressListener?.let { mgr.removeMissionExecutionProgressListener(it) }
+            executionProgressListener = { progress: WaypointMissionExecutionProgress ->
+                val total   = progress.totalWaypointCount
+                val current = progress.currentWaypointIndex
+                val pct     = if (total > 0) (current * 100 / total) else 0
+                val params = Arguments.createMap().apply {
+                    putString("state", "executing")
+                    putInt("progressPct", pct)
+                    putInt("waypointIndex", current)
+                    putInt("totalWaypoints", total)
+                }
+                sendEvent(EVENT_MISSION_STATE, params)
+            }
+            mgr.addMissionExecutionProgressListener(null, executionProgressListener!!)
 
             mgr.uploadMission(mission, object : CommonCallbacks.CompletionCallback {
                 override fun onSuccess() {

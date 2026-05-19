@@ -8,7 +8,10 @@
  *   startWaypointMission(waypointsJson, optionsJson) → Promise<void>
  *   stopWaypointMission()                            → Promise<void>
  *   getMissionStatus()                               → Promise<MissionStatusResult>
- * And fires event: "DJIMissionStateChanged" with { state, progressPct?, errorCode? }
+ *   returnToHome()                                   → Promise<void>
+ *   getBatteryLevel()                                → Promise<number>
+ * And fires event: "DJIMissionStateChanged" with { state, progressPct?, errorCode?,
+ *   waypointIndex?, totalWaypoints? }
  */
 
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native'
@@ -46,6 +49,8 @@ export type MissionStateEvent = {
   state: MissionState
   progressPct?: number
   errorCode?: string
+  waypointIndex?: number
+  totalWaypoints?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -147,4 +152,22 @@ export async function getDroneLocation(): Promise<{
 }> {
   assertModule()
   return DJICamera.getDroneLocation()
+}
+
+/**
+ * Command the drone to return to its recorded home point.
+ * Rejects if the SDK is not initialized or RTH command fails.
+ */
+export async function returnToHome(): Promise<void> {
+  assertModule()
+  await DJICamera.returnToHome()
+}
+
+/**
+ * Returns the current battery charge level as a 0–100 integer.
+ * Rejects with "NO_BATTERY" if the SDK has not yet received a battery update.
+ */
+export async function getBatteryLevel(): Promise<number> {
+  assertModule()
+  return DJICamera.getBatteryLevel()
 }
