@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
+import certifi as _certifi
 from sqlalchemy import text
 
 from services.fema_connector import _post_discord
@@ -348,7 +349,7 @@ async def _push_notify_resolved(session_factory, case: dict) -> None:
         for tok in tokens
     ]
     try:
-        async with _httpx.AsyncClient(timeout=10.0) as client:
+        async with _httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
             await client.post(
                 "https://exp.host/--/api/v2/push/send",
                 json=messages,
@@ -369,7 +370,7 @@ async def _poll_state(
 
     url = NCMEC_URL.format(state=state)
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=15.0, follow_redirects=True) as client:
             resp = await client.get(url, headers={"User-Agent": "AmberAngels-AlertMonitor/1.0"})
     except Exception as e:
         logger.warning("[NCMEC/%s] Fetch error: %s", state, e)

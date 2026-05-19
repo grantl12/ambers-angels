@@ -11,6 +11,7 @@ import logging
 import os
 import urllib.parse
 import httpx
+import certifi as _certifi
 
 logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
@@ -143,7 +144,7 @@ class AlertDispatcher:
         if vehicle_context:
             embed["fields"].append(_vehicle_context_field(vehicle_context))
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
             try:
                 if frame_bytes:
                     # Attach image and reference it in the embed
@@ -221,7 +222,7 @@ class AlertDispatcher:
         import base64
         auth = base64.b64encode(f"{sid}:{token}".encode()).decode()
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
             for to in nums:
                 try:
                     resp = await client.post(

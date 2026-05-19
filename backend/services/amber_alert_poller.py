@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
+import certifi as _certifi
 
 from services.fema_connector import (
     _seen_identifiers,
@@ -68,7 +69,7 @@ async def _poll_eas(session_factory, webhook_url: Optional[str]) -> int:
     last_eas_poll_at = datetime.now(timezone.utc)
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=15.0) as client:
             resp = await client.get(EAS_URL, headers={"Accept": "application/xml"})
     except Exception as e:
         logger.error("[EAS] Fetch error: %s", e)

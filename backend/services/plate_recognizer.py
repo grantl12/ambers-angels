@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 from typing import Optional
 
 import httpx
+import certifi as _certifi
 import requests as _requests
 
 PR_URL   = "https://api.platerecognizer.com/v1/plate-reader/"
@@ -66,7 +67,7 @@ async def recognize_async(image_bytes: bytes, regions: list[str] | None = None) 
     if regions:
         data["regions"] = ",".join(regions)
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=8.0) as client:
             resp = await client.post(
                 PR_URL,
                 headers={"Authorization": f"Token {PR_TOKEN}"},

@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
+import certifi as _certifi
 from sqlalchemy import text
 
 # ---------------------------------------------------------------------------
@@ -643,7 +644,7 @@ async def _push_notify_cancelled(session_factory, alert: dict) -> None:
         for tok in tokens
     ]
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
             await client.post(
                 "https://exp.host/--/api/v2/push/send",
                 json=messages,
@@ -661,7 +662,7 @@ async def _post_discord(webhook_url: str, content: str) -> None:
     if not webhook_url:
         return
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=5.0) as client:
             resp = await client.post(webhook_url, json={"content": content})
         if resp.status_code not in (200, 204):
             logger.error("Discord returned %s", resp.status_code)
@@ -803,7 +804,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
             for tok in push_tokens
         ]
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
                 resp = await client.post(
                     "https://exp.host/--/api/v2/push/send",
                     json=messages,
@@ -899,7 +900,7 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
     logger.info("Polling IPAWS (%dm lookback)...", FEMA_LOOKBACK_MINUTES)
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=15.0) as client:
             resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
     except Exception as e:
         logger.error("IPAWS fetch error: %s", e)
