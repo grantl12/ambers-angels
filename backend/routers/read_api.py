@@ -587,6 +587,82 @@ def get_coverage_map(
         db.close()
 
 
+
+# ---------------------------------------------------------------------------
+# Coverage gap volunteer ping
+# ---------------------------------------------------------------------------
+
+class GapAlertRequest(BaseModel):
+    alert_id: str
+    south: float
+    north: float
+    west: float
+    east: float
+
+# In-memory cooldown: alert_id → unix timestamp of last successful ping
+_gap_ping_cooldown: dict[str, float] = {}
+_GAP_PING_COOLDOWN_S = 30 * 60  # 30 minutes per alert
+
+
+@router.post("/coverage/gap-alert", dependencies=[Depends(require_coordinator)])
+def post_gap_alert(req: GapAlertRequest):
+    """
+    Coordinator: send a generic push notification to all active pilots.
+    Notification contains no plate/vehicle/victim details — just a zone alert.
+    Enforces a 30-minute per-alert cooldown to prevent spamming volunteers.
+    Returns { notified, cooldown, cooldown_seconds_remaining? }.
+    """
+    now = _time.time()
+    last_ping = _gap_ping_cooldown.get(req.alert_id, 0)
+    remaining = _GAP_PING_COOLDOWN_S - (now - last_ping)
+    if remaining > 0:
+        return {"notified": 0, "cooldown": True, "cooldown_seconds_remaining": int(remaining)}
+
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(
+            text(
+                "SELECT expo_push_token FROM pilots "
+                "WHERE status = 'active' AND expo_push_token IS NOT NULL AND expo_push_token != ''"
+            )
+        ).fetchall()
+    finally:
+        db.close()
+
+    tokens = [r[0] for r in rows]
+    if not tokens:
+        return {"notified": 0, "cooldown": False}
+
+    messages = [
+        {
+            "to": tok,
+            "title": "Volunteer support needed",
+            "body": "Coverage gap detected in your area. Open the app to help with an active search.",
+            "data": {"type": "coverage_gap"},
+            "sound": "default",
+            "priority": "high",
+        }
+        for tok in tokens
+    ]
+
+    try:
+        resp = _requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=10,
+        )
+    except _requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"Push notification failed: {exc}")
+
+    if resp.status_code not in (200, 204):
+        raise HTTPException(status_code=502, detail="Push notification service error")
+
+    _gap_ping_cooldown[req.alert_id] = now
+    logger.info("Coverage gap ping sent to %d pilot(s) for alert %s", len(tokens), req.alert_id)
+    return {"notified": len(tokens), "cooldown": False}
+
+
 # ---------------------------------------------------------------------------
 # FEMA alerts — active vehicle targets with polygon / centroid
 # ---------------------------------------------------------------------------

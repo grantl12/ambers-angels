@@ -64,20 +64,25 @@ export default function App() {
   } | null>(null)
   const navRef = useNavigationContainerRef()
 
-  // Notification tap → navigate to Map tab and queue a pan to the alert centroid
+  // Notification tap → route based on notification type
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown>
+
+      if (data?.type === "coverage_gap") {
+        // Volunteer coverage ping — open Camera so they can start recording
+        if (navRef.isReady()) navRef.navigate("Camera" as never)
+        return
+      }
+
+      // Default: alert notification — pan Map to centroid
       const lat = typeof data?.centroidLat === "number" ? data.centroidLat : null
       const lng = typeof data?.centroidLng === "number" ? data.centroidLng : null
       const label = typeof data?.label === "string" ? data.label : "Alert area"
       if (lat !== null && lng !== null) {
         setPendingAlertTarget({ lat, lng, label })
       }
-      // Navigate to the Map tab — works once the nav container is ready
-      if (navRef.isReady()) {
-        navRef.navigate("Map" as never)
-      }
+      if (navRef.isReady()) navRef.navigate("Map" as never)
     })
     return () => sub.remove()
   }, [navRef])

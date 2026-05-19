@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { apiGet } from "@/lib/api-client"
+import { apiGet, apiPost } from "@/lib/api-client"
 import type { FlockBbox } from "@/features/flock/api"
 
 export type RoadSegment = {
@@ -41,6 +41,30 @@ export function usePriorityRoads(bbox?: FlockBbox) {
 /** One-shot fetch (not a hook) — used by dispatch modal to suggest obs point. */
 export async function fetchPriorityZones(bbox: FlockBbox): Promise<RoadSegment[]> {
   return apiGet<RoadSegment[]>(`/coverage/priority-zones${bboxParams(bbox)}`)
+}
+
+export type GapAlertResponse = {
+  notified: number
+  cooldown: boolean
+  cooldown_seconds_remaining?: number
+}
+
+/**
+ * Coordinator: ping all active pilots with a generic coverage-gap notification.
+ * No plate/vehicle/victim details are included in the push — volunteers only
+ * learn that support is needed in their area.
+ */
+export async function pingCoverageGap(
+  alertId: string,
+  bbox: FlockBbox,
+): Promise<GapAlertResponse> {
+  return apiPost<GapAlertResponse>("/coverage/gap-alert", {
+    alert_id: alertId,
+    south: bbox.south,
+    north: bbox.north,
+    west: bbox.west,
+    east: bbox.east,
+  })
 }
 
 // Legacy aliases for components not yet migrated

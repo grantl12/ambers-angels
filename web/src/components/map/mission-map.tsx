@@ -9,8 +9,8 @@ import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera, FlockBbox } from "@/features/flock/api"
-import { useRoadCoverage, usePriorityRoads, fetchPriorityZones } from "@/features/coverage/api"
-import type { RoadSegment } from "@/features/coverage/api"
+import { useRoadCoverage, usePriorityRoads, fetchPriorityZones, pingCoverageGap } from "@/features/coverage/api"
+import type { RoadSegment, GapAlertResponse } from "@/features/coverage/api"
 import { useSwarmDrones, isDroneOnline, dispatchMission, type SwarmDrone } from "@/features/autonomous/api"
 import { useAirTraffic, type Aircraft } from "@/features/airspace/api"
 import type { Detection } from "@/features/detections/types"
@@ -101,6 +101,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [dispatchError, setDispatchError]           = useState<string | null>(null)
   const [dispatchSuccess, setDispatchSuccess]       = useState(false)
   const [dispatchSuggested, setDispatchSuggested]   = useState(false)
+  const [gapPinging, setGapPinging]                 = useState(false)
+  const [gapPingResult, setGapPingResult]           = useState<GapAlertResponse | null>(null)
 
   const { data: drones = [] }        = useLatestTelemetry()
   const { data: trail }              = useTelemetryTrail("drone1", 30)
@@ -264,6 +266,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     setDispatchLng("")
     setDispatchError(null)
     setDispatchSuggested(false)
+    setGapPingResult(null)
   }
 
   function alertToBbox(alert: { polygon: string | null; centroidLat: number | null; centroidLng: number | null }): FlockBbox | null {
@@ -1130,6 +1133,60 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                 color: "#fca5a5",
               }}>
                 {dispatchError}
+              </div>
+            )}
+
+            {/* Notify phone volunteers */}
+            {dispatchAlertId && (
+              <div style={{
+                marginBottom: 12,
+                padding: "10px 12px",
+                background: "rgba(16,185,129,0.06)",
+                border: "1px solid rgba(16,185,129,0.2)",
+                borderRadius: 6,
+              }}>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 8 }}>
+                  No drone available? Ping phone volunteers in your area — they only receive a generic area alert, no target details.
+                </div>
+                {gapPingResult ? (
+                  <div style={{ fontSize: 12, color: gapPingResult.cooldown ? "#fbbf24" : "#34d399", fontWeight: 600 }}>
+                    {gapPingResult.cooldown
+                      ? `Already notified recently — cooldown ${Math.ceil((gapPingResult.cooldown_seconds_remaining ?? 0) / 60)} min remaining`
+                      : `✓ ${gapPingResult.notified} volunteer${gapPingResult.notified !== 1 ? "s" : ""} notified`}
+                  </div>
+                ) : (
+                  <button
+                    disabled={gapPinging}
+                    onClick={async () => {
+                      const alert = alertZones.find((a) => String(a.id) === dispatchAlertId)
+                      const bbox = alert ? alertToBbox(alert) : null
+                      if (!bbox) return
+                      setGapPinging(true)
+                      try {
+                        const res = await pingCoverageGap(dispatchAlertId, bbox)
+                        setGapPingResult(res)
+                      } catch {
+                        setGapPingResult({ notified: 0, cooldown: false })
+                      } finally {
+                        setGapPinging(false)
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "7px 12px",
+                      background: "rgba(16,185,129,0.1)",
+                      border: "1px solid rgba(16,185,129,0.35)",
+                      borderRadius: 6,
+                      color: "#34d399",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: gapPinging ? "wait" : "pointer",
+                      opacity: gapPinging ? 0.5 : 1,
+                    }}
+                  >
+                    {gapPinging ? "Notifying…" : "Notify Phone Volunteers"}
+                  </button>
+                )}
               </div>
             )}
 
