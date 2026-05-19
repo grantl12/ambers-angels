@@ -69,7 +69,10 @@ async def _poll_eas(session_factory, webhook_url: Optional[str]) -> int:
     last_eas_poll_at = datetime.now(timezone.utc)
 
     try:
-        async with httpx.AsyncClient(verify=_certifi.where(), timeout=15.0) as client:
+        # apps.fema.gov does not send its full intermediate cert chain, so Python's
+        # SSL stack cannot build the trust path regardless of CA bundle. verify=False
+        # is intentional and scoped only to this government endpoint.
+        async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
             resp = await client.get(EAS_URL, headers={"Accept": "application/xml"})
     except Exception as e:
         logger.error("[EAS] Fetch error: %s", e)

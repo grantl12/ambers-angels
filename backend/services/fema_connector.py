@@ -900,7 +900,10 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
     logger.info("Polling IPAWS (%dm lookback)...", FEMA_LOOKBACK_MINUTES)
 
     try:
-        async with httpx.AsyncClient(verify=_certifi.where(), timeout=15.0) as client:
+        # apps.fema.gov does not send its full intermediate cert chain, so Python's
+        # SSL stack cannot build the trust path regardless of CA bundle. verify=False
+        # is intentional and scoped only to this government endpoint.
+        async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
             resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
     except Exception as e:
         logger.error("IPAWS fetch error: %s", e)
