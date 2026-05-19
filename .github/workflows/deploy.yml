@@ -18,8 +18,15 @@ jobs:
             set -e
             cd /home/ambers-angels/proj_dir/ambers-angels
             git pull origin main
+
+            # Run DB migrations before restarting anything
+            python3 backend/run_migration.py
+
+            # Restart API and worker so new backend code is live
+            /home/ambers-angels/.local/bin/pm2 restart ambers-angels-api ambers-angels-worker --update-env
+
+            # Build and restart web
             cd web
-            # Full clean to avoid ENOTEMPTY from partial installs or root-owned remnants
             sudo rm -rf .next node_modules
             npm ci --prefer-offline
             npm run build

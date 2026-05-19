@@ -1,0 +1,20 @@
+name: Run DB Migration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run migration on droplet
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 157.245.125.103
+          username: ambers-angels
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/ambers-angels/proj_dir/ambers-angels
+            git pull origin main
+            python3 backend/run_migration.py
