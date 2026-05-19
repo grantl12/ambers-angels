@@ -10,10 +10,13 @@ import {
   ActivityIndicator,
   FlatList,
   Linking,
+  Modal,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -39,6 +42,7 @@ import {
   type Drone,
   type Mission,
   type OperationMode,
+  type MissionStatusExtras,
 } from '../api/autonomous'
 
 const HEARTBEAT_INTERVAL_MS = 30_000
@@ -69,6 +73,11 @@ export default function AutonomousMissionScreen() {
   const [myDrone, setMyDrone] = useState<Drone | null>(null)
   const [swarmOnline, setSwarmOnline] = useState(false)
   const [batteryPct, setBatteryPct] = useState<number | null>(null)
+
+  // Acknowledgment modal state
+  const [showAckModal, setShowAckModal] = useState(false)
+  const [pendingMission, setPendingMission] = useState<Mission | null>(null)
+  const [bvlosCert, setBvlosCert] = useState("")
 
   const unsubRef = useRef<(() => void) | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -255,12 +264,30 @@ export default function AutonomousMissionScreen() {
   // Accept & Launch
   // -------------------------------------------------------------------------
 
+  // Show the acknowledgment modal before launching.
   const handleAccept = useCallback(
-    async (mission: Mission) => {
-      if (!token) return
+    (mission: Mission) => {
+      setPendingMission(mission)
+      setBvlosCert("")
+      setShowAckModal(true)
+    },
+    [],
+  )
+
+  // Called when the user confirms in the ack modal.
+  const handleConfirmAccept = useCallback(
+    async () => {
+      if (!token || !pendingMission) return
+      setShowAckModal(false)
       setActionPending(true)
+      const mission = pendingMission
+      const isBvlos = mission.operation_mode !== 'vlos'
+      const extras: MissionStatusExtras = { obs_acknowledged: true }
+      if (isBvlos && bvlosCert.trim()) {
+        extras.bvlos_certificate = bvlosCert.trim()
+      }
       try {
-        await updateMissionStatus(token, mission.id, 'uploading')
+        await updateMissionStatus(token, mission.id, 'uploading', undefined, extras)
         setActive({ id: mission.id, state: 'uploading', progressPct: 0 })
 
         await startWaypointMission(mission.waypoints, {
@@ -285,9 +312,10 @@ export default function AutonomousMissionScreen() {
         }
       } finally {
         setActionPending(false)
+        setPendingMission(null)
       }
     },
-    [token, subscribeToMission],
+    [token, pendingMission, bvlosCert, subscribeToMission],
   )
 
   // -------------------------------------------------------------------------
@@ -477,6 +505,76 @@ export default function AutonomousMissionScreen() {
           contentContainerStyle={styles.list}
         />
       )}
+
+      {/* ── Observation Acknowledgment Modal ── */}
+      <Modal
+        visible={showAckModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAckModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>Pre-Mission Acknowledgment</Text>
+
+              <View style={styles.ackItem}>
+                <Text style={styles.ackBullet}>•</Text>
+                <Text style={styles.ackText}>
+                  I confirm I will{' '}
+                  <Text style={styles.ackEmphasis}>observe only</Text>
+                  {' '}— I will not pursue, confront, or approach any person or vehicle.
+                </Text>
+              </View>
+
+              {pendingMission && pendingMission.operation_mode !== 'vlos' && (
+                <>
+                  <View style={[styles.ackItem, styles.ackItemBvlos]}>
+                    <Text style={styles.ackBullet}>•</Text>
+                    <Text style={[styles.ackText, styles.ackTextBvlos]}>
+                      This is a BVLOS mission. FAA waiver documentation is required.
+                    </Text>
+                  </View>
+                  <View style={styles.certField}>
+                    <Text style={styles.certLabel}>FAA Certificate / Waiver Number (required)</Text>
+                    <TextInput
+                      style={styles.certInput}
+                      value={bvlosCert}
+                      onChangeText={setBvlosCert}
+                      placeholder="e.g. 107BVLOS-2025-XXXXX"
+                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setShowAckModal(false)
+                  setPendingMission(null)
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmBtn,
+                  pendingMission?.operation_mode !== 'vlos' && !bvlosCert.trim() && styles.btnDisabled,
+                ]}
+                onPress={handleConfirmAccept}
+                disabled={pendingMission?.operation_mode !== 'vlos' && !bvlosCert.trim()}
+              >
+                <Text style={styles.confirmBtnText}>Confirm &amp; Launch</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -735,5 +833,105 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 60,
     fontSize: 15,
+  },
+  // Acknowledgment modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalBox: {
+    backgroundColor: '#0d1117',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1a2332',
+    padding: 22,
+    width: '100%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    color: '#f59e0b',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 18,
+  },
+  ackItem: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  ackItemBvlos: {
+    backgroundColor: '#1c0f00',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+  },
+  ackBullet: {
+    color: '#f59e0b',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  ackText: {
+    flex: 1,
+    color: '#cbd5e1',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  ackEmphasis: {
+    color: '#f59e0b',
+    fontWeight: '700',
+  },
+  ackTextBvlos: {
+    color: '#fbbf24',
+  },
+  certField: {
+    marginBottom: 16,
+  },
+  certLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    marginBottom: 6,
+  },
+  certInput: {
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1a2332',
+    color: '#f1f5f9',
+    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1a2332',
+  },
+  cancelBtnText: {
+    color: 'rgba(255,255,255,0.45)',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  confirmBtn: {
+    flex: 2,
+    backgroundColor: '#f59e0b',
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  confirmBtnText: {
+    color: '#050a0f',
+    fontWeight: '700',
+    fontSize: 14,
   },
 })

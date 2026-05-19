@@ -7,6 +7,7 @@ POST /alerts/resolve   — manually resolve a FEMA or NCMEC alert
 GET  /alerts/resolutions — audit log of past resolutions
 """
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ from sqlalchemy import text
 
 import database
 from routers.auth import get_current_pilot, require_coordinator
+from services.audit import write_audit_async
 from services.fema_connector import (
     _deactivate_by_references,
     _notify_cancelled,
@@ -199,6 +201,18 @@ async def resolve_alert(
         req.fema_identifier, req.ncmec_guid,
         req.reason, deactivated_plates,
     )
+
+    asyncio.create_task(write_audit_async(
+        database.AsyncSessionLocal,
+        username=resolved_by,
+        action="alert_resolved",
+        details={
+            "fema_identifier": req.fema_identifier,
+            "ncmec_guid": req.ncmec_guid,
+            "plates_deactivated": deactivated_plates,
+            "reason": req.reason,
+        },
+    ))
 
     return {
         "status":            "resolved",

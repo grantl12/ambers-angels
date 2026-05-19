@@ -19,6 +19,7 @@ Endpoints:
   PATCH /autonomous/drones/{drone_id}            — admin: update drone auth flags
 """
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -29,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import database
 from routers.auth import get_current_pilot, require_admin
+from services.audit import write_audit_async
 from services.autonomous_mission_service import (
     VALID_OPERATION_MODES,
     create_mission,
@@ -71,6 +73,8 @@ class UpdateStatusRequest(BaseModel):
     status: str
     progress_pct: Optional[int] = None
     error_msg: Optional[str] = None
+    obs_acknowledged: Optional[bool] = None
+    bvlos_certificate: Optional[str] = None
 
 
 class UpdateDroneAuthRequest(BaseModel):
@@ -231,6 +235,13 @@ async def plan_mission(
             detail="Could not resolve an observation point from the supplied input.",
         )
 
+    asyncio.create_task(write_audit_async(
+        database.AsyncSessionLocal,
+        username=payload.get("sub", "unknown"),
+        action="mission_dispatched",
+        details={"mission_id": mission["id"], "drone_id": req.drone_id, "alert_id": req.alert_id, "operation_mode": req.operation_mode},
+    ))
+
     return mission
 
 
@@ -281,6 +292,23 @@ async def update_status_endpoint(
     except Exception as exc:
         logger.error("update_status failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+    # Store acknowledgments when transitioning to uploading
+    if req.status == "uploading" and (req.obs_acknowledged or req.bvlos_certificate):
+        async with database.AsyncSessionLocal() as ack_db:
+            updates = []
+            params: dict = {"id": mission_id}
+            if req.obs_acknowledged:
+                updates.append("obs_acknowledged_at = NOW()")
+            if req.bvlos_certificate:
+                updates.append("bvlos_certificate = :cert")
+                params["cert"] = req.bvlos_certificate.strip()
+            if updates:
+                await ack_db.execute(
+                    text(f"UPDATE autonomous_missions SET {', '.join(updates)} WHERE id = :id"),
+                    params,
+                )
+                await ack_db.commit()
 
     return {"ok": True, "mission_id": mission_id, "status": req.status}
 

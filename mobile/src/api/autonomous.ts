@@ -171,15 +171,27 @@ export function isDroneOnline(drone: Drone): boolean {
   return Date.now() - new Date(drone.last_seen_at).getTime() < 5 * 60 * 1000
 }
 
+export type MissionStatusExtras = {
+  obs_acknowledged?: boolean
+  bvlos_certificate?: string
+}
+
 export async function updateMissionStatus(
   token: string,
   missionId: number,
   status: string,
   progressPct?: number,
+  extras?: MissionStatusExtras,
 ): Promise<void> {
   const body: Record<string, unknown> = { status }
   if (typeof progressPct === 'number') {
     body.progress_pct = progressPct
+  }
+  if (extras?.obs_acknowledged !== undefined) {
+    body.obs_acknowledged = extras.obs_acknowledged
+  }
+  if (extras?.bvlos_certificate !== undefined) {
+    body.bvlos_certificate = extras.bvlos_certificate
   }
 
   const res = await fetch(

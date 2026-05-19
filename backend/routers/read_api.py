@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 from services.badge_service import compute_all_badges
 from routers.auth import get_current_pilot, require_admin, require_coordinator
 from services.coverage_service import compute_priority_zones, compute_coverage_map
+from services.audit import write_audit_sync
 
 _DEFLOCK_INDEX_URL = "https://cdn.deflock.me/regions/index.json"
 _DEFLOCK_HEADERS   = {"User-Agent": "AmberAngels-mission-scraper/1.0"}
@@ -604,8 +605,8 @@ _gap_ping_cooldown: dict[str, float] = {}
 _GAP_PING_COOLDOWN_S = 30 * 60  # 30 minutes per alert
 
 
-@router.post("/coverage/gap-alert", dependencies=[Depends(require_coordinator)])
-def post_gap_alert(req: GapAlertRequest):
+@router.post("/coverage/gap-alert")
+def post_gap_alert(req: GapAlertRequest, payload: dict = Depends(require_coordinator)):
     """
     Coordinator: send a generic push notification to all active pilots.
     Notification contains no plate/vehicle/victim details — just a zone alert.
@@ -660,7 +661,52 @@ def post_gap_alert(req: GapAlertRequest):
 
     _gap_ping_cooldown[req.alert_id] = now
     logger.info("Coverage gap ping sent to %d pilot(s) for alert %s", len(tokens), req.alert_id)
+
+    db2 = database.SessionLocal()
+    try:
+        write_audit_sync(db2, payload["sub"], "coverage_gap_ping", {
+            "alert_id": req.alert_id,
+            "notified": len(tokens),
+        })
+    finally:
+        db2.close()
+
     return {"notified": len(tokens), "cooldown": False}
+
+
+# ---------------------------------------------------------------------------
+# Admin audit log
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/audit-log", dependencies=[Depends(require_admin)])
+def get_audit_log(
+    limit: int = Query(100, le=500),
+    offset: int = Query(0, ge=0),
+    username: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
+):
+    """Admin: paginated audit log of coordinator and system actions."""
+    db = database.SessionLocal()
+    try:
+        where_clauses = []
+        params: dict = {"limit": limit, "offset": offset}
+        if username:
+            where_clauses.append("username = :uname")
+            params["uname"] = username
+        if action:
+            where_clauses.append("action = :action")
+            params["action"] = action
+        where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+        rows = db.execute(
+            text(f"SELECT id, username, action, details, created_at FROM audit_log {where} ORDER BY created_at DESC LIMIT :limit OFFSET :offset"),
+            params,
+        ).fetchall()
+        return [
+            {"id": r[0], "username": r[1], "action": r[2], "details": r[3], "createdAt": r[4].isoformat() if r[4] else None}
+            for r in rows
+        ]
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1250,3 +1296,26 @@ def get_ncmec_recent(limit: int = 40, db=Depends(_sync_db)):
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Background task: daily detection purge
+# ---------------------------------------------------------------------------
+
+async def detection_purge_loop(session_factory, retention_days: int = 30):
+    """Daily background task: delete non-alerted detection events older than retention_days."""
+    while True:
+        await asyncio.sleep(24 * 3600)
+        try:
+            async with session_factory() as db:
+                result = await db.execute(
+                    text(
+                        f"DELETE FROM detection_events "
+                        f"WHERE status NOT IN ('alerted') "
+                        f"AND last_seen < NOW() - INTERVAL '{int(retention_days)} days'"
+                    )
+                )
+                await db.commit()
+                logger.info("Detection purge: removed %d non-alerted records older than %d days", result.rowcount, retention_days)
+        except Exception as exc:
+            logger.error("Detection purge failed: %s", exc)

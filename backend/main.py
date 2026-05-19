@@ -56,7 +56,7 @@ from services.autonomous_mission_service import mission_timeout_loop
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from services.frame_preprocessor import apply_clahe, enhance_alpr_results
-from routers.read_api import router as read_router
+from routers.read_api import router as read_router, detection_purge_loop
 from routers.auth import router as auth_router, get_current_pilot, require_admin
 from routers.alerts import router as alerts_router
 from routers.autonomous import router as autonomous_router
@@ -104,12 +104,16 @@ async def lifespan(app: FastAPI):
     timeout_task = asyncio.create_task(
         mission_timeout_loop(session_factory=database.AsyncSessionLocal)
     )
+    purge_task = asyncio.create_task(
+        detection_purge_loop(session_factory=database.AsyncSessionLocal)
+    )
     yield
     fema_task.cancel()
     amber_task.cancel()
     ncmec_task.cancel()
     timeout_task.cancel()
-    for t in (fema_task, amber_task, ncmec_task, timeout_task):
+    purge_task.cancel()
+    for t in (fema_task, amber_task, ncmec_task, timeout_task, purge_task):
         try:
             await t
         except asyncio.CancelledError:

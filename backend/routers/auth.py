@@ -1021,3 +1021,41 @@ def sso_complete(req: SSOCompleteRequest):
         )
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Terms of Service
+# ---------------------------------------------------------------------------
+
+@router.get("/tos-status")
+def tos_status(payload: dict = Depends(get_current_pilot)):
+    username = payload["sub"]
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT tos_version FROM pilots WHERE username = :u"),
+            {"u": username},
+        ).fetchone()
+        accepted = bool(row and row[0] == CURRENT_TOS_VERSION)
+        return {
+            "current_version": CURRENT_TOS_VERSION,
+            "accepted": accepted,
+            "accepted_version": row[0] if row else None,
+        }
+    finally:
+        db.close()
+
+
+@router.post("/tos/accept")
+def accept_tos(payload: dict = Depends(get_current_pilot)):
+    username = payload["sub"]
+    db = database.SessionLocal()
+    try:
+        db.execute(
+            text("UPDATE pilots SET tos_version = :v, tos_accepted_at = NOW() WHERE username = :u"),
+            {"v": CURRENT_TOS_VERSION, "u": username},
+        )
+        db.commit()
+        return {"accepted": True, "version": CURRENT_TOS_VERSION}
+    finally:
+        db.close()

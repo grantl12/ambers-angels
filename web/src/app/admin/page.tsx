@@ -57,6 +57,14 @@ type ManualVehicle = {
 
 type ManualAlerts = { plates: ManualPlate[]; vehicles: ManualVehicle[] }
 
+type AuditLogEntry = {
+  id:        number
+  username:  string
+  action:    string
+  details:   Record<string, unknown> | null
+  createdAt: string
+}
+
 type SystemHealth = {
   status: string
   database: string
@@ -165,6 +173,25 @@ export default function AdminPage() {
 
   // active manual alerts
   const [manualAlerts, setManualAlerts] = useState<ManualAlerts>({ plates: [], vehicles: [] })
+
+  // audit log
+  const [auditLog,        setAuditLog]        = useState<AuditLogEntry[]>([])
+  const [auditLoading,    setAuditLoading]    = useState(false)
+  const [auditError,      setAuditError]      = useState<string | null>(null)
+  const [auditLoaded,     setAuditLoaded]     = useState(false)
+
+  const loadAuditLog = useCallback(async () => {
+    setAuditLoading(true)
+    setAuditError(null)
+    try {
+      setAuditLog(await apiGet<AuditLogEntry[]>("/admin/audit-log?limit=100"))
+      setAuditLoaded(true)
+    } catch (e: unknown) {
+      setAuditError(e instanceof Error ? e.message : "Failed to load audit log.")
+    } finally {
+      setAuditLoading(false)
+    }
+  }, [])
 
   const loadCoordRequests = useCallback(async () => {
     setCoordLoading(true)
@@ -669,6 +696,80 @@ export default function AdminPage() {
           >
             {clearing ? "Clearing…" : "Clear all test data"}
           </button>
+        </section>
+
+        {/* ── Audit Log ── */}
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white">Audit Log</h2>
+              <p className="text-sm text-white/40 mt-1">Last 100 actions across all users</p>
+            </div>
+            <button
+              onClick={loadAuditLog}
+              disabled={auditLoading}
+              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/50 hover:text-white/80 hover:border-white/20 disabled:opacity-50 transition-colors"
+            >
+              {auditLoading ? "Loading…" : auditLoaded ? "Refresh" : "Load"}
+            </button>
+          </div>
+
+          {auditError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 mb-4">
+              {auditError}
+            </div>
+          )}
+
+          {!auditLoaded && !auditLoading && !auditError && (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-8 text-center text-sm text-white/40">
+              Click &ldquo;Load&rdquo; to fetch the audit log.
+            </div>
+          )}
+
+          {auditLoaded && auditLog.length === 0 && (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-8 text-center text-sm text-white/40">
+              No audit log entries found.
+            </div>
+          )}
+
+          {auditLoaded && auditLog.length > 0 && (
+            <div className="rounded-xl border border-white/10 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-white/5 border-b border-white/10">
+                    <th className="text-left px-4 py-2.5 font-semibold text-white/50 w-40">Timestamp</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-white/50 w-32">User</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-white/50 w-40">Action</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-white/50">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {auditLog.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-2.5 text-white/35 font-mono whitespace-nowrap">
+                        {new Date(entry.createdAt).toLocaleString([], {
+                          month: "2-digit",
+                          day:   "2-digit",
+                          hour:  "2-digit",
+                          minute:"2-digit",
+                          second:"2-digit",
+                        })}
+                      </td>
+                      <td className="px-4 py-2.5 text-sky-400 font-medium whitespace-nowrap">
+                        @{entry.username}
+                      </td>
+                      <td className="px-4 py-2.5 text-amber-400/80 whitespace-nowrap">
+                        {entry.action}
+                      </td>
+                      <td className="px-4 py-2.5 text-white/40 font-mono break-all">
+                        {entry.details ? JSON.stringify(entry.details) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <div>

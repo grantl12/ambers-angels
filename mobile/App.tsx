@@ -9,10 +9,12 @@ import * as Notifications from "expo-notifications"
 import { TabNavigator } from "./src/navigation/TabNavigator"
 import LoginScreen from "./src/screens/LoginScreen"
 import SSOCompleteScreen from "./src/screens/SSOCompleteScreen"
+import TosGateScreen from "./src/screens/TosGateScreen"
 import { loadSettings, saveSettings } from "./src/lib/settings"
 import { setApiBaseUrl, apiPost } from "./src/api/client"
 import { getAuthState } from "./src/lib/auth"
 import { setPendingAlertTarget } from "./src/lib/alertTarget"
+import { fetchTosStatus, acceptTos } from "./src/api/tos"
 
 // Expo project ID — must match app.json
 const EXPO_PROJECT_ID = "4f470b02-19e3-47a7-9f48-663dc49603bd"
@@ -53,11 +55,12 @@ const queryClient = new QueryClient({
 })
 
 export default function App() {
-  const [ready,      setReady]      = useState(false)
-  const [authed,     setAuthed]     = useState(false)
-  const [username,   setUsername]   = useState<string | null>(null)
-  const [role,       setRole]       = useState<string>("pilot")
-  const [ssoNewUser, setSSONewUser] = useState<{
+  const [ready,        setReady]        = useState(false)
+  const [authed,       setAuthed]       = useState(false)
+  const [tosAccepted,  setTosAccepted]  = useState(true)  // default true avoids flash before check
+  const [username,     setUsername]     = useState<string | null>(null)
+  const [role,         setRole]         = useState<string>("pilot")
+  const [ssoNewUser,   setSSONewUser]   = useState<{
     registrationToken: string
     email:             string | null
     provider:          "apple" | "google"
@@ -121,6 +124,11 @@ export default function App() {
 
         // Register/refresh push token so watch-area alerts reach this device
         registerPushToken()
+
+        // Check whether the user has accepted the current ToS
+        fetchTosStatus().then((status) => {
+          if (!status.accepted) setTosAccepted(false)
+        }).catch(() => {}) // network error → don't block app
       }
       setReady(true)
     }
@@ -132,6 +140,11 @@ export default function App() {
       if (auth) {
         setUsername(auth.username)
         setRole(auth.role)
+
+        // Check ToS on fresh login
+        fetchTosStatus().then((status) => {
+          if (!status.accepted) setTosAccepted(false)
+        }).catch(() => {})
       }
       setAuthed(true)
       // Register push token on fresh login too
@@ -168,6 +181,20 @@ export default function App() {
         <LoginScreen
           onLogin={handleLogin}
           onSSONewUser={(token, email, provider) => setSSONewUser({ registrationToken: token, email, provider })}
+        />
+      </SafeAreaProvider>
+    )
+  }
+
+  if (!tosAccepted) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <TosGateScreen
+          onAccept={async () => {
+            await acceptTos()
+            setTosAccepted(true)
+          }}
         />
       </SafeAreaProvider>
     )
