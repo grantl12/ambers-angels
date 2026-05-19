@@ -160,13 +160,13 @@ Should return `200 OK`. If 404 — check nginx config for the `/deck` location b
 - Footer: `info@amberangels.org`
 - Apple submission: `admin@ambersangels.org`
 - Grant documents: `admin@ambersangels.org`
-- Privacy policy contact: `privacy@amberangels.org`
+- Privacy policy contact: `info@amberangels.org`
 
-**Decision: Use `admin@amberangels.org` as the single public-facing address.**
+**Decision: Use `info@amberangels.org` as the single public-facing address.**
 
 Find and replace:
-- `info@amberangels.org` → `admin@amberangels.org` (homepage footer, "Fund the Mission" CTA)
-- Ensure `privacy@amberangels.org` still works as an alias or forward (keep for privacy-specific requests — this is fine to maintain separately)
+- `info@amberangels.org` → `info@amberangels.org` (homepage footer, "Fund the Mission" CTA)
+- Ensure `info@amberangels.org` still works as an alias or forward (keep for privacy-specific requests — this is fine to maintain separately)
 - Confirm all three addresses are set up and forwarding to Grant's inbox
 
 ---
@@ -217,7 +217,7 @@ We may suspend or terminate volunteer access at any time for violations of these
 These terms are governed by the laws of the State of Georgia.
 
 10. Contact
-Questions: admin@amberangels.org
+Questions: info@amberangels.org
 Amber's Angels Inc. · 103 Springwood Dr · Carrollton, GA 30117
 ```
 
@@ -232,7 +232,7 @@ Change button label and link:
 
 ```
 Current: [Support the Mission](#involve)
-Replace: [Grant & Partnership Inquiries](mailto:admin@amberangels.org)
+Replace: [Grant & Partnership Inquiries](mailto:info@amberangels.org)
 ```
 
 **Option B:** Remove the button entirely and keep only "Become a Volunteer."
@@ -362,12 +362,12 @@ twitter: {
 
 **Current (Fund the Mission section):**
 ```
-[Contact Grant Lindberg →](mailto:admin@amberangels.org)
+[Contact Grant Lindberg →](mailto:info@amberangels.org)
 ```
 
 **Replace with:**
 ```
-[Contact Us →](mailto:admin@amberangels.org)
+[Contact Us →](mailto:info@amberangels.org)
 ```
 
 ---

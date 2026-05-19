@@ -215,7 +215,7 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 
 ## Contact / Identity
 
-- Public email: `info@amberangels.org` — use everywhere. `privacy@amberangels.org` for privacy requests only.
+- Public email: `info@amberangels.org` — use everywhere for all contact including privacy requests.
 - EIN: 42-2052151 (501(c)(3) applied)
 - Address: 103 Springwood Dr, Carrollton, GA 30117
 - Pilot program: Carrollton, GA (not "Carroll County")

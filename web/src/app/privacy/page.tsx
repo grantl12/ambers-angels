@@ -62,8 +62,8 @@ export default function PrivacyPage() {
         <Section title="Your rights">
           You may request a copy of your personal data, correction of inaccuracies, or deletion
           of your account by contacting us at{" "}
-          <a href="mailto:privacy@amberangels.org" className="text-amber-400 hover:underline">
-            privacy@amberangels.org
+          <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">
+            info@amberangels.org
           </a>. Deletion requests are honored within 30 days except where retention is required
           by law.
         </Section>
@@ -87,8 +87,8 @@ export default function PrivacyPage() {
 
         <Section title="Contact">
           Questions about this policy:{" "}
-          <a href="mailto:privacy@amberangels.org" className="text-amber-400 hover:underline">
-            privacy@amberangels.org
+          <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">
+            info@amberangels.org
           </a>
         </Section>
       </div>
