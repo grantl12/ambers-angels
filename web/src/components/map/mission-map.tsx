@@ -9,7 +9,7 @@ import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
 import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera, FlockBbox } from "@/features/flock/api"
-import { useRoadCoverage, usePriorityRoads } from "@/features/coverage/api"
+import { useRoadCoverage, usePriorityRoads, fetchPriorityZones } from "@/features/coverage/api"
 import type { RoadSegment } from "@/features/coverage/api"
 import { useSwarmDrones, isDroneOnline, dispatchMission, type SwarmDrone } from "@/features/autonomous/api"
 import { useAirTraffic, type Aircraft } from "@/features/airspace/api"
@@ -100,6 +100,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [dispatching, setDispatching]               = useState(false)
   const [dispatchError, setDispatchError]           = useState<string | null>(null)
   const [dispatchSuccess, setDispatchSuccess]       = useState(false)
+  const [dispatchSuggested, setDispatchSuggested]   = useState(false)
 
   const { data: drones = [] }        = useLatestTelemetry()
   const { data: trail }              = useTelemetryTrail("drone1", 30)
@@ -262,6 +263,27 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     setDispatchLat("")
     setDispatchLng("")
     setDispatchError(null)
+    setDispatchSuggested(false)
+  }
+
+  function alertToBbox(alert: { polygon: string | null; centroidLat: number | null; centroidLng: number | null }): FlockBbox | null {
+    if (alert.polygon) {
+      const pairs = alert.polygon.trim().split(/\s+/).map((p) => {
+        const [lat, lng] = p.split(",").map(Number)
+        return { lat, lng }
+      })
+      return {
+        south: Math.min(...pairs.map((p) => p.lat)),
+        north: Math.max(...pairs.map((p) => p.lat)),
+        west:  Math.min(...pairs.map((p) => p.lng)),
+        east:  Math.max(...pairs.map((p) => p.lng)),
+      }
+    }
+    if (alert.centroidLat != null && alert.centroidLng != null) {
+      const r = 0.09 // ~6 mile radius fallback
+      return { south: alert.centroidLat - r, north: alert.centroidLat + r, west: alert.centroidLng - r, east: alert.centroidLng + r }
+    }
+    return null
   }
 
   async function handleDispatch() {
@@ -908,11 +930,35 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               ) : (
                 <select
                   value={dispatchAlertId}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const id = e.target.value
                     setDispatchAlertId(id)
+                    setDispatchSuggested(false)
                     const alert = alertZones.find((a) => String(a.id) === id)
-                    if (alert?.centroidLat != null && alert?.centroidLng != null) {
+                    if (!alert) return
+
+                    // Try to find the nearest uncovered road segment (score=0) within the alert polygon bbox.
+                    const bbox = alertToBbox(alert)
+                    if (bbox) {
+                      try {
+                        const segments = await fetchPriorityZones(bbox)
+                        const gaps = segments.filter((s) => s.coverageScore === 0)
+                        if (gaps.length > 0 && alert.centroidLat != null && alert.centroidLng != null) {
+                          const cl = alert.centroidLat, cn = alert.centroidLng
+                          const best = gaps.reduce((a, b) =>
+                            (a.centroidLat - cl) ** 2 + (a.centroidLng - cn) ** 2 <
+                            (b.centroidLat - cl) ** 2 + (b.centroidLng - cn) ** 2 ? a : b
+                          )
+                          setDispatchLat(best.centroidLat.toFixed(5))
+                          setDispatchLng(best.centroidLng.toFixed(5))
+                          setDispatchSuggested(true)
+                          return
+                        }
+                      } catch { /* fall through */ }
+                    }
+
+                    // Fallback: polygon centroid
+                    if (alert.centroidLat != null && alert.centroidLng != null) {
                       setDispatchLat(alert.centroidLat.toFixed(5))
                       setDispatchLng(alert.centroidLng.toFixed(5))
                     }
@@ -941,8 +987,13 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
 
             {/* Observation point */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+              <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 Observation Point
+                {dispatchSuggested && (
+                  <span style={{ fontSize: 9, background: "rgba(245,158,11,0.15)", color: "#f59e0b", padding: "2px 6px", borderRadius: 4, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+                    Coverage gap
+                  </span>
+                )}
               </label>
               <div style={{ display: "flex", gap: 8 }}>
                 <div style={{ flex: 1 }}>

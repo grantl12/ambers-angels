@@ -38,6 +38,11 @@ export function usePriorityRoads(bbox?: FlockBbox) {
   })
 }
 
+/** One-shot fetch (not a hook) — used by dispatch modal to suggest obs point. */
+export async function fetchPriorityZones(bbox: FlockBbox): Promise<RoadSegment[]> {
+  return apiGet<RoadSegment[]>(`/coverage/priority-zones${bboxParams(bbox)}`)
+}
+
 // Legacy aliases for components not yet migrated
 export const useFlockCoverageMap = useRoadCoverage
 export const usePriorityZones    = usePriorityRoads
