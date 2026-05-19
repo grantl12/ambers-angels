@@ -19,6 +19,12 @@ jobs:
             cd /home/ambers-angels/proj_dir/ambers-angels
             git pull origin main
 
+            # Ensure PM2 log rotation is installed (idempotent)
+            /home/ambers-angels/.local/bin/pm2 list | grep -q pm2-logrotate \
+              || /home/ambers-angels/.local/bin/pm2 install pm2-logrotate
+            /home/ambers-angels/.local/bin/pm2 set pm2-logrotate:max_size 50M
+            /home/ambers-angels/.local/bin/pm2 set pm2-logrotate:retain 7
+
             # Run DB migrations before restarting anything
             python3 backend/run_migration.py
 

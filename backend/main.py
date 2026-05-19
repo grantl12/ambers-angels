@@ -16,7 +16,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -60,6 +59,20 @@ from routers.read_api import router as read_router, detection_purge_loop
 from routers.auth import router as auth_router, get_current_pilot, require_admin
 from routers.alerts import router as alerts_router
 from routers.autonomous import router as autonomous_router
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
+from services.discord_logger import DiscordErrorHandler
+
+# Attach Discord error handler to the root logger so every ERROR+ log
+# from any module (fema_connector, ncmec_poller, uvicorn, etc.) fires an alert.
+# DISCORD_ERROR_WEBHOOK_URL is optional — falls back to ALERT_WEBHOOK_URL.
+# If neither is set the handler is not installed (no-op).
+_error_webhook = (
+    os.getenv("DISCORD_ERROR_WEBHOOK_URL")
+    or os.getenv("ALERT_WEBHOOK_URL", "")
+)
+if _error_webhook:
+    logging.getLogger().addHandler(DiscordErrorHandler(_error_webhook))
+    logger.info("Discord error handler registered")
 
 # Module-level singleton — must persist across requests to maintain the
 # 5-second aggregation window and active group state
@@ -127,6 +140,23 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Amber's Angels API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.middleware("http")
+async def _log_unhandled_errors(request: Request, call_next):
+    """Log unhandled exceptions at ERROR level so Discord picks them up."""
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        logger.error(
+            "Unhandled exception: %s %s",
+            request.method,
+            request.url.path,
+            exc_info=exc,
+        )
+        raise
+
+
 app.include_router(read_router)
 app.include_router(auth_router)
 app.include_router(alerts_router)
