@@ -321,7 +321,7 @@ export default function LandingPage() {
             <div className={s.aboutBio}>
               <h2>Grant Lindberg<br /><em>Executive Director</em></h2>
               <p>
-                Grant served 11.5 years in the U.S. Army, reaching Staff Sergeant (E-7) in nine years.
+                Grant served 11.5 years in the U.S. Army, reaching Sergeant First Class (E-7) in nine years.
                 He started as an air defense specialist, moved to Space Command in 2010, and attended the
                 Defense Language Institute in 2013 for Korean. His last posting was NSA Korea — where one
                 of his roles was as a <strong>Fourth Amendment auditor</strong>, reviewing signals collection
