@@ -37,7 +37,7 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1 text-sm">
             <li>To authenticate and manage pilot accounts.</li>
             <li>To display real-time drone positions on the mission map.</li>
-            <li>To match detected license plates against active AMBER/SILVER alert watchlists and notify law enforcement and emergency coordinators.</li>
+            <li>To match detected license plates against active AMBER/SILVER alert watchlists and notify mission coordinators for human review and potential escalation to responding agencies.</li>
             <li>To generate mission statistics and leaderboards for volunteer recognition.</li>
           </ul>
         </Section>
