@@ -16,7 +16,7 @@
   "This is the liability slide. Walk it slowly. Left side: volunteers cannot touch a live mission without first accepting a binding agreement that says observe and report only — no pursuit, no confrontation, no contact with subjects, no approaching vehicles. Background check on enrollment. Right side: every coordinator action is timestamped to an audit log. If a detection was acted on, we can show who reviewed it, when, and what they decided. This is what makes the platform defensible.",
   "Show this and pause. This is the swarm dispatch UI — live as of last week. Coordinator sees every drone on the mission map, clicks one, picks operation mode, accepts or overrides the system-suggested observation point (highest-priority coverage gap), and dispatches. No volunteer is flying — the coordinator we vet is. Direct comparable to Flock Aerodome's tooling, except every flight requires a coordinator decision and is logged. If asked about Part 108: that mode is gated off until the FAA rule lands.",
   "Companion to the previous slide. Where a drone can't reach quickly — distance, weather, battery — the platform pings nearby enrolled volunteers with a suggested drive corridor through the gap. They opt in per-mission. If they don't drive, nothing happens. If they do, frames stream through the same coordinator review gate. This is the network multiplier.",
-  "Operational reliability. Three things any partner asks about: what if the drone fails, what if the backend fails, what if the volunteer goes off-script. Battery and return-to-home are visible to the coordinator in real time and one-click recoverable. Backend errors surface to the coordinator Discord channel within seconds. Every volunteer and coordinator action is on the audit timeline. This is the answer to 'what if something goes wrong.'",
+  "Operational reliability. Three real questions from any partner: what if the drone fails mid-mission, what if the backend goes down, what if the alert is cancelled while volunteers are still in the field. Battery and RTH are one-click from the coordinator console. Backend errors hit the coordinator Discord within seconds — coordinators are paged, CPD never sees the noise. Alert cancellation is automatic — FEMA sends a Cancel message, the platform stands down immediately, watchlist is deactivated, and volunteers are notified. No coordinator action required to close the mission.",
   "Privacy posture — this matters for CPD's public messaging as much as for the platform itself. Frames are processed and deleted; there is no video archive. There is no persistent plate database — plate matches live only inside the active alert window and are purged when the alert closes. The platform is incapable of being used to track citizens outside of an active government alert. If asked: yes, we publish the retention policy publicly.",
   "Technical proof point — why the false-positive rate is low enough to put in front of officers. Plate-only systems run at roughly 30% false positives. Our cascade scores plate, make, model, year, and color independently — and requires multiple signals to corroborate before a flag escalates. That works even when plates are switched, obscured, or missing — which is the case in a real abduction more often than people assume. Coordinator is the final gate after that.",
   "We are not single-purpose. The same network responds to Silver (seniors), Mattie's Call (developmental disability), Purple (other disability), and Blue (endangered officer) alerts. All five are government-issued through the same FEMA IPAWS channel. For CPD this means the volunteer base trains once and is available across the full alert taxonomy.",
@@ -1613,8 +1613,8 @@ section {
   <section id="s9" data-screen-label="09 Operational Reliability">
     <div class="header-row">
       <span class="label">When Something Goes Wrong</span>
-      <h2>Three failure modes —<br><em>three answers</em>.</h2>
-      <p>Every partner asks: what if the drone fails, what if the backend fails, what if a volunteer goes off-script. Here's what the coordinator sees in each case, in real time.</p>
+      <h2>Three questions from every partner —<br><em>three answers</em>.</h2>
+      <p>What if the drone fails. What if the backend goes down. What if the alert is cancelled mid-mission. Here's what the coordinator sees in each case, in real time.</p>
     </div>
 
     <div class="rel-grid">
@@ -1667,31 +1667,37 @@ section {
         <div class="rel-foot">On-call coordinator paged on <strong>ERROR · CPD never sees the noise.</strong></div>
       </div>
 
-      <!-- Volunteer off-script -->
+      <!-- Alert resolved / cancelled -->
       <div class="rel-card">
-        <h3>Volunteer Goes Off-Script</h3>
-        <div class="head">Detected by anomaly · revoked by coordinator.</div>
-        <div class="desc">If a volunteer's reported position deviates from the assigned corridor — or they linger near a flagged detection — the platform raises a flag. The coordinator can revoke that volunteer's session immediately, retain the audit trail, and disable future enrollment.</div>
+        <h3>Alert Resolved</h3>
+        <div class="head">Platform stands down when the alert does.</div>
+        <div class="desc">When FEMA issues a Cancel message — or the alert window closes — the platform auto-deactivates the watchlist, purges non-matching plate data, and posts a stand-down to the coordinator channel. Volunteers don't stay in the field after an alert resolves.</div>
 
-        <div class="audit-log" style="background:var(--ink2);">
-          <div class="audit-row" style="grid-template-columns: 70px 60px 1fr;">
-            <span class="t">15:02:14</span>
-            <span class="who" style="color:#fb923c;">anomaly</span>
-            <span class="act"><em style="color:#fb923c;">vol.0407</em> off-corridor · 0.4 mi</span>
+        <div class="discord-feed">
+          <div class="discord-msg">
+            <div class="av">AA</div>
+            <div class="body">
+              <div class="who">aa-bot <span class="t">16:14</span></div>
+              <div class="text"><span class="lvl info">INFO</span>FEMA Cancel received · <code>AMB-2026-0514-01</code> · stand-down</div>
+            </div>
           </div>
-          <div class="audit-row" style="grid-template-columns: 70px 60px 1fr;">
-            <span class="t">15:02:38</span>
-            <span class="who">coord.05</span>
-            <span class="act">session <span class="reject">REVOKED</span> · review queued</span>
+          <div class="discord-msg">
+            <div class="av">AA</div>
+            <div class="body">
+              <div class="who">aa-bot <span class="t">16:14</span></div>
+              <div class="text"><span class="lvl info">INFO</span>watchlist deactivated · <code>3 plates</code> removed · session data purged</div>
+            </div>
           </div>
-          <div class="audit-row" style="grid-template-columns: 70px 60px 1fr;">
-            <span class="t">15:03:01</span>
-            <span class="who">system</span>
-            <span class="act">device push · <em>session ended</em></span>
+          <div class="discord-msg">
+            <div class="av">AA</div>
+            <div class="body">
+              <div class="who">aa-bot <span class="t">16:14</span></div>
+              <div class="text"><span class="lvl info">INFO</span>mission <code>AMB-2026-0514-01</code> · status <span class="approve">CLOSED</span> · 31 volunteers notified</div>
+            </div>
           </div>
         </div>
 
-        <div class="rel-foot">Audit retained. <strong>Re-enrollment requires committee review.</strong></div>
+        <div class="rel-foot">Stand-down is automatic — <strong>no coordinator action required to close the mission.</strong></div>
       </div>
     </div>
 
