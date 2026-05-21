@@ -30,8 +30,9 @@ jobs:
 
             # Rebuild frontend
             cd web
-            sudo rm -rf .next node_modules
-            npm ci --prefer-offline
+            find .next -delete 2>/dev/null || true
+            find node_modules -delete 2>/dev/null || true
+            npm ci
             npm run build
             cd ..
 
