@@ -49,6 +49,7 @@ export default function LandingPage() {
           <li><a href="#alerts">Alert Types</a></li>
           <li><a href="#pilot">Pilot</a></li>
           <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#about">About</a></li>
         </ul>
         <a href="/login" className={s.navSignIn}>Sign In</a>
         <a href="#involve" className={s.navCta}>Get Involved →</a>
@@ -308,6 +309,68 @@ export default function LandingPage() {
             </div>
             <h3>Public Transparency</h3>
             <p>Our data retention policies are public and rigorous. Published with every pilot transparency report.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ABOUT */}
+      <section id="about" className={`${s.section} ${s.about}`}>
+        <div className={s.fadeUp}>
+          <span className={s.label}>About the Founder</span>
+          <div className={s.aboutGrid}>
+            <div className={s.aboutBio}>
+              <h2>Grant Lindberg<br /><em>Executive Director</em></h2>
+              <p>
+                Grant served 11.5 years in the U.S. Army, reaching Staff Sergeant (E-7) in nine years.
+                He started as an air defense specialist, moved to Space Command in 2010, and attended the
+                Defense Language Institute in 2013 for Korean. His last posting was NSA Korea — where one
+                of his roles was as a <strong>Fourth Amendment auditor</strong>, reviewing signals collection
+                for legal compliance. The privacy-first architecture in this platform isn&apos;t a marketing
+                decision. It&apos;s what someone builds when they&apos;ve spent years on the other side of that question.
+              </p>
+              <p>
+                After the Army, he joined MasterCard as a DB2 database administrator, then led the scrum
+                organization for their GDPR compliance implementation. He contracted with Leidos, and has been
+                at Oversight Systems in Atlanta since 2020 — leading the federal customer team and managing
+                the engagement with the GSA SmartPay 3 program.
+              </p>
+              <p>
+                The idea for Amber&apos;s Angels came in 2016, when Grant got his first DJI drone and realized
+                the live video stream could be piped anywhere. Around the same time he was becoming aware of
+                LPR and OCR technology. He put the two together and let the idea develop until the platform
+                could be properly built. He lives in Carrollton, Georgia with his wife Kessie — also an Army
+                veteran and Korean linguist — and their five daughters.
+                <span className={s.bioClose}> That last part isn&apos;t incidental.</span>
+              </p>
+            </div>
+            <div className={s.aboutCreds}>
+              <div className={s.credsLabel}>Service &amp; Career</div>
+              {[
+                { year: '2004', text: 'Enlisted, US Army · Air Defense Artillery' },
+                { year: '2007', text: 'Soldier of the Year' },
+                { year: '2010', text: 'US Army Space Command' },
+                { year: '2013', text: 'Defense Language Institute · Korean' },
+                { year: '2013', text: 'NSA Korea · Fourth Amendment Auditor', highlight: true },
+                { year: '2015', text: 'Separated at E-7 · 11.5 years served' },
+                { year: '2015', text: 'MasterCard · DB2 DBA → GDPR Scrum Master' },
+                { year: '2019', text: 'Leidos · Federal Contract' },
+                { year: '2020', text: 'Oversight Systems · Federal Team Lead, SmartPay 3' },
+              ].map((c, i) => (
+                <div key={i} className={`${s.credRow}${c.highlight ? ` ${s.credHighlight}` : ''}`}>
+                  <span className={s.credYear}>{c.year}</span>
+                  <span className={s.credText}>{c.text}</span>
+                </div>
+              ))}
+              <div className={s.credsDivider} />
+              <div className={s.credRow}>
+                <span className={s.credYear}>2016</span>
+                <span className={s.credText}>Amber&apos;s Angels · concept born</span>
+              </div>
+              <div className={s.credRow}>
+                <span className={s.credYear}>2024</span>
+                <span className={s.credText}>Platform live · Carrollton pilot active</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

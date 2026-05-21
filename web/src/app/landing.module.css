@@ -349,6 +349,43 @@
 .pillar h3 { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 10px; }
 .pillar p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
 
+/* ── ABOUT ── */
+.about { background: var(--ink-2); border-top: 1px solid var(--border); }
+.aboutGrid { display: grid; grid-template-columns: 1fr 420px; gap: 64px; align-items: start; margin-top: 40px; }
+.aboutBio h2 { font-size: 36px; font-weight: 700; line-height: 1.15; letter-spacing: -0.3px; margin-bottom: 28px; }
+.aboutBio h2 em { font-style: normal; color: var(--amber); }
+.aboutBio p { font-size: 15px; color: var(--text-muted); line-height: 1.75; margin-bottom: 18px; max-width: 600px; }
+.aboutBio p strong { color: var(--text); font-weight: 600; }
+.bioClose { color: var(--amber); font-weight: 600; }
+
+.aboutCreds {
+  background: var(--ink-3); border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px 24px;
+  position: sticky; top: 88px;
+}
+.credsLabel {
+  font-family: var(--sg); font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 20px;
+}
+.credRow {
+  display: grid; grid-template-columns: 40px 1fr;
+  gap: 14px; align-items: baseline;
+  padding: 9px 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+.credRow:first-of-type { border-top: none; }
+.credYear { color: var(--text-dim); font-family: var(--sg); font-weight: 600; font-size: 11px; padding-top: 1px; }
+.credText { color: var(--text-muted); line-height: 1.4; }
+.credHighlight .credText { color: var(--amber); }
+.credsDivider { border-top: 1px solid var(--border-mid); margin: 12px 0; }
+
+@media (max-width: 900px) {
+  .aboutGrid { grid-template-columns: 1fr; gap: 32px; }
+  .aboutCreds { position: static; }
+}
+
 /* ── GET INVOLVED ── */
 .involve {
   background: var(--amber);
