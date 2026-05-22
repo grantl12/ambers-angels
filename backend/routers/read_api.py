@@ -1299,23 +1299,111 @@ def get_ncmec_recent(limit: int = 40, db=Depends(_sync_db)):
 
 
 # ---------------------------------------------------------------------------
-# Background task: daily detection purge
+# Background tasks: daily retention purges
 # ---------------------------------------------------------------------------
 
-async def detection_purge_loop(session_factory, retention_days: int = 30):
-    """Daily background task: delete non-alerted detection events older than retention_days."""
+async def detection_purge_loop(
+    session_factory,
+    non_alerted_days: int = 30,
+    alerted_days: int = 365,
+    golden_dir: str | None = None,
+):
+    """
+    Daily background task — two-tier retention:
+    - Non-alerted detection events: deleted after non_alerted_days (default 30)
+    - Alerted (HIGH_CONFIDENCE) detection events: deleted after alerted_days (default 365)
+      Golden frame files on disk are deleted alongside their detection records.
+    """
+    import os as _os
+    import glob as _glob
+
+    _golden_dir = golden_dir or _os.getenv(
+        "GOLDEN_DIR",
+        "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
+    )
+
+    while True:
+        await asyncio.sleep(24 * 3600)
+        try:
+            async with session_factory() as db:
+                # 1. Purge non-alerted events older than 30 days
+                r1 = await db.execute(
+                    text(
+                        f"DELETE FROM detection_events "
+                        f"WHERE status NOT IN ('alerted') "
+                        f"AND last_seen < NOW() - INTERVAL '{int(non_alerted_days)} days'"
+                    )
+                )
+
+                # 2. Fetch alerted events older than 365 days so we can clean up golden frames
+                old_alerted = await db.execute(
+                    text(
+                        f"SELECT id, frame_url FROM detection_events "
+                        f"WHERE status = 'alerted' "
+                        f"AND last_seen < NOW() - INTERVAL '{int(alerted_days)} days'"
+                    )
+                )
+                rows = old_alerted.fetchall()
+
+                if rows:
+                    ids = [r[0] for r in rows]
+                    frame_urls = [r[1] for r in rows if r[1]]
+
+                    # Delete golden frames from disk
+                    deleted_frames = 0
+                    for frame_url in frame_urls:
+                        filename = _os.path.basename(frame_url)
+                        if not _os.path.splitext(filename)[1]:
+                            filename += ".jpg"
+                        path = _os.path.join(_golden_dir, filename)
+                        if _os.path.isfile(path):
+                            try:
+                                _os.remove(path)
+                                deleted_frames += 1
+                            except OSError:
+                                pass
+                        else:
+                            # Worker saves as alert_<plate>_<filename> — try glob
+                            for match in _glob.glob(_os.path.join(_golden_dir, f"*_{filename}")):
+                                try:
+                                    _os.remove(match)
+                                    deleted_frames += 1
+                                except OSError:
+                                    pass
+
+                    # Delete the DB records
+                    placeholders = ",".join(str(i) for i in ids)
+                    r2 = await db.execute(
+                        text(f"DELETE FROM detection_events WHERE id IN ({placeholders})")
+                    )
+                    await db.commit()
+                    logger.info(
+                        "Detection purge: %d non-alerted (>%dd), %d alerted (>%dd), %d golden frames",
+                        r1.rowcount, non_alerted_days, r2.rowcount, alerted_days, deleted_frames,
+                    )
+                else:
+                    await db.commit()
+                    logger.info(
+                        "Detection purge: %d non-alerted (>%dd), 0 alerted expired",
+                        r1.rowcount, non_alerted_days,
+                    )
+        except Exception as exc:
+            logger.error("Detection purge failed: %s", exc)
+
+
+async def telemetry_purge_loop(session_factory, retention_days: int = 90):
+    """Daily background task: delete telemetry_points older than retention_days (default 90)."""
     while True:
         await asyncio.sleep(24 * 3600)
         try:
             async with session_factory() as db:
                 result = await db.execute(
                     text(
-                        f"DELETE FROM detection_events "
-                        f"WHERE status NOT IN ('alerted') "
-                        f"AND last_seen < NOW() - INTERVAL '{int(retention_days)} days'"
+                        f"DELETE FROM telemetry_points "
+                        f"WHERE ts < NOW() - INTERVAL '{int(retention_days)} days'"
                     )
                 )
                 await db.commit()
-                logger.info("Detection purge: removed %d non-alerted records older than %d days", result.rowcount, retention_days)
+                logger.info("Telemetry purge: removed %d points older than %d days", result.rowcount, retention_days)
         except Exception as exc:
-            logger.error("Detection purge failed: %s", exc)
+            logger.error("Telemetry purge failed: %s", exc)

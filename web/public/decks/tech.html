@@ -7,20 +7,20 @@
 <script src="deck-stage.js"></script>
 <script type="application/json" id="speaker-notes">
 [
-"Hey — Grant here. Fourteen slides covering the actual stack, composite confidence scoring, multi-source alert ingestion, the screens volunteers and coordinators use, and how the system stays privacy-safe by topology. Let's go.",
-"At a thousand-foot view: smartphones and drones become distributed sensor nodes during active alerts. Three sources are polled continuously: FEMA IPAWS CMAS and EAS endpoints every five minutes, amber.alert.gov as a DOJ fallback, and NCMEC RSS feeds covering all fifty states every thirty minutes. When a qualifying alert fires — AMBER, Silver, Mattie's, Purple, Blue — the suspect plate and vehicle profile are extracted and written to the watchlist. All three deduplicate via shared identifiers so the same alert never double-fires. Volunteers in the area get notified, mount their phones, and drive their normal routes. Frames flow to the unified worker, which runs ALPR plus YOLO. Composite scores trigger Discord alerts to coordinators. No raw frames are stored.",
-"Three tiers — edge, coordination, integrations. The edge is Expo plus React Native phones, plus an RTMP stream from drones flowing through nginx exec_push, plus phase-two DJI MSDK 5.17. The coordination tier is FastAPI on Python 3.10 with PostgreSQL, the unified worker that owns the shared frame queue, and three alert pollers — FEMA IPAWS CMAS+EAS, amber.alert.gov (DOJ), and NCMEC RSS — as background async tasks. The integration tier brings IPAWS in, fans Discord out, and lets coordinators view the live state through the Next.js 14 dashboard with Mapbox dark mode.",
-"This is the unified worker. RTMP video from drones, direct frames from the phone background service, and phase-two DJI MSDK all push into one shared frame queue inside a single process. That queue feeds OpenALPR for plate text and confidence, YOLOv8-nano for body type and dominant color, and Plate Recognizer cloud as an optional opt-in enrichment for high-confidence reads only. Then the AggregationService builds the composite score across a five-second window, EventService runs watchlist fuzzy match, and AlertDispatcher fires Discord with the full vehicle-corroboration verdict.",
+"Hey — Grant here. Fourteen slides covering the actual stack, composite confidence scoring, multi-source alert ingestion, the screens volunteers and coordinators use, and how the system enforces privacy at the architecture level. Let's go.",
+"At a thousand-foot view: smartphones and drones become distributed sensor nodes during active alerts. Three polling sources feed the alert pipeline: FEMA IPAWS CMAS every five minutes, FEMA IPAWS EAS every two minutes — that's a separate endpoint in the same CAP XML format, higher frequency, both sharing the same deduplication table so the same alert never fires twice — and NCMEC RSS covering all fifty states individually every thirty minutes. A fourth source, amber.alert.gov, is implemented and staged but the hostname is currently unresolvable, so it's dark. When a qualifying alert fires — AMBER, Silver, Mattie's, Purple, Blue — the suspect plate and vehicle profile are extracted from the CAP XML and written to the watchlist. Volunteers in the affected area get a push notification, mount their phones, and drive their normal routes. Frames flow to the unified worker, which runs ALPR plus YOLO. Non-matching frames are deleted immediately after inference — never written to persistent storage. When a HIGH_CONFIDENCE match fires, one golden evidence frame is saved and attached to the coordinator Discord alert so they can see exactly what triggered it.",
+"Three tiers — edge, coordination, integrations. The edge is Expo plus React Native phones, an RTMP stream from drones flowing through nginx exec_push, and the DJI MSDK 5.17 Android module for autonomous swarm. The coordination tier is FastAPI on Python 3.10 with PostgreSQL, the unified worker that owns the shared frame queue, and three async alert pollers — FEMA IPAWS CMAS every five minutes, FEMA IPAWS EAS every two minutes, and NCMEC RSS every thirty minutes — plus a staged amber.alert.gov poller that's dark pending DNS. The integration tier brings IPAWS in, fans Discord out, pulls live ADS-B from OpenSky for airspace deconfliction in the dispatch modal, and surfaces everything through the Next.js 14 coordinator dashboard.",
+"This is the unified worker. RTMP video from drones, direct frames from the phone background service, and DJI MSDK all push into one shared frame queue inside a single process. That queue feeds OpenALPR for plate text and confidence, YOLOv8-nano for body type and dominant color, and Plate Recognizer cloud as an optional opt-in enrichment for high-confidence reads only. Then the AggregationService builds the composite score across a five-second window, EventService runs watchlist fuzzy match, and AlertDispatcher fires Discord with the full vehicle-corroboration verdict.",
 "This is the heart of the system — the composite confidence score. Plate-only ALPR is roughly thirty percent false positive in real-world conditions. Our score combines two independent signals. The ALPR signal is fifty percent highest-frame, thirty percent mean, ten percent median, plus repetition and consistency bonuses, minus a quality penalty for blur, skew, or partial plates. The YOLO signal adds up to seven points based on color consistency, body-type consistency, and average detection confidence across frames. Both signals must agree before we open an event.",
 "Aggregation runs in a five-second window. Detections grouped by drone and plate-prefix get fuzzy-matched together — OCR confusions like O for zero, B for eight, S for five are baked into the matcher. The window decides whether the event is HIGH_CONFIDENCE, PROBABLE, or stays as a raw observation. HIGH_CONFIDENCE requires score above ninety with at least three supporting frames and seventy-five percent dominant-plate ratio. PROBABLE is seventy-five plus, two frames, sixty percent ratio. Anything below stays raw — no event opened, no Discord fired.",
-"Three pipelines cover the entire US missing-persons alert system. FEMA IPAWS CMAS and EAS poll every five minutes — federal CAP XML covering every alert program: AMBER, Levi's Call for child abduction, Silver for missing seniors, Mattie's Call for endangered adults, Purple for developmental disability, MIPA and EMA for missing indigenous persons, Blue for endangered law enforcement. The CAP polygon defines the exact search area. amber.alert.gov is the DOJ national registry — it fills the gap when a state-level alert bypasses the FEMA feed and goes straight to DOJ. We HTML-scrape it every five minutes, extract state name, plate, and vehicle profile from natural language text, and write to the same watchlist. NCMEC RSS runs fifty separate feeds in parallel — one per state — every thirty minutes. We persist active missing-child cases in our own table indexed by state, and when a new NCMEC case appears in a state that already has an active FEMA vehicle target, we fire a Discord cross-reference so coordinators see both the vehicle and the child in the same channel. The regional visibility piece matters: coordinators can filter everything by state, so a coordinator in Georgia sees the Georgia NCMEC cases and the Georgia FEMA alerts without noise from the national feed. The dead-space planning tool cross-references Flock coverage cells against the alert polygon — zero-coverage cells are the mission priority queue for drone dispatch.",
-"Mobile is Expo bare workflow with React Native zero-eight-one. The standout piece is the phone-camera native module — an Android Foreground Service that keeps Camera2 plus GPS plus upload running while the user drives with another app open. AA does not need to be the visible screen. A persistent notification shows live frame count and a one-tap Stop button. iOS gets a more limited foreground mode. Phase two is DJI MSDK 5.17 native bindings for Mavic 3, Mini 4 Pro, Air 3, and Avata.",
-"Here's the actual screen flow inside the app. Login, mission map with priority-zone overlay, camera capture, detection feed, settings. The map shows the active alert polygon, the volunteer's own track, anonymized other-volunteer markers, and color-coded flight priority zones — high priority where Flock has zero coverage, medium where it has one to three. Out-of-range fires haptic plus visual when the volunteer drifts outside the search radius.",
-"This is the start-mission flow. IPAWS-driven push lands on phones in the alert region. Volunteer sees the suspect descriptor, alert ID, and last-known direction. One tap to start. The app drops into camera capture with the foreground service running. The user can lock the phone, switch to navigation, do anything — frames keep flowing. Tap stop from the persistent notification at any time without unlocking.",
-"This is what I think is the most disruptive thing we've built. A volunteer who can't physically respond to an alert — maybe they're at work, maybe it's 2 AM — can still contribute a drone. They power it on at home, tap Join Swarm in the app, and walk away. The coordinator sees an amber drone icon appear on the map at the home GPS position. They pick the drone, drop a pin on a road or corridor where the suspect vehicle might pass, and hit dispatch. The drone flies to that observation post — a static GPS coordinate — hovers at altitude, and streams live video while the ALPR and YOLO pipeline watch for the suspect. It's not a grid search. It's a remote stakeout. The operational mode is tagged on every mission: VLOS under standard Part 107, where software enforces a 400-meter radius from the home position; tactical BVLOS when a Part 107 BVLOS waiver is on file, which an admin records and unlocks per drone. Flock DroneSense requires an operator physically present and runs three to six thousand per drone per year. Our swarm costs nothing extra and the pilot can be at home.",
-"The coordinator dashboard runs on Next.js 14 with Mapbox dark mode. There are two layers no other platform can give a coordinator simultaneously: first, the Flock coverage grid — bucketed zero, one to three, four-plus cameras — so they can see exactly where fixed infrastructure has gaps. Second, the live swarm layer — every drone that's powered on and connected, shown at its home GPS position, grayed out after five minutes offline. Clicking a drone opens a dispatch modal. The coordinator drops a pin — a road, an intersection, a likely escape route — and the drone flies there and holds position. One GPS coordinate. The drone hovers and watches. That's the whole mission. Admins can set BVLOS authorization per drone once the FAA waiver number is on file, which extends the allowable radius beyond the default 400 meters.",
-"Privacy is enforced by the topology, not by policy. Raw frames hold in RAM only for the inference duration — there is no write path to disk for raw video. The platform is event-triggered — between active alerts, the inference pipeline is fully idle. Volunteers opt in per-mission — there is no always-on scanning mode. Telemetry purges after ninety days, detection records after one year. The watchlist contains only plates from active government alerts, never our own database of plate sightings.",
-"That's the system. FastAPI plus Postgres backend, unified worker with shared frame queue, OpenALPR plus YOLOv8 with composite confidence scoring, three-source alert poller spanning FEMA IPAWS CMAS+EAS, amber.alert.gov, and NCMEC RSS across all fifty states, Expo Foreground Service mobile, DJI MSDK 5.17 with autonomous waypoint dispatch and tiered VLOS and BVLOS regulatory modes, Next.js 14 dashboard with role-tiered Mapbox views and the drone swarm dispatch layer. Privacy by topology, not by promise. The pilot relinquishing their drone to the swarm from home is not a gimmick — it is a structural answer to why volunteer search networks fail at scale: we remove the requirement to be physically present. Find me at info at amberangels dot org if you want to dig into any layer."
+"Three alert polling sources. FEMA IPAWS CMAS polls every five minutes via fema_connector.py — federal CAP XML covering AMBER, Levi's Call, Silver, Mattie's Call, Purple, MIPA, EMA, and Blue Alert. FEMA IPAWS EAS polls every two minutes via amber_alert_poller.py — the same CAP XML schema but a separate federal endpoint, higher frequency. Both FEMA sources share a single processed_alerts deduplication table backed by Postgres, which survives PM2 restarts, so a re-poll never double-fires. NCMEC RSS polls all fifty individual state feeds in parallel every thirty minutes and persists missing-child cases in its own ncmec_cases table. When a new NCMEC case lands in a state that already has an active FEMA vehicle target, a Discord cross-reference fires so coordinators see the child case and the vehicle description together. amber.alert.gov is a fourth source — implemented as an HTML scrape of the DOJ national registry — but the hostname is currently unresolvable so it's staging-only until DNS comes back.",
+"IPAWS-driven push lands on phones in the alert region. Volunteer sees the suspect descriptor, alert ID, and last-known direction. One tap to start. The app drops into camera capture with the foreground service running. The user can lock the phone, switch to navigation, do anything — frames keep flowing. Tap stop from the persistent notification at any time without unlocking. When IPAWS fires a cancellation, the watchlist entry is deactivated and a stand-down embed fires to the coordinator Discord channel. There is no automated push-to-stop to phone volunteers — the coordinator sees the stand-down and coordinates wind-down manually.",
+"The standout piece of the mobile stack. An Android Foreground Service keeps Camera2 plus GPS plus upload running while the user drives with another app open. AA does not need to be the visible screen. A persistent notification shows live frame count and a one-tap Stop button. iOS gets a more limited foreground mode. The DJI MSDK 5.17 Android module is the swarm path — pilot powers on, opens the AutonomousMissionScreen, sends heartbeats every thirty seconds, and walks away to let the coordinator dispatch.",
+"This is what I think is the most disruptive thing we've built. A volunteer who can't physically respond — maybe they're at work, maybe it's 2 AM — can still contribute a drone. They power it on at home, open the AutonomousMissionScreen, and walk away. The coordinator sees an amber drone icon on the map at the home GPS position. They click directly on the map to place an observation pin on a road, corridor, or choke point — before we built this the coordinator had to type coordinates, now it's a click. The dispatch modal surfaces an ADS-B airspace advisory: if any aircraft are within five nautical miles below 3,000 feet, they're listed before you can confirm. When the mission is dispatched, the pilot's app gets a notification. They tap Accept and Launch, the DJI SDK uploads the waypoint, and the drone executes. Mission state flows: pending, dispatched, uploading, executing, completed or aborted. Timeouts kick in at thirty minutes for a mission that never gets accepted and four hours for one that's been executing. The coordinator dashboard shows a live mission panel in the sidebar with a progress bar and a fly-to button for every active mission. VLOS enforces a 400-meter software radius from the home position. BVLOS Tactical unlocks extended range per drone when an admin records the FAA Part 107 waiver number.",
+"The coordinator dashboard has seven toggleable map layers: coverage planner showing Flock camera sectors, road coverage coloring every through-road by camera count, priority roads highlighting uncovered segments for pilot routing, active drone positions, swarm drone home positions, watchlist hit markers, and live ADS-B air traffic. No other platform gives coordinators the fixed-infrastructure coverage gap and the live swarm layer simultaneously. The dispatch flow: click a swarm drone icon, place the observation pin by clicking anywhere on the map, check the airspace advisory, set altitude and speed, hit dispatch. The mission panel in the left sidebar shows every active and recent mission with status, progress bar, and fly-to. Flock DroneSense costs three to six thousand per drone per year and requires an operator on scene. Ours is zero incremental cost and the pilot can be at home.",
+"Every external dependency is auditable and self-hostable. The ML stack is fully open-source. Three inbound alert sources — FEMA IPAWS CMAS at five minutes, FEMA IPAWS EAS at two minutes, NCMEC RSS at thirty minutes. ADS-B from OpenSky Network for airspace deconfliction in the dispatch modal. Twilio SMS is an optional HIGH_CONFIDENCE escalation path — silently skips if the environment variables are absent. Discord webhooks for all coordinator alerts. Self-hostable on any Ubuntu 20.04 VPS with PostgreSQL, Node 18, and Python 3.10.",
+"Privacy is enforced by the topology, not by policy. Non-matching frames are never written to persistent storage — they pass through RAM for inference and are deleted immediately. When a HIGH_CONFIDENCE watchlist match fires, one golden evidence frame is saved: it's attached to the coordinator Discord alert inline so they can see what the drone saw, and it's stored with the detection record as case evidence. That's the only frame retention path. No video, no mass plate logging, no accumulation of non-alert vehicle data. The platform is event-triggered — between active alerts, the inference pipeline is fully idle. Telemetry purges after ninety days, detection records after one year. The watchlist contains only plates from active government alerts, never our own database of plate sightings.",
+"That's the system. FastAPI plus Postgres backend, unified worker with shared frame queue, OpenALPR plus YOLOv8 with composite confidence scoring, three active alert polling sources — FEMA IPAWS CMAS at five minutes, FEMA IPAWS EAS at two minutes, and NCMEC RSS across all fifty states at thirty minutes — Expo Foreground Service mobile, DJI MSDK 5.17 with map-click autonomous waypoint dispatch, airspace advisory via OpenSky ADS-B, tiered VLOS and BVLOS regulatory modes, and a Next.js 14 dashboard with mission lifecycle tracking and the drone swarm dispatch layer. Privacy by topology: non-matching frames are deleted on processing, and the only frame we ever store is the one that proved the match — attached to the coordinator alert as evidence. The pilot relinquishing their drone from home is not a gimmick — it removes the physical-presence requirement that makes volunteer search networks fail at scale. Find me at info at amberangels dot org."
 ]
 </script>
 <template id="__bundler_thumbnail" data-bg-color="#050a0f">
@@ -281,7 +281,7 @@ em.amber { color: var(--amber); font-style: normal; }
         <div><div class="s1-mi-l">Backend</div><div class="s1-mi-v">FastAPI · PostgreSQL · PM2</div></div>
         <div><div class="s1-mi-l">Edge</div><div class="s1-mi-v"><span class="a">Expo · OpenALPR · YOLOv8</span></div></div>
         <div><div class="s1-mi-l">Web</div><div class="s1-mi-v">Next.js 14 · Mapbox</div></div>
-        <div><div class="s1-mi-l">Status</div><div class="s1-mi-v">Pilot · Carroll County, GA</div></div>
+        <div><div class="s1-mi-l">Status</div><div class="s1-mi-v">Pilot · Carrollton, GA</div></div>
       </div>
     </div>
     <div class="sn">01 / 14</div>
@@ -291,7 +291,7 @@ em.amber { color: var(--amber); font-style: normal; }
   <section id="s2" data-screen-label="02 System Overview">
     <span class="tag">System Overview</span>
     <h2>Idle by default. <em>Activated by IPAWS.</em></h2>
-    <p>The platform polls FEMA IPAWS every five minutes. Between alerts, the inference pipeline is fully idle — no continuous capture, no always-on scanning. When a qualifying alert fires, volunteers in the affected area are notified and the pipeline activates per-mission.</p>
+    <p>Three sources feed the alert pipeline — FEMA IPAWS CMAS (5 min), FEMA IPAWS EAS (2 min), and NCMEC RSS (30 min). Between alerts, the inference pipeline is fully idle — no continuous capture, no always-on scanning. When a qualifying alert fires, volunteers in the affected area are notified and the pipeline activates per-mission.</p>
     <div class="flow">
       <div class="flow-step">
         <div class="flow-num">01 · POLL</div>
@@ -346,7 +346,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
       <div class="arch-plane">
         <div class="arch-h">Integration Plane</div>
-        <div class="arch-box integ"><div class="lbl">inbound · alerts</div><h4>3 Alert Sources</h4><p>FEMA IPAWS CMAS+EAS · amber.alert.gov (DOJ) · NCMEC RSS (50 states). All async, all deduplicated.</p></div>
+        <div class="arch-box integ"><div class="lbl">inbound · alerts</div><h4>2 Active + 1 Staged</h4><p>FEMA IPAWS CMAS (5 min) · FEMA IPAWS EAS (2 min) · NCMEC RSS (30 min). amber.alert.gov staged — DNS unresolvable.</p></div>
         <div class="arch-box integ"><div class="lbl">outbound · alerts</div><h4>Discord webhook</h4><p>Full verdict embed: plate + confidence + frame + vehicle match.</p></div>
         <div class="arch-box integ"><div class="lbl">web · next.js 14</div><h4>Coordinator dashboard</h4><p>Mapbox dark. /map · /admin · /missions · /leaderboard · /debrief.</p></div>
       </div>
@@ -360,7 +360,7 @@ em.amber { color: var(--amber); font-style: normal; }
   <section id="s4" data-screen-label="04 Unified Worker">
     <span class="tag">The Unified Worker</span>
     <h2>One process. <em>One frame queue.</em></h2>
-    <p>Every source — drone RTMP, phone background service, phase-two DJI MSDK — feeds into the same in-process queue. No duplicated inference paths, no per-source forks. ALPR and YOLO see the same frames in the same order.</p>
+    <p>Every source — drone RTMP, phone background service, phase-two DJI MSDK — feeds into the same in-process queue. No duplicated inference paths, no per-source forks. Non-matching frames are deleted from disk immediately after inference. When a HIGH_CONFIDENCE watchlist match fires, one golden evidence frame is saved and attached to the coordinator Discord alert.</p>
     <div class="worker">
       <div class="worker-col">
         <h4>Sources</h4>
@@ -487,38 +487,43 @@ em.amber { color: var(--amber); font-style: normal; }
   <section id="s7" data-screen-label="07 Alert Ingestion">
     <div class="s7-l">
       <span class="tag">Alert Ingestion · National + State + Child Cases</span>
-      <h2>Three pipelines → <em>full national coverage.</em></h2>
-      <p>Three background async tasks cover every layer of the US missing-persons alert system. <strong>FEMA IPAWS CMAS + EAS</strong> (5-min poll) — federal CAP XML covering all programs below. <strong>amber.alert.gov</strong> (DOJ registry, 5-min scrape) — catches state alerts that bypass the FEMA feed; extracts state name, plate, and vehicle profile from HTML. <strong>NCMEC RSS</strong> (30-min poll, all 50 state feeds individually) — persists active missing-child cases, fires a Discord cross-reference Discord alert when a new NCMEC case overlaps an active FEMA vehicle target in the same state.</p>
-      <p>All three share a deduplication set keyed by source identifier. Re-poll uses <code style="color:var(--amber)">COALESCE</code> upsert — a bare-plate entry gets backfilled with vehicle profile data on a later poll. State-aware: coordinators filter the dashboard by state, and NCMEC cases are indexed by state for regional visibility.</p>
+      <h2>Three polling sources — <em>two active, one staged.</em></h2>
+      <p>Three background async tasks cover every layer of the US missing-persons alert system. <strong>FEMA IPAWS CMAS</strong> (5-min poll, <code style="color:var(--amber)">fema_connector.py</code>) and <strong>FEMA IPAWS EAS</strong> (2-min poll, <code style="color:var(--amber)">amber_alert_poller.py</code>) — both federal CAP XML, different endpoints, share a single Postgres-backed dedup table so the same alert never fires twice. <strong>NCMEC RSS</strong> (30-min poll) — all 50 state feeds individually; fires a Discord cross-reference when a new NCMEC case overlaps an active FEMA vehicle target in the same state. <strong>amber.alert.gov</strong> is implemented but staged — the hostname is currently unresolvable, so it's dark.</p>
+      <p>Both FEMA pollers share a <code style="color:var(--amber)">processed_alerts</code> dedup table backed by Postgres — survives PM2 restarts. Re-poll uses <code style="color:var(--amber)">COALESCE</code> upsert; a bare-plate entry gets backfilled with vehicle profile data on a later poll.</p>
       <div class="alerts-tbl" style="margin-top: 20px;">
         <div>SOURCE</div>
         <div>PROGRAM / COVERAGE</div>
         <div>INTERVAL</div>
-        <div class="code">FEMA IPAWS</div>
-        <div class="desc">AMBER · Levi's · Silver · Mattie's · Purple · MIPA · Blue — federal CAP feed</div>
+        <div class="code">FEMA IPAWS CMAS</div>
+        <div class="desc">AMBER · Levi's · Silver · Mattie's · Purple · MIPA · EMA · Blue — federal CAP XML</div>
         <div class="hits">5 min</div>
-        <div class="code">amber.alert.gov</div>
-        <div class="desc">DOJ national registry — state-level fallback, HTML scrape, all 50 states</div>
-        <div class="hits">5 min</div>
+        <div class="code">FEMA IPAWS EAS</div>
+        <div class="desc">Same CAP XML schema, separate federal endpoint — higher frequency, shared dedup table</div>
+        <div class="hits">2 min</div>
         <div class="code">NCMEC RSS</div>
-        <div class="desc">50 individual state feeds — active missing-child cases + cross-ref to vehicle targets</div>
+        <div class="desc">50 individual state feeds — missing-child cases + cross-ref to active vehicle targets</div>
         <div class="hits">30 min</div>
+        <div class="code" style="color:var(--dim)">amber.alert.gov</div>
+        <div class="desc" style="color:var(--dim)">DOJ national registry — staged only, DNS currently unresolvable</div>
+        <div class="hits" style="color:var(--dim)">STAGED</div>
       </div>
     </div>
     <div>
       <div class="cap">
-        <div class="cap-head"><div class="dot" style="background:#ef4444"></div><div class="dot" style="background:#f59e0b"></div><div class="dot" style="background:#22c55e"></div><div class="file">services/fema_connector.py · amber_alert_poller.py · ncmec_poller.py</div></div>
-<pre><span class="c"># FEMA — every 300 s</span>
-<span class="k">async def</span> <span class="f">poll_ipaws</span>():
-  <span class="k">for</span> alert <span class="k">in</span> <span class="f">parse_cap</span>(<span class="k">await</span> http.<span class="f">get</span>(<span class="v">FEMA_URL</span>)):
+        <div class="cap-head"><div class="dot" style="background:#ef4444"></div><div class="dot" style="background:#f59e0b"></div><div class="dot" style="background:#22c55e"></div><div class="file">fema_connector.py · amber_alert_poller.py · ncmec_poller.py</div></div>
+<pre><span class="c"># FEMA CMAS — every 300 s (fema_connector.py)</span>
+<span class="k">async def</span> <span class="f">fema_background_loop</span>():
+  <span class="k">for</span> alert <span class="k">in</span> <span class="f">parse_cap</span>(<span class="k">await</span> http.<span class="f">get</span>(<span class="v">FEMA_CMAS_URL</span>)):
     <span class="k">await</span> watchlist.<span class="f">upsert</span>(plate, color, body, make)
     <span class="k">await</span> dispatcher.<span class="f">notify_volunteers</span>(polygon, cap_code)
 
-<span class="c"># DOJ amber.alert.gov — every 300 s, HTML scrape</span>
-<span class="k">async def</span> <span class="f">poll_ambgov</span>():
-  alerts = <span class="f">parse_ambgov_html</span>(<span class="k">await</span> http.<span class="f">get</span>(<span class="v">DOJ_URL</span>))
-  <span class="k">for</span> a <span class="k">in</span> alerts:  <span class="c"># deduplicated by _seen set</span>
-    <span class="k">await</span> watchlist.<span class="f">upsert</span>(a.plate, a.state)
+<span class="c"># FEMA EAS — every 120 s (amber_alert_poller.py)</span>
+<span class="k">async def</span> <span class="f">amber_background_loop</span>():
+  <span class="k">for</span> alert <span class="k">in</span> <span class="f">parse_cap</span>(<span class="k">await</span> http.<span class="f">get</span>(<span class="v">FEMA_EAS_URL</span>)):
+    <span class="k">await</span> watchlist.<span class="f">upsert</span>(alert)  <span class="c"># shared dedup table</span>
+
+<span class="c"># amber.alert.gov — STAGED (DNS unresolvable · AMBER_GOV_URLS = [])</span>
+<span class="c"># async def poll_ambgov(): ...  ← dark until DNS resolves</span>
 
 <span class="c"># NCMEC — every 1800 s, 50 state feeds in parallel</span>
 <span class="k">async def</span> <span class="f">poll_ncmec</span>():
@@ -545,7 +550,7 @@ em.amber { color: var(--amber); font-style: normal; }
           <li><span class="num">01</span><span class="body"><strong>Geofenced push</strong> — only volunteers inside the alert polygon are notified <code>expo-notifications</code></span></li>
           <li><span class="num">02</span><span class="body"><strong>Suspect descriptor</strong> — vehicle make/color/body parsed from CAP and shown verbatim</span></li>
           <li><span class="num">03</span><span class="body"><strong>Single-action start</strong> — no menus; tap to enter <code>CameraScreen</code> with foreground service running</span></li>
-          <li><span class="num">04</span><span class="body"><strong>Auto-stop on alert clear</strong> — IPAWS cancellation pushes a stop-mission state to active devices</span></li>
+          <li><span class="num">04</span><span class="body"><strong>Stand-down on alert clear</strong> — IPAWS cancellation deactivates watchlist and fires a Discord stand-down embed; coordinator coordinates wind-down</span></li>
         </ul>
       </div>
     </div>
@@ -582,12 +587,12 @@ em.amber { color: var(--amber); font-style: normal; }
       <div class="screen-imgwrap"><img src="graphics/07-dji-connection.svg" alt="DJI connection"></div>
       <div class="screen-detail">
         <h3>Power on at home → swarm join → coordinator dispatches</h3>
-        <p class="desc">A pilot who can't physically respond still contributes. They power on their drone, tap <strong>Join Swarm</strong>, and go back to work. The coordinator sees the drone appear on the map at its home GPS position and remotely dispatches it to an observation post — a static GPS coordinate over a road, corridor, or choke point — where it hovers and streams while the AI pipeline watches for the suspect vehicle. No pilot on scene required.</p>
+        <p class="desc">A pilot who can't physically respond still contributes. They power on their drone, open <strong>AutonomousMissionScreen</strong>, and walk away. The coordinator sees the drone on the map at its home GPS, clicks anywhere on the map to place an observation pin, checks the ADS-B airspace advisory, and dispatches. Pilot taps Accept &amp; Launch — the DJI SDK uploads the waypoint and executes. No pilot on scene required.</p>
         <ul class="screen-points">
-          <li><span class="num">01</span><span class="body"><strong>Observation post dispatch</strong> — coordinator pins a GPS point (road, corridor, choke point); drone flies there and hovers</span></li>
-          <li><span class="num">02</span><span class="body"><strong>VLOS (Part 107)</strong> — default mode; software enforces 400 m radius from home position</span></li>
-          <li><span class="num">03</span><span class="body"><strong>Tactical BVLOS (Part 107 waiver)</strong> — admin records waiver, unlocks extended range per drone</span></li>
-          <li><span class="num">04</span><span class="body"><strong>Same inference pipeline</strong> — drone frames → unified worker → ALPR + YOLO → composite score</span></li>
+          <li><span class="num">01</span><span class="body"><strong>Map-click dispatch</strong> — coordinator clicks road/corridor on map to drop obs pin; no coordinate typing. ADS-B advisory lists aircraft within 5 nm below 3,000 ft before confirm.</span></li>
+          <li><span class="num">02</span><span class="body"><strong>Mission lifecycle</strong> — <code>pending → dispatched → uploading → executing → completed | aborted</code>. Timeout: 30 min unaccepted, 4 h executing.</span></li>
+          <li><span class="num">03</span><span class="body"><strong>VLOS / BVLOS</strong> — VLOS enforces 400 m radius (Part 107). BVLOS Tactical unlocks extended range per drone when admin records FAA waiver number.</span></li>
+          <li><span class="num">04</span><span class="body"><strong>Same inference pipeline</strong> — drone RTMP → unified worker → ALPR + YOLO → composite score</span></li>
         </ul>
       </div>
     </div>
@@ -603,12 +608,12 @@ em.amber { color: var(--amber); font-style: normal; }
       <div class="screen-imgwrap"><img src="graphics/05-mission-map.svg" alt="Live mission map"></div>
       <div class="screen-detail">
         <h3>Next.js 14 · Mapbox dark · role-tiered · drone dispatch layer</h3>
-        <p class="desc">Coordinators see two layers Flock can't give them: (1) exactly where fixed cameras have zero coverage, and (2) which volunteer drones are online right now and where. Click a drone → drop a pin on a road or corridor → dispatch. The drone flies to that observation post and hovers, streaming live while AI watches for the suspect. <strong>Flock DroneSense</strong> costs $3 k–$6 k / drone / year and requires an operator on scene. Ours costs $0 and the pilot can be at home.</p>
+        <p class="desc">Coordinators see two layers Flock can't give them: (1) exactly where fixed cameras have zero coverage, and (2) which volunteer drones are online right now and where. Click a drone icon → click anywhere on the map to place the observation pin → check the ADS-B airspace advisory → dispatch. <strong>Flock DroneSense</strong> costs $3 k–$6 k / drone / year and requires an operator on scene. Ours costs $0 and the pilot can be at home.</p>
         <ul class="screen-points">
-          <li><span class="num">01</span><span class="body"><strong>Coverage gap targeting</strong> — pre-fills dispatch polygon from Flock bucket = 0 cells inside alert area</span></li>
-          <li><span class="num">02</span><span class="body"><strong>Swarm layer</strong> — amber drone icons at home GPS; grayed after 5 min offline</span></li>
-          <li><span class="num">03</span><span class="body"><strong>Detection markers</strong> — amber hit · red watchlist match · density heatmap</span></li>
-          <li><span class="num">04</span><span class="body"><strong>Out-of-range fence</strong> — drift outside polygon fires haptic + visual on mobile</span></li>
+          <li><span class="num">01</span><span class="body"><strong>Map-click obs placement</strong> — click any point on the map to set obs pin; no coordinate entry. ADS-B advisory (OpenSky) lists live air traffic before dispatch confirms.</span></li>
+          <li><span class="num">02</span><span class="body"><strong>Swarm layer</strong> — amber drone icons at home GPS; grayed after 5 min offline. Click icon to open dispatch modal.</span></li>
+          <li><span class="num">03</span><span class="body"><strong>Mission panel</strong> — live sidebar panel: every active/recent mission with status, progress bar, and fly-to button</span></li>
+          <li><span class="num">04</span><span class="body"><strong>Coverage gap targeting</strong> — Flock bucket = 0 cells highlighted inside alert area; NCMEC cross-ref shown in sidebar</span></li>
         </ul>
       </div>
     </div>
@@ -621,16 +626,19 @@ em.amber { color: var(--amber); font-style: normal; }
     <span class="tag">Integrations</span>
     <h2>What we depend on, <em>and what we own.</em></h2>
     <p>Every external dependency was chosen so the system is auditable and self-hostable. The ML stack is open-source end-to-end. Self-hostable on any Ubuntu 20.04+ VPS with PostgreSQL, Node 18+, Python 3.10+.</p>
-    <div class="int-grid">
-      <div class="int-card"><div class="cat">inbound · alerts</div><h4>FEMA IPAWS</h4><p>Public CAP feed. AMBER, Silver, Mattie's, Purple, MIPA, EMA, Blue. 5-min poll.</p><div class="meta">CAP 1.2 · no auth</div></div>
+    <div class="int-grid" style="grid-template-columns: repeat(4, 1fr);">
+      <div class="int-card"><div class="cat">inbound · alerts</div><h4>FEMA IPAWS</h4><p>CMAS (5 min) + EAS (2 min). CAP XML. AMBER, Silver, Mattie's, Purple, MIPA, Blue.</p><div class="meta">CAP 1.2 · no auth</div></div>
+      <div class="int-card"><div class="cat">inbound · ncmec</div><h4>NCMEC RSS</h4><p>50 individual state feeds every 30 min. Missing-child cross-reference to active vehicle targets.</p><div class="meta">RSS · no auth</div></div>
+      <div class="int-card"><div class="cat">inbound · airspace</div><h4>OpenSky Network</h4><p>Live ADS-B air traffic. Airspace advisory in dispatch modal — lists aircraft within 5 nm below 3,000 ft.</p><div class="meta">REST · public API</div></div>
       <div class="int-card"><div class="cat">edge · ml</div><h4>OpenALPR + YOLOv8-nano</h4><p>Local ALPR + body-type classification. HSV K-means for color. All open-source.</p><div class="meta">AGPL · self-hosted</div></div>
       <div class="int-card"><div class="cat">edge · ml</div><h4>Plate Recognizer (opt-in)</h4><p>Cloud make/model enrichment on high-confidence reads. Quota-conserved.</p><div class="meta">REST · throttled</div></div>
-      <div class="int-card"><div class="cat">edge · drone</div><h4>DJI MSDK 5.17 (phase 2)</h4><p>Native Kotlin. Mavic 3, Mini 4 Pro, Air 3, Avata. Part 107 gated.</p><div class="meta">Android first</div></div>
+      <div class="int-card"><div class="cat">edge · drone</div><h4>DJI MSDK 5.17</h4><p>Native Kotlin. Mavic 3, Mini 4 Pro, Air 3, Avata. Part 107 gated. iOS pending.</p><div class="meta">Android first</div></div>
       <div class="int-card"><div class="cat">mobile</div><h4>Expo + React Native 0.81</h4><p>Bare workflow. EAS Build cloud — no Mac required for iOS. OTA via expo-updates.</p><div class="meta">EAS · OTA</div></div>
-      <div class="int-card"><div class="cat">backend</div><h4>FastAPI + PostgreSQL</h4><p>Async SQLAlchemy. JWT (passlib + python-jose). slowapi rate limit. PM2 supervised.</p><div class="meta">Python 3.10</div></div>
-      <div class="int-card"><div class="cat">web</div><h4>Next.js 14 + Tailwind</h4><p>Mapbox GL dark. Server actions for mission management. Live event feed via polling.</p><div class="meta">App Router</div></div>
-      <div class="int-card"><div class="cat">outbound · ops</div><h4>Discord webhooks</h4><p>Coordinator alerts. Embed: plate + confidence + frame + vehicle match verdict.</p><div class="meta">webhook · per-channel</div></div>
-      <div class="int-card"><div class="cat">infra</div><h4>DigitalOcean + nginx + Certbot</h4><p>Single Droplet, self-hostable anywhere. nginx reverse-proxy. Let's Encrypt TLS.</p><div class="meta">PM2 supervised</div></div>
+      <div class="int-card"><div class="cat">outbound · ops</div><h4>Discord webhooks</h4><p>Coordinator alerts. Embed: plate + confidence + golden frame + vehicle match verdict.</p><div class="meta">webhook · per-channel</div></div>
+      <div class="int-card"><div class="cat">outbound · sms</div><h4>Twilio SMS (opt-in)</h4><p>HIGH_CONFIDENCE escalation path. Silently skips if env vars absent. Configured via TWILIO_* vars.</p><div class="meta">optional · REST</div></div>
+      <div class="int-card"><div class="cat">backend</div><h4>FastAPI + PostgreSQL</h4><p>Async SQLAlchemy. JWT auth. slowapi rate limit. PM2 supervised.</p><div class="meta">Python 3.10</div></div>
+      <div class="int-card"><div class="cat">web</div><h4>Next.js 14 + Mapbox</h4><p>Mapbox GL dark. 7 toggleable map layers. Mission dispatch + swarm panel.</p><div class="meta">App Router</div></div>
+      <div class="int-card"><div class="cat">infra</div><h4>DigitalOcean + nginx</h4><p>Single Droplet, self-hostable. nginx reverse-proxy. Let's Encrypt TLS. PM2 supervised.</p><div class="meta">Ubuntu 20.04</div></div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
     <div class="sn">12 / 14</div>
@@ -641,14 +649,19 @@ em.amber { color: var(--amber); font-style: normal; }
     <div class="s13-l">
       <span class="tag">Privacy Architecture</span>
       <h2>Enforced by the topology, <em>not by policy.</em></h2>
-      <p>There is <strong>no write path to disk for raw video frames</strong>. Frames hold in RAM only for inference duration. The platform is event-triggered — between IPAWS alerts, the inference pipeline is fully idle.</p>
-      <p>Telemetry purges after 90 days. Detection records after 1 year. The watchlist contains only plates from active government alerts — never our own database of plate sightings.</p>
+      <p><strong>Non-matching frames are never written to disk.</strong> They pass through RAM for inference and are deleted immediately — no accumulation of plate sightings, no non-alert vehicle data. The platform is event-triggered; between alerts, the inference pipeline is fully idle.</p>
+      <p>When a HIGH_CONFIDENCE watchlist match fires, one <strong>golden evidence frame</strong> is saved — attached to the coordinator Discord alert inline so they can see exactly what the drone saw. That frame is stored with the detection record. Telemetry purges after 90 days. Detection records and golden frames purge after 1 year. The watchlist holds only plates from active government alerts, never our own sightings database.</p>
     </div>
     <div class="boundary">
       <div class="bd-row">
-        <div class="bd-from"><span class="lbl">Edge</span>raw video frame</div>
+        <div class="bd-from"><span class="lbl">Edge</span>non-matching frame</div>
         <div class="bd-arr">⨯</div>
-        <div class="bd-to deny"><span class="lbl">Cloud</span>denied · no write path</div>
+        <div class="bd-to deny"><span class="lbl">Cloud</span>denied · deleted after inference</div>
+      </div>
+      <div class="bd-row">
+        <div class="bd-from"><span class="lbl">Worker</span>HIGH_CONFIDENCE match frame</div>
+        <div class="bd-arr">→</div>
+        <div class="bd-to allow"><span class="lbl">Storage</span>golden frame · coordinator Discord</div>
       </div>
       <div class="bd-row">
         <div class="bd-from"><span class="lbl">Pipeline</span>face / biometric</div>
@@ -684,7 +697,7 @@ em.amber { color: var(--amber); font-style: normal; }
   <section id="s14" data-screen-label="14 Close">
     <img src="mobile/assets/icon.png" class="s14-logo" alt="AA">
     <div class="s14-org">AMBER Angels</div>
-    <h2 class="s14-h">Composite scoring,<br>structured-only telemetry,<br>privacy by topology.</h2>
+    <h2 class="s14-h">Composite scoring,<br>evidence-only frame retention,<br>privacy by topology.</h2>
     <div class="s14-stack">FastAPI · PostgreSQL · OpenALPR · YOLOv8 · FEMA IPAWS · Expo · React Native · DJI MSDK · Next.js 14 · Mapbox · Discord · PM2</div>
     <div class="s14-contact">
       <div><div class="s14-c-l">Founder</div><div class="s14-c-v">Grant Lindberg</div></div>
