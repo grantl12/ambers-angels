@@ -93,7 +93,7 @@ eas submit --platform ios --profile production --latest
 
 4. ~~**amber.alert.gov**~~ — **DISABLED**. Hostname has no DNS record. `AMBER_GOV_URLS = []` in amber_alert_poller.py.
 
-4. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll.
+5. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll.
    - Persists missing-child cases in `ncmec_cases` table
    - **New cases**: Discord notification fires ONLY when there is an active FEMA vehicle target in the same state (cross-reference). No target = no notification, because volunteers cannot act on a missing-person case without a vehicle to search for.
    - **Resolved cases**: Always fires Discord "possibly resolved" notification
