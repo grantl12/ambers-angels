@@ -28,11 +28,15 @@ jobs:
             # Run DB migrations (idempotent — safe to run every deploy)
             python3 backend/run_migration.py
 
+            # Stop web process before cleaning — prevents PM2 auto-restart from
+            # racing next build and triggering "another build already running" error
+            ~/.local/bin/pm2 stop ambers-angels-web || true
+
             # Rebuild frontend
             cd web
             find .next -delete 2>/dev/null || true
             find node_modules -delete 2>/dev/null || true
-            npm ci
+            npm ci --prefer-offline
             npm run build
             cd ..
 
