@@ -465,5 +465,96 @@
   .involve h2 { font-size: 32px; }
 
   .footer { padding: 24px 20px; }
-  .alertsTable th:nth-child(2), .alertsTable td:nth-child(2) { display: none; }
+  /* table col visibility moved to patch block 04 below */
+}
+
+/* ── MOBILE PATCH ── */
+
+/* [01] Nav: keep "Get Involved" CTA visible on mobile */
+@media (max-width: 900px) {
+  .navCta {
+    display: inline-block;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+  .nav { gap: 12px; }
+  .mapBox { height: 180px; }
+}
+@media (max-width: 380px) {
+  .navCta { padding: 7px 10px; font-size: 11px; }
+  .navWordmark { font-size: 14px; }
+}
+
+/* [02] Hero CTAs: full-width when stacked */
+@media (max-width: 600px) {
+  .heroCtas { align-items: stretch; }
+  .btnPrimary,
+  .btnGhost {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 16px 20px;
+  }
+}
+
+/* [03] Platform tabs: horizontal scroll instead of wrapping */
+@media (max-width: 700px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 24px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 24px), transparent 100%);
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    padding: 12px 16px;
+  }
+}
+
+/* [04] Alerts table: restore "Population" col, drop "Trigger" col */
+@media (max-width: 600px) {
+  .alertsTable th,
+  .alertsTable td { padding: 14px 10px; }
+
+  .alertsTable th:nth-child(2),
+  .alertsTable td:nth-child(2) {
+    display: table-cell;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .alertsTable th:nth-child(3),
+  .alertsTable td:nth-child(3) { display: none; }
+
+  .chip { font-size: 11px; padding: 4px 8px; }
+}
+
+/* [05] Footer link tap targets (WCAG / Apple HIG 44px) */
+@media (max-width: 600px) {
+  .footerLinks {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    width: 100%;
+  }
+  .footerLinks a,
+  .footerLinks button {
+    padding: 12px 0;
+    font-size: 14px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* [06] Hero stat: tighten on iPhone SE / 320px */
+@media (max-width: 380px) {
+  .heroStat { font-size: 56px; letter-spacing: -2px; }
+  .heroHeadline { font-size: 26px; }
 }

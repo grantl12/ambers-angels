@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Grant Lindberg — Amber's Angels</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --amber:      #f59e0b;
+    --amber-dim:  rgba(245,158,11,0.10);
+    --ink:        #050a0f;
+    --ink-2:      #0d1117;
+    --ink-3:      #111827;
+    --border:     rgba(255,255,255,0.07);
+    --border-mid: rgba(255,255,255,0.12);
+    --text:       rgba(255,255,255,0.88);
+    --text-muted: rgba(255,255,255,0.50);
+    --text-dim:   rgba(255,255,255,0.30);
+  }
+
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 56px; height: 60px;
+    background: rgba(5,10,15,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none; color: #fff;
+    font-weight: 700; font-size: 15px;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+  .nav-brand img { width: 30px; height: 30px; border-radius: 50%; }
+  .nav-brand em { font-style: normal; color: var(--amber); }
+  nav a.back {
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    transition: color 0.15s;
+  }
+  nav a.back:hover { color: var(--text-muted); }
+
+  /* ── PAGE ── */
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 64px 40px 96px;
+  }
+
+  /* ── HEADER ── */
+  .page-header {
+    margin-bottom: 56px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 32px; flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--amber); padding: 4px 10px;
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 4px; background: rgba(245,158,11,0.06);
+    margin-bottom: 16px;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+  .page-header h1 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 42px; font-weight: 700; line-height: 1.1;
+    letter-spacing: -0.5px; color: #fff;
+    margin-bottom: 6px;
+  }
+  .page-header h1 em { font-style: normal; color: var(--amber); }
+  .page-header .title {
+    font-size: 14px; color: var(--text-muted);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 500;
+    margin-bottom: 20px;
+  }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 600; letter-spacing: 0.4px;
+    border: 1px solid var(--border); color: var(--text-dim);
+    padding: 5px 10px; border-radius: 4px;
+  }
+
+  /* ── BODY GRID ── */
+  .body-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 56px;
+    align-items: start;
+  }
+
+  /* ── BIO ── */
+  .bio h2 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 20px; font-weight: 700; color: #fff;
+    margin-bottom: 20px; letter-spacing: -0.2px;
+  }
+  .bio p {
+    font-size: 15px; color: var(--text-muted);
+    line-height: 1.8; margin-bottom: 20px;
+    max-width: 580px;
+  }
+  .bio p strong { color: var(--text); font-weight: 600; }
+  .bio p .highlight { color: var(--amber); font-weight: 600; }
+
+  .pull-quote {
+    margin: 32px 0;
+    padding: 20px 24px;
+    background: var(--ink-2);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0;
+    border: 1px solid var(--border);
+    border-left-color: var(--amber);
+  }
+  .pull-quote p {
+    font-size: 14px; color: var(--text-muted);
+    line-height: 1.7; margin: 0;
+    font-style: italic;
+  }
+
+  /* ── CREDS ── */
+  .creds {
+    background: var(--ink-3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    position: sticky; top: 76px;
+  }
+  .creds-label {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 20px;
+  }
+  .cred-row {
+    display: grid; grid-template-columns: 44px 1fr;
+    gap: 12px; align-items: baseline;
+    padding: 9px 0;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    font-size: 13px;
+  }
+  .cred-row:first-of-type { border-top: none; }
+  .cred-year {
+    color: var(--text-dim);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 600; font-size: 11px;
+    padding-top: 1px;
+    white-space: nowrap;
+  }
+  .cred-text { color: var(--text-muted); line-height: 1.45; }
+  .cred-row.amber .cred-text { color: var(--amber); }
+  .cred-divider { border-top: 1px solid var(--border-mid); margin: 14px 0; }
+
+  .contact-block {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .contact-block a { color: var(--amber); text-decoration: none; }
+  .contact-block a:hover { text-decoration: underline; }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  footer span { font-size: 12px; color: var(--text-dim); }
+  footer a { font-size: 12px; color: var(--text-dim); text-decoration: none; transition: color 0.15s; }
+  footer a:hover { color: var(--text-muted); }
+
+  @media print {
+    nav { display: none; }
+    .page { padding: 32px; }
+    .creds { position: static; }
+    body { background: #fff; color: #111; }
+    :root {
+      --amber: #c67c00;
+      --ink-3: #f5f5f5;
+      --text-muted: #555;
+      --text-dim: #888;
+      --border: #ddd;
+      --border-mid: #ccc;
+    }
+  }
+
+  @media (max-width: 720px) {
+    nav { padding: 0 20px; }
+    .page { padding: 40px 20px 64px; }
+    .page-header h1 { font-size: 30px; }
+    .body-grid { grid-template-columns: 1fr; gap: 40px; }
+    .creds { position: static; }
+    .bio p { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <img src="/aa-icon.png" alt="AA" />
+    Amber&rsquo;s <em>Angels</em>
+  </a>
+  <a class="back" href="/">&larr; Back to site</a>
+</nav>
+
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="tag">About the Founder</div>
+      <h1>Grant Lindberg<br /><em>Executive Director</em></h1>
+      <div class="title">Founder &amp; Executive Director &mdash; Amber&rsquo;s Angels</div>
+      <div class="badges">
+        <span class="badge">US Army Veteran</span>
+        <span class="badge">Sergeant First Class (E-7)</span>
+        <span class="badge">NSA &bull; Fourth Amendment Auditor</span>
+        <span class="badge">SDVOSB Founder</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="body-grid">
+
+    <div class="bio">
+      <h2>From air defense to child safety</h2>
+      <p>
+        Grant served 11.5 years in the U.S. Army, making Sergeant First Class (E-7) in nine years.
+        He started as an air defense artillery specialist, moved to <strong>US Army Space Command</strong>
+        in 2010, and attended the <strong>Defense Language Institute</strong> in 2013 for Korean. His final
+        posting was NSA Korea, where one of his roles was as a <strong>Fourth Amendment auditor</strong>
+        &mdash; reviewing signals collection activities for legal and constitutional compliance.
+      </p>
+
+      <div class="pull-quote">
+        <p>
+          &ldquo;The privacy-first architecture in this platform isn&rsquo;t a marketing decision.
+          It&rsquo;s what someone builds when they&rsquo;ve spent years on the other side of that question.&rdquo;
+        </p>
+      </div>
+
+      <p>
+        After separating in 2015, Grant joined <strong>MasterCard</strong> as a DB2 database
+        administrator, then led the scrum organization for their GDPR compliance implementation.
+        He contracted with <strong>Leidos</strong> on federal programs, and has been at
+        <strong>Oversight Systems</strong> in Atlanta since 2020 &mdash; leading the federal
+        customer team and managing the engagement with the GSA SmartPay 3 program, the largest
+        commercial charge card program in the federal government.
+      </p>
+
+      <p>
+        The concept for Amber&rsquo;s Angels formed in 2016, when Grant acquired his first DJI
+        drone and recognized that the live video feed could be directed to any analysis pipeline.
+        At the same time, he was tracking commercial advances in LPR and OCR technology. He
+        connected the two ideas and built toward a platform until the technology was ready to
+        execute the vision properly.
+      </p>
+
+      <p>
+        Grant lives in Carrollton, Georgia with his wife Kessie &mdash; also a U.S. Army veteran
+        and Korean linguist &mdash; and their five daughters.
+        <span class="highlight"> That last part isn&rsquo;t incidental.</span>
+      </p>
+    </div>
+
+    <div class="creds">
+      <div class="creds-label">Service &amp; Career</div>
+
+      <div class="cred-row">
+        <span class="cred-year">2004</span>
+        <span class="cred-text">Enlisted, US Army &bull; Air Defense Artillery</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2007</span>
+        <span class="cred-text">Soldier of the Year</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2010</span>
+        <span class="cred-text">US Army Space Command</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2013</span>
+        <span class="cred-text">Defense Language Institute &bull; Korean</span>
+      </div>
+      <div class="cred-row amber">
+        <span class="cred-year">2013</span>
+        <span class="cred-text">NSA Korea &bull; Fourth Amendment Auditor</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2015</span>
+        <span class="cred-text">Separated at E-7 &bull; 11.5 years served</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2015</span>
+        <span class="cred-text">MasterCard &bull; DB2 DBA &rarr; GDPR Scrum Master</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2019</span>
+        <span class="cred-text">Leidos &bull; Federal Contract</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2020</span>
+        <span class="cred-text">Oversight Systems &bull; Federal Team Lead, SmartPay&nbsp;3</span>
+      </div>
+
+      <div class="cred-divider"></div>
+
+      <div class="cred-row">
+        <span class="cred-year">2016</span>
+        <span class="cred-text">Amber&rsquo;s Angels &bull; concept born</span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-year">2024</span>
+        <span class="cred-text">Platform live &bull; Carrollton pilot active</span>
+      </div>
+
+      <div class="contact-block">
+        <strong style="color: var(--text-muted); display: block; margin-bottom: 6px;">Contact</strong>
+        <a href="mailto:info@amberangels.org">info@amberangels.org</a><br />
+        103 Springwood Dr, Carrollton, GA 30117<br />
+        EIN 42-2052151 &bull; 501(c)(3) Applied
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>Amber&rsquo;s Angels &bull; amberangels.org</span>
+    <div style="display:flex; gap: 20px;">
+      <a href="/">Home</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="mailto:info@amberangels.org">Contact</a>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

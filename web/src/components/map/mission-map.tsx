@@ -103,6 +103,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [dispatchSuggested, setDispatchSuggested]   = useState(false)
   const [gapPinging, setGapPinging]                 = useState(false)
   const [gapPingResult, setGapPingResult]           = useState<GapAlertResponse | null>(null)
+  const [pickingObsPoint, setPickingObsPoint]       = useState(false)
+  const [dispatchMode, setDispatchMode]             = useState<"vlos" | "bvlos_tactical">("vlos")
 
   const { data: drones = [] }        = useLatestTelemetry()
   const { data: trail }              = useTelemetryTrail("drone1", 30)
@@ -267,6 +269,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     setDispatchError(null)
     setDispatchSuggested(false)
     setGapPingResult(null)
+    setPickingObsPoint(false)
+    setDispatchMode("vlos")
   }
 
   function alertToBbox(alert: { polygon: string | null; centroidLat: number | null; centroidLng: number | null }): FlockBbox | null {
@@ -307,7 +311,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         obs_lng: lng,
         altitude_m: dispatchAlt,
         speed_mps: dispatchSpeed,
-        operation_mode: "vlos",
+        operation_mode: dispatchMode,
       })
       closeDispatchModal()
       setDispatchSuccess(true)
@@ -365,7 +369,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const showCoverageBtn = (layers.coverage || layers.zones) && (!lockedCoverageBbox || coverageStale)
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", cursor: pickingObsPoint ? "crosshair" : undefined }}>
       {/* Coverage load / refresh button — appears when layer is on and data is absent or stale */}
       {showCoverageBtn && (
         <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
@@ -386,7 +390,17 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         style={{ width: "100%", height: "100%" }}
         onLoad={handleMapLoad}
         onMoveEnd={_updateViewport}
-        onClick={() => { setSelectedDetection(null); setSelectedFlock(null); setSelectedAircraft(null) }}
+        onClick={(e) => {
+          if (selectedSwarmDrone && pickingObsPoint) {
+            setDispatchLat(e.lngLat.lat.toFixed(5))
+            setDispatchLng(e.lngLat.lng.toFixed(5))
+            setPickingObsPoint(false)
+            return
+          }
+          setSelectedDetection(null)
+          setSelectedFlock(null)
+          setSelectedAircraft(null)
+        }}
       >
         <NavigationControl position="top-right" />
 
@@ -614,6 +628,8 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                     setDispatchLat(firstAlert.centroidLat.toFixed(5))
                     setDispatchLng(firstAlert.centroidLng.toFixed(5))
                     setDispatchAlertId(String(firstAlert.id))
+                  } else {
+                    setPickingObsPoint(true)
                   }
                 }}
               >
@@ -651,6 +667,14 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
             )
           })
         }
+
+        {/* Obs-point pin — shown while dispatch modal is open with a placed location */}
+        {selectedSwarmDrone && dispatchLat && dispatchLng
+          && !isNaN(parseFloat(dispatchLat)) && !isNaN(parseFloat(dispatchLng)) && (
+          <Marker longitude={parseFloat(dispatchLng)} latitude={parseFloat(dispatchLat)} anchor="bottom">
+            <div style={{ fontSize: 22, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.9))", lineHeight: 1, pointerEvents: "none" }}>📍</div>
+          </Marker>
+        )}
 
         {/* Aircraft contrails — fading position history behind each aircraft */}
         {layers.airspace && aircraftTrailsGeoJson.features.length > 0 && (
@@ -868,8 +892,9 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(3px)",
+            background: pickingObsPoint ? "transparent" : "rgba(0,0,0,0.55)",
+            backdropFilter: pickingObsPoint ? "none" : "blur(3px)",
+            pointerEvents: pickingObsPoint ? "none" : "auto",
           }}
           onClick={closeDispatchModal}
         >
@@ -882,6 +907,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               width: 380,
               maxWidth: "calc(100vw - 32px)",
               boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+              pointerEvents: "auto",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -998,51 +1024,67 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
                   </span>
                 )}
               </label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 3 }}>Latitude</div>
-                  <input
-                    type="number"
-                    step="0.00001"
-                    value={dispatchLat}
-                    onChange={(e) => setDispatchLat(e.target.value)}
-                    placeholder="33.5801"
-                    style={{
-                      width: "100%",
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      borderRadius: 6,
-                      padding: "6px 8px",
-                      fontSize: 12,
-                      color: "#fff",
-                      boxSizing: "border-box" as const,
-                      outline: "none",
-                    }}
-                  />
+              {pickingObsPoint ? (
+                <div style={{ padding: "10px 12px", background: "rgba(245,158,11,0.06)", border: "1px dashed rgba(245,158,11,0.4)", borderRadius: 6, fontSize: 12, color: "#f59e0b", textAlign: "center", cursor: "default" }}>
+                  Click anywhere on the map to place the observation point
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 3 }}>Longitude</div>
-                  <input
-                    type="number"
-                    step="0.00001"
-                    value={dispatchLng}
-                    onChange={(e) => setDispatchLng(e.target.value)}
-                    placeholder="-85.0766"
-                    style={{
-                      width: "100%",
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      borderRadius: 6,
-                      padding: "6px 8px",
-                      fontSize: 12,
-                      color: "#fff",
-                      boxSizing: "border-box" as const,
-                      outline: "none",
-                    }}
-                  />
-                </div>
-              </div>
+              ) : dispatchLat && dispatchLng ? (
+                <>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 3 }}>Latitude</div>
+                      <input
+                        type="number"
+                        step="0.00001"
+                        value={dispatchLat}
+                        onChange={(e) => { setDispatchLat(e.target.value); setDispatchSuggested(false) }}
+                        style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "#fff", boxSizing: "border-box" as const, outline: "none" }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 3 }}>Longitude</div>
+                      <input
+                        type="number"
+                        step="0.00001"
+                        value={dispatchLng}
+                        onChange={(e) => { setDispatchLng(e.target.value); setDispatchSuggested(false) }}
+                        style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "#fff", boxSizing: "border-box" as const, outline: "none" }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPickingObsPoint(true)}
+                    style={{ marginTop: 6, width: "100%", padding: "5px 10px", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, color: "rgba(255,255,255,0.35)", fontSize: 11, cursor: "pointer" }}
+                  >
+                    ↩ Move pin on map
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setPickingObsPoint(true)}
+                  style={{ width: "100%", padding: "10px 12px", background: "rgba(245,158,11,0.06)", border: "1px dashed rgba(245,158,11,0.35)", borderRadius: 6, color: "#f59e0b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                >
+                  + Click map to place observation point
+                </button>
+              )}
             </div>
+
+            {/* Operation mode — only shown for BVLOS-authorized drones */}
+            {selectedSwarmDrone.bvlos_authorized && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                  Operation Mode
+                </label>
+                <select
+                  value={dispatchMode}
+                  onChange={(e) => setDispatchMode(e.target.value as "vlos" | "bvlos_tactical")}
+                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "7px 10px", fontSize: 13, color: "#fff", outline: "none" }}
+                >
+                  <option value="vlos">VLOS — Standard Part 107</option>
+                  <option value="bvlos_tactical">BVLOS Tactical — Part 107 Waiver</option>
+                </select>
+              </div>
+            )}
 
             {/* Altitude + speed */}
             <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>

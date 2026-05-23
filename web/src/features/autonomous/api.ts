@@ -43,3 +43,34 @@ export function isDroneOnline(drone: SwarmDrone): boolean {
 export async function dispatchMission(req: DispatchMissionRequest) {
   return apiPost<{ id: number; status: string }>("/autonomous/plan", req)
 }
+
+export type SwarmMissionStatus =
+  | "pending" | "dispatched" | "uploading" | "executing" | "active"
+  | "completed" | "aborted" | "failed"
+
+export type SwarmMission = {
+  id: number
+  alert_id: string
+  drone_id: number
+  status: SwarmMissionStatus
+  altitude_m: number | null
+  speed_mps: number | null
+  created_at: string | null
+  dispatched_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  progress_pct: number | null
+  error_msg: string | null
+  operation_mode: string
+  observation_lat: number | null
+  observation_lng: number | null
+}
+
+export function useSwarmMissions(limit = 10) {
+  return useQuery<SwarmMission[]>({
+    queryKey: ["autonomous", "missions"],
+    queryFn: () => apiGet<SwarmMission[]>(`/autonomous/missions?limit=${limit}`),
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  })
+}

@@ -3,6 +3,7 @@
 import { useActiveMissions } from "@/features/missions/api"
 import { useLatestTelemetry } from "@/features/telemetry/api"
 import { useDetectionsFeed, useFemaAlerts, useWatchlist, type FemaAlert } from "@/features/detections/api"
+import { useSwarmMissions, useSwarmDrones, type SwarmMission, type SwarmDrone } from "@/features/autonomous/api"
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { LayerState } from "@/app/map/page"
 import { zipToBbox, type FlockBbox } from "@/features/flock/api"
@@ -168,11 +169,13 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
     if (!bbox) { setFlockError("Zip not found — try another."); return }
     onFlockSearch?.(bbox)
   }
-  const { data: missions = [] }    = useActiveMissions()
-  const { data: drones = [] }      = useLatestTelemetry()
-  const { data: detections = [] }  = useDetectionsFeed(50)
-  const { data: watchlist = [] }   = useWatchlist()
+  const { data: missions = [] }      = useActiveMissions()
+  const { data: drones = [] }        = useLatestTelemetry()
+  const { data: detections = [] }    = useDetectionsFeed(50)
+  const { data: watchlist = [] }     = useWatchlist()
   const { data: femaAlerts = [] }    = useFemaAlerts()
+  const { data: swarmMissions = [] } = useSwarmMissions(8)
+  const { data: swarmDrones = [] }   = useSwarmDrones()
   const alertRange          = useAlertRange()
   const outsidePolygonNotif = useOutsidePolygonNotif()
 
@@ -374,6 +377,13 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
         )}
       </div>
 
+      {/* Swarm missions */}
+      <SwarmMissionsPanel
+        missions={swarmMissions}
+        swarmDrones={swarmDrones}
+        onFlyTo={onFlyTo}
+      />
+
       {/* Watchlist hits */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
@@ -445,6 +455,118 @@ function StatCard({
     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
       <div className="text-xs uppercase text-white/40">{label}</div>
       <div className={`mt-1 text-2xl font-semibold ${color}`}>{value}</div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+type SwarmMissionsPanelProps = {
+  missions: SwarmMission[]
+  swarmDrones: SwarmDrone[]
+  onFlyTo?: (lat: number, lng: number) => void
+}
+
+const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {
+  pending:    { label: "Pending",    dot: "bg-amber-400",   text: "text-amber-300"  },
+  dispatched: { label: "Dispatched", dot: "bg-amber-400",   text: "text-amber-300"  },
+  uploading:  { label: "Uploading",  dot: "bg-sky-400",     text: "text-sky-300"    },
+  executing:  { label: "Executing",  dot: "bg-emerald-400 animate-pulse", text: "text-emerald-300" },
+  active:     { label: "Active",     dot: "bg-emerald-400 animate-pulse", text: "text-emerald-300" },
+  completed:  { label: "Completed",  dot: "bg-emerald-800", text: "text-emerald-600" },
+  aborted:    { label: "Aborted",    dot: "bg-red-500",     text: "text-red-400"    },
+  failed:     { label: "Failed",     dot: "bg-red-500",     text: "text-red-400"    },
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return ""
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60_000)
+  if (m < 1) return "just now"
+  if (m < 60) return `${m}m ago`
+  return `${Math.floor(m / 60)}h ${m % 60}m ago`
+}
+
+function SwarmMissionsPanel({ missions, swarmDrones, onFlyTo }: SwarmMissionsPanelProps) {
+  const droneById = Object.fromEntries(swarmDrones.map((d) => [d.id, d]))
+
+  const activeMissions  = missions.filter((m) => ["pending","dispatched","uploading","executing","active"].includes(m.status))
+  const recentMissions  = missions.filter((m) => ["completed","aborted","failed"].includes(m.status)).slice(0, 3)
+  const displayMissions = [...activeMissions, ...recentMissions].slice(0, 6)
+
+  if (displayMissions.length === 0) return (
+    <div className="px-4 py-3 border-b border-white/10 shrink-0">
+      <div className="text-xs uppercase tracking-widest text-white/40 mb-2">Swarm Missions</div>
+      <div className="text-sm text-white/30">No recent missions</div>
+    </div>
+  )
+
+  return (
+    <div className="px-4 py-3 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs uppercase tracking-widest text-white/40">Swarm Missions</div>
+        {activeMissions.length > 0 && (
+          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+            {activeMissions.length} active
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {displayMissions.map((m) => {
+          const meta    = STATUS_META[m.status] ?? { label: m.status, dot: "bg-white/20", text: "text-white/40" }
+          const drone   = droneById[m.drone_id]
+          const isLive  = ["executing","active"].includes(m.status)
+          const hasObs  = m.observation_lat != null && m.observation_lng != null
+          const ts      = relativeTime(m.started_at ?? m.created_at)
+
+          return (
+            <div
+              key={m.id}
+              onClick={() => hasObs && onFlyTo?.(m.observation_lat!, m.observation_lng!)}
+              className={`rounded-lg border bg-white/5 p-2 text-sm ${
+                isLive
+                  ? "border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-500/10"
+                  : "border-white/10 hover:border-white/20"
+              } ${hasObs ? "cursor-pointer" : ""} transition-colors`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+                  <span className="font-medium truncate text-white/80">
+                    {drone ? drone.drone_model : `Drone #${m.drone_id}`}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-semibold shrink-0 ${meta.text}`}>
+                  {meta.label}
+                </span>
+              </div>
+
+              {/* Progress bar for executing missions */}
+              {isLive && m.progress_pct != null && (
+                <div className="mt-1.5 h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-400 transition-all"
+                    style={{ width: `${m.progress_pct}%` }}
+                  />
+                </div>
+              )}
+
+              <div className="mt-1 text-xs text-white/30 flex items-center gap-2 flex-wrap">
+                {drone && <span>{drone.pilot_username}</span>}
+                {m.operation_mode !== "vlos" && (
+                  <span className="text-amber-500/70 uppercase">{m.operation_mode.replace("_", " ")}</span>
+                )}
+                {ts && <span>{ts}</span>}
+                {hasObs && <span className="text-sky-400/50">↗ fly to</span>}
+              </div>
+
+              {m.error_msg && (
+                <div className="mt-1 text-[10px] text-red-400/70 truncate">{m.error_msg}</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

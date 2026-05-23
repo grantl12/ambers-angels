@@ -40,17 +40,17 @@ su -l ambers-angels -c '/home/ambers-angels/.local/bin/pm2 restart ambers-angels
 
 ## CI/CD
 
-Push to `main` → GitHub Actions SSHs into droplet → `git pull` → `npm ci && npm run build` → `pm2 restart ambers-angels-web`.
+Push to `main` → GitHub Actions (`.github/workflows/deploy.yml`) SSHs into droplet as `ambers-angels` and:
+1. `git pull origin main`
+2. Installs/configures PM2 log rotation (50 MB cap, 7-day retain) — idempotent
+3. `python3 backend/run_migration.py` — idempotent, safe to run every deploy
+4. Rebuilds Next.js frontend (`sudo rm -rf .next node_modules && npm ci && npm run build`)
+5. `pm2 restart ambers-angels-web ambers-angels-api ambers-angels-worker --update-env`
 
-**API and worker do NOT auto-restart on deploy.** After any backend change, run:
-```
-plink ... 'cd /home/ambers-angels/proj_dir/ambers-angels && git pull origin main && su -l ambers-angels -c "/home/ambers-angels/.local/bin/pm2 restart ambers-angels-api ambers-angels-worker --update-env"'
-```
+**All three processes restart on every push to `main`.** No manual SSH needed for routine deploys.
 
-After DB schema changes, run migration first:
-```
-plink ... 'cd /home/ambers-angels/proj_dir/ambers-angels && python3 backend/run_migration.py'
-```
+Manual migration without full deploy — trigger via GitHub Actions UI:
+`.github/workflows/migrate.yml` → "Run workflow" button in the Actions tab.
 
 ## iOS / Android Builds (EAS)
 
@@ -160,13 +160,14 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 - `POST /detections/` requires `X-Internal-Key` header (worker uses this) OR pilot JWT
 - `INTERNAL_API_KEY` env var on server; worker reads it and sends as `X-Internal-Key` header
 - CORS restricted to `https://amberangels.org`, `https://www.amberangels.org`, `http://localhost:3000`, `http://localhost:19006`
-- SSL verification enabled on all httpx clients (previously disabled with `verify=False` — fixed)
+- SSL: all httpx clients use certifi CA bundle. `apps.fema.gov` has an incomplete cert chain — `verify=False` scoped to that host only; all other clients use `verify=certifi.where()`
+- ToS gate enforced in mobile: `TosGateScreen` blocks app access until user accepts current version (`CURRENT_TOS_VERSION` in `mobile/src/api/tos.ts`). Acceptance recorded server-side via `POST /auth/tos/accept`, checked via `GET /auth/tos-status`
 
 ### Key Files
 
 **Backend**
 - `backend/main.py` — FastAPI entry, routers, lifespan background tasks (FEMA, NCMEC, amber poller, mission timeout loop)
-- `backend/routers/auth.py` — registration, SSO, coordinator request, account deletion (`DELETE /auth/delete-account`)
+- `backend/routers/auth.py` — registration, SSO, coordinator request, account deletion (`DELETE /auth/delete-account`), ToS accept/status
 - `backend/routers/alerts.py` — watchlist management, alert cancellation pipeline
 - `backend/routers/autonomous.py` — autonomous mission plan/dispatch/status, drone registry, heartbeat
 - `backend/routers/read_api.py` — detections feed, telemetry, watchlist reads, alerts history
@@ -176,6 +177,8 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 - `backend/services/autonomous_mission_service.py` — mission CRUD, `expire_stale_missions()`, `mission_timeout_loop()`
 - `backend/services/waypoint_generator.py` — `generate_observation_point()` (primary), `generate_lawnmower()` (kept, not active), `check_vlos_radius()`
 - `backend/services/alert_dispatcher.py` — HIGH_CONFIDENCE Discord + Twilio SMS dispatch
+- `backend/services/discord_logger.py` — `DiscordErrorHandler` logging handler; posts ERROR/CRITICAL records to Discord webhook as embeds. 30-min dedup per (logger + message). Daemon-threaded, never blocks.
+- `backend/services/audit.py` — `write_audit_sync` / `write_audit_async` helpers; writes to `audit_log` table. Fire-and-forget, swallows failures.
 - `backend/run_migration.py` — run after any DB schema change: `python3 backend/run_migration.py`
 - `event_repository.py`, `backend/services/event_service.py` — detection event persistence
 - `worker/unified_worker.py` — RTMP frame scanner, ALPR + YOLO, posts to `/detections/` with `X-Internal-Key`
@@ -191,13 +194,16 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 
 **Mobile**
 - `mobile/app.config.js` — Expo config, build numbers, all mobile config
+- `mobile/src/screens/TosGateScreen.tsx` — full-screen blocking ToS gate; shown before any app content until user accepts current version
 - `mobile/src/screens/SettingsScreen.tsx` — pilot settings, watch areas, coordinator request, sign out, **account deletion**
-- `mobile/src/screens/AutonomousMissionScreen.tsx` — swarm heartbeat, accept/monitor drone missions
+- `mobile/src/screens/AutonomousMissionScreen.tsx` — swarm heartbeat, accept/monitor drone missions, battery level display, RTH button
 - `mobile/src/screens/CameraScreen.tsx` — phone camera mode, frame upload
 - `mobile/src/api/client.ts` — base API client (`apiGet`, `apiPost`, `apiPatch`, `apiDelete`)
 - `mobile/src/api/autonomous.ts` — autonomous mission API calls, drone types, operation mode labels
+- `mobile/src/api/tos.ts` — `fetchTosStatus`, `acceptTos`, `CURRENT_TOS_VERSION` constant
 - `mobile/modules/dji-camera/` — DJI MSDK V5 Kotlin native module + TS bridge
-- `mobile/modules/dji-camera/waypoint-mission.ts` — `startWaypointMission`, `stopWaypointMission`, `getDroneLocation`, `onMissionStateChanged`
+- `mobile/modules/dji-camera/waypoint-mission.ts` — `startWaypointMission`, `stopWaypointMission`, `getMissionStatus`, `getDroneLocation`, `onMissionStateChanged`, `returnToHome`, `getBatteryLevel`
+- Registration opens in Safari View Controller (not WebView) — required by App Store Guideline 4
 
 ### DB Tables
 
@@ -214,6 +220,7 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 | `autonomous_missions` | Drone missions: status lifecycle, waypoints_json (JSONB), operation_mode, progress_pct, timestamps |
 | `processed_alerts` | FEMA/EAS identifier dedup: survives PM2 restarts. Entries older than 24h excluded from startup load. |
 | `alert_resolutions` | Audit log of manual alert resolutions by coordinators/admins |
+| `audit_log` | General action audit trail: username, action string, details JSONB, created_at |
 
 ## Contact / Identity
 
@@ -257,40 +264,42 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 ### Active / Next Session
 
-1. **Swarm map dispatch UI** (`web/src/app/map/`) — coordinator-facing layer showing available drones:
-   - Amber drone icon at `autonomous_drones.home_lat/lng`
-   - Gray if `last_seen_at > 5 min`
-   - Click drone → select alert polygon → opens dispatch modal → `POST /autonomous/plan`
-   - This is the "relinquish to swarm" UX. Backend is fully built; only the map layer is missing.
-   - The map already fetches `GET /fema/alerts` (vehicle targets). Add `GET /autonomous/drones` to the same page.
+1. **Site improvements backlog** — `AA_Site_Improvements.md` in repo root. Critical items (before June 2nd CPD meeting):
+   - Meta description update (all pages) — replace "drone surveillance and rescue coordination"
+   - Remove specific Flock LPR camera count from homepage copy
+   - "Carroll County" → "Carrollton" in pilot section
+   - 501(c)(3) language: replace all "In Formation" / "pending" with "Applied" everywhere
+   - Create `/terms` page (content specified in the doc) — currently 404s, linked from footer
+   - "Support the Mission" CTA → `mailto:info@amberangels.org` (or remove button)
+   - Purge "surveillance" language → "coverage" / "search coverage"
+   - Post-CPD-letter-signed: swap LE partnership language + add Carrollton PD badge + social proof block
+   - See doc for exact copy replacements on every item
 
-2. **Coverage gap auto-targeting** — when the dispatch modal opens, pre-fill observation point with the highest-priority Flock bucket-0 cell within the active alert polygon. Coordinator overrides by dropping a pin on any road/corridor.
+2. **Alert cancellation → stop active missions** — when a FEMA alert is cancelled (`_deactivate_by_references`), query `autonomous_missions WHERE status IN ('uploading','executing','active') AND alert_id = :id`, mark them `aborted`, push stop-mission notification to drone pilot. One gap in the cancellation pipeline.
 
-3. **Alert cancellation → stop active missions** — when a FEMA alert is cancelled (`_deactivate_by_references`), query `autonomous_missions WHERE status IN ('uploading','executing','active') AND alert_id = :id`, mark them `aborted`, push stop-mission notification to drone pilot. One gap in the cancellation pipeline.
-
-4. **Law enforcement partnership badge** — after Carrollton PD Letter of Support is signed:
+3. **Law enforcement partnership badge** — after Carrollton PD Letter of Support is signed:
    - Add "Carrollton PD Partnership" badge to homepage hero badge row
    - Change landing page language from "Actively engaging local law enforcement" to "In active partnership with the Carrollton Police Department"
    - Add "Trusted by Law Enforcement" section between "How It Works" and "The Platform"
+   - Full copy in `AA_Site_Improvements.md` items 4 and 10
 
-5. **Update deck print versions** — `grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate files that must mirror the main deck content when updated.
+4. **Update deck print versions** — `grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate files that must mirror the main deck content when updated.
 
-5a. **Update demo slides with real vehicle** — Any demo slide currently showing a generic/Toyota vehicle must be updated to match the actual test vehicle:
+4a. **Update demo slides with real vehicle** — Any demo slide currently showing a generic/Toyota vehicle must be updated to match the actual test vehicle:
    - **Vehicle**: white 2021 Tesla Model S
    - **Plates**: handicap plates (exact plate string TBD — user will photograph and run through the pipeline)
    - Once the plate photo is processed through the detection pipeline, use the real plate text and the actual ALPR/YOLO confidence output in the demo slide narrative
-   - This makes the demo authentic: the system is shown finding the exact car in the footage, not a made-up scenario
 
-6. **App Store Build 4** — in review. When approved:
+5. **App Store Build 4** — in review. When approved:
    - Update App Store description to remove any "report criminal activity" language (see 2.1 rejection history above)
+   - Remove any background check / identity verification language from App Store copy (not implemented — see `AA_Site_Improvements.md` item 17)
    - After CPD letter is signed, add partnership language to App Store description
 
-7. **Waypoint progress tracking** — `DJICameraModule.kt` fires `DJIMissionStateChanged` but `progressPct` is always 0. Requires `WaypointMissionExecutionProgress` listener in the Kotlin layer — revisit when DJI V5 JAR access is confirmed.
-
-8. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
+6. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
 
 ### Longer Term / Needs Config Only
 
 - **Twilio SMS** — fully implemented in `alert_dispatcher.py`, silently skips if env vars absent. Just needs `TWILIO_*` vars added to server `.env`.
 - **BVLOS waiver documentation** — `bvlos_authorized` flag set by admin via `PATCH /autonomous/drones/{id}`. Admin must record FAA Part 107.39 waiver number in notes before setting.
 - **Competitive positioning** — autonomous swarm is a direct Flock Safety Drone competitor: (a) we show coordinators exactly where coverage gaps are (Flock bucket data), (b) volunteers relinquish drones remotely without being on scene. Tech deck slide 11 covers this.
+- **Background check infrastructure** — registration currently accepts anyone 18+ with a valid FAA Part 107 cert number (drone pilots). No background check is implemented. All grant copy and App Store copy must reflect this accurately (see `AA_Site_Improvements.md` item 17).

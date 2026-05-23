@@ -2,7 +2,7 @@
 
 **A volunteer-driven public safety platform using cameras, license plate recognition, and real-time coordination to help bring missing and abducted children home.**
 
-Amber's Angels is a 501(c)(3) nonprofit that coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Either way, the app streams frames to the server for live license plate recognition and vehicle identification. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
+Amber's Angels has filed for 501(c)(3) nonprofit status (EIN 42-2052151) and coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Either way, the app streams frames to the server for live license plate recognition and vehicle identification. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
 
 ---
 
@@ -482,7 +482,7 @@ Amber's Angels operates entirely on volunteer labor and donated infrastructure. 
 
 If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **info@amberangels.org**.
 
-Amber's Angels is a registered 501(c)(3) nonprofit. Donations are tax-deductible to the extent permitted by law.
+Amber's Angels has filed for 501(c)(3) nonprofit status (EIN 42-2052151). Once the IRS determination is issued, donations will be tax-deductible.
 
 ---
 
