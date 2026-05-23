@@ -6,10 +6,12 @@ carry a particular state's AMBER alert.
 
 Sources polled each cycle (deduplicated cross-source via shared _seen_identifiers):
   1. FEMA IPAWS EAS endpoint  — Emergency Alert System CAP XML (same format as CMAS)
-  2. amber.alert.gov          — DOJ national AMBER alert registry (HTML scrape fallback)
+  2. NWS Alerts API           — api.weather.gov/alerts/active (catches WEA alerts that
+                                bypass FEMA's public CMAS feed; e.g. Georgia AMBER alerts)
+  3. amber.alert.gov          — DOJ national AMBER alert registry (disabled — DNS dark)
 
-Reuses parsing + notification functions from fema_connector so all three paths
-(CMAS, EAS, amber.alert.gov) produce identical watchlist rows and Discord messages.
+Reuses parsing + notification functions from fema_connector so all paths produce
+identical watchlist rows and Discord messages.
 """
 
 import asyncio
@@ -52,9 +54,18 @@ EAS_URL        = (
 )
 AMBER_GOV_URLS: list[str] = []  # amber.alert.gov DNS does not resolve — disabled
 
+# NWS Alerts API — catches WEA/IPAWS alerts that bypass the FEMA CMAS public feed.
+# Georgia and several other states push to WEA/IPAWS but not to the FEMA CMAS public endpoint.
+NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
+# Map NWS event name → ALERT_REGISTRY key
+NWS_EVENT_MAP: dict[str, str] = {
+    "Child Abduction Emergency": "amber",
+}
+
 # Track last poll timestamps for health endpoint
 last_eas_poll_at:        Optional[datetime] = None
 last_amber_gov_poll_at:  Optional[datetime] = None
+last_nws_poll_at:        Optional[datetime] = None
 last_alert_seen_at:      Optional[datetime] = None
 
 
@@ -91,6 +102,130 @@ async def _poll_eas(session_factory, webhook_url: Optional[str]) -> int:
         return 0
 
     return await _process_alerts(alerts, session_factory, webhook_url, source="EAS")
+
+
+# ── NWS Alerts API ────────────────────────────────────────────────────────────
+
+def _parse_nws_alerts(data: dict) -> list[dict]:
+    """
+    Parse NWS Alerts API JSON (GeoJSON FeatureCollection) into alert dicts
+    compatible with _process_alerts. Only processes event types in NWS_EVENT_MAP.
+    Cancellations (messageType=Cancel) propagate through the deactivation pipeline.
+    """
+    alerts: list[dict] = []
+
+    for feature in data.get("features", []):
+        props = feature.get("properties", {})
+
+        if props.get("status") != "Actual":
+            continue
+
+        event       = props.get("event", "")
+        registry_key = NWS_EVENT_MAP.get(event)
+        if not registry_key:
+            continue
+
+        alert_entry = next((e for e in ALERT_REGISTRY if e["key"] == registry_key), None)
+        if not alert_entry:
+            continue
+
+        identifier  = props.get("id", "")
+        headline    = props.get("headline", "") or ""
+        description = props.get("description", "") or ""
+        area        = props.get("areaDesc", "") or ""
+        sent        = props.get("sent", datetime.now(timezone.utc).isoformat())
+        msg_type    = props.get("messageType", "Alert")
+
+        if msg_type == "Cancel":
+            raw_refs = props.get("references", [])
+            references = [
+                r.get("identifier", "") for r in raw_refs
+                if isinstance(r, dict) and r.get("identifier")
+            ]
+            if not references:
+                continue
+            alerts.append({
+                "msg_type":        "cancel",
+                "identifier":      identifier,
+                "sent":            sent,
+                "headline":        headline.strip(),
+                "description":     "",
+                "area":            area.strip(),
+                "polygon":         None,
+                "references":      references,
+                "plates":          [],
+                "vehicle_profile": {},
+                "alert_type":      None,
+                "source_program":  "",
+            })
+            continue
+
+        combined = f"{headline} {description}"
+        plates   = _extract_plates(combined)
+        profile  = _extract_vehicle_profile(combined)
+
+        alerts.append({
+            "msg_type":        "alert",
+            "identifier":      identifier,
+            "sent":            sent,
+            "headline":        headline.strip(),
+            "description":     description.strip(),
+            "area":            area.strip(),
+            "polygon":         None,
+            "references":      [],
+            "plates":          plates,
+            "vehicle_profile": profile,
+            "alert_type":      alert_entry,
+            "source_program":  f"AMBER Alert (NWS/{event})",
+        })
+
+    # active alerts before cancellations
+    alerts.sort(key=lambda a: 0 if a["msg_type"] == "alert" else 1)
+    return alerts
+
+
+async def _poll_nws(session_factory, webhook_url: Optional[str]) -> int:
+    """
+    Poll NWS Alerts API for AMBER/CAE events. Returns number of new alerts processed.
+    This catches WEA-distributed alerts (e.g. Georgia) that don't appear in FEMA CMAS.
+    """
+    global last_nws_poll_at
+    last_nws_poll_at = datetime.now(timezone.utc)
+
+    total = 0
+    for event in NWS_EVENT_MAP:
+        try:
+            async with httpx.AsyncClient(
+                verify=_certifi.where(), timeout=15.0,
+                headers={"User-Agent": "AmberAngels-AlertMonitor/1.0 (info@amberangels.org)"},
+            ) as client:
+                resp = await client.get(
+                    NWS_ALERTS_URL,
+                    params={"status": "actual", "event": event},
+                )
+        except Exception as e:
+            logger.error("[NWS] Fetch error for '%s': %s", event, e)
+            continue
+
+        if resp.status_code != 200:
+            logger.warning("[NWS] HTTP %s for event '%s'", resp.status_code, event)
+            continue
+
+        try:
+            data = resp.json()
+        except Exception as e:
+            logger.error("[NWS] JSON parse error: %s", e)
+            continue
+
+        count = len(data.get("features", []))
+        logger.debug("[NWS] %d feature(s) for event '%s'", count, event)
+
+        alerts = _parse_nws_alerts(data)
+        if alerts:
+            n = await _process_alerts(alerts, session_factory, webhook_url, source="NWS")
+            total += n
+
+    return total
 
 
 # ── amber.alert.gov scraper ───────────────────────────────────────────────────
@@ -306,12 +441,13 @@ async def amber_background_loop(
     session_factory,
     webhook_url: Optional[str] = None,
 ) -> None:
-    logger.info("[AMBER POLLER] Started. EAS + amber.alert.gov. Interval: %ds", POLL_INTERVAL)
+    logger.info("[AMBER POLLER] Started. EAS + NWS. Interval: %ds", POLL_INTERVAL)
     while True:
         try:
-            eas_n   = await _poll_eas(session_factory, webhook_url)
-            gov_n   = await _poll_amber_gov(session_factory, webhook_url)
-            total   = eas_n + gov_n
+            eas_n = await _poll_eas(session_factory, webhook_url)
+            nws_n = await _poll_nws(session_factory, webhook_url)
+            gov_n = await _poll_amber_gov(session_factory, webhook_url)
+            total = eas_n + nws_n + gov_n
             if total:
                 logger.info("[AMBER POLLER] Cycle complete — %d new alert(s) processed.", total)
         except Exception as e:

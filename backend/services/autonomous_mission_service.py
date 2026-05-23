@@ -282,8 +282,8 @@ async def expire_stale_missions(session_factory) -> int:
 
     Returns count of missions expired.
     """
-    async with session_factory() as session:
-        try:
+    try:
+        async with session_factory() as session:
             result = await session.execute(
                 text("""
                     UPDATE autonomous_missions
@@ -303,22 +303,21 @@ async def expire_stale_missions(session_factory) -> int:
                             (status IN ('executing', 'active')
                              AND started_at < NOW() - INTERVAL '4 hours')
                       )
-                    RETURNING id, status, error_msg
+                    RETURNING id, error_msg
                 """)
             )
             expired = result.fetchall()
             await session.commit()
             if expired:
                 logger.warning(
-                    "Expired %d stale mission(s): %s",
+                    "Expired %d stale mission(s): ids=%s",
                     len(expired),
-                    [(r[0], r[1]) for r in expired],
+                    [r[0] for r in expired],
                 )
             return len(expired)
-        except Exception as e:
-            logger.error("Mission timeout cleanup failed: %s", e)
-            await session.rollback()
-            return 0
+    except Exception as e:
+        logger.error("Mission timeout cleanup failed: %s", e)
+        return 0
 
 
 async def mission_timeout_loop(session_factory) -> None:
@@ -326,4 +325,7 @@ async def mission_timeout_loop(session_factory) -> None:
     logger.info("[MissionTimeout] Cleanup loop started (interval: %ds)", _CLEANUP_INTERVAL_SECONDS)
     while True:
         await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
-        await expire_stale_missions(session_factory)
+        try:
+            await expire_stale_missions(session_factory)
+        except Exception as e:
+            logger.error("[MissionTimeout] Unexpected loop error: %s", e)

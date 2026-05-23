@@ -77,7 +77,7 @@ eas submit --platform ios --profile production --latest
 
 ## Architecture Overview
 
-### Alert Ingestion (2 active sources + 1 disabled)
+### Alert Ingestion (3 active sources + 1 disabled)
 
 1. **FEMA IPAWS CMAS** (`backend/services/fema_connector.py`) — CAP XML, 5-min poll via `fema_background_loop()`. Covers:
    - CAE → AMBER Alert / Levi's Call (child abduction)
@@ -89,7 +89,9 @@ eas submit --platform ios --profile production --latest
 
 2. **FEMA IPAWS EAS** (`backend/services/amber_alert_poller.py`) — same CAP XML format as CMAS but via the EAS endpoint. Runs in `amber_background_loop()` every 2 min. Shares `_seen_identifiers` with fema_connector.
 
-3. ~~**amber.alert.gov**~~ — **DISABLED**. Hostname has no DNS record. `AMBER_GOV_URLS = []` in amber_alert_poller.py.
+3. **NWS Alerts API** (`backend/services/amber_alert_poller.py`) — `api.weather.gov/alerts/active` — catches WEA-distributed AMBER alerts that bypass the FEMA CMAS public feed (e.g. Georgia). Polled each `amber_background_loop` cycle. `NWS_EVENT_MAP` maps NWS event names to ALERT_REGISTRY keys.
+
+4. ~~**amber.alert.gov**~~ — **DISABLED**. Hostname has no DNS record. `AMBER_GOV_URLS = []` in amber_alert_poller.py.
 
 4. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll.
    - Persists missing-child cases in `ncmec_cases` table

@@ -210,6 +210,90 @@ async def fema_test(_: dict = Depends(require_admin)):
     return {"status": "poll_complete"}
 
 
+class InjectAlertRequest(schemas.BaseModel if hasattr(schemas, "BaseModel") else object):
+    pass
+
+
+from pydantic import BaseModel as _BaseModel
+
+class InjectAlertRequest(_BaseModel):
+    plate: str
+    headline: str
+    area: str
+    vehicle_color: Optional[str] = None
+    vehicle_type: Optional[str] = None   # yolo body type: car|truck|motorcycle|bus
+    vehicle_make: Optional[str] = None
+    alert_type: str = "amber"            # amber|silver|blue|matties|purple|mipa|ema
+    source_program: str = "Manual Inject"
+
+
+@app.post("/admin/inject-alert")
+async def inject_alert(
+    req: InjectAlertRequest,
+    payload: dict = Depends(require_admin),
+):
+    """
+    Admin: manually inject a watchlist entry for an alert that wasn't caught
+    by automated polling (e.g. WEA-only alerts that bypass FEMA CMAS).
+    Fires the same Discord + push notification pipeline as a real alert.
+    """
+    from services.fema_connector import (
+        _add_to_watchlist, _add_vehicle_target, _notify_watching_pilots,
+        _notify_plates, ALERT_REGISTRY,
+    )
+    import hashlib
+
+    atype = next((e for e in ALERT_REGISTRY if e["key"] == req.alert_type), ALERT_REGISTRY[0])
+    sent  = datetime.now(timezone.utc).isoformat()
+    ident = hashlib.sha256(f"inject:{req.plate}:{req.area}:{sent}".encode()).hexdigest()[:32]
+
+    alert = {
+        "msg_type":        "alert",
+        "identifier":      ident,
+        "sent":            sent,
+        "headline":        req.headline,
+        "description":     req.headline,
+        "area":            req.area,
+        "polygon":         None,
+        "references":      [],
+        "plates":          [req.plate.upper().strip()],
+        "vehicle_profile": {
+            "color":          req.vehicle_color,
+            "body_type":      req.vehicle_type,
+            "yolo_body_type": req.vehicle_type,
+            "make":           req.vehicle_make,
+        },
+        "alert_type":      atype,
+        "source_program":  req.source_program,
+    }
+
+    webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+    desc = (
+        f"{req.source_program} | {req.headline} | "
+        f"Area: {req.area} | Issued: {sent} | ID: {ident}"
+    )
+    inserted = await _add_to_watchlist(
+        database.AsyncSessionLocal,
+        req.plate.upper().strip(),
+        desc,
+        alert_type=atype["key"],
+        source_program=req.source_program,
+        vehicle_color=req.vehicle_color,
+        vehicle_type=req.vehicle_type,
+        vehicle_make=req.vehicle_make,
+    )
+    await _add_vehicle_target(database.AsyncSessionLocal, alert)
+    await _notify_watching_pilots(database.AsyncSessionLocal, alert)
+    if webhook_url:
+        await _notify_plates(webhook_url, alert, [req.plate.upper().strip()])
+
+    logger.info(
+        "Admin inject by %s: plate=%s area=%s inserted=%s",
+        payload.get("sub"), req.plate, req.area, inserted,
+    )
+    return {"ok": True, "plate": req.plate.upper().strip(), "inserted": inserted, "identifier": ident}
+
+
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     import subprocess, socket
