@@ -548,7 +548,6 @@ def get_flock_cameras(
 async def get_alert_areas(
     q: str = Query("", min_length=0, max_length=100),
     limit: int = Query(10, ge=1, le=50),
-    db: database.AsyncSessionLocal = Depends(database.get_async_db),
 ):
     """
     Autocomplete suggestions for watch_areas. Returns area tokens harvested
