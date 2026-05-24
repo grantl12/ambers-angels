@@ -122,6 +122,7 @@ ALTER TABLE pilots ADD COLUMN IF NOT EXISTS watch_areas        JSONB DEFAULT '[]
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS notification_prefs JSONB DEFAULT '{}';
 ALTER TABLE autonomous_drones ADD COLUMN IF NOT EXISTS serial_number TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS autonomous_drones_serial_idx ON autonomous_drones (serial_number) WHERE serial_number IS NOT NULL;
+ALTER TABLE telemetry_points ADD COLUMN IF NOT EXISTS volunteer_mode VARCHAR(10);
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS tos_version TEXT;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS alert_areas (
