@@ -297,6 +297,11 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 6. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
 
+7. **Watch-area UI + autocomplete** — `watch_areas` and `alert_scope` are fully implemented server-side in `_notify_watching_pilots` (substring match against FEMA/NWS area description strings). Do NOT expose watch_areas as a user-editable field in the mobile app until autocomplete/suggestions are in place — raw text entry against FEMA area strings is too fragile. Build order:
+   - Harvest distinct `area` strings from incoming FEMA/NWS alerts into a lookup table as alerts arrive
+   - Autocomplete UI in the app searches/suggests against that table
+   - Then surface watch_areas + "Nationwide" toggle in pilot Settings
+
 ### Longer Term / Needs Config Only
 
 - **Twilio SMS** — fully implemented in `alert_dispatcher.py`, silently skips if env vars absent. Just needs `TWILIO_*` vars added to server `.env`.

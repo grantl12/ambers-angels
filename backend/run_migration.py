@@ -124,6 +124,13 @@ ALTER TABLE autonomous_drones ADD COLUMN IF NOT EXISTS serial_number TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS autonomous_drones_serial_idx ON autonomous_drones (serial_number) WHERE serial_number IS NOT NULL;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS tos_version TEXT;
 ALTER TABLE pilots ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS alert_areas (
+    id           SERIAL PRIMARY KEY,
+    area_text    TEXT NOT NULL UNIQUE,
+    seen_count   INT NOT NULL DEFAULT 1,
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS alert_areas_text_idx ON alert_areas USING gin (to_tsvector('english', area_text));
 ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS obs_acknowledged_at TIMESTAMPTZ;
 ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS bvlos_certificate TEXT;
 CREATE TABLE IF NOT EXISTS audit_log (
