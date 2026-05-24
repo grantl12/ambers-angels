@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import Geolocation from '@react-native-community/geolocation'
+import * as ExpoLocation from 'expo-location'
 import { useFocusEffect } from '@react-navigation/native'
 
 import {
@@ -144,13 +144,12 @@ export default function AutonomousMissionScreen() {
       }
 
       if (lat === null || lng === null) {
-        await new Promise<void>((resolve, reject) => {
-          Geolocation.getCurrentPosition(
-            (pos) => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve() },
-            (err) => reject(err),
-            { enableHighAccuracy: false, timeout: 8000 },
-          )
-        })
+        const { status } = await ExpoLocation.requestForegroundPermissionsAsync()
+        if (status === 'granted') {
+          const pos = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced })
+          lat = pos.coords.latitude
+          lng = pos.coords.longitude
+        }
       }
 
       if (lat !== null && lng !== null) {
