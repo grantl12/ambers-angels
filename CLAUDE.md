@@ -264,18 +264,16 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 ### Active / Next Session
 
-1. **Site improvements backlog** — `AA_Site_Improvements.md` in repo root. Critical items (before June 2nd CPD meeting):
+1. **Site improvements backlog** — `AA_Site_Improvements.md` in repo root. Verify which items are already done before touching; several were confirmed complete as of 2026-05-24 (terms page exists, alert cancellation done). Remaining pre-CPD items to audit:
    - Meta description update (all pages) — replace "drone surveillance and rescue coordination"
    - Remove specific Flock LPR camera count from homepage copy
    - "Carroll County" → "Carrollton" in pilot section
    - 501(c)(3) language: replace all "In Formation" / "pending" with "Applied" everywhere
-   - Create `/terms` page (content specified in the doc) — currently 404s, linked from footer
    - "Support the Mission" CTA → `mailto:info@amberangels.org` (or remove button)
    - Purge "surveillance" language → "coverage" / "search coverage"
    - Post-CPD-letter-signed: swap LE partnership language + add Carrollton PD badge + social proof block
-   - See doc for exact copy replacements on every item
 
-2. **Alert cancellation → stop active missions** — when a FEMA alert is cancelled (`_deactivate_by_references`), query `autonomous_missions WHERE status IN ('uploading','executing','active') AND alert_id = :id`, mark them `aborted`, push stop-mission notification to drone pilot. One gap in the cancellation pipeline.
+2. ~~**Alert cancellation → stop active missions**~~ — **DONE**. `_deactivate_by_references` already aborts autonomous missions (`status = 'aborted'` where `alert_id = ANY(:refs)`) and fires Discord + push to pilots.
 
 3. **Law enforcement partnership badge** — after Carrollton PD Letter of Support is signed:
    - Add "Carrollton PD Partnership" badge to homepage hero badge row
