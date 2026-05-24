@@ -2,7 +2,7 @@
  * SettingsScreen — configure API connection, pilot identity, and capture settings.
  * All values persist via AsyncStorage across app restarts.
  */
-import React, { useEffect, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   Alert,
   KeyboardAvoidingView,
@@ -30,6 +30,9 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
   const [watchAreas, setWatchAreas] = useState<string[]>([])
   const [watchInput, setWatchInput] = useState("")
   const [watchSaving, setWatchSaving] = useState(false)
+  const [alertScope, setAlertScope] = useState<"local" | "nationwide">("local")
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [notifPrefs, setNotifPrefs] = useState<string[]>(["push", "email"])
   const [notifSaving, setNotifSaving] = useState(false)
   const [pilotRole, setPilotRole] = useState<string>("pilot")
@@ -45,13 +48,14 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
 
   useEffect(() => {
     loadSettings().then(setSettings)
-    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[]; role?: string; status?: string; coordinatorRequestedAt?: string | null }>("/auth/me")
+    apiGet<{ watchAreas?: string[]; notificationPrefs?: string[]; role?: string; status?: string; coordinatorRequestedAt?: string | null; alertScope?: string }>("/auth/me")
       .then((data) => {
         setWatchAreas(data.watchAreas ?? [])
         setNotifPrefs(data.notificationPrefs ?? ["push", "email"])
         setPilotRole(data.role ?? "pilot")
         setPilotStatus(data.status ?? "approved")
         setCoordRequestedAt(data.coordinatorRequestedAt ?? null)
+        setAlertScope((data.alertScope as "local" | "nationwide") ?? "local")
       })
       .catch(() => {})
     fetchMyBadges()
@@ -118,6 +122,50 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
       Alert.alert("Error", "Could not save watch areas. Check connection.")
     } finally {
       setWatchSaving(false)
+    }
+  }
+
+  const fetchSuggestions = useCallback((q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!q.trim()) { setSuggestions([]); return }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const data = await apiGet<{ area: string; seen_count: number }[]>(
+          `/alert-areas?q=${encodeURIComponent(q.trim())}&limit=8`
+        )
+        setSuggestions(
+          (Array.isArray(data) ? data : [])
+            .map((r) => r.area)
+            .filter((a) => !watchAreas.includes(a))
+        )
+      } catch {
+        setSuggestions([])
+      }
+    }, 250)
+  }, [watchAreas])
+
+  function handleWatchInputChange(text: string) {
+    setWatchInput(text)
+    fetchSuggestions(text)
+  }
+
+  function selectSuggestion(area: string) {
+    setSuggestions([])
+    setWatchInput("")
+    if (watchAreas.includes(area)) return
+    const next = [...watchAreas, area]
+    setWatchAreas(next)
+    syncWatchAreas(next)
+  }
+
+  async function toggleAlertScope() {
+    const next: "local" | "nationwide" = alertScope === "nationwide" ? "local" : "nationwide"
+    setAlertScope(next)
+    try {
+      await apiPatch("/auth/me", { alert_scope: next })
+    } catch {
+      setAlertScope(alertScope)
+      Alert.alert("Error", "Could not update alert scope. Check connection.")
     }
   }
 
@@ -408,31 +456,71 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
         </Section>
 
         <Section title={`Watch Areas${watchSaving ? " — saving…" : ""}`}>
-          <Text style={styles.hint}>
-            Get notified when an alert fires in these areas even if you're not nearby.
-            Add cities, counties, or region names.
-          </Text>
-          <View style={styles.watchChips}>
-            {watchAreas.map((area) => (
-              <TouchableOpacity key={area} style={styles.watchChip} onPress={() => removeWatchArea(area)}>
-                <Text style={styles.watchChipText}>{area}  ✕</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.watchInputRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={watchInput}
-              onChangeText={setWatchInput}
-              placeholder="e.g. Birmingham"
-              placeholderTextColor="rgba(255,255,255,0.2)"
-              onSubmitEditing={addWatchArea}
-              returnKeyType="done"
+          {/* Nationwide toggle */}
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Receive alerts nationwide</Text>
+              <Text style={styles.hint}>Get notified for any alert anywhere in the US, not just your watch areas</Text>
+            </View>
+            <Switch
+              value={alertScope === "nationwide"}
+              onValueChange={toggleAlertScope}
+              trackColor={{ false: "rgba(255,255,255,0.1)", true: "#f59e0b" }}
+              thumbColor="#fff"
             />
-            <TouchableOpacity style={styles.watchAddBtn} onPress={addWatchArea}>
-              <Text style={styles.watchAddBtnText}>Add</Text>
-            </TouchableOpacity>
           </View>
+
+          {alertScope !== "nationwide" && (
+            <>
+              <Text style={styles.hint}>
+                Get notified when an alert fires in these areas. Tap a suggestion or type and press Add.
+              </Text>
+
+              {/* Existing area chips */}
+              {watchAreas.length > 0 && (
+                <View style={styles.watchChips}>
+                  {watchAreas.map((area) => (
+                    <TouchableOpacity key={area} style={styles.watchChip} onPress={() => removeWatchArea(area)}>
+                      <Text style={styles.watchChipText}>{area}  ✕</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Autocomplete input */}
+              <View style={styles.watchInputRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={watchInput}
+                  onChangeText={handleWatchInputChange}
+                  placeholder="Search counties, cities…"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  onSubmitEditing={addWatchArea}
+                  returnKeyType="done"
+                  autoCorrect={false}
+                  autoCapitalize="words"
+                />
+                <TouchableOpacity style={styles.watchAddBtn} onPress={addWatchArea}>
+                  <Text style={styles.watchAddBtnText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Suggestion list */}
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionList}>
+                  {suggestions.map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      style={styles.suggestionItem}
+                      onPress={() => selectSuggestion(s)}
+                    >
+                      <Text style={styles.suggestionText}>{s}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
         </Section>
 
         <Section title={`Notifications${notifSaving ? " — saving…" : ""}`}>
@@ -739,7 +827,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "rgba(248,113,113,0.7)",
   },
-  watchChips:    { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+  watchChips:    { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   watchChip: {
     borderWidth: 1,
     borderColor: "rgba(245,158,11,0.5)",
@@ -758,6 +846,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   watchAddBtnText: { color: "#f59e0b", fontWeight: "700", fontSize: 13 },
+  suggestionList: {
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.25)",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  suggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  suggestionText: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
   coordBox: {
     backgroundColor: "rgba(56,189,248,0.05)",
     borderWidth: 1,
