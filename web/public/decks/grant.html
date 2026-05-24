@@ -16,12 +16,12 @@
 <script src="deck-stage.js"></script>
 <script type="application/json" id="speaker-notes">
 [
-"Hi, I'm Grant Lindberg, founder of AMBER Angels. We're a 501(c)(3) in formation building a privacy-first, AI-powered volunteer search network — and we're here to ask for your support to launch our pilot in Carroll County, Georgia. Over the next twelve slides I'll show you what we do, why it matters, and exactly how every grant dollar translates into mission impact. Thank you for your time.",
+"Hi, I'm Grant Lindberg, founder of AMBER Angels. We're a 501(c)(3) building a privacy-first, mobile-first, AI-powered volunteer search network — and we're here to ask for your support to launch our pilot in Carrollton, Georgia. Over the next twelve slides I'll show you what we do, why it matters, and exactly how every grant dollar translates into mission impact. Thank you for your time.",
 "Here's why this work is urgent. According to OJJDP and the National Center for Missing and Exploited Children, seventy-six percent of abducted children who are murdered are killed within the first three hours. The data is brutal — and it tells us that the bottleneck in child recovery isn't investigation, it's coverage. The first window is everything. That's the gap we exist to close.",
-"Carroll County is our pilot ground. Five hundred and three square miles, fewer than twelve fixed automated license plate readers, and dozens of high-probability escape corridors with zero coverage. This isn't a Carroll County problem — it's a rural America problem. Roughly sixty percent of US counties have under five fixed cameras. We're building infrastructure for the places commercial vendors can't economically reach.",
-"Our solution is a distributed AI search grid powered by community volunteers. Any approved volunteer with a smartphone can participate during an active alert — no special hardware. Our cascade inference engine identifies make, model, year range, and plate, so we can find the suspect vehicle even when plates are switched. And every architectural decision is privacy-first: raw footage deleted immediately, no surveillance database, human-in-the-loop review.",
-"Let me be direct about positioning. Commercial LPR vendors like Flock have built remarkable infrastructure for cities and HOAs that can afford it. We are not competing with them and we don't want to. We're filling the gap they can't economically reach: rural counties, secondary roads, and the volunteer-hour multiplier that no for-profit camera network can match. We complement existing infrastructure — we don't replace it.",
-"Here's the cost comparison. A typical Flock-style fixed camera deployment runs about three thousand dollars per camera per year on subscription, plus install. A county Sheriff buying twenty-five cameras pays roughly seventy-five thousand annually — recurring, forever. Our model deploys twenty-five active mobile nodes for under thirty-five thousand in year one, with no recurring license fees because we're built on open source. The asymmetry is the whole point.",
+"Carrollton is our pilot ground. Five hundred and three square miles, fewer than twelve fixed automated license plate readers, and dozens of high-probability escape corridors with zero coverage. This isn't a Carrollton problem — it's a rural America problem. Roughly sixty percent of US counties have under five fixed cameras. We're building infrastructure for the places commercial vendors can't economically reach.",
+"Let me show you what mobile-first actually means in practice. Volunteers use the smartphones they already own — no hardware purchase, no procurement cycle. But the bigger shift is our autonomous drone capability. When an AMBER alert fires, pilots can relinquish their personal DJI drones to coordinator dispatch. The drone flies to an observation point autonomously, streams live video, and runs ALPR and computer vision in real time — without the pilot on scene. That's the same capability Flock Safety sells as a company-owned product at forty thousand dollars per unit. We do it with volunteer hardware. Our cascade inference engine brings false positives from thirty percent for plate-only systems down to under five percent. And when no life is at risk, we're off — that's our privacy foundation, which I'll come back to shortly.",
+"Let me be direct about where we sit in the market. Flock Safety built remarkable fixed-camera infrastructure and they built it well. But their model has a structural ceiling: cameras don't move, always-on capture creates privacy exposure, and their drone product requires company-owned hardware. We're mobile-first, alert-triggered, and community-owned. Our coverage moves with the suspect. Ground volunteers respond from daily routes, drone pilots from their homes. These aren't competing models — fixed cameras complement what we do. But ours is the one that compounds.",
+"The cost asymmetry is significant and it gets more pronounced when you add drone capability. A standard Flock deployment runs about seventy-five thousand a year for twenty-five cameras — plus their drone product adds another company-owned hardware cost layer. Our pilot deploys twenty-five mobile ground nodes plus a volunteer-relinquished drone team for under thirty-five thousand in year one, with zero hardware acquisition cost for the drone fleet. The marginal cost per added volunteer is essentially zero. That's not an efficiency gain — that's a different model entirely.",
 "Now the ROI math. Twenty-five active volunteers covering forty miles per node per active alert is roughly one thousand additional road-miles of coverage per AMBER Alert event. Our VMMC dual-verification reduces false-positive rate from about thirty percent for plate-only systems to under five percent. And every hour of volunteer search time donated is roughly twenty-eight dollars of in-kind labor value the community contributes — which most federal funders count as match.",
 "This is our use of funds for a twelve-month grant of three hundred eighty-five thousand dollars. Forty percent goes to operations and personnel — including a part-time program coordinator and volunteer training infrastructure. Twenty-five percent to AI model development and accuracy improvements. Twenty percent to technology infrastructure and compliance. Ten percent to public transparency reporting. Five percent to administrative overhead. No software licensing fees because we own our stack.",
 "Privacy isn't a feature for us, it's the foundation. We don't archive video. We don't build a database of innocent citizens. Every detection requires human coordinator review before it ever reaches law enforcement. We publish public transparency reports on retention and accuracy. This is what separates community-trusted infrastructure from surveillance infrastructure — and it's why we can operate where commercial vendors face community pushback.",
@@ -317,7 +317,7 @@ em.amber { color: var(--amber); font-style: normal; }
       <div class="s1-meta">
         <div class="s1-meta-item"><div class="s1-meta-label">Pilot</div><div class="s1-meta-val">Carroll County, GA</div></div>
         <div class="s1-meta-item"><div class="s1-meta-label">Funding Sought</div><div class="s1-meta-val"><span class="amber">$385,000</span> · 12 months</div></div>
-        <div class="s1-meta-item"><div class="s1-meta-label">Status</div><div class="s1-meta-val">501(c)(3) in formation</div></div>
+        <div class="s1-meta-item"><div class="s1-meta-label">Status</div><div class="s1-meta-val">501(c)(3) Applied</div></div>
       </div>
     </div>
     <div class="s1-bottom">Grant Lindberg, Founder &amp; Executive Director &nbsp;·&nbsp; info@amberangels.org &nbsp;·&nbsp; amberangels.org</div>
@@ -370,14 +370,14 @@ em.amber { color: var(--amber); font-style: normal; }
   <!-- ── 04 SOLUTION ── -->
   <section id="s4" data-screen-label="04 Solution">
     <span class="tag">The Solution</span>
-    <h2 style="margin-top:28px;">Turn smartphones into a <em>distributed search grid.</em></h2>
-    <p>Amber's Angels is a privacy-first volunteer network that activates during government-issued alerts. Approved community members run our app while driving normal routes — surfacing real-time, AI-screened, coordinator-reviewed vehicle leads for response teams.</p>
+    <h2 style="margin-top:28px;">Mobile-first. Alert-triggered. <em>Community-owned.</em></h2>
+    <p>Amber's Angels activates only when a government-issued alert fires. Ground volunteers respond from daily routes. Drone pilots relinquish personal hardware to autonomous coordinator dispatch. Every detection is AI-screened and coordinator-reviewed before it reaches a response team.</p>
     <div class="s4-grid">
       <div class="s4-card">
         <span class="s4-card-num">01</span>
-        <h3>Zero hardware barrier</h3>
-        <p>Volunteers use the smartphones they already own. A car mount is the only physical equipment. Onboarding is hours, not weeks.</p>
-        <span class="pt">→ Scales to volunteer headcount, not hardware budget</span>
+        <h3>Zero hardware acquisition cost</h3>
+        <p>Ground volunteers use smartphones they already own. Drone pilots relinquish personal DJI hardware to autonomous dispatch — no company-owned fleet, no procurement contract, no maintenance cycle.</p>
+        <span class="pt">→ Coverage scales with community, not capital budget</span>
       </div>
       <div class="s4-card">
         <span class="s4-card-num">02</span>
@@ -401,20 +401,20 @@ em.amber { color: var(--amber); font-style: normal; }
     <div class="s5-head">
       <div>
         <span class="tag">Positioning</span>
-        <h2 style="margin-top:24px;">Nonprofit complement, not<br>commercial <em>competitor.</em></h2>
+        <h2 style="margin-top:24px;">Fixed infrastructure doesn't move.<br><em>Suspects do.</em></h2>
       </div>
-      <div class="s5-quote">Commercial LPR networks have built valuable infrastructure. We are not displacing them. <strong>We're filling the gap they can't economically reach</strong> — rural counties, secondary roads, and the volunteer-hour multiplier no for-profit network can match.</div>
+      <div class="s5-quote">Flock Safety built a remarkable fixed-camera network. We're building what they can't: <strong>mobile-first, alert-triggered, community-owned</strong> — active only when a life is at risk, deployable in minutes, costing nothing per added node.</div>
     </div>
     <div class="s5-table">
       <div class="s5-row head"><div></div><div>Commercial LPR (Flock-style)</div><div class="us">AMBER Angels</div></div>
-      <div class="s5-row"><div class="lbl">Business model</div><div class="val">For-profit subscription</div><div class="val us">501(c)(3) public benefit</div></div>
-      <div class="s5-row"><div class="lbl">Coverage geometry</div><div class="val">Fixed cameras at chokepoints</div><div class="val us">Mobile, distributed, volunteer-driven</div></div>
-      <div class="s5-row"><div class="lbl">Marginal cost per node</div><div class="val">$3,000 / camera / year</div><div class="val us">~$0 (volunteer device)</div></div>
+      <div class="s5-row"><div class="lbl">Coverage geometry</div><div class="val">Fixed cameras at chokepoints</div><div class="val us">Mobile volunteers + autonomous drone swarm</div></div>
+      <div class="s5-row"><div class="lbl">Activation model</div><div class="val">Always-on continuous capture</div><div class="val us">Alert-triggered only — off when no life is at risk (FEMA IPAWS · NWS · NCMEC)</div></div>
+      <div class="s5-row"><div class="lbl">Drone capability</div><div class="val">Company-owned fleet (Flock Safety Drone)</div><div class="val us">Volunteer-relinquished DJI hardware — $0 acquisition</div></div>
+      <div class="s5-row"><div class="lbl">Marginal cost per node</div><div class="val">$3,000 / camera / year + install</div><div class="val us">~$0 (volunteer device or drone)</div></div>
       <div class="s5-row"><div class="lbl">Data retention</div><div class="val">30+ days standard</div><div class="val us">Real-time delete after processing</div></div>
-      <div class="s5-row"><div class="lbl">Activation model</div><div class="val">Always-on continuous capture</div><div class="val us">Alert-triggered only (FEMA IPAWS · amber.alert.gov · NCMEC)</div></div>
       <div class="s5-row"><div class="lbl">Deployment time per county</div><div class="val">6–12 months install</div><div class="val us">Hours to volunteer onboard</div></div>
     </div>
-    <p class="s5-foot">We co-exist with commercial vendors and intend formal data-sharing partnerships where appropriate. <strong>Our value to the field is the rural and volunteer-driven coverage no commercial economics can sustain.</strong></p>
+    <p class="s5-foot">Fixed cameras are infrastructure we complement — not displace. <strong>But the model that compounds is ours: every new volunteer costs nothing, covers new ground, and strengthens the network.</strong></p>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
     <div class="sn">05 / 14</div>
   </section>
@@ -431,24 +431,24 @@ em.amber { color: var(--amber); font-style: normal; }
         <ul class="s6-list">
           <li>~$3,000 per camera per year subscription</li>
           <li>Plus install, mounting, and electrical</li>
-          <li>Locked to fixed locations</li>
-          <li>Cost grows linearly with coverage</li>
+          <li>Locked to fixed locations — coverage doesn't move</li>
+          <li>Drone product adds company-owned hardware cost layer</li>
         </ul>
       </div>
       <div class="s6-arrow"><div class="s6-arrow-inner">→</div></div>
       <div class="s6-card us">
         <span class="label">AMBER Angels Pilot</span>
-        <h3>25 active mobile nodes + drone team</h3>
+        <h3>25 mobile nodes + autonomous drone swarm</h3>
         <div class="s6-bar"><span class="num">$35K</span><span class="unit">/ year, total</span></div>
         <ul class="s6-list">
           <li>Volunteers contribute device + driving time</li>
+          <li>Drone fleet: volunteer-relinquished DJI hardware — $0 acquisition</li>
           <li>No recurring software license fees (open source)</li>
-          <li>Coverage moves with daily commute patterns</li>
-          <li>Marginal cost per added volunteer ≈ $0</li>
+          <li>Marginal cost per added volunteer or drone ≈ $0</li>
         </ul>
       </div>
     </div>
-    <p class="s6-foot"><strong>~53% lower year-one cost</strong> for an order of magnitude more flexible coverage. The asymmetry compounds as the volunteer network grows.</p>
+    <p class="s6-foot"><strong>~53% lower year-one cost</strong> — including drone capability that costs competitors $40K+ per unit. The asymmetry compounds as the volunteer network grows because coverage isn't constrained by hardware procurement.</p>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
     <div class="sn">06 / 14</div>
   </section>
@@ -575,8 +575,8 @@ em.amber { color: var(--amber); font-style: normal; }
       <div class="s10-org">
         <div class="s10-org-card">
           <div class="tag-mini">Org Status</div>
-          <h3>501(c)(3) in formation</h3>
-          <p>Federal nonprofit application in process. Every grant dollar deductible and mission-restricted. Full board governance and annual public 990 transparency.</p>
+          <h3>501(c)(3) Applied</h3>
+          <p>Federal nonprofit application filed. Every grant dollar deductible and mission-restricted. Full board governance and annual public 990 transparency.</p>
         </div>
         <div class="s10-org-card">
           <div class="tag-mini">Veteran-led</div>

@@ -297,10 +297,11 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 6. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
 
-7. **Watch-area UI + autocomplete** — `watch_areas` and `alert_scope` are fully implemented server-side in `_notify_watching_pilots` (substring match against FEMA/NWS area description strings). Do NOT expose watch_areas as a user-editable field in the mobile app until autocomplete/suggestions are in place — raw text entry against FEMA area strings is too fragile. Build order:
-   - Harvest distinct `area` strings from incoming FEMA/NWS alerts into a lookup table as alerts arrive
-   - Autocomplete UI in the app searches/suggests against that table
-   - Then surface watch_areas + "Nationwide" toggle in pilot Settings
+7. **Watch-area UI + autocomplete** — BUILT (2026-05-24). All three layers shipped:
+   - `alert_areas` table harvests real FEMA/NWS area tokens on every active alert (self-seeding)
+   - `GET /alert-areas?q=` endpoint for autocomplete
+   - Mobile Settings: debounced autocomplete input + inline suggestion list + Nationwide toggle (PATCHes `alert_scope`)
+   - **Testing needed next week**: seed the `alert_areas` table with a few manual rows so suggestions work before real alerts arrive; confirm PATCH `/auth/me` `alert_scope` field is actually exposed on `GET /auth/me` response (check `backend/routers/auth.py` `/me` handler)
 
 ### Longer Term / Needs Config Only
 
