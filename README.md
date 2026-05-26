@@ -200,7 +200,7 @@ Live Mapbox dark-mode dashboard:
 - Active FEMA alert polygons with alert-type color coding
 - Detection markers (amber = detected, red = watchlist hit)
 - Detection density heatmap
-- Flock camera coverage zones (bucketed density — raw positions never exposed)
+- Flock camera positions and coverage cones (coordinators and admins only; pilots see bucketed density zones)
 - Out-of-range warning when a drone exceeds the pilot's configured distance from the active search area
 
 ### Tiered Access & Roles
@@ -210,10 +210,10 @@ Three roles with distinct access levels, managed from the admin console:
 | Role | Access |
 |---|---|
 | **Pilot** | Mission map, camera capture, detection feed, personal stats |
-| **Coordinator** | All pilot access + coverage map with bucketed camera density — suitable for law enforcement demos and operational briefings |
-| **Admin** | Full platform access: pilot approval, role management, test alert injection, system health, raw Flock camera data |
+| **Coordinator** | All pilot access + Flock camera positions and coverage cones, flight priority zones, live volunteer positions — suitable for law enforcement demos and operational briefings |
+| **Admin** | Full platform access: pilot approval, role management, test alert injection, system health, all coordinator views |
 
-Coordinators see a heatmap of ALPR camera coverage broken down by zone (bucketed "0 / 1–3 / 4+" cameras per cell — never exact counts, never positions), derived flight priority zones, and live volunteer positions. Raw Flock camera coordinates never leave the server. Admins can promote or demote any pilot's role at any time from the admin console.
+Coordinators and admins see raw Flock camera positions with coverage cones — sufficient detail for operational briefings and coverage planning. Pilots see only a bucketed heatmap (0 / 1–3 / 4+ cameras per zone) with no exact positions. Admins can promote or demote any pilot's role at any time from the admin console.
 
 ### Flight Priority Zones
 
@@ -266,7 +266,7 @@ We built privacy in from the start, not as an afterthought.
 - **Short retention windows.** Telemetry is purged after 90 days. Detection records after 1 year. See our full [Data Retention Policy](https://amberangels.org/retention).
 - **No third-party data sales.** We do not sell, rent, or share personal data with advertisers or data brokers under any circumstances.
 - **Transparent watchlist.** The platform only flags vehicles that match an active government-issued alert. It does not build or maintain its own persistent database of plate sightings.
-- **Volunteer-only access.** The dashboard, detection data, and pilot portal are accessible only to admin-approved volunteers. No one accesses mission data without manual vetting.
+- **Volunteer-only access.** The dashboard, detection data, and pilot portal are accessible only to approved volunteers. At current pilot scale, approval is manual admin review. Automated identity verification is planned as the network scales.
 
 Full policies: [Privacy Policy](https://amberangels.org/privacy) · [Terms of Service](https://amberangels.org/terms) · [Data Retention Policy](https://amberangels.org/retention)
 
