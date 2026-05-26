@@ -1,7 +1,7 @@
 # Amber's Angels: Annual Operational Budget & Financial Strategy (FY 2026)
 
 ## 1. Executive Summary
-Amber's Angels is a Service-Disabled Veteran-Owned Small Business (SDVOSB) currently undergoing formal 501(c)(3) nonprofit transition. Our financial model prioritizes high-impact technology deployment with lean overhead, leveraging significant "In-Kind" professional contributions to maximize the value of every dollar received via grants and donations.
+Amber's Angels is a Service-Disabled Veteran-Owned Small Business (SDVOSB) and federally recognized 501(c)(3) nonprofit (EIN 42-2052151). Our financial model prioritizes high-impact technology deployment with lean overhead, leveraging significant "In-Kind" professional contributions to maximize the value of every dollar received via grants and donations.
 
 ## 2. Strategic Differentiators (The Amber's Angels Advantage)
 *   **Market Advantage:** We do not compete with expensive, fixed-infrastructure ALPR companies. Instead, we provide a decentralized software solution that fills the critical coverage gaps left by stationary cameras at a fraction of the cost.
@@ -40,7 +40,7 @@ As a technical organization founded by a senior software engineer, the majority 
 ---
 
 ## 5. Certification & Compliance Status
-*   **501(c)(3):** Application in progress (Form 1023-EZ).
+*   **501(c)(3):** Approved. IRS determination letter on file (EIN 42-2052151).
 *   **SDVOSB:** Currently undergoing Small Business Administration (SBA) certification process as a Service-Disabled Veteran-Owned Small Business.
 *   **Data Governance:** All infrastructure is self-hosted or HIPAA/SOC2 compliant to ensure the privacy of missing person data.
 

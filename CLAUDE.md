@@ -225,7 +225,7 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 ## Contact / Identity
 
 - Public email: `info@amberangels.org` — use everywhere for all contact including privacy requests.
-- EIN: 42-2052151 (501(c)(3) applied)
+- EIN: 42-2052151 (501(c)(3) approved — determination letter received)
 - Address: 103 Springwood Dr, Carrollton, GA 30117
 - Pilot program: Carrollton, GA (not "Carroll County")
 
@@ -268,7 +268,7 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
    - Meta description update (all pages) — replace "drone surveillance and rescue coordination"
    - Remove specific Flock LPR camera count from homepage copy
    - "Carroll County" → "Carrollton" in pilot section
-   - 501(c)(3) language: replace all "In Formation" / "pending" with "Applied" everywhere
+   - ~~501(c)(3) language~~ — **DONE**. IRS determination letter received; all docs updated to "501(c)(3) Approved" / "federally recognized 501(c)(3) nonprofit"
    - "Support the Mission" CTA → `mailto:info@amberangels.org` (or remove button)
    - Purge "surveillance" language → "coverage" / "search coverage"
    - Post-CPD-letter-signed: swap LE partnership language + add Carrollton PD badge + social proof block

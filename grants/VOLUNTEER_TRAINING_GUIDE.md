@@ -11,7 +11,7 @@
 
 ### The Mission
 
-Amber's Angels is a 501(c)(3) nonprofit (application filed, EIN 42-2052151) that deploys a network of volunteer search nodes — people just like you, in their own cars or with their own drones — during active AMBER Alerts and other government-issued missing person emergencies.
+Amber's Angels is a federally recognized 501(c)(3) nonprofit (EIN 42-2052151) that deploys a network of volunteer search nodes — people just like you, in their own cars or with their own drones — during active AMBER Alerts and other government-issued missing person emergencies.
 
 When an alert fires, our platform activates. You receive a push notification. You drive your normal routes (or assigned sector) with our app running. Our AI scans your camera feed in real time. If it spots a match, a trained coordinator reviews it and contacts law enforcement with a GPS-precise lead.
 

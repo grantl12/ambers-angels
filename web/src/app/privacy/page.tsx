@@ -9,8 +9,8 @@ export default function PrivacyPage() {
 
         <Section title="Who we are">
           Amber's Angels is a volunteer-driven public safety platform dedicated to assisting in
-          the recovery of missing and abducted children. We have filed for 501(c)(3) nonprofit
-          status (EIN 42-2052151). Our server is located in the United States.
+          the recovery of missing and abducted children. We are a federally recognized 501(c)(3)
+          nonprofit (EIN 42-2052151). Our server is located in the United States.
         </Section>
 
         <Section title="What we collect">

@@ -482,7 +482,7 @@ Amber's Angels operates entirely on volunteer labor and donated infrastructure. 
 
 If you represent a grant-making organization and would like a technical briefing, deployment data, or a letter of interest, contact us at **info@amberangels.org**.
 
-Amber's Angels has filed for 501(c)(3) nonprofit status (EIN 42-2052151). Once the IRS determination is issued, donations will be tax-deductible.
+Amber's Angels is a federally recognized 501(c)(3) nonprofit (EIN 42-2052151). Donations are tax-deductible.
 
 ---
 

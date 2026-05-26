@@ -28,7 +28,7 @@ Amber's Angels is a Georgia-based 501(c)(3) nonprofit using AI-powered mobile te
 | American Legion Children & Youth | American Legion | Varies | Post/Chapter level | None | Contact local chapter |
 | Georgia Power Foundation | GA Power | $1K–$10K | Rolling | Community letters | Draft application |
 
-### Tier 2 — 501(c)(3) Confirmed (3–6 Months Out)
+### Tier 2 — Now Eligible (501(c)(3) Confirmed)
 
 | Grant | Funder | Amount | Notes |
 | :--- | :--- | :--- | :--- |
@@ -55,7 +55,7 @@ Amber's Angels is a Georgia-based 501(c)(3) nonprofit using AI-powered mobile te
 Before applying to Tier 1 grants, have these ready:
 
 - [ ] **IRS CP 575 EIN Confirmation Letter** ✅ (file: `CP_575_E.pdf`)
-- [ ] **501(c)(3) Determination Letter** — *in progress (Form 1023-EZ)*
+- [x] **501(c)(3) Determination Letter** ✅ (IRS approval received)
 - [ ] **Georgia SOS Registration** — confirm active status
 - [ ] **Law Enforcement Letter of Support** — see template below
 - [ ] **Board of Directors List** (minimum 3 members for most foundations)
@@ -147,7 +147,7 @@ These are the numbers we will publish in our post-pilot transparency report — 
 ```
 Month 1-2:  Apply for DigitalOcean + Mapbox credits (rolling)
             Submit VFW / American Legion inquiries
-            Finalize 501(c)(3) determination letter
+            501(c)(3) determination letter received ✅
 
 Month 2-3:  Secure LEA letter of support (Carroll County)
             Submit CFGA community grant
