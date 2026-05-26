@@ -88,7 +88,7 @@ If this framing lands before the first slide, most objections below are preempte
 **Steel man:** "You're ingesting active alert data — plate numbers, vehicle descriptions — and processing it on a server you control. What's your security posture? Who else can see this?"
 
 **Response:**
-- All data is encrypted in transit (TLS) and at rest (AES-256).
+- All data is encrypted in transit (TLS) and at rest (DigitalOcean managed disk encryption).
 - Access is role-gated: pilots see their assigned mission, coordinators see their managed missions, admins see the audit trail. No volunteer sees another volunteer's data.
 - We do not share or sell any data. The only outbound channel is the confirmed lead to CPD via our coordinator (phone or secure message — their preference).
 - Our server is hosted on DigitalOcean's NYC3 datacenter (US-based). We can provide the IP range and hosting agreement on request.
@@ -175,7 +175,7 @@ No. Carrollton is the pilot. That is why we are here — to build the first real
 We don't adjudicate the alert — FEMA does. If FEMA issued it, we respond to it. Same as any other emergency broadcast. If FEMA cancels it, we stand down immediately.
 
 **"What if a volunteer is a bad actor?"**
-Background check at enrollment. Binding participation agreement. All coordinator actions are timestamped and auditable. A bad actor volunteer generates frames that go through coordinator review — they can't weaponize that without coordinator confirmation. A bad actor coordinator is our accountability problem, not CPD's, and we accept that.
+Binding participation agreement at enrollment — violations are grounds for immediate removal. All coordinator actions are timestamped and auditable. A bad actor volunteer generates frames that go through coordinator review — they can't weaponize that without coordinator confirmation. A bad actor coordinator is our accountability problem, not CPD's, and we accept that. Background screening is on our roadmap and is something we intend to implement before scaling beyond the pilot — we are happy to make that a condition of the Letter of Support if CPD wants it formalized.
 
 **"The ACLU is going to come after you."**
 That's a fair concern and we've thought about it. Our position: we respond to government-issued public safety alerts using volunteer civilian observation — no different in kind from a neighborhood watch. The technical difference is the AI layer and the coordinator gate, which actually create more accountability than unstructured citizen observation. We don't build a persistent database. We have a public privacy policy. We are open to community advisory input.
