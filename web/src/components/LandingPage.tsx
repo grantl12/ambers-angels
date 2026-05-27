@@ -75,7 +75,7 @@ export default function LandingPage() {
             <a href="mailto:info@amberangels.org" className={s.btnGhost}>Grant &amp; Partnership Inquiries</a>
           </div>
           <div className={s.heroBadges}>
-            <span className={s.heroBadge}>501(c)(3) Applied</span>
+            <span className={s.heroBadge}>501(c)(3) Approved</span>
             <span className={s.heroBadge}>Carrollton, GA Pilot</span>
             <span className={s.heroBadge}>SDVOSB Founded</span>
             <span className={s.heroBadge}>Privacy-First by Design</span>
@@ -331,7 +331,7 @@ export default function LandingPage() {
           </div>
           <div className={s.involveCard}>
             <h3>Fund the Mission</h3>
-            <p>We&apos;ve filed for 501(c)(3) nonprofit status (EIN 42-2052151). Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
+            <p>We&apos;re a federally recognized 501(c)(3) nonprofit (EIN 42-2052151). Every dollar of grant funding goes directly toward operational readiness — no software licensing fees.</p>
             <a href="mailto:info@amberangels.org">Contact Us →</a>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function LandingPage() {
       <footer className={s.footer}>
         <div className={s.footerBrand}>
           <img src="/aa-icon.png" alt="AA" />
-          <span>Amber&apos;s Angels · 501(c)(3) Applied · info@amberangels.org · amberangels.org</span>
+          <span>Amber&apos;s Angels · 501(c)(3) Approved · info@amberangels.org · amberangels.org</span>
         </div>
         <div className={s.footerLinks}>
           <a href="/privacy">Privacy Policy</a>

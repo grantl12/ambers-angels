@@ -11,7 +11,7 @@
   "Open by thanking Dobbs and Hitchcock for the time. Set the framing up front so the rest of the deck reads correctly: this is a volunteer civilian network that responds to government-issued AMBER Alerts — it is not law enforcement, it does not enable citizens to report crimes, and it does not contact officers directly. Every output goes through a human coordinator we control. We are here today to answer hard questions and, if it makes sense, to ask for a Letter of Support.",
   "Lead with the stake. 76% of abducted children who are murdered are killed within the first three hours. This is the entire reason for the platform. The point is not to be impressive — it is to compress the window between an alert firing and a credible vehicle sighting reaching CPD. If they push on the source, OJJDP / NCMEC.",
   "This is the slide that disarms the liability conversation early — say what we are, but more importantly say what we are NOT. We respond only to FEMA-issued alerts. Volunteers sign a binding agreement that they observe and report only, never pursue or confront. Every detection routes through a coordinator we vet — not direct to officers, not direct to the public. CPD is never liable for a volunteer's actions because volunteers are not acting on CPD instructions.",
-  "The structural argument: every fixed-camera deployment defines a perimeter the cameras were installed to cover, and that perimeter doesn't move when an alert fires. A suspect leaving the alert zone is, by definition, somewhere the cameras aren't. We're not knocking what CPD already runs — we are adding mobile coverage that travels with the alert polygon. The map on the right is illustrative; we are deliberately not quoting a camera count because counts vary by source and we don't want to be wrong about yours.",
+  "Point to Hitchcock's own quote at the bottom of the slide — don't skip it. In 2019 he told Fox 5 Atlanta that having Flock was 'very, very helpful' and 'hopefully it saved somebody's life.' You agree. The question on this slide is not whether LPR works — it's where it runs out. Every fixed-camera deployment defines a perimeter the cameras were installed to cover, and that perimeter doesn't move when an alert fires. A suspect leaving the alert zone is, by definition, somewhere the cameras aren't. We're not here to replace what CPD already runs — we are adding mobile coverage that travels with the alert polygon. The map on the right is illustrative; deliberately no camera count because counts vary by source and you don't want to be wrong about theirs.",
   "Walk the pipeline. FEMA IPAWS fires. Volunteers in the polygon get a mission push. Their phone (or drone) streams frames to our backend. Cascade inference flags candidate vehicles. Coordinator reviews — confirms or rejects. Only confirmed leads route to responding teams. Emphasize the human-review gate before the last arrow. If asked: AI flags, humans decide.",
   "This is the liability slide. Walk it slowly. Left side: volunteers cannot touch a live mission without first accepting a binding agreement that says observe and report only — no pursuit, no confrontation, no contact with subjects, no approaching vehicles. Background check on enrollment. Right side: every coordinator action is timestamped to an audit log. If a detection was acted on, we can show who reviewed it, when, and what they decided. This is what makes the platform defensible.",
   "Show this and pause. This is the swarm dispatch UI — live as of last week. Coordinator sees every drone on the mission map, clicks one, picks operation mode, accepts or overrides the system-suggested observation point (highest-priority coverage gap), and dispatches. No volunteer is flying — the coordinator we vet is. Direct comparable to Flock Aerodome's tooling, except every flight requires a coordinator decision and is logged. If asked about Part 108: that mode is gated off until the FAA rule lands.",
@@ -285,6 +285,15 @@ section {
 }
 .s4-stat-num { font-family: 'Space Grotesk'; font-size: 48px; font-weight: 700; color: var(--amber); line-height: 1; margin-bottom: 12px; letter-spacing: -1.5px; }
 .s4-stat-desc { font-size: 18px; color: var(--muted); line-height: 1.5; }
+.s4-quote {
+  margin-top: 40px; padding: 22px 28px;
+  border-left: 3px solid var(--amber);
+  background: var(--amber-soft);
+  border-radius: 0 10px 10px 0;
+  max-width: 600px;
+}
+.s4-quote p { font-size: 19px; font-style: italic; color: var(--fg); line-height: 1.6; margin-bottom: 10px; }
+.s4-quote cite { font-family: var(--mono); font-size: 13px; color: var(--dim); letter-spacing: 0.5px; font-style: normal; }
 
 .s4-map {
   width: 680px; border-left: 1px solid var(--border);
@@ -1142,6 +1151,10 @@ section {
           <div class="s4-stat-desc">at no infrastructure cost<br>to the department</div>
         </div>
       </div>
+      <blockquote class="s4-quote">
+        <p>"Having this and identifying the person right away was very, very helpful — and hopefully it saved somebody's life or even saved his own life."</p>
+        <cite>— Lt. Blake Hitchcock, Carrollton PD · Fox 5 Atlanta, 2019</cite>
+      </blockquote>
     </div>
     <div class="s4-map">
       <svg viewBox="0 0 480 380" xmlns="http://www.w3.org/2000/svg">

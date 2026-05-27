@@ -38,6 +38,7 @@ from services.fema_connector import (
     _deactivate_by_references,
     _notify_cancelled,
     _push_notify_cancelled,
+    _upsert_alert_areas,
     ALERT_REGISTRY,
 )
 
@@ -401,6 +402,7 @@ async def _process_alerts(
             source, atype["short"], alert["headline"], alert["area"],
         )
 
+        await _upsert_alert_areas(session_factory, alert["area"])
         await _add_vehicle_target(session_factory, alert)
         await _notify_watching_pilots(session_factory, alert)
 

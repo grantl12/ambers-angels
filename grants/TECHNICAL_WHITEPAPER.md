@@ -236,7 +236,7 @@ By utilizing a distributed tech stack, Amber's Angels remains highly scalable wi
 
 Amber's Angels welcomes collaboration with academic institutions, civil liberties organizations, and law enforcement agencies interested in co-designing responsible AI for public safety.
 
-**Organization:** Amber's Angels Inc. (501(c)(3) in formation)
+**Organization:** Amber's Angels Inc. (501(c)(3) nonprofit, EIN 42-2052151)
 **Email:** info@amberangels.org
 **Website:** amberangels.org
 

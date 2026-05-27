@@ -544,6 +544,41 @@ def get_flock_cameras(
 # Coverage endpoints
 # ---------------------------------------------------------------------------
 
+@router.get("/alert-areas", dependencies=[Depends(get_current_pilot)])
+async def get_alert_areas(
+    q: str = Query("", min_length=0, max_length=100),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """
+    Autocomplete suggestions for watch_areas. Returns area tokens harvested
+    from real FEMA/NWS alerts, ordered by how often they've appeared.
+    Pass ?q= for prefix/substring filtering.
+    """
+    async with database.AsyncSessionLocal() as session:
+        if q.strip():
+            rows = await session.execute(
+                text("""
+                    SELECT area_text, seen_count
+                    FROM alert_areas
+                    WHERE area_text ILIKE :q
+                    ORDER BY seen_count DESC, area_text
+                    LIMIT :lim
+                """),
+                {"q": f"%{q.strip()}%", "lim": limit},
+            )
+        else:
+            rows = await session.execute(
+                text("""
+                    SELECT area_text, seen_count
+                    FROM alert_areas
+                    ORDER BY seen_count DESC, area_text
+                    LIMIT :lim
+                """),
+                {"lim": limit},
+            )
+        return [{"area": r[0], "seen_count": r[1]} for r in rows.fetchall()]
+
+
 @router.get("/coverage/priority-zones", dependencies=[Depends(get_current_pilot)])
 def get_priority_zones(
     south: Optional[float] = Query(None),

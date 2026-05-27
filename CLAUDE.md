@@ -225,7 +225,7 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 ## Contact / Identity
 
 - Public email: `info@amberangels.org` — use everywhere for all contact including privacy requests.
-- EIN: 42-2052151 (501(c)(3) applied)
+- EIN: 42-2052151 (501(c)(3) approved — determination letter received)
 - Address: 103 Springwood Dr, Carrollton, GA 30117
 - Pilot program: Carrollton, GA (not "Carroll County")
 
@@ -264,18 +264,16 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 ### Active / Next Session
 
-1. **Site improvements backlog** — `AA_Site_Improvements.md` in repo root. Critical items (before June 2nd CPD meeting):
+1. **Site improvements backlog** — `AA_Site_Improvements.md` in repo root. Verify which items are already done before touching; several were confirmed complete as of 2026-05-24 (terms page exists, alert cancellation done). Remaining pre-CPD items to audit:
    - Meta description update (all pages) — replace "drone surveillance and rescue coordination"
    - Remove specific Flock LPR camera count from homepage copy
    - "Carroll County" → "Carrollton" in pilot section
-   - 501(c)(3) language: replace all "In Formation" / "pending" with "Applied" everywhere
-   - Create `/terms` page (content specified in the doc) — currently 404s, linked from footer
+   - ~~501(c)(3) language~~ — **DONE**. IRS determination letter received; all docs updated to "501(c)(3) Approved" / "federally recognized 501(c)(3) nonprofit"
    - "Support the Mission" CTA → `mailto:info@amberangels.org` (or remove button)
    - Purge "surveillance" language → "coverage" / "search coverage"
    - Post-CPD-letter-signed: swap LE partnership language + add Carrollton PD badge + social proof block
-   - See doc for exact copy replacements on every item
 
-2. **Alert cancellation → stop active missions** — when a FEMA alert is cancelled (`_deactivate_by_references`), query `autonomous_missions WHERE status IN ('uploading','executing','active') AND alert_id = :id`, mark them `aborted`, push stop-mission notification to drone pilot. One gap in the cancellation pipeline.
+2. ~~**Alert cancellation → stop active missions**~~ — **DONE**. `_deactivate_by_references` already aborts autonomous missions (`status = 'aborted'` where `alert_id = ANY(:refs)`) and fires Discord + push to pilots.
 
 3. **Law enforcement partnership badge** — after Carrollton PD Letter of Support is signed:
    - Add "Carrollton PD Partnership" badge to homepage hero badge row
@@ -296,6 +294,12 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
    - After CPD letter is signed, add partnership language to App Store description
 
 6. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
+
+7. **Watch-area UI + autocomplete** — BUILT (2026-05-24). All three layers shipped:
+   - `alert_areas` table harvests real FEMA/NWS area tokens on every active alert (self-seeding)
+   - `GET /alert-areas?q=` endpoint for autocomplete
+   - Mobile Settings: debounced autocomplete input + inline suggestion list + Nationwide toggle (PATCHes `alert_scope`)
+   - **Testing needed next week**: seed the `alert_areas` table with a few manual rows so suggestions work before real alerts arrive; confirm PATCH `/auth/me` `alert_scope` field is actually exposed on `GET /auth/me` response (check `backend/routers/auth.py` `/me` handler)
 
 ### Longer Term / Needs Config Only
 

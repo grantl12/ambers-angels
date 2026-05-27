@@ -150,7 +150,7 @@ Our platform is built on modern, scalable, open-source foundations:
 Amber's Angels is more than a software platform — it is a life-saving bridge between technology and community. We are seeking partners and grants to help us scale our Carroll County pilot, enhance AI accuracy across diverse vehicle populations, and ensure that when a child goes missing, "boots on the ground" and "rotors in the air" are only a tap away.
 
 **Contact Information:**
-- **Organization:** Amber's Angels (501(c)(3) in formation)
+- **Organization:** Amber's Angels (501(c)(3) nonprofit, EIN 42-2052151)
 - **Email:** info@amberangels.org
 - **Website:** amberangels.org
 - **Executive Director:** Grant Lindberg

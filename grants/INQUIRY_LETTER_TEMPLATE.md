@@ -14,7 +14,7 @@
 
 Dear [Grant Officer Name],
 
-On behalf of Amber's Angels Inc., a Georgia-based 501(c)(3) nonprofit in formation and a Service-Disabled Veteran-Owned entity, I am writing to inquire about potential support for our **Carroll County Rapid Recovery Pilot Program**.
+On behalf of Amber's Angels Inc., a Georgia-based federally recognized 501(c)(3) nonprofit and Service-Disabled Veteran-Owned entity, I am writing to inquire about potential support for our **Carroll County Rapid Recovery Pilot Program**.
 
 **The Problem**
 
@@ -35,7 +35,7 @@ We are seeking a one-time grant of **$5,000** to fund a 6-month pilot program in
 
 **Why Now**
 
-We have secured a Letter of Support from local law enforcement, completed our EIN registration (IRS CP 575 on file), and assembled a core volunteer team. Grant funding is the final step to operational readiness.
+We are a federally recognized 501(c)(3) nonprofit (IRS determination letter and CP 575 EIN letter on file), have assembled a core volunteer team, and are actively engaging local law enforcement. Grant funding is the final step to operational readiness.
 
 As a veteran-led organization, we believe in technical excellence and community accountability. We would welcome the opportunity to submit a full proposal or provide a live technical demonstration of our VMMC detection capabilities.
 
@@ -51,4 +51,4 @@ info@amberangels.org
 [Phone Number]
 amberangels.org
 
-*EIN: [from CP 575 E on file] | 501(c)(3) Application In Progress | Georgia SOS Registered*
+*EIN: 42-2052151 | 501(c)(3) Approved | Georgia SOS Registered*

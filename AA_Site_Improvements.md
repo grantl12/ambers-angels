@@ -116,30 +116,9 @@ Add: Carrollton PD Partnership
 
 ---
 
-### 5. 501(c)(3) Status Language (ALL instances)
+### ~~5. 501(c)(3) Status Language (ALL instances)~~ — DONE ✅
 
-**Find everywhere:** `501(c)(3) In Formation` and `501(c)(3) in formation` and `501(c)(3) nonprofit (pending)`
-
-**Replace all with:** `501(c)(3) Applied`
-
-Locations to update:
-- Homepage hero badge row
-- Homepage footer
-- Privacy policy (`We operate as a 501(c)(3) nonprofit (pending)`)
-- README.md on GitHub
-- Pitch deck
-
-**Privacy policy specific fix:**
-
-Current:
-```
-Amber's Angels is a volunteer-run drone license plate recognition network dedicated to assisting in the recovery of missing and abducted children. We operate as a 501(c)(3) nonprofit (pending).
-```
-
-Replace with:
-```
-Amber's Angels is a volunteer-driven public safety platform dedicated to assisting in the recovery of missing and abducted children. We have filed for 501(c)(3) nonprofit status (EIN 42-2052151).
-```
+IRS determination letter received. All instances updated to "501(c)(3) Approved" / "federally recognized 501(c)(3) nonprofit (EIN 42-2052151)" across all web, deck, and grant docs.
 
 ---
 

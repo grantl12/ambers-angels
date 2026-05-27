@@ -460,6 +460,48 @@ async def _add_to_watchlist(
 
 
 # ---------------------------------------------------------------------------
+# Alert-area harvesting (powers watch_area autocomplete)
+# ---------------------------------------------------------------------------
+
+async def _upsert_alert_areas(session_factory, area_str: str) -> None:
+    """
+    Parse a FEMA/NWS area description into tokens and upsert each into
+    alert_areas. Called on every new active alert so the table self-builds
+    from real feed data over time.
+
+    FEMA area strings are typically semicolon-separated:
+      "Carroll County, GA; Haralson County, GA; Paulding County, GA"
+    NWS uses the same format.  We also store the full string as-is so
+    searches for "Atlanta" match "City of Atlanta, GA" even if it arrives
+    as a single token with no semicolons.
+    """
+    if not area_str:
+        return
+    tokens: list[str] = []
+    for part in area_str.split(";"):
+        token = part.strip()
+        if token:
+            tokens.append(token)
+    if not tokens:
+        return
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                text("""
+                    INSERT INTO alert_areas (area_text, last_seen_at, seen_count)
+                    VALUES (:t, NOW(), 1)
+                    ON CONFLICT (area_text) DO UPDATE
+                        SET seen_count   = alert_areas.seen_count + 1,
+                            last_seen_at = NOW()
+                """),
+                [{"t": t} for t in tokens],
+            )
+            await session.commit()
+    except Exception as e:
+        logger.warning("_upsert_alert_areas failed: %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Vehicle target insertion
 # ---------------------------------------------------------------------------
 
@@ -950,6 +992,7 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             atype["short"], alert["source_program"], alert["headline"], alert["area"]
         )
 
+        await _upsert_alert_areas(session_factory, alert["area"])
         stored = await _add_vehicle_target(session_factory, alert)
         if stored:
             profile = alert.get("vehicle_profile", {})
