@@ -459,7 +459,8 @@ def get_detections_feed(
 # ---------------------------------------------------------------------------
 # Flock cameras
 # Without bbox params → return all cached cameras (default view).
-# With bbox params    → filter by bbox; if <3 cached, live-fetch from DeFlock.
+# With bbox params    → filter by bbox; scrape DeFlock if <3 cached OR data is
+#                       older than 24 h (so explicit searches always refresh).
 # ---------------------------------------------------------------------------
 
 @router.get("/flock/cameras", dependencies=[Depends(require_coordinator)])
@@ -507,7 +508,13 @@ def get_flock_cameras(
                   AND lng BETWEEN :west  AND :east
             """), {"south": south, "north": north, "west": west, "east": east}).scalar()
 
-            if existing_count < 3:
+            stale = existing_count < 3 or db.execute(text("""
+                SELECT COUNT(*) FROM flock_cameras
+                WHERE lat BETWEEN :south AND :north
+                  AND lng BETWEEN :west  AND :east
+                  AND (scraped_at IS NULL OR scraped_at < NOW() - INTERVAL '24 hours')
+            """), {"south": south, "north": north, "west": west, "east": east}).scalar() > 0
+            if stale:
                 _fetch_flock_for_bbox(db, south, north, west, east)
 
             rows = db.execute(text("""

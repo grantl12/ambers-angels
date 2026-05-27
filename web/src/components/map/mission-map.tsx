@@ -381,7 +381,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     <div style={{ position: "relative", width: "100%", height: "100%", cursor: pickingObsPoint ? "crosshair" : undefined }}>
       {/* Coverage load / refresh button — appears when layer is on and data is absent or stale */}
       {showCoverageBtn && (
-        <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
+        <div style={{ position: "absolute", top: 56, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
           <button
             onClick={refreshCoverage}
             className="flex items-center gap-2 rounded-full border border-orange-500/40 bg-black/80 px-4 py-2 text-xs font-semibold text-orange-400 backdrop-blur-sm hover:bg-orange-500/20 transition-colors shadow-lg"
