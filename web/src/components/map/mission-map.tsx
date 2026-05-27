@@ -326,7 +326,16 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   // Always open on Carrollton, GA — drones appear as markers wherever they are
   const center = { longitude: -85.0766, latitude: 33.5801 }
 
-  const mappable = detections.filter((d) => d.lat != null && d.lng != null)
+  const timeFilteredDetections = useMemo(() => {
+    if (timeRange === "all") return detections
+    const cutoff = new Date()
+    if (timeRange === "24h") cutoff.setHours(cutoff.getHours() - 24)
+    else if (timeRange === "7d") cutoff.setDate(cutoff.getDate() - 7)
+    else if (timeRange === "30d") cutoff.setDate(cutoff.getDate() - 30)
+    return detections.filter((d) => !d.timestamp || new Date(d.timestamp) >= cutoff)
+  }, [detections, timeRange])
+
+  const mappable = timeFilteredDetections.filter((d) => d.lat != null && d.lng != null)
 
   function _updateViewport() {
     const bounds = mapRef.current?.getBounds()
