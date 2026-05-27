@@ -33,7 +33,7 @@ module.exports = {
 
     ios: {
       bundleIdentifier: "com.ambersangels.app",
-      buildNumber: "5",
+      buildNumber: "6",
       supportsTablet: false,
       usesAppleSignIn: true,
       icon: "./assets/icon.png",
