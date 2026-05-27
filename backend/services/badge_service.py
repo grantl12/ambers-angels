@@ -171,48 +171,27 @@ def compute_all_badges(username: str, db) -> dict[str, Any]:
 
 def _fetch_stats(username: str, db) -> dict:
     """Aggregate flight + detection stats for this pilot."""
-    row = db.execute(text("""
+    tp = db.execute(text("""
         SELECT
-            COALESCE(tp.flight_minutes,   0) AS flight_minutes,
-            COALESCE(d.total_detections,  0) AS total_detections,
-            COALESCE(de.watchlist_hits,   0) AS watchlist_hits,
-            COALESCE(tp.used_drone_mode, FALSE) AS used_drone_mode
-        FROM (
-            SELECT
-                pilot_id,
-                ROUND((COUNT(*) / 60.0)::numeric, 1) AS flight_minutes,
-                bool_or(volunteer_mode IN ('drone','both'))  AS used_drone_mode
-            FROM telemetry_points
-            WHERE pilot_id = :u
-            GROUP BY pilot_id
-        ) tp
-        FULL OUTER JOIN (
-            SELECT
-                COALESCE(pilot_id, drone_id) AS pilot_id,
-                COUNT(*) AS total_detections
-            FROM detections
-            WHERE COALESCE(pilot_id, drone_id) = :u
-            GROUP BY COALESCE(pilot_id, drone_id)
-        ) d ON tp.pilot_id = d.pilot_id
-        FULL OUTER JOIN (
-            SELECT
-                de.drone_id,
-                COUNT(*) AS watchlist_hits
-            FROM detection_events de
-            JOIN detections det ON det.event_id = de.id
-            WHERE de.status = 'alerted'
-              AND COALESCE(det.pilot_id, det.drone_id) = :u
-            GROUP BY de.drone_id
-        ) de ON TRUE
+            ROUND((COUNT(*) / 60.0)::numeric, 1),
+            bool_or(volunteer_mode IN ('drone', 'both'))
+        FROM telemetry_points
+        WHERE pilot_id = :u
     """), {"u": username}).fetchone()
 
-    if not row:
-        return {"flight_minutes": 0, "total_detections": 0, "watchlist_hits": 0, "used_drone_mode": False}
+    det = db.execute(text("""
+        SELECT COUNT(*) FROM detections WHERE drone_id = :u
+    """), {"u": username}).fetchone()
+
+    hits = db.execute(text("""
+        SELECT COUNT(*) FROM detection_events WHERE drone_id = :u AND status = 'alerted'
+    """), {"u": username}).fetchone()
+
     return {
-        "flight_minutes":   float(row[0] or 0),
-        "total_detections": int(row[1] or 0),
-        "watchlist_hits":   int(row[2] or 0),
-        "used_drone_mode":  bool(row[3]),
+        "flight_minutes":   float((tp[0] if tp else None) or 0),
+        "total_detections": int((det[0] if det else None) or 0),
+        "watchlist_hits":   int((hits[0] if hits else None) or 0),
+        "used_drone_mode":  bool(tp[1] if tp else False),
     }
 
 
