@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amber's Angels — One Pager</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    color: #111;
+    background: #fff;
+    width: 8.5in;
+    min-height: 11in;
+    margin: 0 auto;
+    padding: 0.45in 0.5in 0.35in;
+    line-height: 1.55;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 10px;
+    border-bottom: 2.5px solid #111;
+    margin-bottom: 10px;
+  }
+  .header-left { flex: 1; }
+  .org-name {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: #111;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+  .org-name em { color: #b45309; font-style: normal; }
+  .tagline {
+    font-size: 12px;
+    color: #444;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+  }
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: flex-start;
+    padding-top: 3px;
+  }
+  .badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 3px 8px;
+    border: 1px solid #111;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .badge-amber {
+    background: #b45309;
+    color: #fff;
+    border-color: #b45309;
+  }
+
+  /* ── BODY GRID ── */
+  .body-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    font-size: 8.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #b45309;
+    margin-bottom: 4px;
+  }
+  .section-body {
+    font-size: 11px;
+    color: #333;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+  .section-body strong { color: #111; }
+
+  /* ── STAT CARDS ── */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .stat-card {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 10px;
+    background: #fafafa;
+  }
+  .stat-num {
+    font-size: 20px;
+    font-weight: 900;
+    color: #b45309;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    margin-bottom: 2px;
+  }
+  .stat-desc {
+    font-size: 9.5px;
+    color: #555;
+    line-height: 1.4;
+  }
+
+  /* ── HOW IT WORKS ── */
+  .steps { margin-bottom: 0; }
+  .step {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-bottom: 4px;
+  }
+  .step-num {
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+    background: #111;
+    border-radius: 50%;
+    width: 15px;
+    height: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-text { font-size: 10.5px; color: #333; line-height: 1.5; }
+  .step-text strong { color: #111; }
+
+  /* ── SWARM HIGHLIGHT ── */
+  .swarm-box {
+    border-left: 3px solid #b45309;
+    background: #fffbf5;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 0 4px 4px 0;
+  }
+  .swarm-box .section-label { margin-bottom: 3px; }
+  .swarm-box p { font-size: 10.5px; color: #333; line-height: 1.55; }
+  .swarm-box p + p { margin-top: 3px; }
+
+  /* ── PRIVACY ROW ── */
+  .privacy-row {
+    border-top: 1px solid #ddd;
+    padding-top: 8px;
+    margin-bottom: 8px;
+  }
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 16px;
+  }
+  .privacy-item {
+    font-size: 10px;
+    color: #333;
+    line-height: 1.4;
+    padding-left: 10px;
+    position: relative;
+  }
+  .privacy-item::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #b45309;
+    font-weight: 700;
+    font-size: 9px;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    border-top: 1px solid #ccc;
+    padding-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footer-left { font-size: 9.5px; color: #555; line-height: 1.6; }
+  .footer-left strong { color: #111; font-size: 10px; }
+  .footer-right { font-size: 9px; color: #888; text-align: right; line-height: 1.6; }
+
+  /* ── PRINT ── */
+  @media print {
+    body {
+      width: 8.5in;
+      padding: 0.4in 0.45in 0.3in;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page {
+      size: letter;
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="org-name">Amber's <em>Angels</em></div>
+    <div class="tagline">Volunteer-Driven AI for Missing Persons Response</div>
+  </div>
+  <div class="badges">
+    <span class="badge badge-amber">501(c)(3) Approved</span>
+    <span class="badge">EIN 42-2052151</span>
+    <span class="badge">SDVOSB Founded</span>
+    <span class="badge">Carrollton, Georgia</span>
+    <span class="badge">Insured</span>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="body-grid">
+
+  <!-- LEFT COLUMN -->
+  <div>
+    <div class="section-label">The Problem</div>
+    <div class="section-body">
+      <strong>76% of abducted children who are murdered are killed within the first 3 hours.</strong>
+      Law enforcement responds fast — but fixed infrastructure has limits. When a suspect vehicle turns off a covered road, Flock goes dark. Plates get covered. Plates get swapped. Every residential street, rural route, and secondary road without a fixed camera is a gap. In an abduction, that gap can be fatal.
+    </div>
+
+    <div class="section-label">Our Solution</div>
+    <div class="section-body">
+      When a FEMA IPAWS alert fires, Amber's Angels activates a network of community volunteers — phones mounted in cars and FAA-licensed drones in the air — covering the roads between your fixed cameras in real time. Our AI identifies vehicles by plate <strong>and</strong> by make, model, color, and body type — so even when a plate is obscured or swapped, we can still surface a lead. Every detection is reviewed by a human coordinator before it reaches law enforcement.
+    </div>
+
+    <div class="swarm-box">
+      <div class="section-label">Join Swarm — Remote Drone Dispatch</div>
+      <p>A volunteer powers on their drone from home, taps <strong>Join Swarm</strong>, and the mission coordinator takes remote control — directing the drone to coverage gaps on the map without the volunteer ever leaving their driveway.</p>
+      <p>BVLOS waiver holders: full coordinator control, extended range. Standard Part 107: geofenced to volunteer location automatically. FAA certification is enforced in software — not the honor system.</p>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div>
+    <div class="section-label">Key Numbers</div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-num">5-Signal</div>
+        <div class="stat-desc">cascade: plate · make · model · color · body type — vs. ~30% false positive rate for plate-only LPR</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">Zero</div>
+        <div class="stat-desc">cost to law enforcement partners — no equipment, no staff, no budget ask</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">503 mi²</div>
+        <div class="stat-desc">Carroll County coverage area — a fraction covered by fixed cameras</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">100%</div>
+        <div class="stat-desc">human coordinator review before any law enforcement notification</div>
+      </div>
+    </div>
+
+    <div class="section-label">How It Works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>FEMA issues alert</strong> — suspect vehicle profile loaded automatically into our watchlist</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Volunteers notified</strong> — phone volunteers and drone pilots deploy to assigned sectors</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>AI analyzes frames</strong> — plate recognition + vehicle make / model / color classification</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text"><strong>Coordinator reviews every hit</strong> — plate confidence, vehicle match, GPS, frame image</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text"><strong>Confirmed lead delivered</strong> — GPS coordinates, plate, vehicle description, timestamp</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PRIVACY ROW -->
+<div class="privacy-row">
+  <div class="section-label" style="margin-bottom:6px;">Privacy by Design</div>
+  <div class="privacy-grid">
+    <div class="privacy-item">No video stored — frames deleted immediately after processing</div>
+    <div class="privacy-item">No surveillance database — no persistent record of innocent citizens</div>
+    <div class="privacy-item">Dormant between active government-issued alerts</div>
+    <div class="privacy-item">Watchlist populated exclusively from FEMA IPAWS official alerts</div>
+    <div class="privacy-item">Open source — architecture transparent and auditable</div>
+    <div class="privacy-item">Full privacy policy published at amberangels.org/privacy</div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-left">
+    <strong>Amber's Angels Inc.</strong><br>
+    103 Springwood Dr, Carrollton, Georgia 30117
+  </div>
+  <div class="footer-right">
+    info@amberangels.org &nbsp;·&nbsp; amberangels.org<br>
+    EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) Approved &nbsp;·&nbsp; DUNS 145024922
+  </div>
+</div>
+
+</body>
+</html>
