@@ -155,7 +155,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
   }
 
   const [flockZip, setFlockZip]       = useState("")
-  const [flockRadius, setFlockRadius] = useState(10)
+  const [flockRadius, setFlockRadius] = useState(5)
   const [flockLoading, setFlockLoading] = useState(false)
   const [flockError, setFlockError]   = useState<string | null>(null)
 

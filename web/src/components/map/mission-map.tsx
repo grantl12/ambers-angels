@@ -360,7 +360,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
       fitBounds: (bbox) => {
         mapRef.current?.fitBounds(
           [[bbox.west, bbox.south], [bbox.east, bbox.north]],
-          { padding: 60, duration: 1200, maxZoom: 13 }
+          { padding: 60, duration: 1200, maxZoom: 14 }
         )
       },
     })
