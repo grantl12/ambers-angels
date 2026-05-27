@@ -16,12 +16,12 @@
   "This is the liability slide. Walk it slowly. Left side: volunteers cannot touch a live mission without first accepting a binding agreement that says observe and report only — no pursuit, no confrontation, no contact with subjects, no approaching vehicles. Background check on enrollment. Right side: every coordinator action is timestamped to an audit log. If a detection was acted on, we can show who reviewed it, when, and what they decided. This is what makes the platform defensible.",
   "Show this and pause. This is the swarm dispatch UI — live as of last week. Coordinator sees every drone on the mission map, clicks one, picks operation mode, accepts or overrides the system-suggested observation point (highest-priority coverage gap), and dispatches. No volunteer is flying — the coordinator we vet is. Direct comparable to Flock Aerodome's tooling, except every flight requires a coordinator decision and is logged. If asked about Part 108: that mode is gated off until the FAA rule lands.",
   "Companion to the previous slide. Where a drone can't reach quickly — distance, weather, battery — the platform pings nearby enrolled volunteers with a suggested drive corridor through the gap. They opt in per-mission. If they don't drive, nothing happens. If they do, frames stream through the same coordinator review gate. This is the network multiplier.",
-  "Reframe this slide explicitly — we are not presenting answers to hypotheticals, we are asking CPD to pressure-test our assumptions on three real operational decisions. Say it out loud: 'We have engineering answers to each of these, but we want to know if we're solving the right problem.' The three scenarios are drone failure, backend failure, and alert cancellation. On cancellation: volunteers are notified and go back to their day — they are not recalled to a staging area, they are not debriefed, they just stop. If CPD wants a different protocol on that, we want to hear it. This feedback loop is the whole point of the meeting.",
+  "Walk the three reliability scenarios straight. Drone failure: battery warning at 30%, one-click RTH at 20%, coordinator has full situational awareness. Backend failure: errors post to coordinator Discord in seconds, CPD never sees the noise. Alert cancellation: FEMA sends a Cancel, platform stands down automatically, volunteers are notified and go back to their day — no coordinator action needed. If they ask about protocol for volunteer stand-down, that's a good question — note it and bring it back.",
   "Privacy posture — this matters for CPD's public messaging as much as for the platform itself. Frames are processed and deleted; there is no video archive. There is no persistent plate database — plate matches live only inside the active alert window and are purged when the alert closes. The platform is incapable of being used to track citizens outside of an active government alert. If asked: yes, we publish the retention policy publicly.",
   "This is the technical credibility slide. Don't claim a specific false-positive percentage — we don't have measured field data yet. What we can say accurately: plate-only systems run ~30% false positives; our cascade requires multiple independent signals to corroborate before anything escalates to the coordinator; that means fewer noise alerts and more actionable leads. The coordinator is still the final gate. If someone pushes on numbers, be honest: we're designing for low noise, and the pilot will produce the actual data.",
   "This is a Georgia story. Lead with the two Georgia-specific programs they already know: Levi's Call (GCIC) and Mattie's Call (GBI). They have worked these alerts. Our platform responds to both with exactly the same pipeline as AMBER. Then point to Blue Alert — this one is for them personally. The same volunteer network that searches for a missing child will activate for a missing or endangered officer. One trained network, the full Georgia alert stack.",
   "The Carroll County pilot — six months, 30 ground volunteers, 5 Part 107 pilots. Mixed rural and suburban — representative ground for the model. Goals listed. Open question for the room: what would CPD want included in the public transparency report? That gets them participating in the design, which is the goal of this meeting.",
-  "The ask is small and specific. We are not asking CPD for funding. We are asking for a Letter of Support, a recurring partnership touchpoint of whatever cadence works for them, and a slot in a future tabletop exercise so they can validate the dispatch flow under conditions they control. Frame all three as proposals — let Dobbs and Hitchcock decide scope, timing, and depth. If they ask when we can have a draft LOS ready, the honest answer is: as fast as they want it.",
+  "Walk the three asks, then pause on the feedback box. This is the most important part of the slide. Make it personal — use their names. 'Dobbs, Hitchcock — whatever you tell us in this room goes back into the product.' We are not pitching a finished thing. We are inviting them to help shape something that will represent Carroll County to every other department in Georgia that sees it. That's real authority to give someone. Let it land. Then ask: what would you change?",
   "Close with the offer to stay for questions and a live walkthrough of the coordinator console. Hand business cards. Confirm next-step ownership before leaving the room."
 ]
 </script>
@@ -976,6 +976,18 @@ section {
   font-size: 18px; color: var(--text);
 }
 .ask-foot .nodot { color: var(--amber); font-family: var(--mono); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; }
+.feedback-box {
+  margin-top: 32px; padding: 24px 32px;
+  border-left: 3px solid var(--amber);
+  background: var(--amber-soft);
+  border-radius: 0 10px 10px 0;
+}
+.feedback-label {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px;
+  color: var(--amber); margin-bottom: 10px;
+}
+.feedback-box p { font-size: 17px; color: var(--text); line-height: 1.7; }
 
 /* ── 15 CLOSE ── */
 #s15 {
@@ -1626,9 +1638,9 @@ section {
   <!-- 09 OPERATIONAL RELIABILITY ───────────────────────────── -->
   <section id="s9" data-screen-label="09 Operational Reliability">
     <div class="header-row">
-      <span class="label">We Want Your Input Here</span>
-      <h2>Three things we want<br><em>CPD's input on</em>.</h2>
-      <p>These are real operational decisions we need to get right before this goes live — and your experience in the field is something we can't replicate. We're building this feedback loop intentionally. Tell us what we're missing.</p>
+      <span class="label">Operational Reliability</span>
+      <h2>Three things coordinators<br>handle <em>in real time</em>.</h2>
+      <p>Drone fails. Backend errors. Alert cancelled mid-mission. Here's what the coordinator sees in each case — and what happens without any manual intervention.</p>
     </div>
 
     <div class="rel-grid">
@@ -1917,7 +1929,7 @@ section {
       <div class="impact-r"><span class="lbl">Active search nodes</span><span class="val">25</span></div>
       <div class="impact-r"><span class="lbl">Road miles / node / alert</span><span class="val">~40 mi</span></div>
       <div class="impact-r"><span class="lbl">Total added coverage</span><span class="val">~1,000 mi</span></div>
-      <div class="impact-r"><span class="lbl">VMMC false-positive rate</span><span class="val">&lt;5%</span></div>
+      <div class="impact-r"><span class="lbl">Detection signals per vehicle</span><span class="val">5</span></div>
       <div class="impact-r"><span class="lbl">Plate-only false-positive rate</span><span class="val">~30%</span></div>
       <p class="s13-cred">Seeking formal partnership with CPD. Active engagement from local SDVOSB veteran network. Proximity to Atlanta metro for AI model iteration and Part 107 instructor availability.</p>
     </div>
@@ -1955,6 +1967,11 @@ section {
         <p>A recurring touchpoint for the pilot duration — status, audit-report walkthrough, anything CPD wants reviewed.</p>
         <div class="ask-detail"><strong>Cadence and format set by CPD.</strong> Designed so you have continuous visibility without continuous burden.</div>
       </div>
+    </div>
+
+    <div class="feedback-box">
+      <div class="feedback-label">One more thing</div>
+      <p>We're building this platform in public — and we mean that literally. Dobbs, Hitchcock: whatever you tell us in this room goes back into the product. Workflow gaps, liability language you'd want changed, protocol details we haven't thought of — we want all of it. The pilot we're proposing isn't just a test of the technology. It's how we make this thing worth deploying anywhere else in Georgia.</p>
     </div>
 
     <div class="ask-foot">
