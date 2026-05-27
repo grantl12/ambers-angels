@@ -435,7 +435,7 @@ async def _add_to_watchlist(
                          vehicle_color, vehicle_type, vehicle_make, added_at)
                     VALUES
                         (:plate, :desc, :atype, :prog,
-                         :vcolor, :vtype, :vmake, :now)
+                         :vcolor, :vtype, :vmake, NOW())
                     ON CONFLICT (plate_text) DO UPDATE SET
                         vehicle_color = COALESCE(watchlist.vehicle_color, EXCLUDED.vehicle_color),
                         vehicle_type  = COALESCE(watchlist.vehicle_type,  EXCLUDED.vehicle_type),
@@ -449,7 +449,6 @@ async def _add_to_watchlist(
                     "vcolor": vehicle_color,
                     "vtype":  vehicle_type,
                     "vmake":  vehicle_make,
-                    "now":    datetime.now(timezone.utc),
                 },
             )
             await session.commit()
@@ -615,9 +614,9 @@ async def _push_notify_cancelled(session_factory, alert: dict) -> None:
                         OR alert_scope = 'nationwide'
                         OR (
                           watch_areas IS NOT NULL
-                          AND array_length(watch_areas, 1) > 0
+                          AND jsonb_array_length(watch_areas) > 0
                           AND EXISTS (
-                              SELECT 1 FROM unnest(watch_areas) wa
+                              SELECT 1 FROM jsonb_array_elements_text(watch_areas) wa
                               WHERE :area ILIKE '%' || wa || '%'
                           )
                         )
@@ -763,9 +762,9 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                         OR alert_scope = 'nationwide'
                         OR (
                           watch_areas IS NOT NULL
-                          AND array_length(watch_areas, 1) > 0
+                          AND jsonb_array_length(watch_areas) > 0
                           AND EXISTS (
-                              SELECT 1 FROM unnest(watch_areas) wa
+                              SELECT 1 FROM jsonb_array_elements_text(watch_areas) wa
                               WHERE :area ILIKE '%' || wa || '%'
                           )
                         )

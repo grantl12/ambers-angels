@@ -204,7 +204,7 @@ async def _poll_nws(session_factory, webhook_url: Optional[str]) -> int:
                     params={"status": "actual", "event": event},
                 )
         except Exception as e:
-            logger.error("[NWS] Fetch error for '%s': %s", event, e)
+            logger.warning("[NWS] Fetch error for '%s': %s", event, e)
             continue
 
         if resp.status_code != 200:
