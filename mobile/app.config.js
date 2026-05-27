@@ -33,10 +33,13 @@ module.exports = {
 
     ios: {
       bundleIdentifier: "com.ambersangels.app",
-      buildNumber: "6",
+      buildNumber: "7",
       supportsTablet: false,
       usesAppleSignIn: true,
       icon: "./assets/icon.png",
+      entitlements: {
+        "com.apple.developer.applesignin": ["Default"],
+      },
       infoPlist: {
         // Camera + location permission strings
         NSCameraUsageDescription:

@@ -129,8 +129,9 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
         await sendSSOToken("apple", credential.identityToken)
       }
     } catch (e: unknown) {
-      if ((e as { code?: string }).code !== "ERR_REQUEST_CANCELED") {
-        setError("Apple Sign In failed. Please try again.")
+      const code = (e as { code?: string }).code
+      if (code !== "ERR_REQUEST_CANCELED") {
+        setError(`Apple Sign In failed (${code ?? "unknown"}). Please try again.`)
       }
     }
   }
