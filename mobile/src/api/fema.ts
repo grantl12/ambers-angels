@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./client"
+import { apiGet } from "./client"
 
 export type FemaAlert = {
   id: number
@@ -15,7 +15,5 @@ export type FemaAlert = {
 }
 
 export async function fetchFemaAlerts(): Promise<FemaAlert[]> {
-  const res = await fetch(`${getApiBaseUrl()}/fema/alerts`)
-  if (!res.ok) throw new Error(`FEMA alerts fetch failed: ${res.status}`)
-  return res.json()
+  return apiGet<FemaAlert[]>("/fema/alerts")
 }

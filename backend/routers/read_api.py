@@ -459,7 +459,8 @@ def get_detections_feed(
 # ---------------------------------------------------------------------------
 # Flock cameras
 # Without bbox params → return all cached cameras (default view).
-# With bbox params    → filter by bbox; if <3 cached, live-fetch from DeFlock.
+# With bbox params    → filter by bbox; scrape DeFlock if <3 cached OR data is
+#                       older than 24 h (so explicit searches always refresh).
 # ---------------------------------------------------------------------------
 
 @router.get("/flock/cameras", dependencies=[Depends(require_coordinator)])
@@ -507,7 +508,13 @@ def get_flock_cameras(
                   AND lng BETWEEN :west  AND :east
             """), {"south": south, "north": north, "west": west, "east": east}).scalar()
 
-            if existing_count < 3:
+            stale = existing_count < 3 or db.execute(text("""
+                SELECT COUNT(*) FROM flock_cameras
+                WHERE lat BETWEEN :south AND :north
+                  AND lng BETWEEN :west  AND :east
+                  AND (scraped_at IS NULL OR scraped_at < NOW() - INTERVAL '24 hours')
+            """), {"south": south, "north": north, "west": west, "east": east}).scalar() > 0
+            if stale:
                 _fetch_flock_for_bbox(db, south, north, west, east)
 
             rows = db.execute(text("""
@@ -1005,6 +1012,8 @@ class ManualAlertRequest(BaseModel):
     alert_type:   str = "amber"
     description:  Optional[str] = None
     expires_hours: int = 24
+    # Demo mode — preserved across cleanup; detection_events tagged event_type='demo'
+    is_demo:      bool = False
 
 
 @router.post("/admin/manual-alert", dependencies=[Depends(require_admin)])
@@ -1026,17 +1035,19 @@ def create_manual_alert(req: ManualAlertRequest):
     try:
         if req.plate:
             plate = req.plate.strip().upper()
+            src   = "demo" if req.is_demo else "manual"
             db.execute(text("""
                 INSERT INTO watchlist (plate_text, description, alert_type, source_program)
-                VALUES (:plate, :desc, :atype, 'manual')
+                VALUES (:plate, :desc, :atype, :src)
                 ON CONFLICT (plate_text) DO UPDATE
                   SET description  = EXCLUDED.description,
                       alert_type   = EXCLUDED.alert_type,
-                      source_program = 'manual'
+                      source_program = EXCLUDED.source_program
             """), {
                 "plate": plate,
-                "desc":  req.description or f"Manual test — {req.alert_type.upper()} alert",
+                "desc":  req.description or f"{'Demo' if req.is_demo else 'Manual test'} — {req.alert_type.upper()} alert",
                 "atype": req.alert_type,
+                "src":   src,
             })
             created.append(f"watchlist:{plate}")
 
@@ -1053,10 +1064,11 @@ def create_manual_alert(req: ManualAlertRequest):
                      area, color, body_type, make, expires_at,
                      polygon, centroid_lat, centroid_lng)
                 VALUES
-                    (:fid, :atype, 'manual', :headline,
+                    (:fid, :atype, :src, :headline,
                      :area, :color, :body_type, :make, :expires,
                      :polygon, :clat, :clng)
             """), {
+                "src":      "demo" if req.is_demo else "manual",
                 "fid":       fema_id,
                 "atype":     req.alert_type,
                 "headline":  headline,
@@ -1199,9 +1211,9 @@ def clear_test_data():
     """Wipe all manual watchlist entries, manual vehicle targets, and detection events."""
     db = database.SessionLocal()
     try:
-        wl  = db.execute(text("DELETE FROM watchlist WHERE source_program = 'manual' RETURNING plate_text")).rowcount
-        vt  = db.execute(text("DELETE FROM vehicle_targets WHERE source_program = 'manual' RETURNING id")).rowcount
-        de  = db.execute(text("DELETE FROM detection_events")).rowcount
+        wl  = db.execute(text("DELETE FROM watchlist WHERE source_program IN ('manual', 'automated_test') RETURNING plate_text")).rowcount
+        vt  = db.execute(text("DELETE FROM vehicle_targets WHERE source_program IN ('manual', 'automated_test') RETURNING id")).rowcount
+        de  = db.execute(text("DELETE FROM detection_events WHERE event_type != 'demo'")).rowcount
         db.commit()
         return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de}}
     finally:

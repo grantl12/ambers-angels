@@ -389,7 +389,7 @@
 .footerBrand { display: flex; align-items: center; gap: 10px; }
 .footerBrand img { width: 26px; height: 26px; border-radius: 50%; }
 .footerBrand span { font-size: 13px; color: var(--text-dim); }
-.footerLinks { display: flex; gap: 28px; }
+.footerLinks { display: flex; align-items: center; gap: 28px; }
 .footerLinks a { font-size: 13px; color: var(--text-dim); text-decoration: none; transition: color 0.15s; }
 .footerLinks a:hover { color: var(--text-muted); }
 

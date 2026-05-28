@@ -10,7 +10,6 @@ import * as WebBrowser from "expo-web-browser"
 import Constants from "expo-constants"
 import { setAuth } from "../lib/auth"
 import { getApiBaseUrl } from "../api/client"
-import { loadSettings } from "../lib/settings"
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -31,9 +30,6 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
   const [error,       setError]       = useState<string | null>(null)
   const [success,     setSuccess]     = useState<string | null>(null)
   const [registerUrl, setRegisterUrl] = useState<string | null>(null)
-  const [showServer,  setShowServer]  = useState(false)
-  const [apiUrl,      setApiUrl]      = useState("")
-  const [urlSaved,    setUrlSaved]    = useState(false)
   const codeInputRef = useRef<TextInput>(null)
 
   const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string>
@@ -53,25 +49,8 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
   }, [googleResponse])
 
   useEffect(() => {
-    loadSettings().then((s) => {
-      setResetEmail("")
-      setApiUrl(s.apiBaseUrl)
-      setRegisterUrl(`${s.apiBaseUrl.replace(/\/$/, "")}/pilot/register.html`)
-    })
+    setRegisterUrl("https://amberangels.org/api/pilot/register.html")
   }, [])
-
-  async function saveApiUrl() {
-    const trimmed = apiUrl.trim().replace(/\/$/, "")
-    if (!trimmed) return
-    const { saveSettings, loadSettings: load } = await import("../lib/settings")
-    const { setApiBaseUrl } = await import("../api/client")
-    const current = await load()
-    await saveSettings({ ...current, apiBaseUrl: trimmed })
-    setApiBaseUrl(trimmed)
-    setRegisterUrl(`${trimmed}/pilot/register.html`)
-    setUrlSaved(true)
-    setTimeout(() => { setUrlSaved(false); setShowServer(false) }, 1200)
-  }
 
   function goBack() {
     setView("login")
@@ -129,8 +108,9 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
         await sendSSOToken("apple", credential.identityToken)
       }
     } catch (e: unknown) {
-      if ((e as { code?: string }).code !== "ERR_REQUEST_CANCELED") {
-        setError("Apple Sign In failed. Please try again.")
+      const code = (e as { code?: string }).code
+      if (code !== "ERR_REQUEST_CANCELED") {
+        setError(`Apple Sign In failed (${code ?? "unknown"}). Please try again.`)
       }
     }
   }
@@ -415,37 +395,6 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={styles.serverToggle}
-            onPress={() => setShowServer((v) => !v)}
-          >
-            <Text style={styles.serverToggleText}>
-              {showServer ? "▲" : "▼"} Configure server
-            </Text>
-          </TouchableOpacity>
-
-          {showServer && (
-            <View style={styles.serverBox}>
-              <Text style={styles.label}>API Base URL</Text>
-              <TextInput
-                style={styles.input}
-                value={apiUrl}
-                onChangeText={setApiUrl}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                placeholder="http://..."
-                placeholderTextColor="rgba(255,255,255,0.25)"
-                onSubmitEditing={saveApiUrl}
-              />
-              <TouchableOpacity
-                style={[styles.btn, urlSaved && styles.btnSaved]}
-                onPress={saveApiUrl}
-              >
-                <Text style={styles.btnText}>{urlSaved ? "Saved!" : "Save URL"}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

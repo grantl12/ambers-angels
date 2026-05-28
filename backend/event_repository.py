@@ -17,13 +17,28 @@ class EventRepository:
     async def create_event(self, payload):
         async with self.session_factory() as session:
             data = payload.dict() if hasattr(payload, "dict") else payload
+            plate = data.get("plate_best") or data.get("plate_text")
+
+            # Tag as 'demo' if the matched plate was injected as a demo watchlist entry
+            event_type = "automated_test"
+            if plate:
+                try:
+                    from sqlalchemy import text as _text
+                    result = await session.execute(
+                        _text("SELECT 1 FROM watchlist WHERE plate_text = :p AND source_program = 'demo' LIMIT 1"),
+                        {"p": plate},
+                    )
+                    if result.fetchone():
+                        event_type = "demo"
+                except Exception:
+                    pass
 
             essential_data = {
                 "id":            str(uuid.uuid4()),
                 "drone_id":      data.get("drone_id", "drone1"),
-                "plate_best":    data.get("plate_best") or data.get("plate_text"),
+                "plate_best":    plate,
                 "confidence":    data.get("aggregate_confidence") or data.get("average_confidence") or data.get("confidence", 0.0),
-                "event_type":    "automated_test",
+                "event_type":    event_type,
                 "status":        "active",
                 "last_seen":     datetime.now(timezone.utc),
                 "vehicle_color": data.get("vehicle_color"),

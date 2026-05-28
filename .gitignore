@@ -72,6 +72,7 @@ scan_results.json
 grants/*.pdf
 grants/*.txt
 grants/*.html
+!grants/AA_One_Pager.html
 grants/*_files/
 grants/*.xlsx
 grants/*.png

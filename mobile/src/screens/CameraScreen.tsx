@@ -130,17 +130,26 @@ export default function CameraScreen() {
     setRangeWarning(null)
   }, [])
 
-  const startMission = useCallback(() => {
+  const startMission = useCallback(async () => {
     if (!settings) return
     setError(null)
+
+    // Require at least one active FEMA alert before starting
+    try {
+      const alerts = await fetchFemaAlerts()
+      if (alerts.length === 0) {
+        setError("No active alerts. Mission can only start when a FEMA/AMBER alert is active.")
+        return
+      }
+      femaAlertsRef.current = alerts
+    } catch {
+      setError("Could not verify active alerts. Check your connection and try again.")
+      return
+    }
+
     setActive(true)
     wasOutsideRef.current = false
     setRangeWarning(null)
-
-    // Fetch current FEMA alerts for range checking
-    fetchFemaAlerts()
-      .then((alerts) => { femaAlertsRef.current = alerts })
-      .catch(() => {})
 
     // Telemetry loop — ~1 Hz
     telemetryTimerRef.current = setInterval(async () => {

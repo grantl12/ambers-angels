@@ -326,7 +326,16 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   // Always open on Carrollton, GA — drones appear as markers wherever they are
   const center = { longitude: -85.0766, latitude: 33.5801 }
 
-  const mappable = detections.filter((d) => d.lat != null && d.lng != null)
+  const timeFilteredDetections = useMemo(() => {
+    if (timeRange === "all") return detections
+    const cutoff = new Date()
+    if (timeRange === "24h") cutoff.setHours(cutoff.getHours() - 24)
+    else if (timeRange === "7d") cutoff.setDate(cutoff.getDate() - 7)
+    else if (timeRange === "30d") cutoff.setDate(cutoff.getDate() - 30)
+    return detections.filter((d) => !d.timestamp || new Date(d.timestamp) >= cutoff)
+  }, [detections, timeRange])
+
+  const mappable = timeFilteredDetections.filter((d) => d.lat != null && d.lng != null)
 
   function _updateViewport() {
     const bounds = mapRef.current?.getBounds()
@@ -360,7 +369,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
       fitBounds: (bbox) => {
         mapRef.current?.fitBounds(
           [[bbox.west, bbox.south], [bbox.east, bbox.north]],
-          { padding: 60, duration: 1200, maxZoom: 13 }
+          { padding: 60, duration: 1200, maxZoom: 14 }
         )
       },
     })
@@ -372,7 +381,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
     <div style={{ position: "relative", width: "100%", height: "100%", cursor: pickingObsPoint ? "crosshair" : undefined }}>
       {/* Coverage load / refresh button — appears when layer is on and data is absent or stale */}
       {showCoverageBtn && (
-        <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
+        <div style={{ position: "absolute", top: 56, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
           <button
             onClick={refreshCoverage}
             className="flex items-center gap-2 rounded-full border border-orange-500/40 bg-black/80 px-4 py-2 text-xs font-semibold text-orange-400 backdrop-blur-sm hover:bg-orange-500/20 transition-colors shadow-lg"

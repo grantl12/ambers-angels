@@ -79,6 +79,7 @@ type SystemHealth = {
 const BLANK_FORM = {
   plate: "", color: "", body_type: "", make: "",
   area: "", description: "", alert_type: "amber", expires_hours: 24,
+  is_demo: false,
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ export default function AdminPage() {
   const [clearMsg, setClearMsg] = useState<string | null>(null)
 
   async function clearTestData() {
-    if (!confirm("Delete all manual alerts, search zones, and detection events? This cannot be undone.")) return
+    if (!confirm("Delete all test alerts, search zones, and detection events? Demo Run data is preserved. This cannot be undone.")) return
     setClearing(true)
     setClearMsg(null)
     try {
@@ -298,6 +299,7 @@ export default function AdminPage() {
         description:   form.description || null,
         alert_type:    form.alert_type,
         expires_hours: form.expires_hours,
+        is_demo:       form.is_demo,
       })
       const zoneNote = res.zone ? " — zone drawn on map" : ""
       setAlertMsg(`Created: ${res.created.join(", ")}${zoneNote}`)
@@ -637,6 +639,20 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Demo Run toggle */}
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                onClick={() => setForm((f) => ({ ...f, is_demo: !f.is_demo }))}
+                className={`relative w-10 h-5 rounded-full transition-colors ${form.is_demo ? "bg-emerald-500" : "bg-white/15"}`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${form.is_demo ? "translate-x-5" : "translate-x-0"}`} />
+              </div>
+              <span className="text-xs text-white/60">
+                <span className={form.is_demo ? "text-emerald-400 font-semibold" : ""}>Demo Run</span>
+                {form.is_demo && <span className="ml-1 text-emerald-400/60">— data preserved across cleanup</span>}
+              </span>
+            </label>
+
             {alertMsg && (
               <div className={`text-xs px-3 py-2 rounded-lg ${alertMsg.startsWith("Created") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                 {alertMsg}
@@ -644,8 +660,8 @@ export default function AdminPage() {
             )}
 
             <button type="submit" disabled={submitting}
-              className="w-full rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50 transition-colors">
-              {submitting ? "Injecting…" : "Inject Test Alert"}
+              className={`w-full rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50 transition-colors ${form.is_demo ? "bg-emerald-500 text-black hover:bg-emerald-400" : "bg-amber-500 text-black hover:bg-amber-400"}`}>
+              {submitting ? "Injecting…" : form.is_demo ? "Inject Demo Alert" : "Inject Test Alert"}
             </button>
           </form>
 

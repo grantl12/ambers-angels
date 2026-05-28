@@ -336,19 +336,25 @@ def health_check(db: Session = Depends(get_db)):
     watchlist_count = 0
     detections_1h = 0
     last_detection_at = None
+    last_fema_poll    = None
+    last_ncmec_poll   = None
     if db_ok:
         try:
             watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist")).scalar() or 0
             cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
             detections_1h = db.execute(
-                text("SELECT COUNT(*) FROM detection_events WHERE first_seen >= :c"),
+                text("SELECT COUNT(*) FROM detection_events WHERE created_at >= :c"),
                 {"c": cutoff},
             ).scalar() or 0
-            row = db.execute(
-                text("SELECT MAX(first_seen) FROM detection_events")
-            ).scalar()
+            row = db.execute(text("SELECT MAX(created_at) FROM detection_events")).scalar()
             if row:
                 last_detection_at = row.isoformat() if hasattr(row, "isoformat") else str(row)
+            row = db.execute(text("SELECT MAX(processed_at) FROM processed_alerts")).scalar()
+            if row:
+                last_fema_poll = row.isoformat() if hasattr(row, "isoformat") else str(row)
+            row = db.execute(text("SELECT MAX(last_seen_at) FROM ncmec_cases")).scalar()
+            if row:
+                last_ncmec_poll = row.isoformat() if hasattr(row, "isoformat") else str(row)
         except Exception:
             pass
 
@@ -363,6 +369,8 @@ def health_check(db: Session = Depends(get_db)):
         "watchlist_entries": watchlist_count,
         "detections_last_1h": detections_1h,
         "last_detection_at": last_detection_at,
+        "last_fema_poll":    last_fema_poll,
+        "last_ncmec_poll":   last_ncmec_poll,
     }
 
 

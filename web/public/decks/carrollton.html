@@ -16,12 +16,12 @@
   "This is the liability slide. Walk it slowly. Left side: volunteers cannot touch a live mission without first accepting a binding agreement that says observe and report only — no pursuit, no confrontation, no contact with subjects, no approaching vehicles. Background check on enrollment. Right side: every coordinator action is timestamped to an audit log. If a detection was acted on, we can show who reviewed it, when, and what they decided. This is what makes the platform defensible.",
   "Show this and pause. This is the swarm dispatch UI — live as of last week. Coordinator sees every drone on the mission map, clicks one, picks operation mode, accepts or overrides the system-suggested observation point (highest-priority coverage gap), and dispatches. No volunteer is flying — the coordinator we vet is. Direct comparable to Flock Aerodome's tooling, except every flight requires a coordinator decision and is logged. If asked about Part 108: that mode is gated off until the FAA rule lands.",
   "Companion to the previous slide. Where a drone can't reach quickly — distance, weather, battery — the platform pings nearby enrolled volunteers with a suggested drive corridor through the gap. They opt in per-mission. If they don't drive, nothing happens. If they do, frames stream through the same coordinator review gate. This is the network multiplier.",
-  "Operational reliability. Three real questions from any partner: what if the drone fails mid-mission, what if the backend goes down, what if the alert is cancelled while volunteers are still in the field. Battery and RTH are one-click from the coordinator console. Backend errors hit the coordinator Discord within seconds — coordinators are paged, CPD never sees the noise. Alert cancellation is automatic — FEMA sends a Cancel message, the platform stands down immediately, watchlist is deactivated, and volunteers are notified. No coordinator action required to close the mission.",
+  "Walk the three reliability scenarios straight. Drone failure: battery warning at 30%, one-click RTH at 20%, coordinator has full situational awareness. Backend failure: errors post to coordinator Discord in seconds, CPD never sees the noise. Alert cancellation: FEMA sends a Cancel, platform stands down automatically, volunteers are notified and go back to their day — no coordinator action needed. If they ask about protocol for volunteer stand-down, that's a good question — note it and bring it back.",
   "Privacy posture — this matters for CPD's public messaging as much as for the platform itself. Frames are processed and deleted; there is no video archive. There is no persistent plate database — plate matches live only inside the active alert window and are purged when the alert closes. The platform is incapable of being used to track citizens outside of an active government alert. If asked: yes, we publish the retention policy publicly.",
-  "Technical proof point — why the false-positive rate is low enough to put in front of officers. Plate-only systems run at roughly 30% false positives. Our cascade scores plate, make, model, year, and color independently — and requires multiple signals to corroborate before a flag escalates. That works even when plates are switched, obscured, or missing — which is the case in a real abduction more often than people assume. Coordinator is the final gate after that.",
-  "We are not single-purpose. The same network responds to Silver (seniors), Mattie's Call (developmental disability), Purple (other disability), and Blue (endangered officer) alerts. All five are government-issued through the same FEMA IPAWS channel. For CPD this means the volunteer base trains once and is available across the full alert taxonomy.",
+  "This is the technical credibility slide. Don't claim a specific false-positive percentage — we don't have measured field data yet. What we can say accurately: plate-only systems run ~30% false positives; our cascade requires multiple independent signals to corroborate before anything escalates to the coordinator; that means fewer noise alerts and more actionable leads. The coordinator is still the final gate. If someone pushes on numbers, be honest: we're designing for low noise, and the pilot will produce the actual data.",
+  "This is a Georgia story. Lead with the two Georgia-specific programs they already know: Levi's Call (GCIC) and Mattie's Call (GBI). They have worked these alerts. Our platform responds to both with exactly the same pipeline as AMBER. Then point to Blue Alert — this one is for them personally. The same volunteer network that searches for a missing child will activate for a missing or endangered officer. One trained network, the full Georgia alert stack.",
   "The Carroll County pilot — six months, 30 ground volunteers, 5 Part 107 pilots. Mixed rural and suburban — representative ground for the model. Goals listed. Open question for the room: what would CPD want included in the public transparency report? That gets them participating in the design, which is the goal of this meeting.",
-  "The ask is small and specific. We are not asking CPD for funding. We are asking for a Letter of Support, a recurring partnership touchpoint of whatever cadence works for them, and a slot in a future tabletop exercise so they can validate the dispatch flow under conditions they control. Frame all three as proposals — let Dobbs and Hitchcock decide scope, timing, and depth. If they ask when we can have a draft LOS ready, the honest answer is: as fast as they want it.",
+  "Walk the three asks, then pause on the feedback box. This is the most important part of the slide. Make it personal — use their names. 'Dobbs, Hitchcock — whatever you tell us in this room goes back into the product.' We are not pitching a finished thing. We are inviting them to help shape something that will represent Carroll County to every other department in Georgia that sees it. That's real authority to give someone. Let it land. Then ask: what would you change?",
   "Close with the offer to stay for questions and a live walkthrough of the coordinator console. Hand business cards. Confirm next-step ownership before leaving the room."
 ]
 </script>
@@ -74,6 +74,7 @@ section {
 .logo-mark img { width: 38px; height: 38px; border-radius: 50%; }
 .logo-mark span { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.7); letter-spacing: 0.3px; white-space: nowrap; }
 .logo-mark em { color: var(--amber); font-style: normal; }
+#s2 .logo-mark em { color: #fff; }
 
 .meeting-tag {
   position: absolute; top: 48px; right: 56px;
@@ -889,7 +890,7 @@ section {
 #s12 { background: var(--ink); display: flex; flex-direction: column; justify-content: center; padding: 80px 96px; }
 #s12 h2 { font-size: 50px; font-weight: 700; letter-spacing: -1.5px; margin-bottom: 16px; line-height: 1.1; }
 #s12 > p { font-size: 22px; color: var(--muted); margin-bottom: 52px; max-width: 1000px; line-height: 1.6; }
-.alert-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 20px; }
+.alert-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .alert-card {
   border-radius: 12px; padding: 28px 22px;
   border: 1px solid var(--border); background: var(--ink2);
@@ -975,6 +976,18 @@ section {
   font-size: 18px; color: var(--text);
 }
 .ask-foot .nodot { color: var(--amber); font-family: var(--mono); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; }
+.feedback-box {
+  margin-top: 32px; padding: 24px 32px;
+  border-left: 3px solid var(--amber);
+  background: var(--amber-soft);
+  border-radius: 0 10px 10px 0;
+}
+.feedback-label {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px;
+  color: var(--amber); margin-bottom: 10px;
+}
+.feedback-box p { font-size: 17px; color: var(--text); line-height: 1.7; }
 
 /* ── 15 CLOSE ── */
 #s15 {
@@ -1335,7 +1348,7 @@ section {
   <!-- 07 SWARM DISPATCH ────────────────────────────────────── -->
   <section id="s7" data-screen-label="07 Swarm Dispatch">
     <div class="header-row">
-      <span class="label">New in 2026 — Coordinator Console</span>
+      <span class="label">Coordinator Console</span>
       <h2>Coordinator-directed <em>swarm dispatch</em>.</h2>
       <p>The coordinator sees every available drone in Carroll County on the mission map, picks one, selects an operation mode, and dispatches it to a specific observation point. The system pre-fills the highest-priority coverage gap — the coordinator can accept or drop a different pin.</p>
     </div>
@@ -1508,7 +1521,7 @@ section {
   <!-- 08 COVERAGE GAP PING ─────────────────────────────────── -->
   <section id="s8" data-screen-label="08 Coverage Gap Ping">
     <div class="header-row">
-      <span class="label">New in 2026 — Volunteer Layer</span>
+      <span class="label">Volunteer Layer</span>
       <h2>When a drone can't reach,<br>the <em>network does</em>.</h2>
       <p>When the coordinator identifies a gap inside the alert polygon — and no drone is positioned to fill it — the platform pings nearby enrolled volunteers with a suggested drive corridor. They opt in per ping. They drive their normal vehicle. They never leave their lane.</p>
     </div>
@@ -1625,9 +1638,9 @@ section {
   <!-- 09 OPERATIONAL RELIABILITY ───────────────────────────── -->
   <section id="s9" data-screen-label="09 Operational Reliability">
     <div class="header-row">
-      <span class="label">When Something Goes Wrong</span>
-      <h2>Three questions from every partner —<br><em>three answers</em>.</h2>
-      <p>What if the drone fails. What if the backend goes down. What if the alert is cancelled mid-mission. Here's what the coordinator sees in each case, in real time.</p>
+      <span class="label">Operational Reliability</span>
+      <h2>Three things coordinators<br>handle <em>in real time</em>.</h2>
+      <p>Drone fails. Backend errors. Alert cancelled mid-mission. Here's what the coordinator sees in each case — and what happens without any manual intervention.</p>
     </div>
 
     <div class="rel-grid">
@@ -1684,7 +1697,7 @@ section {
       <div class="rel-card">
         <h3>Alert Resolved</h3>
         <div class="head">Platform stands down when the alert does.</div>
-        <div class="desc">When FEMA issues a Cancel message — or the alert window closes — the platform auto-deactivates the watchlist, purges non-matching plate data, and posts a stand-down to the coordinator channel. Volunteers don't stay in the field after an alert resolves.</div>
+        <div class="desc">When FEMA issues a Cancel message — or the alert window closes — the platform auto-deactivates the watchlist, purges non-matching plate data, and posts a stand-down to the coordinator channel. Volunteers are notified and go back to their day.</div>
 
         <div class="discord-feed">
           <div class="discord-msg">
@@ -1784,7 +1797,7 @@ section {
     <div class="s11-left">
       <span class="label">Why the numbers hold</span>
       <h2><em>Cascade inference</em> —<br>beyond the plate.</h2>
-      <p class="lede">Standard systems stop at plate text — so when plates are switched, obscured, or missing, they're blind. Our cascade scores plate, make, model, year, and color independently — <em style="color:var(--amber);font-style:normal;font-weight:600;">multiple signals must corroborate</em> before a detection escalates. That's how we get from a coordinator reviewing 100 false flags to 5.</p>
+      <p class="lede">Standard systems stop at plate text — so when plates are switched, obscured, or missing, they're blind. Our cascade scores plate, make, model, year, and color independently — <em style="color:var(--amber);font-style:normal;font-weight:600;">multiple signals must corroborate</em> before a detection escalates. That's what separates a coordinator reviewing a manageable set of strong leads from drowning in noise.</p>
       <div class="inference-chain">
         <div class="infer-step">
           <div class="infer-num">1</div>
@@ -1823,8 +1836,8 @@ section {
       </div>
       <div class="fp-compare">
         <div class="fp-card good">
-          <div class="fp-val">&lt;5%</div>
-          <div class="fp-label">False positive rate<br>VMMC dual-verification</div>
+          <div class="fp-val">5-Signal</div>
+          <div class="fp-label">cascade: plate · make · model<br>color · body type</div>
         </div>
         <div class="fp-card bad">
           <div class="fp-val">~30%</div>
@@ -1840,14 +1853,20 @@ section {
   <!-- 12 ALERT TYPES ───────────────────────────────────────── -->
   <section id="s12" data-screen-label="12 Multi-Alert Response">
     <span class="label">Multi-Alert Response</span>
-    <h2>Not just AMBER Alerts.</h2>
-    <p>The platform activates across five government-issued alert types — children, seniors, adults with developmental or other disabilities, and endangered officers. All five flow through the same FEMA IPAWS channel and the same coordinator gate.</p>
+    <h2>Built for Georgia's<br><em>full alert stack</em>.</h2>
+    <p>The platform activates across every government-issued alert type Georgia uses — including three that are Georgia-specific. One network, one coordinator gate, trained once for all of them.</p>
     <div class="alert-grid">
       <div class="alert-card">
         <span class="alert-chip" style="background:#f59e0b;color:#050a0f;">AMBER Alert</span>
         <h3>Abducted children</h3>
         <p>Primary mission. Closing the golden hour gap for child recovery cases.</p>
-        <span class="alert-trigger">FEMA IPAWS · NCMEC · amber.alert.gov</span>
+        <span class="alert-trigger">FEMA IPAWS · NCMEC</span>
+      </div>
+      <div class="alert-card">
+        <span class="alert-chip" style="background:#f59e0b;color:#050a0f;">Levi's Call ★</span>
+        <h3>Child abduction — Georgia</h3>
+        <p>Georgia's state-level child abduction alert, issued by GCIC. Same pipeline, same response.</p>
+        <span class="alert-trigger">Georgia Crime Information Center</span>
       </div>
       <div class="alert-card">
         <span class="alert-chip" style="background:#64748b;color:#fff;">Silver Alert</span>
@@ -1856,9 +1875,9 @@ section {
         <span class="alert-trigger">FEMA IPAWS · state issuance</span>
       </div>
       <div class="alert-card">
-        <span class="alert-chip" style="background:#7c3aed;color:#fff;">Mattie's Call</span>
-        <h3>Developmental disabilities</h3>
-        <p>Georgia-specific. Adults with developmental disabilities who go missing.</p>
+        <span class="alert-chip" style="background:#7c3aed;color:#fff;">Mattie's Call ★</span>
+        <h3>Developmental disabilities — Georgia</h3>
+        <p>Georgia-specific. Adults with developmental disabilities who go missing. Issued by GBI.</p>
         <span class="alert-trigger">GA Bureau of Investigation</span>
       </div>
       <div class="alert-card">
@@ -1870,10 +1889,11 @@ section {
       <div class="alert-card">
         <span class="alert-chip" style="background:#0284c7;color:#fff;">Blue Alert</span>
         <h3>Endangered officers</h3>
-        <p>Law enforcement officers endangered or missing in the line of duty.</p>
+        <p>When one of yours goes missing or is endangered in the line of duty — the same network activates for you.</p>
         <span class="alert-trigger">State emergency system</span>
       </div>
     </div>
+    <p style="font-size:14px;color:var(--dim);margin-top:16px;padding-left:4px;">★ Georgia-specific programs</p>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
     <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
     <div class="slide-num">12 / 15</div>
@@ -1909,7 +1929,7 @@ section {
       <div class="impact-r"><span class="lbl">Active search nodes</span><span class="val">25</span></div>
       <div class="impact-r"><span class="lbl">Road miles / node / alert</span><span class="val">~40 mi</span></div>
       <div class="impact-r"><span class="lbl">Total added coverage</span><span class="val">~1,000 mi</span></div>
-      <div class="impact-r"><span class="lbl">VMMC false-positive rate</span><span class="val">&lt;5%</span></div>
+      <div class="impact-r"><span class="lbl">Detection signals per vehicle</span><span class="val">5</span></div>
       <div class="impact-r"><span class="lbl">Plate-only false-positive rate</span><span class="val">~30%</span></div>
       <p class="s13-cred">Seeking formal partnership with CPD. Active engagement from local SDVOSB veteran network. Proximity to Atlanta metro for AI model iteration and Part 107 instructor availability.</p>
     </div>
@@ -1947,6 +1967,11 @@ section {
         <p>A recurring touchpoint for the pilot duration — status, audit-report walkthrough, anything CPD wants reviewed.</p>
         <div class="ask-detail"><strong>Cadence and format set by CPD.</strong> Designed so you have continuous visibility without continuous burden.</div>
       </div>
+    </div>
+
+    <div class="feedback-box">
+      <div class="feedback-label">One more thing</div>
+      <p>We're building this platform in public — and we mean that literally. Whatever you tell us in this room goes back into the product. Workflow gaps, liability language you'd want changed, protocol details we haven't thought of — we want all of it. The pilot we're proposing isn't just a test of the technology. It's how we make this thing worth deploying anywhere else in Georgia.</p>
     </div>
 
     <div class="ask-foot">
