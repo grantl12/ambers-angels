@@ -17,14 +17,14 @@ import type { Detection } from "@/features/detections/types"
 import type { LayerState } from "@/app/map/page"
 
 // Build a pie-slice (cone) polygon for a camera's field of view.
-// Centered on the camera, pointing in the heading direction, 60° arc.
+// Centered on the camera, pointing in the heading direction, 80° arc / 100 ft range (Flock demo values).
 // Cameras with null heading fall back to a small circle.
 function buildPieSlice(
   cx: number,
   cy: number,
   heading: number | null,
-  radiusM = 500,
-  spanDeg = 60,
+  radiusM = 30.48,
+  spanDeg = 80,
   steps   = 20,
 ): [number, number][] {
   const degPerM_lat = 1 / 111_320
