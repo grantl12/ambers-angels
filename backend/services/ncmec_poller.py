@@ -392,10 +392,7 @@ async def _poll_state(
             logger.info("[NCMEC/%s] %d case(s) resolved: %s",
                         state, len(resolved), [r["name"] for r in resolved])
             last_resolved_at = datetime.now(timezone.utc)
-            # Discord notification intentionally skipped for resolved cases —
-            # coordinators don't need a channel pop for every case that ages out.
-            for r in resolved:
-                await _push_notify_resolved(session_factory, r)
+            # Push notifications for resolved cases disabled — DB still marked resolved.
 
     _prev_cases[state] = current_guids
 
