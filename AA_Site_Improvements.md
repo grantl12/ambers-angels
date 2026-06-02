@@ -457,3 +457,83 @@ Fix any issues in the Next.js responsive CSS before the meeting. Dobbs or Hitchc
 The live App Store description (once approved) should match the actual registration flow. Specifically ensure it does not reference background checks or identity verification as part of onboarding, consistent with the actual implementation and the Apple review response submitted May 13, 2026.
 
 Current promotional text and description were drafted before the registration flow was simplified. Have Claude Code cross-reference the App Store Connect copy against the actual onboarding flow and flag any discrepancies before Build 3 submission.
+
+---
+
+## 🟡 IMPORTANT — Content Depth & Credibility (from Airo audit, June 2026)
+
+---
+
+### 21. Problem Framing — National Statistics
+
+The landing page currently frames the problem in local Carroll County terms only. Add a national/global problem framing block above or within "The Problem" section using real published data:
+
+**Sources to cite:**
+- NCMEC: average AMBER Alert duration, recovery rates with and without early tips
+- DOJ / OJJDP: statistics on child abduction recovery windows ("the first three hours")
+- FEMA IPAWS: number of AMBER Alerts issued nationally per year
+
+**Copy direction:**
+- Lead with the national scope, land on Carrollton as the pilot model
+- Explicitly address scalability: "The Carrollton pilot is the proving ground — the platform is built to replicate city-by-city"
+- Include 2–3 inline citations or a linkable `/sources` reference page
+
+This strengthens the pitch for grantors reviewing the site and for LE partners in other cities considering replication.
+
+---
+
+### 22. Data Governance Page (`/governance` or `/transparency`)
+
+Create a dedicated page documenting data handling practices. We have the underlying infrastructure already — this just needs to be made public-facing. Content to include:
+
+- **Retention timelines:** Detection frames (how long kept), telemetry points, audit logs, pilot account data
+- **Deletion policy:** Account deletion flow (already implemented via `DELETE /auth/delete-account`), what gets purged vs. retained for legal hold
+- **Access controls:** Role matrix (Pilot / Coordinator / Admin) and what each tier can see; internal API key separation for worker process
+- **Consent mechanisms:** ToS acceptance recorded server-side with version tracking; registration age gate; no data collected without active session
+- **Public commitments:** No sale of data, no use outside active alert response, open-source codebase as audit mechanism
+- **No transparency reports yet** — note they are planned once the pilot generates reportable data
+
+Link this page from the footer alongside `/privacy` and `/terms`. Also useful for CPD due diligence and App Store review.
+
+---
+
+### 23. Pipeline Transparency Page (`/how-it-works` or expand `/deck/tech`)
+
+Add a public-facing technical explainer covering the Cascade Inference pipeline. The tech deck already has this content — this is a web-readable version for LE, grantors, and press.
+
+**Content:**
+- Step-by-step pipeline: FEMA/NWS alert ingestion → watchlist → frame upload (drone RTMP or phone direct) → OpenALPR → YOLOv8-nano → Plate Recognizer (optional) → AggregationService → confidence score → AlertDispatcher
+- Data sources: FEMA IPAWS CMAS, NWS Alerts API, NCMEC RSS (explain each briefly)
+- Confidence scoring methodology: composite ALPR + YOLO score, 5-second aggregation window, HIGH_CONFIDENCE threshold
+- Privacy safeguards: frames not retained beyond session, no persistent video storage, CORS lockdown, role-gated access
+- **Glossary:** YOLOv8, OpenALPR, IPAWS, ALPR, CMAS, CAP (Common Alerting Protocol), NCMEC, Part 107
+
+**Note:** Do NOT publish specific false positive rate claims until we have verified data from the live pilot. Use qualitative language ("composite scoring reduces single-sensor false positives") until then.
+
+---
+
+### 24. Section Anchor Links (Landing Page)
+
+Add `id` attributes to each major landing page section so specific sections can be linked directly. Useful for sharing with CPD ("see the privacy section"), in email outreach, and for internal navigation.
+
+Suggested IDs: `#problem`, `#how-it-works`, `#platform`, `#privacy`, `#pilot`, `#about`, `#contact`
+
+Low-effort, high utility. Add a sticky in-page nav or just ensure the IDs exist for deep-linking purposes.
+
+---
+
+## ⏳ POST-PILOT — Blocked Until Real Data Exists
+
+---
+
+### 25. Impact Metrics & Case Studies
+
+Once the Carrollton pilot generates real operational data, add a metrics/results section to the landing page and a dedicated results page. Target content:
+
+- Coverage achieved (sq miles, road segments, % of pilot area with active volunteer coverage during an alert)
+- Detection pipeline performance (plates scanned, confidence distribution, LE notifications triggered)
+- Response times (alert fired → first volunteer activated, alert fired → first frame uploaded)
+- Volunteer engagement (registered pilots, missions participated)
+- Quotes from Carrollton PD contacts once the partnership is formalized
+
+**Do not publish this section with demo or synthetic data.** The credibility of the platform with LE depends on the metrics being real.
