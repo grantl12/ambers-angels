@@ -16,7 +16,7 @@ const DECKS = [
   { label: 'Financial Info',    href: '/deck/grant'                },
   { label: 'Technical',         href: '/deck/tech'                 },
   { label: 'Volunteer Stories', href: '/deck/stories'              },
-  { label: 'About the Founder', href: '/decks/grant-bio.html'      },
+  { label: 'About the Founder', href: '/deck/about'                },
 ]
 
 export default function LandingPage() {

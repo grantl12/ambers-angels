@@ -231,12 +231,17 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 
 ## Pitch Decks
 
-Three decks at `web/public/decks/`:
-- `carrollton.html` — Carrollton PD / community pitch
-- `grant.html` — Grant writer / funder deck
-- `tech.html` — Technical architecture deck
+Five decks at `web/public/decks/`, each served via a Next.js iframe route:
 
-Update all three when architecture changes. Speaker notes in `const NOTES = [...]` at top of each file.
+| File | Route | Purpose |
+|---|---|---|
+| `carrollton.html` | `/deck/carrollton` | Carrollton PD / community pitch |
+| `grant.html` | `/deck/grant` | Grant writer / funder deck |
+| `tech.html` | `/deck/tech` | Technical architecture deck |
+| `volunteer-stories.html` | `/deck/stories` | Volunteer stories |
+| `grant-bio.html` | `/deck/about` | About the Founder (Grant bio) |
+
+Speaker notes in `const NOTES = [...]` at top of each file. Update all relevant decks when architecture changes.
 
 Print versions at `grants/Handoff/amber-angels/project/` must also be manually updated to match.
 
@@ -262,48 +267,44 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 ## Pending TODO
 
-### Active / Next Session
+### Waiting on CPD Letter of Support
 
-1. **Site improvements backlog** — `AA_Site_Improvements.md` in repo root. Verify which items are already done before touching; several were confirmed complete as of 2026-05-24 (terms page exists, alert cancellation done). Remaining pre-CPD items to audit:
-   - Meta description update (all pages) — replace "drone surveillance and rescue coordination"
-   - Remove specific Flock LPR camera count from homepage copy
-   - "Carroll County" → "Carrollton" in pilot section
-   - ~~501(c)(3) language~~ — **DONE**. IRS determination letter received; all docs updated to "501(c)(3) Approved" / "federally recognized 501(c)(3) nonprofit"
-   - "Support the Mission" CTA → `mailto:info@amberangels.org` (or remove button)
-   - Purge "surveillance" language → "coverage" / "search coverage"
-   - Post-CPD-letter-signed: swap LE partnership language + add Carrollton PD badge + social proof block
+Once signed:
+- Add "Carrollton PD Partnership" badge to homepage hero badge row
+- Change "Actively engaging local law enforcement" → "In active partnership with the Carrollton Police Department"
+- Add "Trusted by Law Enforcement" social proof block between "How It Works" and "The Platform"
+- Add partnership language to App Store description
 
-2. ~~**Alert cancellation → stop active missions**~~ — **DONE**. `_deactivate_by_references` already aborts autonomous missions (`status = 'aborted'` where `alert_id = ANY(:refs)`) and fires Discord + push to pilots.
+### App Store Build 4
 
-3. **Law enforcement partnership badge** — after Carrollton PD Letter of Support is signed:
-   - Add "Carrollton PD Partnership" badge to homepage hero badge row
-   - Change landing page language from "Actively engaging local law enforcement" to "In active partnership with the Carrollton Police Department"
-   - Add "Trusted by Law Enforcement" section between "How It Works" and "The Platform"
-   - Full copy in `AA_Site_Improvements.md` items 4 and 10
+In review as of June 2, 2026. When approved:
+- Update App Store description to remove any "report criminal activity" language (see 2.1 rejection history above)
+- No background check language — none is implemented, all docs are now accurate
 
-4. **Update deck print versions** — `grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate files that must mirror the main deck content when updated.
+### Watch-area UI + autocomplete
 
-4a. **Update demo slides with real vehicle** — Any demo slide currently showing a generic/Toyota vehicle must be updated to match the actual test vehicle:
-   - **Vehicle**: white 2021 Tesla Model S
-   - **Plates**: handicap plates (exact plate string TBD — user will photograph and run through the pipeline)
-   - Once the plate photo is processed through the detection pipeline, use the real plate text and the actual ALPR/YOLO confidence output in the demo slide narrative
+Built and shipped (2026-05-24). All three layers complete:
+- `alert_areas` table self-seeds from live FEMA/NWS area tokens on every active alert
+- `GET /alert-areas?q=` endpoint for autocomplete
+- Mobile Settings: debounced autocomplete + inline suggestions + Nationwide toggle (PATCHes `alert_scope`)
 
-5. **App Store Build 4** — in review. When approved:
-   - Update App Store description to remove any "report criminal activity" language (see 2.1 rejection history above)
-   - Remove any background check / identity verification language from App Store copy (not implemented — see `AA_Site_Improvements.md` item 17)
-   - After CPD letter is signed, add partnership language to App Store description
+**Still needs:** seed `alert_areas` with a few manual rows so autocomplete has results before the first real alert arrives; confirm `alert_scope` is exposed on `GET /auth/me` response (`backend/routers/auth.py`).
 
-6. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
+### Update deck print versions
 
-7. **Watch-area UI + autocomplete** — BUILT (2026-05-24). All three layers shipped:
-   - `alert_areas` table harvests real FEMA/NWS area tokens on every active alert (self-seeding)
-   - `GET /alert-areas?q=` endpoint for autocomplete
-   - Mobile Settings: debounced autocomplete input + inline suggestion list + Nationwide toggle (PATCHes `alert_scope`)
-   - **Testing needed next week**: seed the `alert_areas` table with a few manual rows so suggestions work before real alerts arrive; confirm PATCH `/auth/me` `alert_scope` field is actually exposed on `GET /auth/me` response (check `backend/routers/auth.py` `/me` handler)
+`grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate static files that must be manually updated to mirror the main decks when content changes.
+
+### Site content depth (from Airo audit — see AA_Site_Improvements.md items 21–25)
+
+- National AMBER Alert statistics for problem framing (#21)
+- Data governance / transparency page (#22)
+- Pipeline explainer + glossary (#23)
+- Section anchor IDs on landing page (#24)
+- Impact metrics and case studies — blocked until pilot generates real data (#25)
 
 ### Longer Term / Needs Config Only
 
 - **Twilio SMS** — fully implemented in `alert_dispatcher.py`, silently skips if env vars absent. Just needs `TWILIO_*` vars added to server `.env`.
 - **BVLOS waiver documentation** — `bvlos_authorized` flag set by admin via `PATCH /autonomous/drones/{id}`. Admin must record FAA Part 107.39 waiver number in notes before setting.
-- **Competitive positioning** — autonomous swarm is a direct Flock Safety Drone competitor: (a) we show coordinators exactly where coverage gaps are (Flock bucket data), (b) volunteers relinquish drones remotely without being on scene. Tech deck slide 11 covers this.
-- **Background check infrastructure** — registration currently accepts anyone 18+ with a valid FAA Part 107 cert number (drone pilots). No background check is implemented. All grant copy and App Store copy must reflect this accurately (see `AA_Site_Improvements.md` item 17).
+- **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
+- **Background checks** — not implemented. Registration accepts anyone 18+ with valid FAA Part 107 cert. All public-facing copy reflects this accurately as of June 2, 2026.
