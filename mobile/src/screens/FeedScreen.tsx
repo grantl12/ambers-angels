@@ -13,6 +13,7 @@ import {
 } from "react-native"
 import { fetchDetectionsFeed, type Detection } from "../api/detections"
 import { fetchAlertHistory, type AlertHistory } from "../api/alerts"
+import { fetchNcmecRecent, type NcmecCase } from "../api/ncmec"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -147,14 +148,70 @@ function HistoryCard({ item }: { item: AlertHistory }) {
 }
 
 // ---------------------------------------------------------------------------
+// NCMEC missing persons card
+// ---------------------------------------------------------------------------
+
+function NcmecCard({ item }: { item: NcmecCase }) {
+  const resolved = !!item.resolvedAt
+  const age = item.missingSince
+    ? (() => {
+        const days = Math.floor((Date.now() - new Date(item.missingSince).getTime()) / 86_400_000)
+        if (days < 1) return "today"
+        if (days === 1) return "1 day ago"
+        if (days < 30) return `${days}d ago`
+        const months = Math.floor(days / 30)
+        if (months < 12) return `${months}mo ago`
+        return `${Math.floor(months / 12)}y ago`
+      })()
+    : null
+
+  return (
+    <View style={[styles.card, resolved ? styles.cardResolved : styles.cardMissing]}>
+      <View style={styles.cardRow}>
+        <Text style={styles.missingName} numberOfLines={1}>
+          {item.name || "Unknown"}
+        </Text>
+        <View style={styles.badgeRow}>
+          {resolved ? (
+            <View style={[styles.badge, { backgroundColor: "#16a34a" }]}>
+              <Text style={styles.badgeText}>RESOLVED</Text>
+            </View>
+          ) : (
+            <View style={[styles.badge, { backgroundColor: "#dc2626" }]}>
+              <Text style={styles.badgeText}>MISSING</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.meta}>
+        {item.ageNow != null && (
+          <Text style={styles.metaText}>Age {item.ageNow}</Text>
+        )}
+        {item.city && item.state && (
+          <Text style={styles.metaText}>{item.city}, {item.state}</Text>
+        )}
+        {!item.city && item.state && (
+          <Text style={styles.metaText}>{item.state}</Text>
+        )}
+        {age && (
+          <Text style={styles.metaTime}>Missing {age}</Text>
+        )}
+      </View>
+    </View>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
-type Filter = "all" | "hits" | "mine" | "history"
+type Filter = "all" | "hits" | "mine" | "history" | "missing"
 
 export default function FeedScreen() {
   const [detections,  setDetections]  = useState<Detection[]>([])
   const [history,     setHistory]     = useState<AlertHistory[]>([])
+  const [ncmecCases,  setNcmecCases]  = useState<NcmecCase[]>([])
   const [refreshing,  setRefreshing]  = useState(false)
   const [filter,      setFilter]      = useState<Filter>("all")
   const [myDeviceId,  setMyDeviceId]  = useState<string | null>(null)
@@ -177,6 +234,13 @@ export default function FeedScreen() {
     } catch { /* show stale */ }
   }, [])
 
+  const loadNcmec = useCallback(async () => {
+    try {
+      const data = await fetchNcmecRecent(40)
+      setNcmecCases(data)
+    } catch { /* show stale */ }
+  }, [])
+
   // Live feed — auto-refresh every 5s
   useEffect(() => {
     loadDetections()
@@ -184,16 +248,17 @@ export default function FeedScreen() {
     return () => clearInterval(id)
   }, [loadDetections])
 
-  // History — load once on mount, refresh on pull
+  // History + NCMEC — load once on mount, refresh on pull
   useEffect(() => {
     loadHistory()
-  }, [loadHistory])
+    loadNcmec()
+  }, [loadHistory, loadNcmec])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await Promise.all([loadDetections(), loadHistory()])
+    await Promise.all([loadDetections(), loadHistory(), loadNcmec()])
     setRefreshing(false)
-  }, [loadDetections, loadHistory])
+  }, [loadDetections, loadHistory, loadNcmec])
 
   const visible: Detection[] = filter === "hits"
     ? detections.filter((d) => d.status === "alerted")
@@ -201,14 +266,16 @@ export default function FeedScreen() {
     ? detections.filter((d) => myDeviceId && d.droneId === myDeviceId)
     : detections
 
-  const hitCount  = detections.filter((d) => d.status === "alerted").length
-  const mineCount = myDeviceId ? detections.filter((d) => d.droneId === myDeviceId).length : 0
+  const hitCount     = detections.filter((d) => d.status === "alerted").length
+  const mineCount    = myDeviceId ? detections.filter((d) => d.droneId === myDeviceId).length : 0
+  const activeMissing = ncmecCases.filter((c) => !c.resolvedAt).length
 
   const filters: Array<{ key: Filter; label: string; count?: number; visible: boolean }> = [
     { key: "all",     label: "All",     count: detections.length,  visible: true },
     { key: "hits",    label: "Hits",    count: hitCount,           visible: true },
     { key: "mine",    label: "Mine",    count: mineCount,          visible: !!myDeviceId },
     { key: "history", label: "Alerts",  count: history.length,     visible: true },
+    { key: "missing", label: "Missing", count: activeMissing,      visible: true },
   ]
 
   return (
@@ -246,6 +313,25 @@ export default function FeedScreen() {
               <Text style={styles.emptyTitle}>No dispatched alerts</Text>
               <Text style={styles.emptyHint}>
                 High-confidence watchlist hits that were sent to coordinators will appear here.
+              </Text>
+            </View>
+          }
+        />
+      ) : filter === "missing" ? (
+        <FlatList
+          data={ncmecCases}
+          keyExtractor={(c) => c.guid}
+          renderItem={({ item }) => <NcmecCard item={item} />}
+          contentContainerStyle={[styles.list, ncmecCases.length === 0 && styles.listEmpty]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyTitle}>No recent missing persons cases</Text>
+              <Text style={styles.emptyHint}>
+                NCMEC cases from the last 30 days will appear here.
               </Text>
             </View>
           }
@@ -344,4 +430,7 @@ const styles = StyleSheet.create({
   emptyIcon:  { fontSize: 40, marginBottom: 4 },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: "rgba(255,255,255,0.4)", textAlign: "center" },
   emptyHint:  { fontSize: 13, color: "rgba(255,255,255,0.22)", textAlign: "center", lineHeight: 20 },
+  cardMissing:  { borderColor: "rgba(220,38,38,0.35)", backgroundColor: "rgba(220,38,38,0.06)" },
+  cardResolved: { borderColor: "rgba(22,163,74,0.25)",  backgroundColor: "rgba(22,163,74,0.05)"  },
+  missingName:  { fontWeight: "700", fontSize: 15, color: "rgba(255,255,255,0.85)", flex: 1 },
 })

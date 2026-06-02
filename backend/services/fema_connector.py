@@ -911,7 +911,7 @@ async def _load_seen_identifiers(session_factory) -> None:
     async with session_factory() as session:
         try:
             rows = await session.execute(
-                text("SELECT identifier FROM processed_alerts WHERE processed_at > NOW() - INTERVAL '24 hours'")
+                text("SELECT identifier FROM processed_alerts WHERE processed_at > NOW() - INTERVAL '7 days'")
             )
             for (ident,) in rows.fetchall():
                 _seen_identifiers.add(ident)

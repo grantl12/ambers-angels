@@ -7,7 +7,7 @@
  * iOS uses Apple Maps and requires no key.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import MapView, { Callout, Marker, Polygon, PROVIDER_DEFAULT } from "react-native-maps"
 import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
@@ -47,6 +47,26 @@ function parsePolygonCoords(polyStr: string): { latitude: number; longitude: num
 
 const CARROLLTON = { latitude: 33.5801, longitude: -85.0766, latitudeDelta: 0.5, longitudeDelta: 0.5 }
 
+function alertToRegion(alert: FemaAlert) {
+  if (alert.polygon) {
+    const coords = parsePoly(alert.polygon)
+    const lats = coords.map(([lat]) => lat)
+    const lngs = coords.map(([, lng]) => lng)
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+    return {
+      latitude:       (minLat + maxLat) / 2,
+      longitude:      (minLng + maxLng) / 2,
+      latitudeDelta:  Math.max(maxLat - minLat, 0.08) * 1.4,
+      longitudeDelta: Math.max(maxLng - minLng, 0.08) * 1.4,
+    }
+  }
+  if (alert.centroidLat != null && alert.centroidLng != null) {
+    return { latitude: alert.centroidLat, longitude: alert.centroidLng, latitudeDelta: 0.3, longitudeDelta: 0.3 }
+  }
+  return null
+}
+
 export default function MapScreen() {
   const [drones, setDrones] = useState<DronePosition[]>([])
   const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -55,6 +75,7 @@ export default function MapScreen() {
   const [outsidePolygonNotif, setOutsidePolygonNotif] = useState(true)
   const [priorityZones, setPriorityZones] = useState<PriorityZone[]>([])
   const [showPriorityLayer, setShowPriorityLayer] = useState(true)
+  const [showAlertPanel, setShowAlertPanel] = useState(false)
 
   const mapRef = useRef<MapView>(null)
   const seenAlertIds = useRef<Set<number>>(new Set())
@@ -266,12 +287,60 @@ export default function MapScreen() {
         </Text>
       </View>
 
-      {/* Active alert count badge */}
+      {/* Active alert count badge — tappable to open alert list panel */}
       {femaAlerts.length > 0 && (
-        <View style={[styles.badge, styles.alertBadge]}>
+        <TouchableOpacity
+          style={[styles.badge, styles.alertBadge]}
+          onPress={() => setShowAlertPanel((v) => !v)}
+        >
           <Text style={styles.alertBadgeText}>
-            {femaAlerts.length} active alert{femaAlerts.length !== 1 ? "s" : ""}
+            {femaAlerts.length} active alert{femaAlerts.length !== 1 ? "s" : ""}  {showAlertPanel ? "▲" : "▼"}
           </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Alert list panel */}
+      {showAlertPanel && femaAlerts.length > 0 && (
+        <View style={styles.alertPanel}>
+          <View style={styles.alertPanelHeader}>
+            <Text style={styles.alertPanelTitle}>Active Alerts</Text>
+            <TouchableOpacity onPress={() => setShowAlertPanel(false)}>
+              <Text style={styles.alertPanelClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.alertPanelScroll} keyboardShouldPersistTaps="handled">
+            {femaAlerts.map((alert) => {
+              const region = alertToRegion(alert)
+              const typeColors: Record<string, string> = {
+                amber: "#f59e0b", silver: "#94a3b8", blue: "#3b82f6",
+                matties: "#dc2626", purple: "#a855f7", mipa: "#eab308", ema: "#eab308",
+              }
+              const dotColor = typeColors[alert.alertType] ?? "#f59e0b"
+              return (
+                <TouchableOpacity
+                  key={alert.id}
+                  style={styles.alertPanelRow}
+                  onPress={() => {
+                    if (!region) return
+                    setShowAlertPanel(false)
+                    mapRef.current?.animateToRegion(region, 600)
+                  }}
+                  disabled={!region}
+                >
+                  <View style={[styles.alertDot, { backgroundColor: dotColor }]} />
+                  <View style={styles.alertPanelRowText}>
+                    <Text style={styles.alertPanelHeadline} numberOfLines={2}>
+                      {alert.headline || (alert.sourceProgram ?? alert.alertType).toUpperCase()}
+                    </Text>
+                    {alert.area ? (
+                      <Text style={styles.alertPanelArea} numberOfLines={1}>{alert.area}</Text>
+                    ) : null}
+                  </View>
+                  {region && <Text style={styles.alertPanelFly}>↗</Text>}
+                </TouchableOpacity>
+              )
+            })}
+          </ScrollView>
         </View>
       )}
 
@@ -368,4 +437,42 @@ const styles = StyleSheet.create({
   },
   polygonWarningTitle: { color: "#fff", fontWeight: "700", fontSize: 13 },
   polygonWarningBody:  { color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 2 },
+  alertPanel: {
+    position: "absolute",
+    top: 88,
+    left: 16,
+    right: 16,
+    backgroundColor: "rgba(8,15,24,0.97)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+    maxHeight: 280,
+    overflow: "hidden",
+  },
+  alertPanelHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  alertPanelTitle: { color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" },
+  alertPanelClose: { color: "rgba(255,255,255,0.3)", fontSize: 16, lineHeight: 18 },
+  alertPanelScroll: { maxHeight: 220 },
+  alertPanelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  alertDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  alertPanelRowText: { flex: 1 },
+  alertPanelHeadline: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "600" },
+  alertPanelArea:     { color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 },
+  alertPanelFly:      { color: "rgba(56,189,248,0.5)", fontSize: 14, fontWeight: "700" },
 })
