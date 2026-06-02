@@ -117,6 +117,7 @@ type Props = {
   layers: LayerState
   onToggleLayer: (key: keyof LayerState) => void
   onFlyTo?: (lat: number, lng: number) => void
+  onFitBounds?: (bbox: FlockBbox) => void
   flockBbox?: FlockBbox
   onFlockSearch?: (bbox: FlockBbox) => void
 }
@@ -131,7 +132,7 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
   { key: "airspace", label: "Air Traffic",           color: "bg-sky-300" },
 ]
 
-export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFlockSearch }: Props) {
+export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, flockBbox, onFlockSearch }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(288) // 288 = w-72
   const isDragging = useRef(false)
@@ -324,6 +325,72 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, flockBbox, onFl
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Active Alerts */}
+      <div className="px-4 py-3 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs uppercase tracking-widest text-white/40">Active Alerts</div>
+          {femaAlerts.length > 0 && (
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+              {femaAlerts.length}
+            </span>
+          )}
+        </div>
+        {femaAlerts.length === 0 ? (
+          <div className="text-sm text-white/30">No active alerts</div>
+        ) : (
+          <div className="space-y-1.5">
+            {femaAlerts.map((alert) => {
+              const typeColor =
+                alert.alertType === "amber"  ? { dot: "#f59e0b", border: "rgba(245,158,11,0.35)", bg: "rgba(245,158,11,0.06)", badge: "text-amber-400 bg-amber-500/20" } :
+                alert.alertType === "silver" ? { dot: "#94a3b8", border: "rgba(148,163,184,0.35)", bg: "rgba(148,163,184,0.06)", badge: "text-slate-300 bg-slate-500/20" } :
+                alert.alertType === "blue"   ? { dot: "#3b82f6", border: "rgba(59,130,246,0.35)",  bg: "rgba(59,130,246,0.06)",  badge: "text-blue-400 bg-blue-500/20" } :
+                                               { dot: "#f59e0b", border: "rgba(245,158,11,0.35)", bg: "rgba(245,158,11,0.06)", badge: "text-amber-400 bg-amber-500/20" }
+              function handleAlertClick() {
+                if (alert.polygon) {
+                  const pairs = alert.polygon.trim().split(/\s+/).map((p) => {
+                    const [lat, lng] = p.split(",").map(Number)
+                    return { lat, lng }
+                  })
+                  onFitBounds?.({
+                    south: Math.min(...pairs.map((p) => p.lat)),
+                    north: Math.max(...pairs.map((p) => p.lat)),
+                    west:  Math.min(...pairs.map((p) => p.lng)),
+                    east:  Math.max(...pairs.map((p) => p.lng)),
+                  })
+                } else if (alert.centroidLat != null && alert.centroidLng != null) {
+                  const r = 0.09
+                  onFitBounds?.({ south: alert.centroidLat - r, north: alert.centroidLat + r, west: alert.centroidLng - r, east: alert.centroidLng + r })
+                }
+              }
+              const clickable = !!(alert.polygon || (alert.centroidLat != null && alert.centroidLng != null))
+              return (
+                <div
+                  key={alert.id}
+                  onClick={clickable ? handleAlertClick : undefined}
+                  style={{ border: `1px solid ${typeColor.border}`, background: typeColor.bg }}
+                  className={`rounded-lg p-2 text-sm ${clickable ? "cursor-pointer hover:brightness-125 transition-all" : ""}`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: typeColor.dot }} />
+                    <span className="font-medium text-white/85 truncate leading-tight">
+                      {alert.headline || alert.alertType.toUpperCase()}
+                    </span>
+                  </div>
+                  {alert.area && (
+                    <div className="mt-0.5 text-[10px] text-white/35 truncate pl-3.5">
+                      {alert.area}
+                    </div>
+                  )}
+                  {clickable && (
+                    <div className="mt-0.5 text-[10px] text-sky-400/50 pl-3.5">↗ click to view</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Drone status */}

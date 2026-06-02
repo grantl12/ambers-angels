@@ -139,12 +139,12 @@ export default function MapPage() {
 
         {/* Sidebar — always visible on md+, drawer overlay on mobile */}
         <div className="hidden md:flex">
-          <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={flyTo} flockBbox={flockBbox} onFlockSearch={handleFlockSearch} />
+          <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={flyTo} onFitBounds={(bbox) => mapControlsRef.current?.fitBounds(bbox)} flockBbox={flockBbox} onFlockSearch={handleFlockSearch} />
         </div>
         {mobileSidebar && (
           <div className="absolute inset-0 z-30 flex md:hidden">
             <div className="flex h-full">
-              <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={(lat, lng) => { flyTo(lat, lng); setMobileSidebar(false) }} flockBbox={flockBbox} onFlockSearch={handleFlockSearch} />
+              <MissionSidebar layers={layers} onToggleLayer={toggleLayer} onFlyTo={(lat, lng) => { flyTo(lat, lng); setMobileSidebar(false) }} onFitBounds={(bbox) => { mapControlsRef.current?.fitBounds(bbox); setMobileSidebar(false) }} flockBbox={flockBbox} onFlockSearch={handleFlockSearch} />
             </div>
             <div className="flex-1 bg-black/50" onClick={() => setMobileSidebar(false)} />
           </div>
