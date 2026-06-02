@@ -1,359 +1,515 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Grant Lindberg — Amber's Angels</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap');
 
-  :root {
-    --amber:      #f59e0b;
-    --amber-dim:  rgba(245,158,11,0.10);
-    --ink:        #050a0f;
-    --ink-2:      #0d1117;
-    --ink-3:      #111827;
-    --border:     rgba(255,255,255,0.07);
-    --border-mid: rgba(255,255,255,0.12);
-    --text:       rgba(255,255,255,0.88);
-    --text-muted: rgba(255,255,255,0.50);
-    --text-dim:   rgba(255,255,255,0.30);
-  }
+:root {
+  --navy:    #0F1F35;
+  --navy-mid:#1E3A5F;
+  --amber:   #D97706;
+  --amber-l: #F59E0B;
+  --cream:   #FAF7F2;
+  --warm:    #F3EDE3;
+  --text:    #1C1917;
+  --muted:   #6B7280;
+  --rule:    #D4C9B8;
+}
 
-  body {
-    background: var(--ink);
-    color: var(--text);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
-  }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 
-  /* ── NAV ── */
-  nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 56px; height: 60px;
-    background: rgba(5,10,15,0.92);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 10;
-  }
-  .nav-brand {
-    display: flex; align-items: center; gap: 10px;
-    text-decoration: none; color: #fff;
-    font-weight: 700; font-size: 15px;
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-  }
-  .nav-brand img { width: 30px; height: 30px; border-radius: 50%; }
-  .nav-brand em { font-style: normal; color: var(--amber); }
-  nav a.back {
-    font-size: 13px; color: var(--text-dim); text-decoration: none;
-    transition: color 0.15s;
-  }
-  nav a.back:hover { color: var(--text-muted); }
+body {
+  background: var(--cream);
+  color: var(--text);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 11pt;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
 
-  /* ── PAGE ── */
-  .page {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 64px 40px 96px;
-  }
+.hero {
+  background: var(--navy);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
 
-  /* ── HEADER ── */
-  .page-header {
-    margin-bottom: 56px;
-    padding-bottom: 40px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: flex-start; justify-content: space-between;
-    gap: 32px; flex-wrap: wrap;
-  }
-  .tag {
-    display: inline-block;
-    font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
-    color: var(--amber); padding: 4px 10px;
-    border: 1px solid rgba(245,158,11,0.3);
-    border-radius: 4px; background: rgba(245,158,11,0.06);
-    margin-bottom: 16px;
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-  }
-  .page-header h1 {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-    font-size: 42px; font-weight: 700; line-height: 1.1;
-    letter-spacing: -0.5px; color: #fff;
-    margin-bottom: 6px;
-  }
-  .page-header h1 em { font-style: normal; color: var(--amber); }
-  .page-header .title {
-    font-size: 14px; color: var(--text-muted);
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-    font-weight: 500;
-    margin-bottom: 20px;
-  }
-  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
-  .badge {
-    font-size: 11px; font-family: 'Space Grotesk', system-ui, sans-serif;
-    font-weight: 600; letter-spacing: 0.4px;
-    border: 1px solid var(--border); color: var(--text-dim);
-    padding: 5px 10px; border-radius: 4px;
-  }
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 70% at 85% 40%, rgba(217,119,6,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 15% 90%, rgba(15,31,53,0.8) 0%, transparent 60%);
+  pointer-events: none;
+}
 
-  /* ── BODY GRID ── */
-  .body-grid {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 56px;
-    align-items: start;
-  }
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 48px 80px 80px;
+  position: relative;
+  z-index: 1;
+}
 
-  /* ── BIO ── */
-  .bio h2 {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-    font-size: 20px; font-weight: 700; color: #fff;
-    margin-bottom: 20px; letter-spacing: -0.2px;
-  }
-  .bio p {
-    font-size: 15px; color: var(--text-muted);
-    line-height: 1.8; margin-bottom: 20px;
-    max-width: 580px;
-  }
-  .bio p strong { color: var(--text); font-weight: 600; }
-  .bio p .highlight { color: var(--amber); font-weight: 600; }
+.hero-eyebrow {
+  font-size: 8.5pt;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 18px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.1s forwards;
+}
 
-  .pull-quote {
-    margin: 32px 0;
-    padding: 20px 24px;
-    background: var(--ink-2);
-    border-left: 3px solid var(--amber);
-    border-radius: 0 8px 8px 0;
-    border: 1px solid var(--border);
-    border-left-color: var(--amber);
-  }
-  .pull-quote p {
-    font-size: 14px; color: var(--text-muted);
-    line-height: 1.7; margin: 0;
-    font-style: italic;
-  }
+.hero-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 58pt;
+  font-weight: 900;
+  line-height: 0.95;
+  color: #FAFAF8;
+  margin-bottom: 6px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.2s forwards;
+}
 
-  /* ── CREDS ── */
-  .creds {
-    background: var(--ink-3);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px 24px;
-    position: sticky; top: 76px;
-  }
-  .creds-label {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: 2px; text-transform: uppercase;
-    color: var(--text-dim); margin-bottom: 20px;
-  }
-  .cred-row {
-    display: grid; grid-template-columns: 44px 1fr;
-    gap: 12px; align-items: baseline;
-    padding: 9px 0;
-    border-top: 1px solid rgba(255,255,255,0.04);
-    font-size: 13px;
-  }
-  .cred-row:first-of-type { border-top: none; }
-  .cred-year {
-    color: var(--text-dim);
-    font-family: 'Space Grotesk', system-ui, sans-serif;
-    font-weight: 600; font-size: 11px;
-    padding-top: 1px;
-    white-space: nowrap;
-  }
-  .cred-text { color: var(--text-muted); line-height: 1.45; }
-  .cred-row.amber .cred-text { color: var(--amber); }
-  .cred-divider { border-top: 1px solid var(--border-mid); margin: 14px 0; }
+.hero-title {
+  font-size: 11pt;
+  font-weight: 300;
+  color: rgba(250,250,248,0.55);
+  letter-spacing: 0.04em;
+  margin-bottom: 32px;
+  font-style: italic;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.3s forwards;
+}
 
-  .contact-block {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-    font-size: 12px; color: var(--text-dim);
-    line-height: 1.6;
-  }
-  .contact-block a { color: var(--amber); text-decoration: none; }
-  .contact-block a:hover { text-decoration: underline; }
+.hero-rule {
+  width: 44px;
+  height: 2px;
+  background: var(--amber);
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.35s forwards;
+}
 
-  /* ── FOOTER ── */
-  footer {
-    margin-top: 80px;
-    padding-top: 32px;
-    border-top: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 12px;
-  }
-  footer span { font-size: 12px; color: var(--text-dim); }
-  footer a { font-size: 12px; color: var(--text-dim); text-decoration: none; transition: color 0.15s; }
-  footer a:hover { color: var(--text-muted); }
+.hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 36px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.45s forwards;
+}
 
-  @media print {
-    nav { display: none; }
-    .page { padding: 32px; }
-    .creds { position: static; }
-    body { background: #fff; color: #111; }
-    :root {
-      --amber: #c67c00;
-      --ink-3: #f5f5f5;
-      --text-muted: #555;
-      --text-dim: #888;
-      --border: #ddd;
-      --border-mid: #ccc;
-    }
-  }
+.tag {
+  background: rgba(250,247,242,0.07);
+  border: 1px solid rgba(250,247,242,0.15);
+  padding: 5px 12px;
+  font-size: 8pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(250,250,248,0.65);
+}
 
-  @media (max-width: 720px) {
-    nav { padding: 0 20px; }
-    .page { padding: 40px 20px 64px; }
-    .page-header h1 { font-size: 30px; }
-    .body-grid { grid-template-columns: 1fr; gap: 40px; }
-    .creds { position: static; }
-    .bio p { max-width: 100%; }
-  }
+.hero-quote {
+  border-left: 2px solid var(--amber);
+  padding: 16px 20px;
+  max-width: 420px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.55s forwards;
+}
+
+.hero-quote p {
+  font-family: 'Playfair Display', serif;
+  font-size: 13pt;
+  font-style: italic;
+  color: rgba(250,250,248,0.85);
+  line-height: 1.55;
+}
+
+.hero-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 72px 80px 40px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.5s forwards;
+}
+
+.timeline-label {
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 24px;
+}
+
+.tl-item {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(250,247,242,0.08);
+  align-items: start;
+}
+
+.tl-item:last-child { border-bottom: none; }
+
+.tl-year {
+  font-family: 'Playfair Display', serif;
+  font-size: 9pt;
+  font-weight: 700;
+  color: var(--amber-l);
+  padding-top: 2px;
+  line-height: 1.3;
+}
+
+.tl-text {
+  font-size: 9.5pt;
+  color: rgba(250,250,248,0.65);
+  line-height: 1.5;
+}
+
+.tl-text strong {
+  color: rgba(250,250,248,0.9);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 80px 60px;
+}
+
+.section {
+  margin-bottom: 64px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.section.visible { opacity: 1; transform: translateY(0); }
+
+.section-label {
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22pt;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.2;
+  margin-bottom: 20px;
+}
+
+.section-rule {
+  width: 36px;
+  height: 2px;
+  background: var(--rule);
+  margin-bottom: 24px;
+}
+
+.body-text {
+  font-size: 11pt;
+  line-height: 1.85;
+  color: #2C2416;
+  margin-bottom: 16px;
+  max-width: 680px;
+}
+
+.body-text strong { color: var(--navy); font-weight: 600; }
+
+.pull-quote {
+  background: var(--navy);
+  padding: 40px 48px;
+  margin: 64px -60px;
+  position: relative;
+}
+
+.pull-quote blockquote {
+  font-family: 'Playfair Display', serif;
+  font-size: 14pt;
+  font-style: italic;
+  color: #FAFAF8;
+  line-height: 1.65;
+  max-width: 620px;
+  border-left: 2px solid var(--amber);
+  padding-left: 24px;
+}
+
+.pull-quote cite {
+  display: block;
+  margin-top: 14px;
+  font-family: 'Source Serif 4', serif;
+  font-size: 8.5pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amber-l);
+  font-style: normal;
+  padding-left: 26px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.card {
+  background: var(--warm);
+  border: 1px solid var(--rule);
+  padding: 20px 22px;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+
+.card:hover { border-color: var(--amber); transform: translateY(-2px); }
+
+.card-label {
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 6px;
+}
+
+.card-value {
+  font-family: 'Playfair Display', serif;
+  font-size: 13pt;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.card-sub {
+  font-size: 9pt;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.contact-item h4 {
+  font-size: 8pt;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.contact-item p, .contact-item a {
+  font-size: 10.5pt;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.contact-item a { color: var(--amber); }
+.contact-item a:hover { text-decoration: underline; }
+
+.daughters-line {
+  background: var(--navy);
+  padding: 28px 60px;
+  margin: 0 -60px;
+  text-align: center;
+}
+
+.daughters-line p {
+  font-family: 'Playfair Display', serif;
+  font-size: 13pt;
+  font-style: italic;
+  color: rgba(250,250,248,0.75);
+}
+
+.daughters-line strong { color: #FAFAF8; font-style: normal; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-right { display: none; }
+  .hero-left { padding: 60px 32px; }
+  .hero-name { font-size: 40pt; }
+  .main { padding: 48px 24px; }
+  .pull-quote { margin: 48px -24px; padding: 32px 28px; }
+  .card-grid { grid-template-columns: 1fr 1fr; }
+  .contact-grid { grid-template-columns: 1fr 1fr; }
+  .daughters-line { margin: 0 -24px; padding: 24px 28px; }
+}
+
+@media print {
+  .hero { min-height: auto; page-break-after: always; }
+  .section { opacity: 1 !important; transform: none !important; }
+  .pull-quote { margin: 40px 0; }
+  .daughters-line { margin: 0; }
+}
 </style>
 </head>
 <body>
 
-<nav>
-  <a class="nav-brand" href="/">
-    <img src="/aa-icon.png" alt="AA" />
-    Amber&rsquo;s <em>Angels</em>
-  </a>
-  <a class="back" href="/">&larr; Back to site</a>
-</nav>
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">Founder &amp; Executive Director — Amber's Angels Inc.</p>
+    <h1 class="hero-name">Grant<br>Lindberg</h1>
+    <p class="hero-title">SFC (E-7), U.S. Army &nbsp;·&nbsp; Software Engineer &nbsp;·&nbsp; Carrollton, Georgia</p>
+    <div class="hero-rule"></div>
+    <div class="hero-tags">
+      <span class="tag">SFC (E-7) · 11.5 Years</span>
+      <span class="tag">USASMDC</span>
+      <span class="tag">Korean Cryptologic Linguist</span>
+      <span class="tag">4th Amendment Auditor</span>
+      <span class="tag">SDVOSB Founder</span>
+    </div>
+    <div class="hero-quote">
+      <p>"Privacy-first isn't a marketing decision. It's what you build when you've spent years auditing the boundary between lawful collection and constitutional violation."</p>
+    </div>
+  </div>
 
-<div class="page">
+  <div class="hero-right">
+    <p class="timeline-label">Service &amp; Career</p>
+    <div class="tl-item"><div class="tl-year">2004</div><div class="tl-text"><strong>Enlisted, U.S. Army</strong>Air Defense Artillery</div></div>
+    <div class="tl-item"><div class="tl-year">2007</div><div class="tl-text"><strong>Soldier of the Year</strong></div></div>
+    <div class="tl-item"><div class="tl-year">2010</div><div class="tl-text"><strong>Selected to serve in U.S. Army Space and Missile Defense Command</strong></div></div>
+    <div class="tl-item"><div class="tl-year">2013</div><div class="tl-text"><strong>Selected for Military Intelligence</strong>Defense Language Institute · Korean · Aerial Exploitation Battalion, Korea</div></div>
+    <div class="tl-item"><div class="tl-year">2016</div><div class="tl-text"><strong>Separated · SFC (E-7)</strong>11.5 years · Honorable discharge</div></div>
+    <div class="tl-item"><div class="tl-year">2016</div><div class="tl-text"><strong>MasterCard</strong>DB2 DBA → GDPR Scrum Master</div></div>
+    <div class="tl-item"><div class="tl-year">2019</div><div class="tl-text"><strong>Leidos</strong>Federal Programs</div></div>
+    <div class="tl-item"><div class="tl-year">2020</div><div class="tl-text"><strong>Oversight Systems</strong>Federal Team Lead · GSA SmartPay 3</div></div>
+    <div class="tl-item"><div class="tl-year">2026</div><div class="tl-text"><strong>Amber's Angels Inc.</strong>Founded · 501(c)(3) · Carrollton pilot active</div></div>
+  </div>
+</section>
 
-  <div class="page-header">
-    <div>
-      <div class="tag">About the Founder</div>
-      <h1>Grant Lindberg<br /><em>Executive Director</em></h1>
-      <div class="title">Founder &amp; Executive Director &mdash; Amber&rsquo;s Angels</div>
-      <div class="badges">
-        <span class="badge">US Army Veteran</span>
-        <span class="badge">Sergeant First Class (E-7)</span>
-        <span class="badge">NSA &bull; Fourth Amendment Auditor</span>
-        <span class="badge">SDVOSB Founder</span>
+<main class="main">
+
+  <div class="section">
+    <p class="section-label">Background</p>
+    <h2 class="section-title">From air defense to child safety.</h2>
+    <div class="section-rule"></div>
+    <p class="body-text">
+      Grant served 11.5 years in the U.S. Army, making Sergeant First Class in nine years.
+      He began in air defense artillery, was selected to serve in the
+      <strong>U.S. Army Space and Missile Defense Command</strong> in 2010, then selected
+      for military intelligence and attended the Defense Language Institute in 2013 for Korean.
+      His final posting was with an <strong>aerial exploitation battalion in Korea</strong>,
+      supporting intelligence collection activities — and as part of that role, auditing
+      collected intelligence to ensure compliance with Fourth Amendment standards.
+    </p>
+    <p class="body-text">
+      After separating in 2016, Grant joined MasterCard as a DB2 database administrator,
+      then led the scrum organization for their GDPR compliance implementation. He contracted
+      with Leidos on federal programs, and has been at Oversight Systems in Atlanta since 2020 —
+      leading the federal customer team and managing the engagement with the
+      <strong>GSA SmartPay 3 program</strong>, the largest commercial charge card program
+      in the federal government.
+    </p>
+    <p class="body-text">
+      The concept for Amber's Angels formed in 2016, when Grant acquired his first DJI drone
+      and recognized that a live video feed could be directed to any analysis pipeline.
+      He connected that with commercial advances in LPR and OCR technology and built toward
+      a platform until the technology was ready to execute the vision properly.
+    </p>
+  </div>
+
+  <div class="pull-quote section">
+    <blockquote>
+      "Privacy-first isn't a marketing decision. It's what you build when you've spent
+      years auditing the boundary between lawful collection and constitutional violation."
+      <cite>— Grant Lindberg, on his aerial exploitation battalion role in Korea</cite>
+    </blockquote>
+  </div>
+
+  <div class="section">
+    <p class="section-label">Organizational Standing</p>
+    <h2 class="section-title">Built to withstand scrutiny.</h2>
+    <div class="section-rule"></div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">Federal Status</div>
+        <div class="card-value">501(c)(3)</div>
+        <div class="card-sub">IRS determination confirmed · EIN 42-2052151</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Federal Grants</div>
+        <div class="card-value">SAM Registered</div>
+        <div class="card-sub">UEI NS2YDNMAWTM8 · DUNS 145024922 · Fully eligible</div>
+      </div>
+      <div class="card">
+        <div class="card-label">State</div>
+        <div class="card-value">GA Incorporated</div>
+        <div class="card-sub">Domestic Nonprofit · SOS Control 26087367 · April 2026</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Coverage</div>
+        <div class="card-value">Insured</div>
+        <div class="card-sub">General liability + UAS drone coverage · COI on request</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Veteran Status</div>
+        <div class="card-value">SDVOSB</div>
+        <div class="card-sub">SBA certification in progress · VA 100% P&amp;T confirmed</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Platform</div>
+        <div class="card-value">Open Source</div>
+        <div class="card-sub">Full codebase on GitHub · Transparent and auditable</div>
       </div>
     </div>
   </div>
 
-  <div class="body-grid">
-
-    <div class="bio">
-      <h2>From air defense to child safety</h2>
-      <p>
-        Grant served 11.5 years in the U.S. Army, making Sergeant First Class (E-7) in nine years.
-        He started as an air defense artillery specialist, moved to <strong>US Army Space Command</strong>
-        in 2010, and attended the <strong>Defense Language Institute</strong> in 2013 for Korean. His final
-        posting was NSA Korea, where one of his roles was as a <strong>Fourth Amendment auditor</strong>
-        &mdash; reviewing signals collection activities for legal and constitutional compliance.
-      </p>
-
-      <div class="pull-quote">
-        <p>
-          &ldquo;The privacy-first architecture in this platform isn&rsquo;t a marketing decision.
-          It&rsquo;s what someone builds when they&rsquo;ve spent years on the other side of that question.&rdquo;
-        </p>
-      </div>
-
-      <p>
-        After separating in 2016, Grant joined <strong>MasterCard</strong> as a DB2 database
-        administrator, then led the scrum organization for their GDPR compliance implementation.
-        He contracted with <strong>Leidos</strong> on federal programs, and has been at
-        <strong>Oversight Systems</strong> in Atlanta since 2020 &mdash; leading the federal
-        customer team and managing the engagement with the GSA SmartPay 3 program, the largest
-        commercial charge card program in the federal government.
-      </p>
-
-      <p>
-        The concept for Amber&rsquo;s Angels formed in 2016, when Grant acquired his first DJI
-        drone and recognized that the live video feed could be directed to any analysis pipeline.
-        At the same time, he was tracking commercial advances in LPR and OCR technology. He
-        connected the two ideas and built toward a platform until the technology was ready to
-        execute the vision properly.
-      </p>
-
-      <p>
-        Grant lives in Carrollton, Georgia with his wife Kessie &mdash; also a U.S. Army veteran
-        and Korean linguist &mdash; and their five daughters.
-        <span class="highlight"> That last part isn&rsquo;t incidental.</span>
-      </p>
+  <div class="section">
+    <p class="section-label">Contact</p>
+    <h2 class="section-title">Get in touch.</h2>
+    <div class="section-rule"></div>
+    <div class="contact-grid">
+      <div class="contact-item"><h4>Email</h4><p><a href="mailto:info@amberangels.org">info@amberangels.org</a></p></div>
+      <div class="contact-item"><h4>Website</h4><p><a href="https://amberangels.org" target="_blank">amberangels.org</a></p></div>
+      <div class="contact-item"><h4>Address</h4><p>103 Springwood Dr<br>Carrollton, GA 30117</p></div>
+      <div class="contact-item"><h4>EIN</h4><p>42-2052151</p></div>
     </div>
-
-    <div class="creds">
-      <div class="creds-label">Service &amp; Career</div>
-
-      <div class="cred-row">
-        <span class="cred-year">2004</span>
-        <span class="cred-text">Enlisted, US Army &bull; Air Defense Artillery</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2007</span>
-        <span class="cred-text">Soldier of the Year</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2010</span>
-        <span class="cred-text">US Army Space Command</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2013</span>
-        <span class="cred-text">Defense Language Institute &bull; Korean</span>
-      </div>
-      <div class="cred-row amber">
-        <span class="cred-year">2013</span>
-        <span class="cred-text">NSA Korea &bull; Fourth Amendment Auditor</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2016</span>
-        <span class="cred-text">Separated at E-7 &bull; 11.5 years served</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2016</span>
-        <span class="cred-text">MasterCard &bull; DB2 DBA &rarr; GDPR Scrum Master</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2019</span>
-        <span class="cred-text">Leidos &bull; Federal Contract</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2020</span>
-        <span class="cred-text">Oversight Systems &bull; Federal Team Lead, SmartPay&nbsp;3</span>
-      </div>
-
-      <div class="cred-divider"></div>
-
-      <div class="cred-row">
-        <span class="cred-year">2016</span>
-        <span class="cred-text">Amber&rsquo;s Angels &bull; concept born</span>
-      </div>
-      <div class="cred-row">
-        <span class="cred-year">2024</span>
-        <span class="cred-text">Platform live &bull; Carrollton pilot active</span>
-      </div>
-
-      <div class="contact-block">
-        <strong style="color: var(--text-muted); display: block; margin-bottom: 6px;">Contact</strong>
-        <a href="mailto:info@amberangels.org">info@amberangels.org</a><br />
-        103 Springwood Dr, Carrollton, GA 30117<br />
-        EIN 42-2052151 &bull; 501(c)(3) Approved
-      </div>
-    </div>
-
   </div>
 
-  <footer>
-    <span>Amber&rsquo;s Angels &bull; amberangels.org</span>
-    <div style="display:flex; gap: 20px;">
-      <a href="/">Home</a>
-      <a href="/privacy">Privacy Policy</a>
-      <a href="mailto:info@amberangels.org">Contact</a>
-    </div>
-  </footer>
+  <div class="daughters-line">
+    <p>Grant lives in Carrollton with his wife Kessie — also a U.S. Army veteran and Korean linguist — and their <strong>five daughters</strong>. That last part isn't incidental.</p>
+  </div>
 
-</div>
+</main>
+
+<script>
+  const sections = document.querySelectorAll('.section');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+  sections.forEach(s => obs.observe(s));
+</script>
 
 </body>
 </html>
