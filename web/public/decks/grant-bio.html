@@ -12,11 +12,13 @@
   --navy-mid:#1E3A5F;
   --amber:   #D97706;
   --amber-l: #F59E0B;
-  --cream:   #FAF7F2;
-  --warm:    #F3EDE3;
-  --text:    #1C1917;
-  --muted:   #6B7280;
-  --rule:    #D4C9B8;
+  --cream:   #050a0f;
+  --warm:    #0d1117;
+  --text:    rgba(255,255,255,0.92);
+  --muted:   rgba(255,255,255,0.55);
+  --dim:     rgba(255,255,255,0.35);
+  --rule:    rgba(255,255,255,0.08);
+  --border:  rgba(255,255,255,0.08);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -217,7 +219,7 @@ body {
   font-family: 'Playfair Display', serif;
   font-size: 22pt;
   font-weight: 700;
-  color: var(--navy);
+  color: rgba(255,255,255,0.95);
   line-height: 1.2;
   margin-bottom: 20px;
 }
@@ -232,12 +234,12 @@ body {
 .body-text {
   font-size: 11pt;
   line-height: 1.85;
-  color: #2C2416;
+  color: var(--muted);
   margin-bottom: 16px;
   max-width: 680px;
 }
 
-.body-text strong { color: var(--navy); font-weight: 600; }
+.body-text strong { color: rgba(255,255,255,0.92); font-weight: 600; }
 
 .pull-quote {
   background: var(--navy);
@@ -278,7 +280,7 @@ body {
 
 .card {
   background: var(--warm);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border);
   padding: 20px 22px;
   transition: border-color 0.25s ease, transform 0.25s ease;
 }
@@ -298,7 +300,7 @@ body {
   font-family: 'Playfair Display', serif;
   font-size: 13pt;
   font-weight: 700;
-  color: var(--navy);
+  color: rgba(255,255,255,0.92);
   margin-bottom: 4px;
   line-height: 1.2;
 }
@@ -320,13 +322,13 @@ body {
   font-size: 8pt;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--dim);
   margin-bottom: 6px;
 }
 
 .contact-item p, .contact-item a {
   font-size: 10.5pt;
-  color: var(--navy);
+  color: rgba(255,255,255,0.85);
   text-decoration: none;
 }
 
