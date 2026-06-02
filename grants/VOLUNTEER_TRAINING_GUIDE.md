@@ -85,7 +85,7 @@ Coordinators review AI-flagged detections and decide whether to escalate to law 
 
 1. Download the **Amber's Angels** app from the App Store (iOS) or Google Play (Android)
 2. Create an account using the email address you registered with
-3. Complete identity verification in-app (you will be prompted to upload your ID)
+3. Review and accept the Terms of Service when prompted
 4. Wait for account approval — you will receive an email within 48–72 hours
 5. Once approved, complete the in-app training module before your first mission
 
