@@ -1468,20 +1468,28 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           Legend
         </div>
         {[
-          { color: "#ff6b35",          label: "Flock (agency-tagged)" },
-          { color: "rgba(255,107,53,0.3)", label: "DeFlock (community)" },
-          { color: "#ef4444", label: "Road — no cameras" },
-          { color: "#f59e0b", label: "Road — sparse (1 camera)" },
-          { color: "#38bdf8", label: "Road — covered (2+)" },
-          { color: "#7b61ff", label: "Active Drone" },
-          { color: "#f59e0b", label: "Swarm Drone (home)", square: true },
-          { color: "#ff3355", label: "Watchlist Hit" },
-          { color: "#38bdf8", label: "Flight Trail" },
-          { color: "#e2e8f0", label: "Aircraft (ADS-B)" },
-          { color: "#ef4444", label: "Aircraft <500 ft" },
-        ].map(({ color, label, square }) => (
+          layers.flock    && { color: "#ff6b35",              label: "Flock camera" },
+          layers.flock    && { color: "rgba(255,107,53,0.3)", label: "DeFlock (community)" },
+          layers.coverage && { color: "#ef4444", label: "Road — no cameras" },
+          layers.coverage && { color: "#f59e0b", label: "Road — sparse" },
+          layers.coverage && { color: "#38bdf8", label: "Road — covered" },
+          layers.drones   && { color: "#a78bfa", label: "Active Drone" },
+          layers.swarm    && { color: "#f59e0b", label: "Swarm Drone", square: true },
+          layers.hits     && { color: "#ef4444", label: "Watchlist Hit" },
+          trails.length > 0 && { color: "#38bdf8", label: "Flight Trail" },
+          layers.airspace && { color: "#e2e8f0", label: "Aircraft (ADS-B)" },
+          layers.airspace && { color: "#ef4444", label: "Aircraft <500 ft" },
+          atRiskIcaos.size > 0 && { color: "#ef4444", label: "Conflict risk", ring: true },
+        ].filter(Boolean).map(({ color, label, square, ring }: { color: string; label: string; square?: boolean; ring?: boolean }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: square ? 2 : "50%", background: color, opacity: square ? 0.7 : 1, flexShrink: 0 }} />
+            <div style={{
+              width: 10, height: 10,
+              borderRadius: square ? 2 : "50%",
+              background: ring ? "transparent" : color,
+              border: ring ? `2px solid ${color}` : undefined,
+              opacity: square ? 0.7 : 1,
+              flexShrink: 0,
+            }} />
             <span>{label}</span>
           </div>
         ))}
