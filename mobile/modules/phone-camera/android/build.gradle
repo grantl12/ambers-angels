@@ -20,7 +20,9 @@ android {
 dependencies {
     compileOnly 'com.facebook.react:react-android:+'
 
-    // GPS updates (LocationManager is framework API — no dep needed)
-    // OkHttp for multipart frame upload — also a transitive RN dep
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+    // On-device text recognition — plate OCR runs entirely on the device,
+    // no frames transmitted to any server.
+    implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.0'
 }

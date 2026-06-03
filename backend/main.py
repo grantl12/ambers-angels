@@ -550,6 +550,65 @@ async def ingest_frame(
     return {"status": "ok", "outcomes": outcomes, "capture_interval_ms": interval_ms}
 
 
+@app.post("/ingest/detection")
+async def ingest_detection(
+    drone_id:         str            = Form(...),
+    plate_text:       str            = Form(...),
+    plate_confidence: float          = Form(0.70),
+    lat:              Optional[float] = Form(None),
+    lng:              Optional[float] = Form(None),
+    altitude:         Optional[float] = Form(None),
+    heading:          Optional[float] = Form(None),
+    speed:            Optional[float] = Form(None),
+    pilot_id:         Optional[str]   = Form(None),
+    source:           str             = Form("phone_mlkit"),
+    _pilot: dict = Depends(get_current_pilot),
+):
+    """
+    On-device detection result from ML Kit OCR.
+    No image transmitted — plate text + confidence only.
+    Privacy-preserving: raw frames never leave the device.
+    Feeds into the same AggregationService pipeline as frame-based detections.
+    """
+    plate = plate_text.strip().upper().replace(" ", "").replace("-", "")
+    if not plate or not (2 <= len(plate) <= 10):
+        return {"status": "skipped", "reason": "invalid_plate", "watchlist_hit": False}
+
+    ts = datetime.now(timezone.utc)
+
+    det = AggDetectionInput(
+        detection_id = str(uuid.uuid4()),
+        frame_id     = str(uuid.uuid4()),
+        drone_id     = drone_id,
+        detected_at  = ts,
+        plate_raw    = plate,
+        confidence   = plate_confidence * 100,  # normalize to 0-100 scale
+        quality_flags= [],
+        telemetry    = {"lat": lat, "lon": lng},
+        vehicle_color= None,
+        vehicle_type = None,
+        vehicle_make = None,
+        vehicle_model= None,
+        yolo_conf    = 0.0,
+        cdc_label    = None,
+        cdc_conf     = 0.0,
+    )
+
+    snapshot = _aggregation_service.ingest(det)
+    watchlist_hit = False
+    if snapshot:
+        service = EventService(
+            repository=EventRepository(database.AsyncSessionLocal),
+            dispatcher=_alert_dispatcher,
+        )
+        decision = await service.upsert_from_snapshot(snapshot)
+        if decision:
+            status = decision.event.status if hasattr(decision.event, "status") else decision.event.get("status", "")
+            watchlist_hit = status in ("alerted", "probable")
+
+    return {"status": "ingested", "watchlist_hit": watchlist_hit}
+
+
 def _require_worker_or_pilot(
     request: Request,
     creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),

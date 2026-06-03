@@ -3,11 +3,15 @@ package com.ambersangels.phonecamera
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.media.ImageReader
 import android.os.*
 import androidx.core.app.NotificationCompat
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -161,7 +165,8 @@ class ScanService : Service() {
             val lat = lastLat; val lng = lastLng
             val alt = lastAlt; val hdg = lastHeading
             val spd = lastSpeed; val acc = lastAccuracy
-            uploadExecutor.execute { uploadFrame(bytes, lat, lng, alt, hdg, spd, acc) }
+            // On-device OCR — no raw image leaves the phone
+            runOcrAndPost(bytes, lat, lng, alt, hdg, spd, acc)
         }, cameraHandler)
 
         try {
@@ -208,54 +213,108 @@ class ScanService : Service() {
     }
 
     // =========================================================================
-    // Upload
+    // On-device OCR → result-only POST (no raw frames transmitted)
     // =========================================================================
 
-    private fun uploadFrame(
+    // US plate heuristic: 4–8 alphanumeric chars, must have at least one letter
+    // and one digit. Rejects pure words, pure numbers, and very short strings.
+    private val PLATE_RE = Regex("^[A-Z0-9]{2,4}[A-Z0-9]{2,4}$")
+    private val COMMON_WORDS = setOf(
+        "STOP", "SLOW", "EXIT", "LANE", "ONLY", "TURN", "KEEP", "RIGHT", "LEFT",
+        "FORD", "JEEP", "HONDA", "TOYOTA", "CHEVY", "DODGE", "NULL", "NONE",
+    )
+
+    private fun isPlateCandidate(raw: String): Boolean {
+        val s = raw.trim().uppercase().replace(Regex("[^A-Z0-9]"), "")
+        if (s.length < 4 || s.length > 8) return false
+        if (s.all { it.isDigit() }) return false          // all-numeric unlikely
+        if (s.all { it.isLetter() } && s.length > 4) return false  // long pure-alpha = word
+        if (COMMON_WORDS.contains(s)) return false
+        return PLATE_RE.matches(s)
+    }
+
+    private fun runOcrAndPost(
         jpeg: ByteArray,
         lat: Double?, lng: Double?, alt: Double?,
-        heading: Float?, speed: Float?, accuracy: Float?
+        heading: Float?, speed: Float?, accuracy: Float?,
+    ) {
+        val bitmap = try {
+            BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+        } catch (_: Exception) { null }
+
+        if (bitmap == null) { inFlight.set(false); return }
+
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+        recognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                // Collect all text blocks, filter for plate candidates
+                val candidates = visionText.textBlocks
+                    .flatMap { block -> block.lines }
+                    .filter { line ->
+                        val conf = line.confidence ?: 0f
+                        conf >= 0.55f && isPlateCandidate(line.text)
+                    }
+                    .sortedByDescending { it.confidence ?: 0f }
+
+                if (candidates.isNotEmpty()) {
+                    val best    = candidates.first()
+                    val plate   = best.text.trim().uppercase().replace(Regex("[^A-Z0-9]"), "")
+                    val conf    = (best.confidence ?: 0.70f).toDouble()
+                    uploadExecutor.execute {
+                        postDetection(plate, conf, lat, lng, alt, heading, speed, accuracy)
+                    }
+                } else {
+                    inFlight.set(false)
+                }
+            }
+            .addOnFailureListener { inFlight.set(false) }
+    }
+
+    private fun postDetection(
+        plateText: String, confidence: Double,
+        lat: Double?, lng: Double?, alt: Double?,
+        heading: Float?, speed: Float?, accuracy: Float?,
     ) {
         try {
-            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("file", "frame.jpg",
-                    jpeg.toRequestBody("image/jpeg".toMediaType()))
-                .addFormDataPart("drone_id", droneId)
-                .addFormDataPart("source",   "phone_gps")
+            val body = FormBody.Builder()
+                .add("drone_id",         droneId)
+                .add("plate_text",       plateText)
+                .add("plate_confidence", confidence.toString())
+                .add("source",           "phone_mlkit")
                 .apply {
-                    if (pilotId.isNotBlank()) addFormDataPart("pilot_id", pilotId)
+                    if (pilotId.isNotBlank()) add("pilot_id", pilotId)
                     if (lat != null && lng != null) {
-                        addFormDataPart("lat", lat.toString())
-                        addFormDataPart("lng", lng.toString())
-                        alt?.let     { addFormDataPart("altitude", it.toString()) }
-                        heading?.let { addFormDataPart("heading",  it.toString()) }
-                        speed?.let   { addFormDataPart("speed",    it.toString()) }
-                        accuracy?.let{ addFormDataPart("accuracy", it.toString()) }
+                        add("lat", lat.toString())
+                        add("lng", lng.toString())
+                        alt?.let     { add("altitude", it.toString()) }
+                        heading?.let { add("heading",  it.toString()) }
+                        speed?.let   { add("speed",    it.toString()) }
+                        accuracy?.let{ add("accuracy", it.toString()) }
                     }
                 }
                 .build()
 
             val req = Request.Builder()
-                .url("$apiBase/ingest/frame")
+                .url("$apiBase/ingest/detection")
                 .post(body)
                 .build()
 
             http.newCall(req).execute().use { resp ->
                 if (resp.isSuccessful) {
                     val n = framesUploaded.incrementAndGet()
-                    updateNotification("Scanning  •  $n frames")
-                    // Adaptive interval: server hints how fast to capture next frame
-                    try {
-                        val bodyStr = resp.body?.string()
-                        if (bodyStr != null) {
-                            val hint = org.json.JSONObject(bodyStr).optLong("capture_interval_ms", 0L)
-                            if (hint in 500L..5000L) intervalMs = hint
-                        }
-                    } catch (_: Exception) {}
+                    val isHit = try {
+                        org.json.JSONObject(resp.body?.string() ?: "{}").optBoolean("watchlist_hit", false)
+                    } catch (_: Exception) { false }
+                    updateNotification(
+                        if (isHit) "🚨 WATCHLIST HIT — $plateText"
+                        else "Scanning  •  $n plates read"
+                    )
                 }
             }
         } catch (_: IOException) {
-            // Non-fatal — will retry next interval
+            // Non-fatal — retry next interval
         } finally {
             inFlight.set(false)
         }
