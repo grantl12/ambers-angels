@@ -105,8 +105,8 @@ export type LayerState = {
 export default function MapPage() {
   const [layers, setLayers] = useState<LayerState>({
     flock: false,
-    coverage: true,
-    zones: true,
+    coverage: false,
+    zones: false,
     drones: true,
     swarm: true,
     hits: true,

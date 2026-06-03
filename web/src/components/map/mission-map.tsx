@@ -67,9 +67,11 @@ type ConflictInfo = {
   droneId: string
   icao24:   string
   callsign: string | null
-  tSec:     number  // seconds to closest point of approach
+  tSec:     number
   hMeters:  number
   vMeters:  number
+  lat:      number
+  lng:      number
 }
 
 function computeConflicts(drones: DronePosition[], aircraft: Aircraft[]): ConflictInfo[] {
@@ -99,7 +101,7 @@ function computeConflicts(drones: DronePosition[], aircraft: Aircraft[]): Confli
       const vM = Math.abs(dpz)
 
       if (hM < CONFLICT_H_M && vM < CONFLICT_V_M) {
-        out.push({ droneId: d.droneId, icao24: ac.icao24, callsign: ac.callsign, tSec: Math.round(t), hMeters: Math.round(hM), vMeters: Math.round(vM) })
+        out.push({ droneId: d.droneId, icao24: ac.icao24, callsign: ac.callsign, tSec: Math.round(t), hMeters: Math.round(hM), vMeters: Math.round(vM), lat: ac.lat, lng: ac.lng })
       }
     }
   }
@@ -1366,26 +1368,33 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
 
       {/* ── CONFLICT WARNING BANNER ── */}
       {conflicts.length > 0 && (
-        <div style={{
-          position: "absolute",
-          top: 48,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 15,
-          background: "rgba(239,68,68,0.12)",
-          border: "1px solid rgba(239,68,68,0.55)",
-          borderRadius: 6,
-          padding: "5px 14px",
-          fontSize: 11,
-          fontWeight: 700,
-          color: "#fca5a5",
-          backdropFilter: "blur(8px)",
-          whiteSpace: "nowrap",
-          maxWidth: "calc(100vw - 24px)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          letterSpacing: "0.5px",
-        }}>
+        <div
+          onClick={() => {
+            const c = conflicts[0]
+            mapRef.current?.flyTo({ center: [c.lng, c.lat], zoom: 13, duration: 1000 })
+          }}
+          style={{
+            position: "absolute",
+            top: 48,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 15,
+            background: "rgba(239,68,68,0.12)",
+            border: "1px solid rgba(239,68,68,0.55)",
+            borderRadius: 6,
+            padding: "5px 14px",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#fca5a5",
+            backdropFilter: "blur(8px)",
+            whiteSpace: "nowrap",
+            maxWidth: "calc(100vw - 24px)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            letterSpacing: "0.5px",
+            cursor: "pointer",
+          }}
+        >
           ✈ CONFLICT · {conflicts.slice(0, 2).map((c) =>
             `${c.droneId} ↔ ${c.callsign?.trim() || c.icao24} · T${c.tSec}s · ${c.hMeters}m`
           ).join("  |  ")}

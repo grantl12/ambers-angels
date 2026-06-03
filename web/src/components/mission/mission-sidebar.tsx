@@ -123,13 +123,11 @@ type Props = {
 }
 
 const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = [
-  { key: "flock",    label: "Coverage Planner",     color: "bg-orange-400" },
-  { key: "coverage", label: "Road Coverage",        color: "bg-orange-400/40" },
-  { key: "zones",    label: "Dark Roads (Pilot)",   color: "bg-red-500" },
-  { key: "drones",   label: "Active Drones",        color: "bg-violet-400" },
-  { key: "swarm",    label: "Swarm Drones",         color: "bg-amber-400" },
-  { key: "hits",     label: "Watchlist Hits",       color: "bg-red-400" },
-  { key: "airspace", label: "Air Traffic",           color: "bg-sky-300" },
+  { key: "flock",    label: "Coverage Planner", color: "bg-orange-400" },
+  { key: "drones",   label: "Active Drones",    color: "bg-violet-400" },
+  { key: "swarm",    label: "Swarm Drones",     color: "bg-amber-400" },
+  { key: "hits",     label: "Watchlist Hits",   color: "bg-red-400" },
+  { key: "airspace", label: "Air Traffic",       color: "bg-sky-300" },
 ]
 
 export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, flockBbox, onFlockSearch }: Props) {
@@ -443,6 +441,45 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
           </div>
         )}
       </div>
+
+      {/* Active FEMA alerts */}
+      {femaAlerts.length > 0 && (
+        <div className="px-4 py-3 border-b border-white/10 shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs uppercase tracking-widest text-white/40">Active Alerts</div>
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+              {femaAlerts.length}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {femaAlerts.map((alert) => {
+              const hasLocation = alert.centroidLat != null && alert.centroidLng != null
+              const BADGE: Record<string, string> = { amber: "bg-amber-500 text-black", silver: "bg-slate-400 text-black", blue: "bg-blue-500 text-white", matties: "bg-red-600 text-white", purple: "bg-purple-500 text-white" }
+              const badgeClass = BADGE[alert.alertType] ?? "bg-amber-500 text-black"
+              return (
+                <div
+                  key={alert.id}
+                  onClick={() => hasLocation && onFlyTo?.(alert.centroidLat!, alert.centroidLng!)}
+                  className={`rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs ${hasLocation ? "cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/10" : ""} transition-colors`}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${badgeClass}`}>
+                      {alert.alertType}
+                    </span>
+                    {hasLocation && <span className="text-amber-400/50 text-[10px]">↗ fly to</span>}
+                  </div>
+                  <div className="text-white/80 font-medium leading-tight">
+                    {alert.headline || alert.area || alert.alertType.toUpperCase()}
+                  </div>
+                  {alert.area && alert.headline && (
+                    <div className="text-white/35 mt-0.5 truncate">{alert.area}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Swarm missions */}
       <SwarmMissionsPanel

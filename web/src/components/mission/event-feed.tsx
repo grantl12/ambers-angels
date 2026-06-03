@@ -318,15 +318,20 @@ function NcmecCard({ c, onFlyTo }: { c: NcmecCase; onFlyTo?: (c: NcmecCase) => v
             {daysAgo != null && <span className="text-white/25"> · {daysAgo}d ago</span>}
           </div>
         )}
-        <a
-          href={c.posterUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="mt-2 inline-block text-[10px] text-teal-400/60 hover:text-teal-300 transition-colors"
-        >
-          View poster ↗
-        </a>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-white/5 border border-white/10 text-white/30">
+            No vehicle data
+          </span>
+          <a
+            href={c.posterUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[10px] text-teal-400/60 hover:text-teal-300 transition-colors"
+          >
+            View poster ↗
+          </a>
+        </div>
       </div>
     </div>
   )
