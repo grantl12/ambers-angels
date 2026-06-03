@@ -17,6 +17,7 @@ const DECKS = [
   { label: 'Technical',         href: '/deck/tech'                 },
   { label: 'Volunteer Stories', href: '/deck/stories'              },
   { label: 'About the Founder', href: '/deck/about'                },
+  { label: 'Partnership',       href: '/deck/partnership'          },
 ]
 
 export default function LandingPage() {
