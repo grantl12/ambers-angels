@@ -497,14 +497,37 @@ async def ingest_frame(
 
     outcomes = []
 
+    # Compute Bayesian vehicle prior once per frame (vehicle attributes are shared)
+    _vcolor   = primary_vehicle.color     if primary_vehicle else None
+    _vtype    = primary_vehicle.body_type if primary_vehicle else None
+    _vmake    = getattr(primary_vehicle, 'make', None) if primary_vehicle else None
+    _prior_w  = 1.0
+    try:
+        from services.vehicle_priors import get_prior_weight as _get_prior
+        # Derive alert_type from active watchlist entries for the detected plate(s)
+        # For now use 'amber' as the dominant type if any amber alert is active
+        _sync_db_local = database.SessionLocal()
+        try:
+            _at_row = _sync_db_local.execute(text(
+                "SELECT alert_type FROM watchlist WHERE active = TRUE ORDER BY "
+                "CASE alert_type WHEN 'amber' THEN 0 WHEN 'matties' THEN 1 "
+                "WHEN 'silver' THEN 2 ELSE 3 END LIMIT 1"
+            )).fetchone()
+            _active_type = _at_row[0] if _at_row else "all"
+        finally:
+            _sync_db_local.close()
+        _prior_w = _get_prior(_active_type, _vcolor, _vtype, _vmake)
+    except Exception:
+        pass  # Prior is optional — never block inference on it
+
     # Process each plate result into the aggregation service
     for plate_res in results.get("results", []):
         plate_text = plate_res.get("plate", "").upper()
         if not plate_text:
             continue
-            
+
         pr = pr_by_plate.get(plate_text)
-        
+
         # Build the detection input for the 5-second aggregator
         det = AggDetectionInput(
             detection_id=str(uuid.uuid4()),
@@ -518,15 +541,17 @@ async def ingest_frame(
             bbox=plate_res.get("coordinates"),
             alpr_payload=plate_res,
             # Broad classification (YOLO)
-            vehicle_color=primary_vehicle.color if primary_vehicle else None,
-            vehicle_type=primary_vehicle.body_type if primary_vehicle else None,
+            vehicle_color=_vcolor,
+            vehicle_type=_vtype,
             yolo_conf=primary_vehicle.yolo_conf if primary_vehicle else 0.0,
             # Fine-grained classification (CDC)
             cdc_label=primary_vehicle.cdc_label if primary_vehicle else None,
             cdc_conf=primary_vehicle.cdc_conf if primary_vehicle else 0.0,
             # Make/Model (Cloud API enrichment if high confidence)
-            vehicle_make=getattr(pr, 'make', None) if pr else None,
+            vehicle_make=getattr(pr, 'make', None) if pr else _vmake,
             vehicle_model=getattr(pr, 'model', None) if pr else None,
+            # Bayesian vehicle prior
+            prior_weight=_prior_w,
         )
 
         snapshot = _aggregation_service.ingest(det)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -79,6 +80,8 @@ class DetectionInput:
     # Cascade Stage 2: CDC
     cdc_label:     str | None = None
     cdc_conf:      float = 0.0
+    # Bayesian vehicle prior (geometric mean across active alert profiles)
+    prior_weight:  float = 1.0
 
     @property
     def plate_normalized(self) -> str:
@@ -359,6 +362,12 @@ class ActiveDetectionGroup:
 
         vehicle_bonus, vehicle_detail = _vehicle_corroboration_bonus(self.detections)
 
+        # Bayesian prior bonus: geometric mean of prior_weight across the group.
+        # log2 scale → prior=3.67 (minivan/AMBER) adds +6.9 pts; prior=0.5 subtracts 4 pts.
+        prior_weights = [d.prior_weight for d in self.detections if d.prior_weight != 1.0]
+        group_prior = (math.prod(prior_weights) ** (1 / len(prior_weights))) if prior_weights else 1.0
+        prior_bonus = round(math.log2(max(0.1, min(10.0, group_prior))) * 4.0, 3)
+
         aggregate_confidence = min(
             99.0,
             max(
@@ -369,6 +378,7 @@ class ActiveDetectionGroup:
                 + repetition_bonus
                 + consistency_bonus
                 + vehicle_bonus
+                + prior_bonus
                 - penalty,
             )
         )
@@ -425,6 +435,8 @@ class ActiveDetectionGroup:
             "repetition_bonus": repetition_bonus,
             "consistency_bonus": consistency_bonus,
             "vehicle_corroboration": vehicle_detail,
+            "prior_bonus": prior_bonus,
+            "group_prior_weight": round(group_prior, 4),
             "quality_penalty": penalty,
             "top_hypotheses": [
                 {

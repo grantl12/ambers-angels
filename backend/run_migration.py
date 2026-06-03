@@ -156,6 +156,25 @@ UPDATE vehicle_targets SET source = 'manual' WHERE source_program IN ('manual','
 -- NCMEC vehicle extraction fields
 ALTER TABLE ncmec_cases ADD COLUMN IF NOT EXISTS vehicle_description TEXT;
 ALTER TABLE ncmec_cases ADD COLUMN IF NOT EXISTS vehicle_plate       VARCHAR(32);
+
+-- Vehicle alert priors: Bayesian prior weights by alert type + vehicle attribute
+-- prior_weight = incident_pct / population_pct
+-- > 1.0 = over-represented in this alert type vs national fleet
+-- < 1.0 = under-represented
+CREATE TABLE IF NOT EXISTS vehicle_alert_priors (
+    id              SERIAL PRIMARY KEY,
+    alert_type      VARCHAR(20)  NOT NULL DEFAULT 'all',
+    attribute_type  VARCHAR(20)  NOT NULL,  -- 'body_type' | 'color' | 'make'
+    attribute_value VARCHAR(50)  NOT NULL,
+    incident_pct    FLOAT        NOT NULL,  -- % of this alert type with this attribute
+    population_pct  FLOAT        NOT NULL,  -- % of national fleet with this attribute
+    prior_weight    FLOAT        NOT NULL,  -- incident_pct / population_pct
+    source          VARCHAR(40)  NOT NULL DEFAULT 'public_data',
+    updated_at      TIMESTAMPTZ  DEFAULT NOW(),
+    UNIQUE (alert_type, attribute_type, attribute_value)
+);
+CREATE INDEX IF NOT EXISTS vehicle_alert_priors_lookup_idx
+    ON vehicle_alert_priors (alert_type, attribute_type, attribute_value);
 """
 
 try:
