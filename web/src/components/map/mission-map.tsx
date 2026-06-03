@@ -1480,7 +1480,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           layers.airspace && { color: "#e2e8f0", label: "Aircraft (ADS-B)" },
           layers.airspace && { color: "#ef4444", label: "Aircraft <500 ft" },
           atRiskIcaos.size > 0 && { color: "#ef4444", label: "Conflict risk", ring: true },
-        ].filter((x): x is { color: string; label: string; square?: boolean; ring?: boolean } => Boolean(x)).map(({ color, label, square, ring }) => (
+        ].filter(Boolean).map((x) => x as { color: string; label: string; square?: boolean; ring?: boolean }).map(({ color, label, square, ring }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
             <div style={{
               width: 10, height: 10,
