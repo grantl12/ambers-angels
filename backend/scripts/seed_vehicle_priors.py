@@ -142,7 +142,7 @@ def compute_from_internal(conn) -> list[tuple]:
         FROM vehicle_targets
         WHERE source_program = 'fema'
           AND color IS NOT NULL
-          AND created_at > NOW() - INTERVAL '365 days'
+          AND added_at > NOW() - INTERVAL '365 days'
         GROUP BY alert_type, color, body_type, make
         HAVING COUNT(*) >= 3
     """)).fetchall()
