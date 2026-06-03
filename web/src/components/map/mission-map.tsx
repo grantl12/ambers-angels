@@ -5,7 +5,8 @@ import type { MapRef } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 import { useMemo, useState, useRef, useEffect } from "react"
 import { env } from "@/lib/env"
-import { useLatestTelemetry, useTelemetryTrail } from "@/features/telemetry/api"
+import { useLatestTelemetry, useAllTelemetryTrails } from "@/features/telemetry/api"
+import type { DronePosition } from "@/features/telemetry/types"
 import { useDetectionsFeed, useWatchlist, useFemaAlerts } from "@/features/detections/api"
 import { useFlockCameras } from "@/features/flock/api"
 import type { FlockCamera, FlockBbox } from "@/features/flock/api"
@@ -52,6 +53,57 @@ function buildPieSlice(
 
   // pie slice: center → arc → back to center (closed ring)
   return [[cx, cy], ...arc, [cx, cy]]
+}
+
+// One color per drone trail — cycles if more drones than colors
+const TRAIL_COLORS = ["#38bdf8", "#a78bfa", "#34d399", "#fb923c", "#f472b6"]
+
+// CPA-based conflict thresholds (FAA Part 107 BVLOS separation)
+const CONFLICT_H_M = 152  // 500 ft horizontal
+const CONFLICT_V_M = 91   // 300 ft vertical
+const LOOKAHEAD_S  = 120  // 2-minute look-ahead
+
+type ConflictInfo = {
+  droneId: string
+  icao24:   string
+  callsign: string | null
+  tSec:     number  // seconds to closest point of approach
+  hMeters:  number
+  vMeters:  number
+}
+
+function computeConflicts(drones: DronePosition[], aircraft: Aircraft[]): ConflictInfo[] {
+  const out: ConflictInfo[] = []
+  for (const d of drones) {
+    if (d.lat == null || d.lng == null) continue
+    const dAlt = d.altitude ?? 0
+    const dSpd = d.speed    ?? 0
+    const dHdg = (d.heading ?? 0) * Math.PI / 180
+    for (const ac of aircraft) {
+      if (ac.altitudeM == null) continue
+      const cosLat = Math.cos(d.lat * Math.PI / 180)
+      const dpx = (d.lng - ac.lng) * 111_320 * cosLat
+      const dpy = (d.lat - ac.lat) * 111_320
+      const dpz = dAlt - ac.altitudeM
+
+      const aSpd = ac.velocityMs ?? 0
+      const aHdg = (ac.heading   ?? 0) * Math.PI / 180
+      const rvx  = dSpd * Math.sin(dHdg) - aSpd * Math.sin(aHdg)
+      const rvy  = dSpd * Math.cos(dHdg) - aSpd * Math.cos(aHdg)
+      const rvSq = rvx * rvx + rvy * rvy
+
+      let t = rvSq > 0.01 ? -(dpx * rvx + dpy * rvy) / rvSq : 0
+      t = Math.max(0, Math.min(LOOKAHEAD_S, t))
+
+      const hM = Math.sqrt((dpx + rvx * t) ** 2 + (dpy + rvy * t) ** 2)
+      const vM = Math.abs(dpz)
+
+      if (hM < CONFLICT_H_M && vM < CONFLICT_V_M) {
+        out.push({ droneId: d.droneId, icao24: ac.icao24, callsign: ac.callsign, tSec: Math.round(t), hMeters: Math.round(hM), vMeters: Math.round(vM) })
+      }
+    }
+  }
+  return out
 }
 
 type TimeRange = "all" | "24h" | "7d" | "30d"
@@ -107,7 +159,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
   const [dispatchMode, setDispatchMode]             = useState<"vlos" | "bvlos_tactical">("vlos")
 
   const { data: drones = [] }        = useLatestTelemetry()
-  const { data: trail }              = useTelemetryTrail("drone1", 30)
+  const { data: trails = [] }        = useAllTelemetryTrails(drones.map((d) => d.droneId))
   const { data: detections = [] }    = useDetectionsFeed(100)
   const { data: watchlist = [] }     = useWatchlist()
   // Flock cameras: load from explicit zip search bbox, or viewport when layer is on
@@ -150,20 +202,36 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
       })),
   }), [aircraftTrails])
 
+  // Airspace conflict detection — recomputes when drone or aircraft data changes
+  const conflicts = useMemo(() => {
+    if (!layers.airspace || drones.length === 0 || aircraft.length === 0) return [] as ConflictInfo[]
+    const nowMs = Date.now()
+    // Skip aircraft whose position fix is older than 5 minutes
+    const fresh = aircraft.filter((ac) => ac.timePosition == null || nowMs / 1000 - ac.timePosition < 300)
+    return computeConflicts(drones, fresh)
+  }, [drones, aircraft, layers.airspace])
+
+  const atRiskIcaos = useMemo(() => new Set(conflicts.map((c) => c.icao24)), [conflicts])
+
   const watchlistPlates = useMemo(
     () => new Set(watchlist.map((w) => w.plateText.toUpperCase())),
     [watchlist]
   )
 
-  // Flight trail GeoJSON
-  const trailGeoJson = useMemo(() => ({
-    type: "Feature" as const,
-    geometry: {
-      type: "LineString" as const,
-      coordinates: (trail?.points ?? []).map((p) => [p.lng, p.lat]),
-    },
-    properties: {},
-  }), [trail])
+  // Flight trails — one LineString per active drone, colored by TRAIL_COLORS index
+  const allTrailsGeoJson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: trails
+      .map((trail, i) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: trail.points.map((p) => [p.lng, p.lat]),
+        },
+        properties: { color: TRAIL_COLORS[i % TRAIL_COLORS.length] },
+      }))
+      .filter((f) => f.geometry.coordinates.length >= 2),
+  }), [trails])
 
   // Flock camera coverage — road strip oriented in camera heading direction.
   // All cameras are always included so pilots can plan around existing coverage.
@@ -413,18 +481,21 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
       >
         <NavigationControl position="top-right" />
 
-        {/* Flight trail */}
-        <Source id="trail" type="geojson" data={trailGeoJson}>
-          <Layer
-            id="trail-line"
-            type="line"
-            paint={{
-              "line-color": "#38bdf8",
-              "line-width": 2,
-              "line-opacity": 0.6,
-            }}
-          />
-        </Source>
+        {/* Flight trails — one per active pilot drone */}
+        {allTrailsGeoJson.features.length > 0 && (
+          <Source id="trails" type="geojson" data={allTrailsGeoJson}>
+            <Layer
+              id="trail-lines"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": ["get", "color"],
+                "line-width": 2,
+                "line-opacity": 0.6,
+              }}
+            />
+          </Source>
+        )}
 
         {/* Alert search zones (vehicle_targets with polygon — FEMA + manual) */}
         {alertZonesGeoJson.features.length > 0 && (
@@ -724,6 +795,17 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
               }}
             >
               <div style={{ position: "relative", width: 32, height: 32, cursor: "pointer" }}>
+                {/* Conflict ring — pulsing red when CPA threat detected */}
+                {atRiskIcaos.has(ac.icao24) && (
+                  <div className="animate-ping" style={{
+                    position: "absolute",
+                    inset: -6,
+                    borderRadius: "50%",
+                    border: "2px solid #ef4444",
+                    opacity: 0.8,
+                    pointerEvents: "none",
+                  }} />
+                )}
                 {/* Directional arrow rotates with heading */}
                 <svg
                   width="32"
@@ -1282,6 +1364,35 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         </div>
       )}
 
+      {/* ── CONFLICT WARNING BANNER ── */}
+      {conflicts.length > 0 && (
+        <div style={{
+          position: "absolute",
+          top: 48,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 15,
+          background: "rgba(239,68,68,0.12)",
+          border: "1px solid rgba(239,68,68,0.55)",
+          borderRadius: 6,
+          padding: "5px 14px",
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#fca5a5",
+          backdropFilter: "blur(8px)",
+          whiteSpace: "nowrap",
+          maxWidth: "calc(100vw - 24px)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          letterSpacing: "0.5px",
+        }}>
+          ✈ CONFLICT · {conflicts.slice(0, 2).map((c) =>
+            `${c.droneId} ↔ ${c.callsign?.trim() || c.icao24} · T${c.tSec}s · ${c.hMeters}m`
+          ).join("  |  ")}
+          {conflicts.length > 2 && `  +${conflicts.length - 2} more`}
+        </div>
+      )}
+
       {/* ── FILTER BAR ── */}
       <div
         style={{
@@ -1350,10 +1461,9 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
         {[
           { color: "#ff6b35",          label: "Flock (agency-tagged)" },
           { color: "rgba(255,107,53,0.3)", label: "DeFlock (community)" },
-          { color: "#ef4444", label: "Road — no coverage" },
-          { color: "#f97316", label: "Road — 1 camera" },
-          { color: "#f59e0b", label: "Road — 2 cameras" },
-          { color: "#22c55e", label: "Road — 3+ cameras" },
+          { color: "#ef4444", label: "Road — no cameras" },
+          { color: "#f59e0b", label: "Road — sparse (1 camera)" },
+          { color: "#38bdf8", label: "Road — covered (2+)" },
           { color: "#7b61ff", label: "Active Drone" },
           { color: "#f59e0b", label: "Swarm Drone (home)", square: true },
           { color: "#ff3355", label: "Watchlist Hit" },

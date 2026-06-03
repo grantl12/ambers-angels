@@ -11,8 +11,10 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import MapView, { Marker, Polygon, PROVIDER_DEFAULT } from 'react-native-maps'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   fetchAllDrones,
@@ -30,6 +33,7 @@ import {
   type OperationMode,
 } from '../api/autonomous'
 import { fetchFemaAlerts, type FemaAlert } from '../api/fema'
+import { fetchAirTraffic, type Aircraft } from '../api/airspace'
 
 const OPERATION_MODES: OperationMode[] = ['vlos', 'bvlos_tactical']
 
@@ -49,8 +53,15 @@ export default function CoordinatorDispatchScreen() {
   const [mode,      setMode]      = useState<OperationMode>('vlos')
   const [altitude,  setAltitude]  = useState('60')
   const [speed,     setSpeed]     = useState('8')
-  const [dispatching, setDispatching] = useState(false)
-  const [successId, setSuccessId] = useState<number | null>(null)
+  const [dispatching,     setDispatching]     = useState(false)
+  const [successId,       setSuccessId]       = useState<number | null>(null)
+
+  // Map picker + airspace advisory
+  const [showMapPicker,   setShowMapPicker]   = useState(false)
+  const [pickCoord,       setPickCoord]       = useState<{ latitude: number; longitude: number } | null>(null)
+  const [mapPickerRegion, setMapPickerRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null)
+  const [aircraftNearby,  setAircraftNearby]  = useState<Aircraft[]>([])
+  const [loadingAirspace, setLoadingAirspace] = useState(false)
 
   useEffect(() => {
     AsyncStorage.getItem('aa_token').then(setToken)
@@ -77,6 +88,34 @@ export default function CoordinatorDispatchScreen() {
     if (token) load()
   }, [token, load])
 
+  // Re-check airspace whenever obs point changes (debounced 800ms)
+  useEffect(() => {
+    if (!obsLat || !obsLng) { setAircraftNearby([]); return }
+    const lat = parseFloat(obsLat)
+    const lng = parseFloat(obsLng)
+    if (isNaN(lat) || isNaN(lng)) return
+    const buf = 0.09 // ~6 nm buffer
+    const timer = setTimeout(async () => {
+      setLoadingAirspace(true)
+      try {
+        const all = await fetchAirTraffic(lat - buf, lat + buf, lng - buf, lng + buf)
+        const nowSec = Date.now() / 1000
+        const R = 6_371_000
+        const nearby = all.filter((ac) => {
+          if (ac.altitudeM == null || ac.altitudeM > 914) return false
+          if (ac.timePosition != null && nowSec - ac.timePosition > 300) return false
+          const dLat = (ac.lat - lat) * Math.PI / 180
+          const dLng = (ac.lng - lng) * Math.PI / 180
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat * Math.PI / 180) * Math.cos(ac.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) < 9_260
+        })
+        setAircraftNearby(nearby)
+      } catch { setAircraftNearby([]) }
+      finally { setLoadingAirspace(false) }
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [obsLat, obsLng])
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     await load()
@@ -90,6 +129,7 @@ export default function CoordinatorDispatchScreen() {
     setObsLng('')
     setMode('vlos')
     setSuccessId(null)
+    setAircraftNearby([])
   }
 
   function pickAlert(id: string) {
@@ -282,6 +322,46 @@ export default function CoordinatorDispatchScreen() {
               </View>
             </View>
 
+            {/* Place on map */}
+            <TouchableOpacity
+              style={styles.mapPickBtn}
+              onPress={() => {
+                const lat = parseFloat(obsLat)
+                const lng = parseFloat(obsLng)
+                const a = alerts.find((al) => String(al.id) === alertId)
+                const region = (!isNaN(lat) && !isNaN(lng))
+                  ? { latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+                  : a?.centroidLat != null && a?.centroidLng != null
+                  ? { latitude: a.centroidLat, longitude: a.centroidLng, latitudeDelta: 0.1, longitudeDelta: 0.1 }
+                  : { latitude: 33.58, longitude: -85.08, latitudeDelta: 0.3, longitudeDelta: 0.3 }
+                setPickCoord(!isNaN(lat) && !isNaN(lng) ? { latitude: lat, longitude: lng } : null)
+                setMapPickerRegion(region)
+                setShowMapPicker(true)
+              }}
+            >
+              <Text style={styles.mapPickBtnText}>📍 Place on Map</Text>
+            </TouchableOpacity>
+
+            {/* Airspace advisory */}
+            {loadingAirspace && (
+              <ActivityIndicator color="#38bdf8" size="small" style={{ marginTop: 10 }} />
+            )}
+            {!loadingAirspace && aircraftNearby.length > 0 && (
+              <View style={styles.airspaceWarning}>
+                <Text style={styles.airspaceTitle}>
+                  ✈ {aircraftNearby.length} aircraft within 5 nm below 3,000 ft
+                </Text>
+                {aircraftNearby.slice(0, 3).map((ac) => (
+                  <Text key={ac.icao24} style={styles.airspaceItem}>
+                    {ac.callsign?.trim() || ac.icao24}
+                    {ac.altitudeM != null ? ` · ${Math.round(ac.altitudeM * 3.281)} ft` : ''}
+                    {ac.heading != null ? ` · ${Math.round(ac.heading)}°` : ''}
+                  </Text>
+                ))}
+                <Text style={styles.airspaceHint}>Verify deconfliction before launch.</Text>
+              </View>
+            )}
+
             {/* Operation mode */}
             <Text style={styles.fieldLabel}>Operation Mode</Text>
             <View style={styles.modeRow}>
@@ -358,6 +438,75 @@ export default function CoordinatorDispatchScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── MAP PICKER MODAL ── */}
+      <Modal
+        visible={showMapPicker}
+        animationType="slide"
+        onRequestClose={() => setShowMapPicker(false)}
+      >
+        <SafeAreaView style={styles.mapPickerRoot}>
+          {/* Header */}
+          <View style={styles.mapPickerHeader}>
+            <TouchableOpacity onPress={() => setShowMapPicker(false)} style={styles.mapPickerHeaderBtn}>
+              <Text style={styles.mapPickerCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.mapPickerTitle}>Observation Point</Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (pickCoord) {
+                  setObsLat(pickCoord.latitude.toFixed(5))
+                  setObsLng(pickCoord.longitude.toFixed(5))
+                }
+                setShowMapPicker(false)
+              }}
+              style={styles.mapPickerHeaderBtn}
+              disabled={!pickCoord}
+            >
+              <Text style={[styles.mapPickerConfirm, !pickCoord && { opacity: 0.35 }]}>Set</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Map */}
+          <MapView
+            style={{ flex: 1 }}
+            provider={PROVIDER_DEFAULT}
+            initialRegion={mapPickerRegion ?? { latitude: 33.58, longitude: -85.08, latitudeDelta: 0.3, longitudeDelta: 0.3 }}
+            onPress={(e) => setPickCoord(e.nativeEvent.coordinate)}
+          >
+            {pickCoord && (
+              <Marker coordinate={pickCoord} pinColor="#f59e0b" />
+            )}
+            {/* Alert polygon overlay */}
+            {(() => {
+              const a = alerts.find((al) => String(al.id) === alertId)
+              if (!a?.polygon) return null
+              const coords = a.polygon.trim().split(/\s+/).map((pair) => {
+                const [lat, lng] = pair.split(',').map(Number)
+                return { latitude: lat, longitude: lng }
+              })
+              return (
+                <Polygon
+                  coordinates={coords}
+                  fillColor="rgba(245,158,11,0.15)"
+                  strokeColor="#f59e0b"
+                  strokeWidth={1.5}
+                />
+              )
+            })()}
+          </MapView>
+
+          {/* Footer coord display */}
+          <View style={styles.mapPickerFooter}>
+            <Text style={styles.mapPickerCoordText}>
+              {pickCoord
+                ? `${pickCoord.latitude.toFixed(5)}, ${pickCoord.longitude.toFixed(5)}`
+                : 'Tap map to place observation point'}
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
     </KeyboardAvoidingView>
   )
 }
@@ -497,4 +646,56 @@ const styles = StyleSheet.create({
 
   cancelBtn: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
   cancelBtnText: { fontSize: 13, color: 'rgba(255,255,255,0.3)' },
+
+  // Map picker button
+  mapPickBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  mapPickBtnText: { fontSize: 13, fontWeight: '600', color: '#f59e0b' },
+
+  // Airspace advisory
+  airspaceWarning: {
+    marginTop: 10,
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+    borderRadius: 8,
+    padding: 10,
+    gap: 3,
+  },
+  airspaceTitle: { fontSize: 12, fontWeight: '700', color: '#fca5a5', marginBottom: 2 },
+  airspaceItem:  { fontSize: 11, color: 'rgba(252,165,165,0.7)' },
+  airspaceHint:  { fontSize: 10, color: 'rgba(252,165,165,0.5)', marginTop: 3 },
+
+  // Map picker modal
+  mapPickerRoot: { flex: 1, backgroundColor: '#050a0f' },
+  mapPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  mapPickerHeaderBtn: { minWidth: 60 },
+  mapPickerTitle:    { fontSize: 15, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  mapPickerCancel:   { fontSize: 15, color: 'rgba(255,255,255,0.45)' },
+  mapPickerConfirm:  { fontSize: 15, fontWeight: '700', color: '#f59e0b', textAlign: 'right' },
+  mapPickerFooter: {
+    padding: 14,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  mapPickerCoordText: {
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: 'rgba(255,255,255,0.5)',
+  },
 })

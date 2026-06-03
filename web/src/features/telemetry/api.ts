@@ -19,3 +19,18 @@ export function useTelemetryTrail(droneId: string, minutes = 30) {
     staleTime: 5_000,
   })
 }
+
+export function useAllTelemetryTrails(droneIds: string[], minutes = 30) {
+  return useQuery<TelemetryTrail[]>({
+    queryKey: ["telemetry", "trails", droneIds.join(","), minutes],
+    queryFn: () =>
+      Promise.all(
+        droneIds.map((id) =>
+          apiGet<TelemetryTrail>(`/telemetry/trail?drone_id=${id}&minutes=${minutes}`)
+        )
+      ),
+    enabled: droneIds.length > 0,
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  })
+}
