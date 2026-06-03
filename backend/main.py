@@ -336,11 +336,12 @@ def health_check(db: Session = Depends(get_db)):
     watchlist_count = 0
     detections_1h = 0
     last_detection_at = None
-    last_fema_poll    = None
-    last_ncmec_poll   = None
+    from services.health_tracker import get_iso as _poll_ts
+    last_fema_poll  = _poll_ts("fema")
+    last_ncmec_poll = _poll_ts("ncmec")
     if db_ok:
         try:
-            watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist")).scalar() or 0
+            watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist WHERE active = TRUE")).scalar() or 0
             cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
             detections_1h = db.execute(
                 text("SELECT COUNT(*) FROM detection_events WHERE created_at >= :c"),
@@ -349,12 +350,6 @@ def health_check(db: Session = Depends(get_db)):
             row = db.execute(text("SELECT MAX(created_at) FROM detection_events")).scalar()
             if row:
                 last_detection_at = row.isoformat() if hasattr(row, "isoformat") else str(row)
-            row = db.execute(text("SELECT MAX(processed_at) FROM processed_alerts")).scalar()
-            if row:
-                last_fema_poll = row.isoformat() if hasattr(row, "isoformat") else str(row)
-            row = db.execute(text("SELECT MAX(last_seen_at) FROM ncmec_cases")).scalar()
-            if row:
-                last_ncmec_poll = row.isoformat() if hasattr(row, "isoformat") else str(row)
         except Exception:
             pass
 

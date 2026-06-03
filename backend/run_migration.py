@@ -143,6 +143,19 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS audit_log_username_idx ON audit_log (username);
+
+-- Source column: tracks data provenance for differential retention
+ALTER TABLE detection_events  ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAULT 'worker';
+ALTER TABLE watchlist         ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAULT 'fema';
+ALTER TABLE vehicle_targets   ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAULT 'fema';
+
+-- Back-fill existing manual/demo rows by heuristic
+UPDATE watchlist       SET source = 'manual' WHERE source_program IN ('manual','demo') AND source = 'fema';
+UPDATE vehicle_targets SET source = 'manual' WHERE source_program IN ('manual','demo') AND source = 'fema';
+
+-- NCMEC vehicle extraction fields
+ALTER TABLE ncmec_cases ADD COLUMN IF NOT EXISTS vehicle_description TEXT;
+ALTER TABLE ncmec_cases ADD COLUMN IF NOT EXISTS vehicle_plate       VARCHAR(32);
 """
 
 try:

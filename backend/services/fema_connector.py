@@ -1146,6 +1146,7 @@ async def check_vehicle_targets(
 # ---------------------------------------------------------------------------
 
 async def fema_background_loop(session_factory, webhook_url: Optional[str] = None) -> None:
+    from services.health_tracker import stamp
     logger.info("FEMA connector started. Poll interval: %ds", POLL_INTERVAL_SECONDS)
     logger.info("Monitoring: %s", ", ".join(e["short"] for e in ALERT_REGISTRY))
     await _load_seen_identifiers(session_factory)
@@ -1154,4 +1155,5 @@ async def fema_background_loop(session_factory, webhook_url: Optional[str] = Non
             await poll_fema_ipaws(session_factory, webhook_url)
         except Exception as e:
             logger.error("Unexpected error in poll loop: %s", e)
+        stamp("fema")
         await asyncio.sleep(POLL_INTERVAL_SECONDS)

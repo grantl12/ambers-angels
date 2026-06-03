@@ -318,20 +318,26 @@ function NcmecCard({ c, onFlyTo }: { c: NcmecCase; onFlyTo?: (c: NcmecCase) => v
             {daysAgo != null && <span className="text-white/25"> · {daysAgo}d ago</span>}
           </div>
         )}
-        <div className="mt-2 flex items-center gap-3">
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-white/5 border border-white/10 text-white/30">
-            No vehicle data
-          </span>
-          <a
-            href={c.posterUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-[10px] text-teal-400/60 hover:text-teal-300 transition-colors"
-          >
-            View poster ↗
-          </a>
-        </div>
+        {c.vehicleDescription ? (
+          <div className="mt-2 rounded bg-teal-500/8 border border-teal-500/25 px-2 py-1.5">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-teal-400/70 mb-0.5">Vehicle</div>
+            <div className="text-xs text-white/80 leading-tight">{c.vehicleDescription}</div>
+            {c.vehiclePlate && (
+              <div className="mt-1 font-mono text-xs font-bold text-amber-400 tracking-wider">{c.vehiclePlate}</div>
+            )}
+          </div>
+        ) : (
+          <div className="mt-2 text-[10px] text-white/25 italic">No vehicle data on file</div>
+        )}
+        <a
+          href={c.posterUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1.5 inline-block text-[10px] text-teal-400/60 hover:text-teal-300 transition-colors"
+        >
+          View poster ↗
+        </a>
       </div>
     </div>
   )

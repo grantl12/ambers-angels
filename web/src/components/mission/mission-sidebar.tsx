@@ -153,6 +153,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
     window.addEventListener("mouseup", onUp)
   }
 
+  const [alertIdx, setAlertIdx] = useState(0)
   const [flockZip, setFlockZip]       = useState("")
   const [flockRadius, setFlockRadius] = useState(5)
   const [flockLoading, setFlockLoading] = useState(false)
@@ -245,15 +246,10 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
         )}
 
         {/* Stats */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <StatCard label="Drones"     value={drones.length}     color="text-sky-400" />
-          <StatCard label="Detections" value={detections.length} color="text-amber-400" />
-          <StatCard label="Alerts"     value={alertCount}        color="text-red-400" />
-          <StatCard
-            label="With GPS"
-            value={detections.filter((d) => d.lat != null).length}
-            color="text-emerald-400"
-          />
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <StatCard label="Drones"     value={drones.length}                                  color="text-sky-400" />
+          <StatCard label="Detections" value={detections.length}                              color="text-amber-400" />
+          <StatCard label="With GPS"   value={detections.filter((d) => d.lat != null).length} color="text-emerald-400" />
         </div>
       </div>
 
@@ -442,44 +438,67 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
         )}
       </div>
 
-      {/* Active FEMA alerts */}
-      {femaAlerts.length > 0 && (
-        <div className="px-4 py-3 border-b border-white/10 shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs uppercase tracking-widest text-white/40">Active Alerts</div>
-            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
-              {femaAlerts.length}
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            {femaAlerts.map((alert) => {
-              const hasLocation = alert.centroidLat != null && alert.centroidLng != null
-              const BADGE: Record<string, string> = { amber: "bg-amber-500 text-black", silver: "bg-slate-400 text-black", blue: "bg-blue-500 text-white", matties: "bg-red-600 text-white", purple: "bg-purple-500 text-white" }
-              const badgeClass = BADGE[alert.alertType] ?? "bg-amber-500 text-black"
-              return (
-                <div
-                  key={alert.id}
-                  onClick={() => hasLocation && onFlyTo?.(alert.centroidLat!, alert.centroidLng!)}
-                  className={`rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs ${hasLocation ? "cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/10" : ""} transition-colors`}
-                >
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${badgeClass}`}>
-                      {alert.alertType}
-                    </span>
-                    {hasLocation && <span className="text-amber-400/50 text-[10px]">↗ fly to</span>}
-                  </div>
-                  <div className="text-white/80 font-medium leading-tight">
-                    {alert.headline || alert.area || alert.alertType.toUpperCase()}
-                  </div>
-                  {alert.area && alert.headline && (
-                    <div className="text-white/35 mt-0.5 truncate">{alert.area}</div>
-                  )}
+      {/* Active FEMA alerts — cycling panel */}
+      {femaAlerts.length > 0 && (() => {
+        const idx = Math.min(alertIdx, femaAlerts.length - 1)
+        const alert = femaAlerts[idx]
+        const BADGE: Record<string, string> = {
+          amber: "bg-amber-500 text-black", silver: "bg-slate-400 text-black",
+          blue: "bg-blue-500 text-white", matties: "bg-red-600 text-white", purple: "bg-purple-500 text-white",
+        }
+        const badgeClass = BADGE[alert.alertType] ?? "bg-amber-500 text-black"
+
+        function flyToAlert() {
+          if (alert.polygon) {
+            const pairs = alert.polygon.trim().split(/\s+/).map((p) => {
+              const [lat, lng] = p.split(",").map(Number)
+              return { lat, lng }
+            })
+            onFitBounds?.({
+              south: Math.min(...pairs.map((p) => p.lat)),
+              north: Math.max(...pairs.map((p) => p.lat)),
+              west:  Math.min(...pairs.map((p) => p.lng)),
+              east:  Math.max(...pairs.map((p) => p.lng)),
+            })
+          } else if (alert.centroidLat != null && alert.centroidLng != null) {
+            onFlyTo?.(alert.centroidLat, alert.centroidLng)
+          }
+        }
+
+        return (
+          <div className="px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs uppercase tracking-widest text-white/40">Active Alert</div>
+              {femaAlerts.length > 1 && (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setAlertIdx((i) => (i - 1 + femaAlerts.length) % femaAlerts.length)}
+                    className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors text-xs">‹</button>
+                  <span className="text-[10px] text-white/30 tabular-nums">{idx + 1}/{femaAlerts.length}</span>
+                  <button onClick={() => setAlertIdx((i) => (i + 1) % femaAlerts.length)}
+                    className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors text-xs">›</button>
                 </div>
-              )
-            })}
+              )}
+            </div>
+            <div
+              onClick={flyToAlert}
+              className="rounded-lg border border-amber-500/25 bg-amber-500/6 px-3 py-2.5 cursor-pointer hover:border-amber-500/50 hover:bg-amber-500/12 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${badgeClass}`}>
+                  {alert.alertType}
+                </span>
+                <span className="text-amber-400/45 text-[10px]">↗ tap to fly</span>
+              </div>
+              <div className="text-sm font-semibold text-white/90 leading-tight">
+                {alert.headline || alert.area || alert.alertType.toUpperCase()}
+              </div>
+              {alert.area && alert.headline && (
+                <div className="text-xs text-white/40 mt-0.5 truncate">{alert.area}</div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Swarm missions */}
       <SwarmMissionsPanel

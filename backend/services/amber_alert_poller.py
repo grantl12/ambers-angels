@@ -443,6 +443,7 @@ async def amber_background_loop(
     session_factory,
     webhook_url: Optional[str] = None,
 ) -> None:
+    from services.health_tracker import stamp
     logger.info("[AMBER POLLER] Started. EAS + NWS. Interval: %ds", POLL_INTERVAL)
     while True:
         try:
@@ -454,4 +455,5 @@ async def amber_background_loop(
                 logger.info("[AMBER POLLER] Cycle complete — %d new alert(s) processed.", total)
         except Exception as e:
             logger.error("[AMBER POLLER] Unexpected error: %s", e)
+        stamp("fema")
         await asyncio.sleep(POLL_INTERVAL)

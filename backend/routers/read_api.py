@@ -1208,12 +1208,27 @@ def delete_manual_vehicle(alert_id: int):
 
 @router.delete("/admin/test-data", dependencies=[Depends(require_admin)])
 def clear_test_data():
-    """Wipe all manual watchlist entries, manual vehicle targets, and detection events."""
+    """
+    Wipe user-created test data only.
+    FEMA/NCMEC-sourced data is never touched — it has its own TTL-based retention.
+    Retention policy:
+      - source='fema'   → 90-day TTL via scheduled purge
+      - source='ncmec'  → governed by NCMEC_RECENT_DAYS
+      - source='worker' → 30-day non-alerted, 365-day alerted, via scheduled purge
+      - source='manual'/'demo' → cleared by this endpoint only
+    """
     db = database.SessionLocal()
     try:
-        wl  = db.execute(text("DELETE FROM watchlist WHERE source_program IN ('manual', 'automated_test') RETURNING plate_text")).rowcount
-        vt  = db.execute(text("DELETE FROM vehicle_targets WHERE source_program IN ('manual', 'automated_test') RETURNING id")).rowcount
-        de  = db.execute(text("DELETE FROM detection_events WHERE event_type != 'demo'")).rowcount
+        wl = db.execute(text(
+            "DELETE FROM watchlist WHERE source_program IN ('manual','demo','automated_test') RETURNING plate_text"
+        )).rowcount
+        vt = db.execute(text(
+            "DELETE FROM vehicle_targets WHERE source_program IN ('manual','demo','automated_test') RETURNING id"
+        )).rowcount
+        # Only remove worker-source detections that are NOT alerted (preserve evidence)
+        de = db.execute(text(
+            "DELETE FROM detection_events WHERE event_type NOT IN ('demo') AND status != 'alerted' RETURNING id"
+        )).rowcount
         db.commit()
         return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de}}
     finally:
@@ -1322,24 +1337,29 @@ def get_airspace_traffic(
 def get_ncmec_recent(limit: int = 40, db=Depends(_sync_db)):
     rows = db.execute(text("""
         SELECT guid, name, age_now, state, city, missing_since,
-               poster_url, photo_url, first_seen_at, resolved_at
+               poster_url, photo_url, first_seen_at, resolved_at,
+               vehicle_description, vehicle_plate
         FROM ncmec_cases
-        WHERE last_seen_at > NOW() - INTERVAL '30 days'
-        ORDER BY first_seen_at DESC
+        ORDER BY
+            resolved_at NULLS FIRST,
+            CASE WHEN vehicle_description IS NOT NULL THEN 0 ELSE 1 END,
+            first_seen_at DESC
         LIMIT :limit
     """), {"limit": limit}).fetchall()
     return [
         {
-            "guid":        r[0],
-            "name":        r[1],
-            "ageNow":      r[2],
-            "state":       r[3],
-            "city":        r[4],
-            "missingSince": r[5].isoformat() if r[5] else None,
-            "posterUrl":   r[6],
-            "photoUrl":    r[7],
-            "firstSeenAt": r[8].isoformat() if r[8] else None,
-            "resolvedAt":  r[9].isoformat() if r[9] else None,
+            "guid":               r[0],
+            "name":               r[1],
+            "ageNow":             r[2],
+            "state":              r[3],
+            "city":               r[4],
+            "missingSince":       r[5].isoformat() if r[5] else None,
+            "posterUrl":          r[6],
+            "photoUrl":           r[7],
+            "firstSeenAt":        r[8].isoformat() if r[8] else None,
+            "resolvedAt":         r[9].isoformat() if r[9] else None,
+            "vehicleDescription": r[10],
+            "vehiclePlate":       r[11],
         }
         for r in rows
     ]

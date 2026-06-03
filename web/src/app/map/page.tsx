@@ -124,6 +124,10 @@ export default function MapPage() {
     mapControlsRef.current?.flyTo(lat, lng)
   }
 
+  function fitBounds(bbox: FlockBbox) {
+    mapControlsRef.current?.fitBounds(bbox)
+  }
+
   function handleFlockSearch(bbox: FlockBbox) {
     setFlockBbox(bbox)
     mapControlsRef.current?.fitBounds(bbox)
