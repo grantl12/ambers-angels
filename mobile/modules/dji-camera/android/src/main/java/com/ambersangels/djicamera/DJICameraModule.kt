@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   3. GPS + heading from the flight controller via KeyManager
  *
  * All class paths and method signatures were verified against the
- * dji-sdk-v5-aircraft-provided:5.15.0 JAR bytecode before writing.
+ * dji-sdk-v5-aircraft-provided:5.18.0 JAR bytecode before writing.
  *
  * Supported drones (V5): DJI Avata, Avata 2, Mini 3/4, Air 3, Mavic 3 series,
  * M30/M300/M350 series.
@@ -305,7 +305,7 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
     // 5. Waypoint mission
     //
     // Uses DJI MSDK V5 WaypointMissionManager (dji.v5.manager.aircraft.waypoint5).
-    // Class paths verified against dji-sdk-v5-aircraft-provided:5.15.0 JAR.
+    // Class paths verified against dji-sdk-v5-aircraft-provided:5.18.0 JAR.
     // Supported aircraft: Mavic 3 series, Air 3, Mini 4 Pro, M30/M300/M350.
     // NOT supported: Avata (FPV-only, no waypoint API).
     // =========================================================================
@@ -369,7 +369,7 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
             executionProgressListener?.let { mgr.removeMissionExecutionProgressListener(it) }
             executionProgressListener = { progress: WaypointMissionExecutionProgress ->
                 val total   = progress.totalWaypointCount
-                val current = progress.currentWaypointIndex
+                val current = progress.targetWaypointIndex
                 val pct     = if (total > 0) (current * 100 / total) else 0
                 val params = Arguments.createMap().apply {
                     putString("state", "executing")

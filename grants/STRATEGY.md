@@ -17,36 +17,78 @@ Amber's Angels is a Georgia-based 501(c)(3) nonprofit using AI-powered mobile te
 
 ## 2. Target Grant Pipeline
 
-### Tier 1 — Immediate Targets (Apply Now)
+### Tier 1 — Apply Now (Open Windows)
 
-| Grant | Funder | Amount | Deadline | Match Requirement | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| BYRNE JAG (Local) | DOJ / GA DCA | $5K–$25K | Rolling (county-level) | None | Research county coordinator |
-| DigitalOcean Hollie's Hub for Good | DigitalOcean | Infrastructure credits | Rolling | None | Apply online |
-| Mapbox Community Grant | Mapbox | API credits | Rolling | None | Apply online |
-| VFW Smart/Safe Communities | VFW National | $2K–$10K | Annual cycle | None | Confirm next cycle date |
-| American Legion Children & Youth | American Legion | Varies | Post/Chapter level | None | Contact local chapter |
-| Georgia Power Foundation | GA Power | $1K–$10K | Rolling | Community letters | Draft application |
+| Grant | Funder | Amount | Deadline | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| CFWG Community Impact Grant | Community Foundation of West Georgia | Varies (pool $315K+) | **Aug 1, 2026** | Local — Carroll/Haralson/Heard counties. Apply via grantinterface.com. Contact Kim Jones, kim@cfwg.net / 770-832-1462 |
+| Cigna Group Foundation — Veterans | Cigna | $150,000 (fixed) | **Jul 9, 2026** | Georgia is priority state. Stretch — frame veteran volunteers + community wellbeing angle. |
+| Walmart Spark Good Local Grants | Walmart Foundation | $250–$5K | Rolling (Cycle 3: Aug–Nov) | Low effort. Public safety listed as focus. Apply via walmart.com/nonprofits |
+| DigitalOcean Hollie's Hub for Good | DigitalOcean | Infrastructure credits | Rolling | Apply online — hosting cost offset |
+| Mapbox Community Grant | Mapbox | API credits | Rolling | Apply online — map API cost offset |
+| BYRNE JAG (Local) | DOJ / GA DCA | $5K–$25K | Rolling (county-level) | **Unlocked by CPD Letter of Support.** Contact GA DCA county coordinator. |
+| VFW Smart/Safe Communities | VFW National | $2K–$10K | Annual cycle | Confirm next cycle date with local post |
+| American Legion Children & Youth | American Legion | Varies | Post/Chapter level | Contact local chapter directly |
 
-### Tier 2 — Now Eligible (501(c)(3) Confirmed)
+### Tier 2 — Relationship-Driven (Start Now, Longer Runway)
 
 | Grant | Funder | Amount | Notes |
 | :--- | :--- | :--- | :--- |
-| FEMA BRIC / HMGP | FEMA | $25K–$500K | Requires confirmed LEA partnership letter |
-| DOJ AMBER Alert Grant Program | OJP | $50K–$200K | Competitive; requires pilot data |
+| Georgia Power Foundation | GA Power | Up to $25K | **Invitation only** — must be sponsored by local GP rep. Contact Chamber of Commerce for intro. |
+| Southwire Shared Value Partnership | Southwire (Carrollton HQ) | Varies | Not a traditional grant — direct pitch to community affairs. Veteran angle + child safety = strong fit. southwire.com/contact-us |
+| USAA Foundation — Honor Through Action | USAA Foundation | $2.5K–$50K | No open portal. Direct outreach letter to program officers. "Public safety" + "community integration" are funded pillars. |
+| DAV Charitable Service Trust | DAV | Not disclosed | Quarterly cycles: Jan, Apr, **Jul**, Oct. Frame as veteran reintegration through community service. Apply via dav.smartsimple.com |
+| Got Your 6 Network (BWF) | Bob Woodruff Foundation | Free membership | **Join now** — prerequisite for BWF Charitable Investments grant and Urgent Needs track. bobwoodrufffoundation.org/programs/got-your-6-network/ |
+| Bob Woodruff Foundation | BWF | $5K–$1M | Apply after Got Your 6 membership established. Urgent Needs track up to $40K. Requires 2 years 990 + $50K gross receipts — verify eligibility. |
+| Motorola Solutions Foundation | Motorola | $5K–$20K | Public safety technology focus |
 | Community Foundation for Greater Atlanta | CFGA | $5K–$25K | Strong preference for local organizations |
+
+### Tier 3 — Post-CPD Letter / Post-Pilot
+
+| Grant | Funder | Amount | Notes |
+| :--- | :--- | :--- | :--- |
+| FEMA BRIC / HMGP | FEMA | $25K–$500K | **Requires CPD Letter of Support** — get this first |
+| DOJ AMBER Alert Grant Program | OJP | $50K–$200K | Competitive; requires pilot data |
+| Georgia CJCC / OJJDP Title II | GA Criminal Justice Coordinating Council | Varies | Sub-grant path — OJJDP formula funds flow through GA CJCC. Contact CJCC about sub-grant opportunities. |
 | Google.org Impact Challenge | Google | $50K–$250K | Tech-for-good focus; highly competitive |
 | Microsoft Philanthropies | Microsoft | In-kind + cash | Azure credits + potential cash grant |
-| Motorola Solutions Foundation | Motorola | $5K–$20K | Public safety technology focus |
-
-### Tier 3 — Long-Term / Post-Pilot (12+ Months)
-
-| Grant | Funder | Amount | Notes |
-| :--- | :--- | :--- | :--- |
 | NIJ Research Grant | DOJ / NIJ | $100K–$1M | Requires published pilot results |
-| SBA SBIR/STTR | SBA | $150K–$750K | SDVOSB set-aside eligible |
-| DHS S&T Cyber Security Division | DHS | $250K+ | Requires established LEA partnerships |
+| SBA SBIR/STTR | SBA | $150K–$750K | SDVOSB set-aside eligible — wait for cert |
+| DHS S&T | DHS | $250K+ | Requires established LEA partnerships |
 | MacArthur Foundation | MacArthur | $100K–$500K | "Safety and Justice" challenge track |
+
+### 2027 Cycle Planning (Calendar These Now)
+
+| Grant | Funder | Opens | Notes |
+| :--- | :--- | :--- | :--- |
+| CFWG Trinka Davis Rynne Grant | CFWG | Mar 15, 2027 | **Strongest local fit** — veterans serving Carroll County. Direct mission alignment. |
+| CFWG Power of the Purse | CFWG | Feb 15, 2027 | Women and children focus — missing children angle. |
+| CFWG AHR Grant | CFWG | Aug 15, 2026 | Civic/community leadership — **final cycle before sunset**. |
+| Purple Heart Foundation | MOPH | Jan 2027 | Veteran cause grants — 2026 cycle likely closed. |
+
+### Organizational Development Roadmap Item — Veteran Reintegration Program
+
+**Why it matters for funding:** Cigna ($150K, annual), Bob Woodruff Foundation ($5K–$1M), DAV, USAA Foundation, and others are specifically looking for documented veteran wellness outcomes. Right now our veteran angle is "veteran-founded" — compelling but thin for these funders. If we can show the platform is actively benefitting veterans as participants — not just as a founder credential — a whole tier of funding opens up.
+
+**What to build:**
+- A structured onboarding track specifically for veteran volunteers that frames participation in terms of mission continuity, purpose, and community reintegration
+- Documented intake and outcome metrics: pre/post surveys on sense of purpose, community connection, mental health self-report (standardized instrument like the PHQ-2 or a simpler custom tool)
+- Relationship with a local VSO (VFW post, American Legion chapter, or Travis Manion Atlanta platoon) to co-recruit and co-validate outcomes
+- After 6–12 months of data: a one-page outcomes summary showing X veterans served, Y% reported increased sense of purpose/community belonging, Z volunteer hours contributed to public safety
+
+**When to pursue:** After the Carrollton pilot generates the first cohort of veteran volunteers. Don't manufacture this — let it grow organically from real participation, then document it rigorously. Once outcomes are real and documented, Cigna and BWF become strong applications.
+
+---
+
+### Remove from Pipeline
+
+| Funder | Reason |
+| :--- | :--- |
+| AMVETS National Service Foundation | Does not grant to external nonprofits |
+| Travis Manion Foundation | Not a grantmaker — potential partner/volunteer pipeline |
+| Team Rubicon | Not a grantmaker |
+| Pat Tillman Foundation | Individual scholarships only — not org grants |
+| Gary Sinise Foundation | First responder grants go to LE agencies, not nonprofits — route through CPD if applicable |
 
 ---
 
@@ -142,27 +184,52 @@ These are the numbers we will publish in our post-pilot transparency report — 
 
 ---
 
-## 7. 12-Month Funding Roadmap
+## 7. Funding Roadmap — Updated June 2026
 
 ```
-Month 1-2:  Apply for DigitalOcean + Mapbox credits (rolling)
-            Submit VFW / American Legion inquiries
-            501(c)(3) determination letter received ✅
+DONE:
+  501(c)(3) approved ✅
+  SAM registered (UEI NS2YDNMAWTM8) ✅
+  First CPD meeting completed — June 2, 2026 ✅
+  Platform live and demo-ready ✅
+  iOS Build 4 in App Store review ✅
 
-Month 2-3:  Secure LEA letter of support (Carroll County)
-            Submit CFGA community grant
-            Enroll first 15 volunteers; begin training
+JUNE 2026 (do now):
+  Join BWF Got Your 6 Network (free — prerequisite for BWF funding)
+  Apply CFWG Community Impact Grant (closes Aug 1)
+  Apply Cigna Foundation veteran grant (closes Jul 9) — stretch
+  Apply DigitalOcean + Mapbox credits (rolling, low effort)
+  Secure CPD Letter of Support from Dobbs/Hitchcock
+  Submit Walmart Spark Good to local store(s)
 
-Month 3-4:  Conduct first live drill with LEA observer
-            Apply for BYRNE JAG (county-level coordination)
-            Submit Georgia Power Foundation application
+JULY 2026:
+  DAV Charitable Service Trust — July cycle
+  Submit BYRNE JAG once CPD letter in hand
+  Contact Georgia Power local rep (via Chamber of Commerce)
+  Request meeting with Southwire community affairs
 
-Month 4-6:  Complete 30-volunteer enrollment + 3 drills
-            Collect pilot performance data
+AUGUST 2026:
+  Apply CFWG AHR Grant (Aug 15 — final cycle before sunset)
+  VFW Smart/Safe Communities — confirm cycle date
+  American Legion Children & Youth — contact local chapter
 
-Month 6:    Publish pilot transparency report
-            Begin Tier 2 federal grant applications (DOJ/FEMA)
-            Expand to second county
+SEPT–DEC 2026:
+  Georgia Power Foundation (rolling — once relationship established)
+  USAA Foundation outreach letter
+  Bob Woodruff Foundation Charitable Investments (after 6+ mo Got Your 6)
+  DAV October cycle
+
+JAN–MAR 2027:
+  CFWG Power of the Purse (opens Feb 15)
+  CFWG Trinka Davis Rynne Grant (opens Mar 15) — strongest local veteran fit
+  Purple Heart Foundation (opens Jan)
+
+POST-PILOT (once data exists):
+  FEMA BRIC/HMGP (requires CPD letter + pilot data)
+  DOJ AMBER Alert Grant / OJJDP
+  Google.org, Microsoft Philanthropies
+  NIJ Research Grant
+  SBA SBIR/STTR (once SDVOSB cert confirmed)
 ```
 
 ---
@@ -180,4 +247,4 @@ Some funders look attractive but are poor fits:
 
 ---
 
-*Last Updated: April 22, 2026*
+*Last Updated: June 3, 2026 — post-CPD meeting, 501(c)(3) approved, platform live*

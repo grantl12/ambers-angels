@@ -54,7 +54,7 @@
   </div>
   <div class="meta-block">
     <div class="meta-label">Period of Service</div>
-    <div class="meta-value">March 22 – May 15, 2026</div>
+    <div class="meta-value">March 22 – June 2, 2026</div>
   </div>
   <div class="meta-block">
     <div class="meta-label">Hourly Rate (Fair Market Value)</div>
@@ -224,11 +224,82 @@
     </tr>
     <tr class="subtotal"><td colspan="2">Phase 5 Subtotal</td><td class="right">21.5</td><td class="right">$3,225</td></tr>
 
+    <!-- PHASE 6 -->
+    <tr><td class="phase">Phase 6 — CPD Demo Preparation, Compliance &amp; Site Launch</td><td class="phase-spacer" colspan="3"></td></tr>
+
+    <tr>
+      <td>May 16</td>
+      <td><strong>Grant documentation package</strong><br><span class="desc">Board member roster, BlueVine banking info, salary benchmarks, founder services agreement, out-of-pocket expense log ($592.09), and initial in-kind volunteer timesheet.</span></td>
+      <td class="right">2.0</td>
+      <td class="right">$300</td>
+    </tr>
+    <tr>
+      <td>May 18–19</td>
+      <td><strong>ToS gate, liability layer, CI/CD overhaul, DJI telemetry</strong><br><span class="desc">Full-screen ToS gate (version-tracked, server-side acceptance). BVLOS certification acknowledgment on dispatch. Audit log service + data purge controls. Full CI/CD auto-deploy on push to main (migrate → rebuild → PM2 restart). Coverage gap volunteer ping. DJI battery level, RTH, and real waypoint progress. Auto-suggest coverage gap as observation point. Discord error alerting + PM2 log rotation. SSL hardened: certifi CA bundle across all httpx clients; verify=False scoped only to apps.fema.gov incomplete chain. Email addresses standardized to info@amberangels.org. Mobile registration opened via Safari View Controller (App Store Guideline 4).</span></td>
+      <td class="right">10.0</td>
+      <td class="right">$1,500</td>
+    </tr>
+    <tr>
+      <td>May 21</td>
+      <td><strong>15-slide Carrollton PD deck, coordinator swarm UX, compliance corrections</strong><br><span class="desc">Full redesign of Carrollton PD briefing deck (15 slides). About the Founder standalone bio page. Coordinator swarm dispatch UX with mission status panel on mission map. Background check claims removed from all decks. Accurate 501(c)(3) and law enforcement framing throughout. CI node_modules cleanup fix. CLAUDE.md synced to current codebase.</span></td>
+      <td class="right">8.0</td>
+      <td class="right">$1,200</td>
+    </tr>
+    <tr>
+      <td>May 22</td>
+      <td><strong>Data retention implementation + tech deck scrub</strong><br><span class="desc">Telemetry purge loop and alerted-detection purge loop implementing published retention policy. Tech deck updated to accurately reflect retention language.</span></td>
+      <td class="right">2.0</td>
+      <td class="right">$300</td>
+    </tr>
+    <tr>
+      <td>May 23</td>
+      <td><strong>NWS Alerts API (third alert source) + CI fix</strong><br><span class="desc">NWS api.weather.gov/alerts/active integrated as third AMBER Alert source — catches WEA-distributed alerts that bypass FEMA CMAS public feed (e.g. Georgia). Mission cleanup on alert cancellation. Admin test-alert inject endpoint. CI: stop web process before Next.js rebuild to prevent file-lock conflicts.</span></td>
+      <td class="right">3.0</td>
+      <td class="right">$450</td>
+    </tr>
+    <tr>
+      <td>May 24</td>
+      <td><strong>Watch-area autocomplete, grant deck update, iOS build 5</strong><br><span class="desc">alert_areas table with self-seeding from live FEMA/NWS area tokens. GET /alert-areas?q= autocomplete endpoint. Mobile Settings: debounced input, inline suggestion list, Nationwide toggle (PATCHes alert_scope). Grant writer deck updated for autonomous swarm + competitive disruption positioning. API startup crash fix (invalid dependency on alert-areas endpoint). volunteer_mode migration column added. iOS build 5.</span></td>
+      <td class="right">5.0</td>
+      <td class="right">$750</td>
+    </tr>
+    <tr>
+      <td>May 26</td>
+      <td><strong>IRS 501(c)(3) determination — language update + CPD war game doc</strong><br><span class="desc">All 501(c)(3) language updated from "pending" to "approved / federally recognized" following IRS determination letter. CPD war game preparation document + Hitchcock quote added to deck. Factual accuracy pass: separation year corrected, Flock visibility by role, identity verification language corrected across README and all docs.</span></td>
+      <td class="right">4.0</td>
+      <td class="right">$600</td>
+    </tr>
+    <tr>
+      <td>May 27</td>
+      <td><strong>Demo readiness sprint — bugs, deck polish, Demo Run mode, iOS build 6</strong><br><span class="desc">Three alert pipeline bugs fixed (from Discord error log). Seven corrections to Carrollton deck + landing page. Print-ready grant one-pager HTML. Coverage planner default zoom tightened for demo. Detection marker time-range filter wired. Flock coverage re-scrape on stale data. Apple SSO entitlement fix + error code surfacing. Badge 500 error, health widget, dispatch auth, and mission guard bugs fixed. Demo Run mode added to admin panel (is_demo flag preserves injected test data through cleanup cycle). iOS build 6 for internal preview.</span></td>
+      <td class="right">8.0</td>
+      <td class="right">$1,200</td>
+    </tr>
+    <tr>
+      <td>May 28</td>
+      <td><strong>NCMEC notification fix + Flock geometry correction for demo</strong><br><span class="desc">NCMEC push notifications disabled for resolved cases (suppresses false "found" alerts during demo). Flock camera cone geometry updated to 80° / 100 ft for accurate coverage visualization in CPD presentation.</span></td>
+      <td class="right">1.5</td>
+      <td class="right">$225</td>
+    </tr>
+    <tr>
+      <td>Jun 1</td>
+      <td><strong>Final CPD deck revision</strong><br><span class="desc">Removed Letter of Support request from slide deck per pre-meeting feedback — not appropriate to ask in the first meeting.</span></td>
+      <td class="right">1.0</td>
+      <td class="right">$150</td>
+    </tr>
+    <tr>
+      <td>Jun 2</td>
+      <td><strong>Carrollton PD first demonstration + post-meeting site work</strong><br><span class="desc">Live platform demonstration for Deputy Chief Dobbs and Carrollton Police Department — first formal law enforcement engagement. Post-meeting: expanded About the Founder bio with military service detail (11th ADA Brigade Soldier of the Year, Army Space Cadre, DLI Korean, national-level collection), dark-theme aesthetic alignment, /deck/about route for uniform link structure. Site and documentation audit: CLAUDE.md, AA_Site_Improvements.md, and volunteer training guide accuracy corrections.</span></td>
+      <td class="right">4.0</td>
+      <td class="right">$600</td>
+    </tr>
+    <tr class="subtotal"><td colspan="2">Phase 6 Subtotal</td><td class="right">48.5</td><td class="right">$7,275</td></tr>
+
     <!-- TOTAL -->
     <tr class="total-row">
       <td colspan="2"><strong>TOTAL IN-KIND CONTRIBUTION</strong></td>
-      <td class="right amber"><strong>127.5</strong></td>
-      <td class="right amber"><strong>$19,125</strong></td>
+      <td class="right amber"><strong>176.0</strong></td>
+      <td class="right amber"><strong>$26,400</strong></td>
     </tr>
 
   </tbody>
@@ -237,7 +308,7 @@
 <div class="note">
   <strong>Basis for fair market value:</strong> Rate of $150/hr reflects fair market value for senior independent contractor services encompassing full-stack web development (Next.js, FastAPI, PostgreSQL), cross-platform mobile development (Expo React Native, Android Kotlin native modules), AI/ML pipeline integration (YOLOv8, OpenALPR, Plate Recognizer), cloud infrastructure and DevOps (DigitalOcean, PM2, GitHub Actions, nginx), and systems architecture. This rate is consistent with independent contractor market rates for equivalent expertise in the Atlanta, GA metropolitan area and nationally.<br><br>
   <strong>In-kind contribution documentation:</strong> Work is documented in full via the project git repository (github.com/grantl12/ambers-angels). Each line item corresponds to one or more dated commits. This timesheet may be used for IRS Form 990 Schedule O volunteer service documentation, grant application in-kind match calculations, and internal organizational records. Note: volunteer services are not deductible as a charitable contribution under IRC § 170, but the fair market value of donated services is recognized as an in-kind contribution for grant matching purposes per 2 CFR § 200.306.<br><br>
-  <strong>Organization:</strong> Amber's Angels, Inc. — 501(c)(3) applied, EIN 42-2052151, Carroll County, GA pilot program.
+  <strong>Organization:</strong> Amber's Angels, Inc. — 501(c)(3) approved, EIN 42-2052151, Carrollton, GA pilot program.
 </div>
 
 <div class="sig-block">

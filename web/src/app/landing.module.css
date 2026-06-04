@@ -470,14 +470,19 @@
 
 /* ── MOBILE PATCH ── */
 
-/* [01] Nav: keep "Get Involved" CTA visible on mobile */
+/* [01] Nav: keep Sign In + "Get Involved" CTA visible on mobile */
 @media (max-width: 900px) {
   .navCta {
     display: inline-block;
     padding: 8px 14px;
     font-size: 12px;
   }
-  .nav { gap: 12px; }
+  .navSignIn {
+    display: inline-block;
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+  .nav { gap: 10px; }
   .mapBox { height: 180px; }
 }
 @media (max-width: 380px) {

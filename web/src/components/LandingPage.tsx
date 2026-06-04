@@ -158,7 +158,7 @@ export default function LandingPage() {
           ))}
         </div>
         <div className={`${s.flowNote} ${s.fadeUp}`}>
-          <strong>Cascade Inference:</strong> Our proprietary model identifies make, model, and year range — so coordinators can tell law enforcement &ldquo;Blue 2018–2021 Honda CR-V, Highway 5, 14:32&rdquo; even when the plate is obscured or switched. Reducing false positives from ~30% to &lt;5%.
+          <strong>Cascade Inference:</strong>{' '}Our proprietary model identifies make, model, and year range — so coordinators can tell law enforcement &ldquo;Blue 2018–2021 Honda CR-V, Highway 5, 14:32&rdquo; even when the plate is obscured or switched. Reducing false positives from ~30% to &lt;5%.
         </div>
       </section>
 
