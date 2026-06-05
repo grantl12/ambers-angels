@@ -140,7 +140,7 @@ def clean(conn):
 
         # Missions created by sim
         cur.execute(
-            "DELETE FROM autonomous_missions WHERE id LIKE 'sim-%'"
+            "DELETE FROM autonomous_missions WHERE alert_id = 'SIM-ALERT-001'"
         )
         step(f"autonomous_missions removed: {cur.rowcount}")
 
