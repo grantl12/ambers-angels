@@ -311,52 +311,58 @@ def run(conn):
     try:
         for i in range(FRAMES):
 
-            with conn.cursor() as cur:
+            # Fresh connection per frame — released immediately after commit
+            # so we never hold the pool hostage across the sleep interval.
+            frame_conn = db_conn()
+            try:
+                with frame_conn.cursor() as cur:
 
-                # ANGEL-1: heartbeat — stays at home, updates last_seen
-                a1_lat, a1_lng = ANGEL1_HOME
-                cur.execute("""
-                    UPDATE autonomous_drones
-                       SET home_lat = %s, home_lng = %s, last_seen_at = NOW()
-                     WHERE id = %s
-                """, (a1_lat, a1_lng, drone1_id))
-                print(f"  {i:5d}  | ANGEL-1    | {a1_lat:.5f}, {a1_lng:.6f}  | heartbeat ♡")
+                    # ANGEL-1: heartbeat — stays at home, updates last_seen
+                    a1_lat, a1_lng = ANGEL1_HOME
+                    cur.execute("""
+                        UPDATE autonomous_drones
+                           SET home_lat = %s, home_lng = %s, last_seen_at = NOW()
+                         WHERE id = %s
+                    """, (a1_lat, a1_lng, drone1_id))
+                    print(f"  {i:5d}  | ANGEL-1    | {a1_lat:.5f}, {a1_lng:.6f}  | heartbeat ♡")
 
-                # ANGEL-2: orbit pattern at 60m, under coordinator control
-                a2_lat, a2_lng = orbit_point(*ANGEL2_CENTER, radius_m=120,
-                                             step_idx=i, total_steps=20)
-                heading = (i * 18) % 360
-                insert_telemetry(cur,
-                    "SIM-ANGEL-2", "sim-pilot-bravo",
-                    a2_lat, a2_lng, 60.0, heading, 8.0,
-                    "dji_telemetry", "drone")
-                print(f"  {i:5d}  | ANGEL-2    | {a2_lat:.5f}, {a2_lng:.6f}  | deployed ✈ hdg={heading}°")
+                    # ANGEL-2: orbit pattern at 60m, under coordinator control
+                    a2_lat, a2_lng = orbit_point(*ANGEL2_CENTER, radius_m=120,
+                                                 step_idx=i, total_steps=20)
+                    heading = (i * 18) % 360
+                    insert_telemetry(cur,
+                        "SIM-ANGEL-2", "sim-pilot-bravo",
+                        a2_lat, a2_lng, 60.0, heading, 8.0,
+                        "dji_telemetry", "drone")
+                    print(f"  {i:5d}  | ANGEL-2    | {a2_lat:.5f}, {a2_lng:.6f}  | deployed ✈ hdg={heading}°")
 
-                # ANGEL-3: straight glide path (VLOS, independent)
-                a3_lat, a3_lng = offset(*ANGEL3_START, i * 8, i * 5)
-                insert_telemetry(cur,
-                    "SIM-ANGEL-3", "sim-pilot-charlie",
-                    a3_lat, a3_lng, 45.0, 85, 6.0,
-                    "dji_telemetry", "drone")
-                print(f"  {i:5d}  | ANGEL-3    | {a3_lat:.5f}, {a3_lng:.6f}  | VLOS / independent")
+                    # ANGEL-3: straight glide path (VLOS, independent)
+                    a3_lat, a3_lng = offset(*ANGEL3_START, i * 8, i * 5)
+                    insert_telemetry(cur,
+                        "SIM-ANGEL-3", "sim-pilot-charlie",
+                        a3_lat, a3_lng, 45.0, 85, 6.0,
+                        "dji_telemetry", "drone")
+                    print(f"  {i:5d}  | ANGEL-3    | {a3_lat:.5f}, {a3_lng:.6f}  | VLOS / independent")
 
-                # HAWK: driving east along Bankhead, phone camera scanning
-                hawk_lat, hawk_lng = offset(*HAWK_START, 0, i * 15)
-                insert_telemetry(cur,
-                    "SIM-HAWK", "HAWK",
-                    hawk_lat, hawk_lng, 0.0, 90, 13.0,
-                    "phone_gps", "phone")
-                print(f"  {i:5d}  | 🚗 HAWK     | {hawk_lat:.5f}, {hawk_lng:.6f}  | ground / driving east")
+                    # HAWK: driving east along Bankhead, phone camera scanning
+                    hawk_lat, hawk_lng = offset(*HAWK_START, 0, i * 15)
+                    insert_telemetry(cur,
+                        "SIM-HAWK", "HAWK",
+                        hawk_lat, hawk_lng, 0.0, 90, 13.0,
+                        "phone_gps", "phone")
+                    print(f"  {i:5d}  | 🚗 HAWK     | {hawk_lat:.5f}, {hawk_lng:.6f}  | ground / driving east")
 
-                # RANGER: slow near target zone
-                ranger_lat, ranger_lng = offset(*RANGER_START, i * 3, -i * 4)
-                insert_telemetry(cur,
-                    "SIM-RANGER", "RANGER",
-                    ranger_lat, ranger_lng, 0.0, 220, 5.0,
-                    "phone_gps", "phone")
-                print(f"  {i:5d}  | 🚗 RANGER   | {ranger_lat:.5f}, {ranger_lng:.6f}  | ground / slow patrol")
+                    # RANGER: slow near target zone
+                    ranger_lat, ranger_lng = offset(*RANGER_START, i * 3, -i * 4)
+                    insert_telemetry(cur,
+                        "SIM-RANGER", "RANGER",
+                        ranger_lat, ranger_lng, 0.0, 220, 5.0,
+                        "phone_gps", "phone")
+                    print(f"  {i:5d}  | 🚗 RANGER   | {ranger_lat:.5f}, {ranger_lng:.6f}  | ground / slow patrol")
 
-            conn.commit()
+                frame_conn.commit()
+            finally:
+                frame_conn.close()
 
             # -- Hit events ----------------------------------------------------
             if i == HIT_DRONE_AT and not drone_hit_fired:
