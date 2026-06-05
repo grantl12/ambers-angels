@@ -20,9 +20,49 @@ const DECKS = [
   { label: 'Partnership',       href: '/deck/partnership'          },
 ]
 
+const FAQS = [
+  {
+    q: 'Do I need a drone or special equipment to volunteer?',
+    a: 'No. For ground volunteers, all you need is an Android or iPhone and a car mount. The app runs in the background while you drive your normal routes — your phone becomes a mobile sensor node. Drone pilots need a DJI-compatible aircraft and an FAA Part 107 certificate; the app connects to your DJI hardware directly in four steps.',
+  },
+  {
+    q: 'What exactly happens when an AMBER Alert fires?',
+    a: 'The moment FEMA IPAWS issues an alert, our platform automatically ingests it, extracts the suspect vehicle description (plate, make, model, color), and sends push notifications to enrolled volunteers in the affected area. Volunteers receive a sector assignment and open a mission. Every frame their phone or drone captures is scanned in real-time by our Cascade Inference engine — no manual steps required.',
+  },
+  {
+    q: 'Does the app store footage of my car or my neighborhood?',
+    a: "No. Raw frames are processed the instant they arrive and deleted immediately — we never build a video archive. The only data we retain is a high-confidence detection record (plate text, GPS coordinates, timestamp, and a cropped vehicle image) for confirmed suspect vehicles. Innocent vehicles generate no stored record whatsoever.",
+  },
+  {
+    q: 'Is my location tracked when I\'m not on a mission?',
+    a: "Your GPS is only transmitted when you have an active mission open in the app. The moment you end a mission or close the session, location reporting stops. We have no background location capability outside of an active alert response.",
+  },
+  {
+    q: 'How accurate is the vehicle identification?',
+    a: 'Plate-only systems run roughly 30% false positive rates due to misreads, partial plates, and switched plates. Our Cascade Inference engine layers OpenALPR plate reading with YOLOv8 visual make, model, color, and year-range classification. That combination drops false positives to under 5% in field testing. Every high-confidence hit also goes through human coordinator review before any information reaches law enforcement.',
+  },
+  {
+    q: 'Who reviews detections before they reach law enforcement?',
+    a: "Trained coordinators. Every AI detection is flagged to a coordinator dashboard — no result is acted on until a human reviews the photo, GPS location, and confidence score and explicitly approves it. AI flags. Humans decide. That's not a disclaimer; it's how the system is architected.",
+  },
+  {
+    q: 'Is Amber\'s Angels a real nonprofit?',
+    a: "Yes. We are a federally recognized 501(c)(3) public charity (EIN 42-2052151), incorporated and headquartered in Carrollton, Georgia. Determination letter received. All financial information is available on request.",
+  },
+  {
+    q: 'Only AMBER Alerts? What about missing seniors or adults?',
+    a: "The platform responds to five government-issued alert types: AMBER Alerts (abducted children), Silver Alerts (missing seniors with dementia or Alzheimer's), Mattie's Call (adults with developmental disabilities), Purple Alerts (missing persons with disabilities), and Blue Alerts (endangered law enforcement officers). All five are ingested automatically from FEMA IPAWS — no manual activation needed.",
+  },
+  {
+    q: 'How do I get my city or county involved?',
+    a: "We're currently running our pilot program in Carrollton, GA and are actively building the evidence base for expansion. If you're a law enforcement agency, emergency management office, or civic organization interested in a future deployment, email us at info@amberangels.org. Partnership inquiries from grant-making organizations are also welcome.",
+  },
+]
+
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('scan')
   const [deckOpen, setDeckOpen] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,6 +91,7 @@ export default function LandingPage() {
           <li><a href="#alerts">Alert Types</a></li>
           <li><a href="#pilot">Pilot</a></li>
           <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#faq">FAQ</a></li>
         </ul>
         <a href="/login" className={s.navSignIn}>Sign In</a>
         <a href="#involve" className={s.navCta}>Get Involved →</a>
@@ -311,6 +352,34 @@ export default function LandingPage() {
             <h3>Public Transparency</h3>
             <p>Our data retention policies are public and rigorous. Published with every pilot transparency report.</p>
           </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className={`${s.section} ${s.faq}`}>
+        <div className={s.fadeUp}>
+          <span className={s.label}>FAQ</span>
+          <div className={s.sectionHeader}>
+            <h2>Common questions.</h2>
+            <p>From volunteers, parents, and partners — answered plainly.</p>
+          </div>
+        </div>
+        <div className={`${s.faqList} ${s.fadeUp}`}>
+          {FAQS.map((item, i) => (
+            <div key={i} className={`${s.faqItem}${openFaq === i ? ` ${s.faqOpen}` : ''}`}>
+              <button
+                className={s.faqQ}
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                aria-expanded={openFaq === i}
+              >
+                <span className={s.faqQText}>{item.q}</span>
+                <span className={s.faqIcon}>{openFaq === i ? '−' : '+'}</span>
+              </button>
+              <div className={s.faqA}>
+                <p>{item.a}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
