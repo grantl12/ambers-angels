@@ -1,0 +1,51 @@
+name: Site Stats
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull stats from nginx logs
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 157.245.125.103
+          username: ambers-angels
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            echo "===== SITE STATS ====="
+
+            LOG=/var/log/nginx/access.log
+            PREV=/var/log/nginx/access.log.1
+
+            echo ""
+            echo "--- All-time unique IPs (both log files) ---"
+            cat $LOG $PREV 2>/dev/null | awk '{print $1}' | sort -u | wc -l
+
+            echo ""
+            echo "--- Last 7 days unique IPs ---"
+            SINCE=$(date -d '7 days ago' '+%d/%b/%Y')
+            cat $LOG 2>/dev/null | awk -v s="$SINCE" '$4 >= "["s' | awk '{print $1}' | sort -u | wc -l
+
+            echo ""
+            echo "--- Today unique IPs ---"
+            TODAY=$(date '+%d/%b/%Y')
+            grep "$TODAY" $LOG 2>/dev/null | awk '{print $1}' | sort -u | wc -l
+
+            echo ""
+            echo "--- Total requests (current log) ---"
+            wc -l < $LOG 2>/dev/null
+
+            echo ""
+            echo "--- Top 10 pages (excluding assets/bots) ---"
+            grep -v -E '\.(js|css|png|jpg|ico|svg|woff|map|txt)|bot|crawl|spider|Go-http' $LOG 2>/dev/null \
+              | awk '{print $7}' | sort | uniq -c | sort -rn | head -10
+
+            echo ""
+            echo "--- Top 10 countries/referrers ---"
+            awk '{print $11}' $LOG 2>/dev/null | sort | uniq -c | sort -rn | head -10
+
+            echo ""
+            echo "--- Requests by day (last 14 days) ---"
+            cat $LOG 2>/dev/null | awk '{print $4}' | cut -d: -f1 | tr -d '[' | sort | uniq -c | tail -14
