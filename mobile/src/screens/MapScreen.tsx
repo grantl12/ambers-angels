@@ -198,6 +198,7 @@ export default function MapScreen() {
         {/* Priority flight zones */}
         {showPriorityLayer && priorityZones.map((zone, i) => {
           const coords = parsePolygonCoords(zone.polygon)
+            .filter(c => isFinite(c.latitude) && isFinite(c.longitude))
           if (coords.length < 3) return null
           const isHigh = zone.priority === "high"
           return (
@@ -215,6 +216,7 @@ export default function MapScreen() {
         {femaAlerts.map((alert) => {
           if (!alert.polygon) return null
           const coords = parsePolygonCoords(alert.polygon)
+            .filter(c => isFinite(c.latitude) && isFinite(c.longitude))
           if (coords.length < 3) return null
           const { fill, stroke } = alertColor(alert.alertType)
           return (
@@ -253,7 +255,11 @@ export default function MapScreen() {
         })}
 
         {/* Volunteer / drone markers */}
-        {drones.map((drone) => (
+        {drones.filter(d =>
+          d.lat != null && d.lng != null &&
+          isFinite(d.lat) && isFinite(d.lng) &&
+          (d.lat !== 0 || d.lng !== 0)
+        ).map((drone) => (
           <Marker
             key={drone.droneId}
             coordinate={{ latitude: drone.lat, longitude: drone.lng }}
