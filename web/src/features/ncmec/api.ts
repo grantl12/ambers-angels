@@ -12,6 +12,8 @@ export type NcmecCase = {
   photoUrl: string
   firstSeenAt: string | null
   resolvedAt: string | null
+  vehicleDescription: string | null
+  vehiclePlate: string | null
 }
 
 export function useNcmecRecent(limit = 40) {

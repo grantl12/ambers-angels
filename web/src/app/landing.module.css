@@ -349,6 +349,55 @@
 .pillar h3 { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 10px; }
 .pillar p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
 
+/* ── FAQ ── */
+.faq { background: var(--ink-2); border-top: 1px solid var(--border); }
+
+.faqList {
+  margin-top: 36px;
+  border-top: 1px solid var(--border);
+  max-width: 800px;
+}
+
+.faqItem {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.faqQ {
+  width: 100%; background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  padding: 22px 4px;
+  text-align: left;
+}
+.faqQ:hover .faqQText { color: #fff; }
+
+.faqQText {
+  font-family: var(--sg); font-size: 16px; font-weight: 600;
+  color: var(--text); line-height: 1.4;
+  transition: color 0.15s;
+}
+
+.faqIcon {
+  font-size: 22px; font-weight: 300; line-height: 1;
+  color: var(--amber); flex-shrink: 0; width: 24px; text-align: center;
+  transition: transform 0.2s;
+}
+.faqOpen .faqIcon { transform: rotate(0deg); }
+
+.faqA {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 4px;
+}
+.faqOpen .faqA {
+  max-height: 400px;
+  padding-bottom: 20px;
+}
+.faqA p {
+  font-size: 14px; line-height: 1.7;
+  color: var(--text-muted); margin: 0;
+}
+
 /* ── GET INVOLVED ── */
 .involve {
   background: var(--amber);
@@ -461,6 +510,8 @@
 
   .privacyGrid { grid-template-columns: 1fr; }
 
+  .faqQText { font-size: 14px; }
+
   .involve { padding: 56px 20px; }
   .involve h2 { font-size: 32px; }
 
@@ -470,14 +521,19 @@
 
 /* ── MOBILE PATCH ── */
 
-/* [01] Nav: keep "Get Involved" CTA visible on mobile */
+/* [01] Nav: keep Sign In + "Get Involved" CTA visible on mobile */
 @media (max-width: 900px) {
   .navCta {
     display: inline-block;
     padding: 8px 14px;
     font-size: 12px;
   }
-  .nav { gap: 12px; }
+  .navSignIn {
+    display: inline-block;
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+  .nav { gap: 10px; }
   .mapBox { height: 180px; }
 }
 @media (max-width: 380px) {

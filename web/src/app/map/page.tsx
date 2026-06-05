@@ -105,8 +105,8 @@ export type LayerState = {
 export default function MapPage() {
   const [layers, setLayers] = useState<LayerState>({
     flock: false,
-    coverage: true,
-    zones: true,
+    coverage: false,
+    zones: false,
     drones: true,
     swarm: true,
     hits: true,
@@ -122,6 +122,10 @@ export default function MapPage() {
 
   function flyTo(lat: number, lng: number) {
     mapControlsRef.current?.flyTo(lat, lng)
+  }
+
+  function fitBounds(bbox: FlockBbox) {
+    mapControlsRef.current?.fitBounds(bbox)
   }
 
   function handleFlockSearch(bbox: FlockBbox) {

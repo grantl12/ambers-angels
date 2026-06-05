@@ -31,6 +31,18 @@ export function EventFeed({ onFlyTo }: Props) {
   const { data: ncmecCases = [] } = useNcmecRecent()
   const [lightbox, setLightbox] = useState<Detection | null>(null)
 
+  async function flyToNcmec(c: NcmecCase) {
+    if (!onFlyTo) return
+    try {
+      const q = encodeURIComponent(`${c.city}, ${c.state}`)
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${q}.json?country=US&types=place&limit=1&access_token=${env.mapboxToken}`
+      const res = await fetch(url)
+      const json = await res.json()
+      const center = json.features?.[0]?.center as [number, number] | undefined
+      if (center) onFlyTo(center[1], center[0])
+    } catch { /* swallow — non-critical */ }
+  }
+
   const watchlistMap = useMemo(
     () => new Map<string, WatchlistEntry>(watchlist.map((w) => [w.plateText.toUpperCase(), w])),
     [watchlist]
@@ -207,13 +219,13 @@ export function EventFeed({ onFlyTo }: Props) {
               <div className="text-sm text-white/30 text-center mt-8">No recent cases</div>
             ) : (
               <>
-                {unresolvedNcmec.map((c) => <NcmecCard key={c.guid} c={c} />)}
+                {unresolvedNcmec.map((c) => <NcmecCard key={c.guid} c={c} onFlyTo={flyToNcmec} />)}
                 {resolvedNcmec.length > 0 && (
                   <>
                     <div className="text-[10px] uppercase tracking-widest text-white/25 pt-2 pb-1">
                       Recently Resolved
                     </div>
-                    {resolvedNcmec.map((c) => <NcmecCard key={c.guid} c={c} />)}
+                    {resolvedNcmec.map((c) => <NcmecCard key={c.guid} c={c} onFlyTo={flyToNcmec} />)}
                   </>
                 )}
               </>
@@ -260,7 +272,7 @@ export function EventFeed({ onFlyTo }: Props) {
   )
 }
 
-function NcmecCard({ c }: { c: NcmecCase }) {
+function NcmecCard({ c, onFlyTo }: { c: NcmecCase; onFlyTo?: (c: NcmecCase) => void }) {
   const resolved = !!c.resolvedAt
   const missingSince = c.missingSince
     ? new Date(c.missingSince).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
@@ -270,15 +282,13 @@ function NcmecCard({ c }: { c: NcmecCase }) {
     : null
 
   return (
-    <a
-      href={c.posterUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`block rounded-lg border text-sm transition-colors ${
+    <div
+      onClick={() => onFlyTo?.(c)}
+      className={`rounded-lg border text-sm transition-colors ${
         resolved
           ? "border-white/10 bg-white/5 opacity-60 hover:opacity-80"
           : "border-teal-500/30 bg-teal-500/8 hover:border-teal-400/50 hover:bg-teal-500/12"
-      }`}
+      } ${onFlyTo ? "cursor-pointer" : ""}`}
     >
       <div className="p-3">
         <div className="flex items-start justify-between gap-2">
@@ -308,7 +318,27 @@ function NcmecCard({ c }: { c: NcmecCase }) {
             {daysAgo != null && <span className="text-white/25"> · {daysAgo}d ago</span>}
           </div>
         )}
+        {c.vehicleDescription ? (
+          <div className="mt-2 rounded bg-teal-500/8 border border-teal-500/25 px-2 py-1.5">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-teal-400/70 mb-0.5">Vehicle</div>
+            <div className="text-xs text-white/80 leading-tight">{c.vehicleDescription}</div>
+            {c.vehiclePlate && (
+              <div className="mt-1 font-mono text-xs font-bold text-amber-400 tracking-wider">{c.vehiclePlate}</div>
+            )}
+          </div>
+        ) : (
+          <div className="mt-2 text-[10px] text-white/25 italic">No vehicle data on file</div>
+        )}
+        <a
+          href={c.posterUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1.5 inline-block text-[10px] text-teal-400/60 hover:text-teal-300 transition-colors"
+        >
+          View poster ↗
+        </a>
       </div>
-    </a>
+    </div>
   )
 }

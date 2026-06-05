@@ -586,7 +586,7 @@ export default function AdminPage() {
           </div>
 
           <form onSubmit={submitAlert} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-white/60 mb-1">Plate (optional)</label>
                 <input {...field("plate")} placeholder="ABC1234"
@@ -604,7 +604,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-white/60 mb-1">Color</label>
                 <input {...field("color")} placeholder="Silver"
@@ -622,7 +622,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-white/60 mb-1">Area / description</label>
                 <input {...field("area")} placeholder="Carroll County, GA"

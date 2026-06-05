@@ -74,6 +74,13 @@ export function TopBar() {
           </span>
         )}
 
+        {/* Admin link — always visible for admin users on any screen width */}
+        {isAdmin && (
+          <Link href="/admin" className="md:hidden text-amber-500/70 hover:text-amber-400 transition-colors text-xs font-semibold">
+            Admin
+          </Link>
+        )}
+
         {/* Secondary nav — hidden on mobile */}
         <div className="hidden md:flex items-center gap-3">
           <Link href="/leaderboard" className="text-white/40 hover:text-white/80 transition-colors">Leaderboard</Link>

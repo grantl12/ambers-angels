@@ -43,9 +43,10 @@ android {
 dependencies {
     compileOnly 'com.facebook.react:react-android:+'
 
-    // DJI MSDK V5 (5.15.0 — latest on Maven Central as of 2026-04)
-    // All class names / method signatures verified from the provided JAR bytecode.
-    implementation 'com.dji:dji-sdk-v5-aircraft:5.15.0'
-    compileOnly  'com.dji:dji-sdk-v5-aircraft-provided:5.15.0'
-    implementation 'com.dji:dji-sdk-v5-networkImp:5.15.0'
+    // DJI MSDK V5 (5.17.0 — latest confirmed on Maven Central as of 2026-06)
+    // Uses Waypoint 3.0 API (dji.v5.manager.aircraft.waypoint3) — waypoint5 package
+    // does not exist in this version. FlightControllerManager absent; RTH via KeyManager.
+    implementation 'com.dji:dji-sdk-v5-aircraft:5.17.0'
+    compileOnly  'com.dji:dji-sdk-v5-aircraft-provided:5.17.0'
+    implementation 'com.dji:dji-sdk-v5-networkImp:5.17.0'
 }

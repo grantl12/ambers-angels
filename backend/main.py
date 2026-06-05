@@ -336,11 +336,12 @@ def health_check(db: Session = Depends(get_db)):
     watchlist_count = 0
     detections_1h = 0
     last_detection_at = None
-    last_fema_poll    = None
-    last_ncmec_poll   = None
+    from services.health_tracker import get_iso as _poll_ts
+    last_fema_poll  = _poll_ts("fema")
+    last_ncmec_poll = _poll_ts("ncmec")
     if db_ok:
         try:
-            watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist")).scalar() or 0
+            watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist WHERE active = TRUE")).scalar() or 0
             cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
             detections_1h = db.execute(
                 text("SELECT COUNT(*) FROM detection_events WHERE created_at >= :c"),
@@ -349,12 +350,6 @@ def health_check(db: Session = Depends(get_db)):
             row = db.execute(text("SELECT MAX(created_at) FROM detection_events")).scalar()
             if row:
                 last_detection_at = row.isoformat() if hasattr(row, "isoformat") else str(row)
-            row = db.execute(text("SELECT MAX(processed_at) FROM processed_alerts")).scalar()
-            if row:
-                last_fema_poll = row.isoformat() if hasattr(row, "isoformat") else str(row)
-            row = db.execute(text("SELECT MAX(last_seen_at) FROM ncmec_cases")).scalar()
-            if row:
-                last_ncmec_poll = row.isoformat() if hasattr(row, "isoformat") else str(row)
         except Exception:
             pass
 
@@ -502,14 +497,37 @@ async def ingest_frame(
 
     outcomes = []
 
+    # Compute Bayesian vehicle prior once per frame (vehicle attributes are shared)
+    _vcolor   = primary_vehicle.color     if primary_vehicle else None
+    _vtype    = primary_vehicle.body_type if primary_vehicle else None
+    _vmake    = getattr(primary_vehicle, 'make', None) if primary_vehicle else None
+    _prior_w  = 1.0
+    try:
+        from services.vehicle_priors import get_prior_weight as _get_prior
+        # Derive alert_type from active watchlist entries for the detected plate(s)
+        # For now use 'amber' as the dominant type if any amber alert is active
+        _sync_db_local = database.SessionLocal()
+        try:
+            _at_row = _sync_db_local.execute(text(
+                "SELECT alert_type FROM watchlist WHERE active = TRUE ORDER BY "
+                "CASE alert_type WHEN 'amber' THEN 0 WHEN 'matties' THEN 1 "
+                "WHEN 'silver' THEN 2 ELSE 3 END LIMIT 1"
+            )).fetchone()
+            _active_type = _at_row[0] if _at_row else "all"
+        finally:
+            _sync_db_local.close()
+        _prior_w = _get_prior(_active_type, _vcolor, _vtype, _vmake)
+    except Exception:
+        pass  # Prior is optional — never block inference on it
+
     # Process each plate result into the aggregation service
     for plate_res in results.get("results", []):
         plate_text = plate_res.get("plate", "").upper()
         if not plate_text:
             continue
-            
+
         pr = pr_by_plate.get(plate_text)
-        
+
         # Build the detection input for the 5-second aggregator
         det = AggDetectionInput(
             detection_id=str(uuid.uuid4()),
@@ -523,15 +541,17 @@ async def ingest_frame(
             bbox=plate_res.get("coordinates"),
             alpr_payload=plate_res,
             # Broad classification (YOLO)
-            vehicle_color=primary_vehicle.color if primary_vehicle else None,
-            vehicle_type=primary_vehicle.body_type if primary_vehicle else None,
+            vehicle_color=_vcolor,
+            vehicle_type=_vtype,
             yolo_conf=primary_vehicle.yolo_conf if primary_vehicle else 0.0,
             # Fine-grained classification (CDC)
             cdc_label=primary_vehicle.cdc_label if primary_vehicle else None,
             cdc_conf=primary_vehicle.cdc_conf if primary_vehicle else 0.0,
             # Make/Model (Cloud API enrichment if high confidence)
-            vehicle_make=getattr(pr, 'make', None) if pr else None,
+            vehicle_make=getattr(pr, 'make', None) if pr else _vmake,
             vehicle_model=getattr(pr, 'model', None) if pr else None,
+            # Bayesian vehicle prior
+            prior_weight=_prior_w,
         )
 
         snapshot = _aggregation_service.ingest(det)
@@ -553,6 +573,65 @@ async def ingest_frame(
     # Return the next capture interval. If we saw plates, we speed up.
     interval_ms = 800 if outcomes else 1500
     return {"status": "ok", "outcomes": outcomes, "capture_interval_ms": interval_ms}
+
+
+@app.post("/ingest/detection")
+async def ingest_detection(
+    drone_id:         str            = Form(...),
+    plate_text:       str            = Form(...),
+    plate_confidence: float          = Form(0.70),
+    lat:              Optional[float] = Form(None),
+    lng:              Optional[float] = Form(None),
+    altitude:         Optional[float] = Form(None),
+    heading:          Optional[float] = Form(None),
+    speed:            Optional[float] = Form(None),
+    pilot_id:         Optional[str]   = Form(None),
+    source:           str             = Form("phone_mlkit"),
+    _pilot: dict = Depends(get_current_pilot),
+):
+    """
+    On-device detection result from ML Kit OCR.
+    No image transmitted — plate text + confidence only.
+    Privacy-preserving: raw frames never leave the device.
+    Feeds into the same AggregationService pipeline as frame-based detections.
+    """
+    plate = plate_text.strip().upper().replace(" ", "").replace("-", "")
+    if not plate or not (2 <= len(plate) <= 10):
+        return {"status": "skipped", "reason": "invalid_plate", "watchlist_hit": False}
+
+    ts = datetime.now(timezone.utc)
+
+    det = AggDetectionInput(
+        detection_id = str(uuid.uuid4()),
+        frame_id     = str(uuid.uuid4()),
+        drone_id     = drone_id,
+        detected_at  = ts,
+        plate_raw    = plate,
+        confidence   = plate_confidence * 100,  # normalize to 0-100 scale
+        quality_flags= [],
+        telemetry    = {"lat": lat, "lon": lng},
+        vehicle_color= None,
+        vehicle_type = None,
+        vehicle_make = None,
+        vehicle_model= None,
+        yolo_conf    = 0.0,
+        cdc_label    = None,
+        cdc_conf     = 0.0,
+    )
+
+    snapshot = _aggregation_service.ingest(det)
+    watchlist_hit = False
+    if snapshot:
+        service = EventService(
+            repository=EventRepository(database.AsyncSessionLocal),
+            dispatcher=_alert_dispatcher,
+        )
+        decision = await service.upsert_from_snapshot(snapshot)
+        if decision:
+            status = decision.event.status if hasattr(decision.event, "status") else decision.event.get("status", "")
+            watchlist_hit = status in ("alerted", "probable")
+
+    return {"status": "ingested", "watchlist_hit": watchlist_hit}
 
 
 def _require_worker_or_pilot(

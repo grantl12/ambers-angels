@@ -58,7 +58,7 @@ Manual migration without full deploy — trigger via GitHub Actions UI:
 - **`autoIncrement` in eas.json is NOT supported with app.config.js** — never add it
 - **`--build-number` flag does not work with app.config.js** — never use it
 - Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.)
-- Current build number: **4** (submitted for App Store review)
+- Current build number: **7** (app.config.js is source of truth — CLAUDE.md may lag)
 
 Build and submit:
 ```
@@ -102,8 +102,10 @@ eas submit --platform ios --profile production --latest
 ### Frame Pipeline
 
 - **Drone (RTMP)**: DJI MSDK V5 on Android → RTMP stream → nginx `exec_push` → JPEG frames saved to `test_plates/<drone_id>/` → `unified_worker.py` picks them up
-- **Phone/DJI App (direct upload)**: `POST /ingest/frame` — pilot JWT required, 25 MB limit, image content-type enforced, runs ALPR + YOLO server-side
+- **Phone camera (Android background scan)**: `ScanService.kt` runs ML Kit text recognition ON-DEVICE — no raw frames transmitted. Plate text + confidence POSTed to `POST /ingest/detection`. Privacy-preserving by architecture.
+- **Phone/DJI App (CameraScreen direct upload)**: `POST /ingest/frame` — pilot JWT required, 25 MB limit, image content-type enforced, runs ALPR + YOLO server-side. Used for DJI SDK path; phone background scan now uses on-device OCR.
 - **Worker** (`worker/unified_worker.py`): scans frame directories, runs OpenALPR + YOLOv8-nano + optional Plate Recognizer, posts to `POST /detections/` with `X-Internal-Key` header
+- **On-device result endpoint**: `POST /ingest/detection` — accepts plate_text + plate_confidence + GPS, no image. Feeds into same AggregationService pipeline. Returns `watchlist_hit` boolean.
 
 ### Confidence Scoring
 
@@ -239,7 +241,8 @@ Five decks at `web/public/decks/`, each served via a Next.js iframe route:
 | `grant.html` | `/deck/grant` | Grant writer / funder deck |
 | `tech.html` | `/deck/tech` | Technical architecture deck |
 | `volunteer-stories.html` | `/deck/stories` | Volunteer stories |
-| `grant-bio.html` | `/deck/about` | About the Founder (Grant bio) |
+| `grant-bio.html`    | `/deck/about`       | About the Founder (Grant bio) |
+| `partnership.html`  | `/deck/partnership` | CPD formal partnership / future capabilities (12 slides) |
 
 Speaker notes in `const NOTES = [...]` at top of each file. Update all relevant decks when architecture changes.
 
@@ -281,6 +284,22 @@ In review as of June 2, 2026. When approved:
 - Update App Store description to remove any "report criminal activity" language (see 2.1 rejection history above)
 - No background check language — none is implemented, all docs are now accurate
 
+### Mobile Coordinator Map Picker (built June 3 2026)
+
+`CoordinatorDispatchScreen.tsx` now has:
+- **Map picker modal** — tap anywhere on map to place observation point; alert polygon shown as overlay
+- **Airspace advisory** — auto-fetches aircraft within 5nm / below 3000ft after obs point is set (debounced 800ms)
+- New `mobile/src/api/airspace.ts` — `fetchAirTraffic(south, north, west, east)` → `Aircraft[]`
+
+### Mission Map Improvements (built June 3 2026)
+
+- **Multi-drone trails**: `useAllTelemetryTrails(droneIds[])` in `telemetry/api.ts` — one colored trail per active drone
+- **CPA conflict detection**: `computeConflicts()` in `mission-map.tsx` — pulsing red ring on aircraft within 500ft horizontal / 300ft vertical of a drone within 2-min lookahead
+- **Conflict banner**: click flies map to at-risk aircraft
+- **Legend**: road coverage colors now match actual paint interpolation; removed phantom "3+ cameras" tier
+- **Sidebar active alert**: single card with ‹/› cycling, click fits map bounds to alert polygon
+- **NCMEC fly-to**: clicking a NCMEC card geocodes city+state via Mapbox and flies the map there
+
 ### Watch-area UI + autocomplete
 
 Built and shipped (2026-05-24). All three layers complete:
@@ -302,9 +321,66 @@ Built and shipped (2026-05-24). All three layers complete:
 - Section anchor IDs on landing page (#24)
 - Impact metrics and case studies — blocked until pilot generates real data (#25)
 
+### Analytics
+
+- GoAccess installed on server, daily report at `https://amberangels.org/analytics/`
+- Login: username `amber`, password `Ambers1Angels`
+- Regenerated daily by cron job at `/etc/cron.daily/goaccess-report`
+- Log-based (not session-based) — use for daily unique IPs, top pages, referrers, hourly patterns
+- To pull fresh stats on demand: SSH and run the nginx log grep commands (faster than waiting for daily regen)
+
+### Health Tracking
+
+- `backend/services/health_tracker.py` — in-process poll timestamp store
+- `stamp("fema")` called after every FEMA/EAS/NWS poll cycle (regardless of new alerts found)
+- `stamp("ncmec")` called after every NCMEC poll cycle
+- Health endpoint reads from tracker for `last_fema_poll` / `last_ncmec_poll` (not DB)
+- This fixes the "never" display bug where no timestamp showed if no NEW alerts were ingested
+
+### Data Retention Policy
+
+Source column added to `detection_events`, `watchlist`, `vehicle_targets`:
+- `source='fema'` / `source='ncmec'` — NEVER cleared by admin button; governed by scheduled TTL purges
+- `source='worker'` / `source='phone_mlkit'` — non-alerted detections purged at 30 days; alerted (evidence) at 365 days
+- `source='manual'` / `source='demo'` — cleared only by "Clear Test Data" button in admin panel
+- Alerted detection events (status='alerted') are NEVER deleted by the admin clear button — they are evidence
+
+### NCMEC Vehicle Extraction
+
+- `_VEHICLE_RE` and `_PLATE_RE` regex patterns in `ncmec_poller.py` extract vehicle info from RSS description text
+- `vehicle_description` and `vehicle_plate` columns added to `ncmec_cases` table
+- Upsert uses `COALESCE` — existing vehicle data preserved across re-polls
+- API returns `vehicleDescription` + `vehiclePlate`; event feed shows vehicle block prominently when present
+- Most NCMEC RSS descriptions are minimal and won't contain vehicle text — "No vehicle data on file" shown when absent
+- Full LLM-based extraction agent (from NCMEC poster HTML) is a future sprint
+
+### Custom VMMC Model (Future)
+
+- `https://github.com/grantl12/chadongcha-app` — Grant's vehicle identification game (on backburner)
+- Has EfficientNet-Lite B2 training pipeline, TFLite/CoreML export, image scraping infrastructure
+- Community verification loop: players identify unknown vehicle generations — maps directly to AA use case
+- AA adaptation: only use confirmed-match frames (active alert vehicles) for training — not random cars (CCPA/privacy)
+- Plates and faces must be blurred before any frame is shown to community
+- Color classification: YOLO and current chadongcha model both underperform on color — future dedicated color head using HSV sampling on YOLO bounding box
+- Priority: accumulate real capture data first, then train on that
+
+### Partnership Capabilities Deck
+
+- `web/public/decks/partnership.html` → `/deck/partnership`
+- 12 slides: baseline platform → partnership layer → CAD integration → RTCC feed → NCIC sync → NCMEC vehicle agent → polygon search → evidence packages → infrastructure play → roadmap → close
+- Deputy Chief Dobbs and Lt. Hitchcock (Carrollton PD) are the current CPD contacts for formal partnership discussions
+- CAD integration: `POST /dispatch/cad` endpoint stub needed; requires CPD IT to provide Motorola PremierOne / Tyler New World API key + endpoint URL
+- NCIC/GCIC access requires signed MOU with CPD — ingestion pipeline is built, waiting for credentials
+- Evidence package export (`/admin/evidence/{mission_id}`) not yet built — next sprint after pilot data flows
+
 ### Longer Term / Needs Config Only
 
 - **Twilio SMS** — fully implemented in `alert_dispatcher.py`, silently skips if env vars absent. Just needs `TWILIO_*` vars added to server `.env`.
 - **BVLOS waiver documentation** — `bvlos_authorized` flag set by admin via `PATCH /autonomous/drones/{id}`. Admin must record FAA Part 107.39 waiver number in notes before setting.
-- **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
+- **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine (no workaround). `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
 - **Background checks** — not implemented. Registration accepts anyone 18+ with valid FAA Part 107 cert. All public-facing copy reflects this accurately as of June 2, 2026.
+- **LinkedIn company page** — not yet created. First social media post (Facebook personal page, June 2 2026) drove 526 unique IPs in one day. LinkedIn is the right next channel for CPD/grant/EM audience.
+- **Board governance docs** — members have not yet signed COI policy, board member agreements, or meeting minutes. Required before accepting grant money.
+- **On-device iOS ALPR** — Android ML Kit path is built. iOS equivalent uses Vision framework text recognition. Requires a separate implementation path; no Mac needed to write the Swift but you can't build/test without one.
+- **Polygon grid search (lawnmower)** — code is in `waypoint_generator.py`, not activated. Single config flag to enable. Coordinate sweep assigns sectors to multiple drones.
+- **Evidence package PDF export** — detection timeline + GPS track + golden frames + chain-of-custody block. Not built. Required for formal law enforcement handoff.

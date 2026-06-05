@@ -7,6 +7,7 @@ import MapScreen from "../screens/MapScreen"
 import AutonomousMissionScreen from "../screens/AutonomousMissionScreen"
 import CoordinatorDispatchScreen from "../screens/CoordinatorDispatchScreen"
 import SettingsScreen from "../screens/SettingsScreen"
+import AdminScreen from "../screens/AdminScreen"
 
 type Props = {
   username:   string | null
@@ -22,10 +23,12 @@ const ICON: Record<string, string> = {
   Map:       "🗺",
   Missions:  "🚁",
   Settings:  "⚙️",
+  Admin:     "🔐",
 }
 
 export function TabNavigator({ username, onSignOut, role }: Props) {
   const isCoordinator = role === "coordinator" || role === "admin"
+  const isAdmin       = role === "admin"
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -50,6 +53,9 @@ export function TabNavigator({ username, onSignOut, role }: Props) {
       <Tab.Screen name="Settings">
         {() => <SettingsScreen username={username} onSignOut={onSignOut} />}
       </Tab.Screen>
+      {isAdmin && (
+        <Tab.Screen name="Admin" component={AdminScreen} options={{ title: "Admin" }} />
+      )}
     </Tab.Navigator>
   )
 }

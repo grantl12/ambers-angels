@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AMBER Angels — Partnership Capabilities</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<script type="application/json" id="speaker-notes">
+[
+  "Grant here. This deck isn't about what Amber's Angels does today — you've seen that. This is about what a formal partnership with Carrollton PD makes possible. Every capability I'm about to walk through is either already built and waiting for credentials, or is one sprint away once we have data access. Let's go.",
+  "Here's the baseline we're operating at right now without any partnership in place. FEMA IPAWS is live — three polling sources, under five minutes from federal issuance to volunteer phones. The swarm dispatch layer is running — coordinators dispatch drones from home, pilots relinquish control remotely, waypoints upload automatically via DJI SDK. Composite ALPR plus YOLO confidence scoring. Live mission map with ADS-B airspace deconfliction. NCMEC cross-reference against active vehicle targets. This is the floor. A partnership doesn't build this — it extends it.",
+  "Here's the architecture of a formal partnership. Two things flow in from CPD: authorized data access — NCIC hotlist credentials and CAD API access. That's it. In return, the platform sends three things back: detections flow into your real-time crime center as a live data feed, high-confidence hits route directly to CAD as calls for service, and closed missions produce evidence packages that chain-of-custody into your records system. You get an aerial ALPR and missing-persons response layer without buying a helicopter or licensing another vendor platform.",
+  "The deputy chief asked about this specifically. When a HIGH_CONFIDENCE match fires against an active watchlist plate — the system today notifies coordinators via Discord and the mission map. With a CAD integration, there's a one-tap Send to Dispatch button. The backend formats a call-for-service payload and POSTs to your CAD system. A call is created, priority assigned, and nearby units notified. All we need from IT is an API key and the CAD endpoint URL. The integration wrapper is already built — it's waiting for credentials. Works with Motorola PremierOne, Tyler New World, or any CAD with a REST API.",
+  "Most agencies running a Real-Time Crime Center are monitoring fixed-camera feeds, CAD events, and manual ALPR logs on a common operating picture. Genetec, Motorola Avigilon, Fusus — whatever software CPD runs, it has an API. What we've built is the aerial detection layer that feeds it. FEMA alert polygons as map overlays. Drone positions live. ALPR hit coordinates and confidence scores streaming in real time. The RTCC gets aerial eyes during an active missing-persons alert without any operator on scene. We become infrastructure, not a vendor app you log into separately.",
+  "Today the watchlist is 100% FEMA-derived — plates extracted from active federal alerts. A GCIC or NCIC API connection changes that entirely. Stolen vehicle plates, wanted persons' vehicles, Attempt to Locate entries — all automatically ingested into the watchlist table on a daily sync cycle. The inference pipeline doesn't change. A drone running ALPR during any patrol or mission would match against a watchlist that's orders of magnitude larger than what FEMA alone provides. This is a passive force multiplier. Volunteers driving their normal routes become a distributed plate reader network against your full hot list.",
+  "When we told CPD we cross-reference NCMEC reports against vehicle targets — that's true, but currently the vehicle targets come from FEMA. Some NCMEC posters contain vehicle descriptions in the body text: 'last seen in a 2019 blue Honda Civic, Georgia tag ABC-1234.' An LLM agent that reads each poster on ingest and extracts a structured vehicle profile would create watchlist entries automatically, without waiting for a federal AMBER Alert to be issued. A child goes missing, the NCMEC report posts, and the vehicle is in the system within thirty minutes — before any federal alert is issued. This is the gap between NCMEC and FEMA that the current system can't close. This closes it.",
+  "The lawnmower search pattern is already implemented in the codebase — it's a single config flag away from active. Right now swarm drones fly to a single observation point and hover. With polygon search mode, a coordinator draws or imports a search area on the map, the system divides it into sectors by drone count, and each drone gets a systematic grid sweep. Full coverage of a defined area, not probabilistic hovering. Combined with the NCMEC vehicle agent, you can define a search polygon around where a child was last seen and run a coordinated aerial grid sweep within an hour of a case being opened — before an AMBER Alert is issued.",
+  "Law enforcement needs a chain of custody. Right now coordinators get a Discord embed with a plate, confidence score, and a frame image. A formal partnership warrants a complete evidence package. After a mission closes: a PDF report containing the full timeline of detection events, confidence scores and frame counts for each hit, the GPS flight path rendered as a map, every golden evidence frame with timestamp and drone ID, and a chain-of-custody signature block. The report exports in a format compatible with your records management system. Defense-proof documentation that the match came from an active federal alert, was scored above the confidence threshold, and was not manually flagged by a human operator.",
+  "Step back. What I'm describing is a lightweight Real-Time Crime Center module for missing-persons aerial response. Every city that can't afford helicopter units — which is most of them — currently has zero aerial coverage during an active AMBER or Silver Alert. Carrollton is the proof of concept for this model. When this works here, the playbook for the next deployment is written. Adjacent counties. State mutual aid agreements. A national network where every participating agency contributes volunteer swarm capacity and consumes a shared detection feed. The first agency partnership defines what every deployment after it looks like. That's why this conversation matters.",
+  "Here's the sequence. The platform is live today — FEMA ingestion, swarm dispatch, composite scoring, mission map. A partnership signed gives us CAD credentials and GCIC access, which unlocks direct dispatch and the hotlist sync immediately. Within ninety days we deploy NCMEC vehicle intelligence, evidence export, and systematic polygon search. Within six months, multi-agency coordination and the RTCC data feed are running. Within twelve months, we're having conversations with Georgia GEMA and neighboring county agencies about a statewide aerial response network. Every step is additive — nothing we build for CPD is wasted if other agencies join.",
+  "Carrollton Police Department becomes the model for the next generation of missing-persons aerial response. The technology is built. The volunteers are ready. The alert pipeline is live. What's missing is the data handshake that turns a volunteer drone network into law enforcement infrastructure. One signed partnership agreement changes what this platform can do — and sets the blueprint for every deployment that follows. Let's build it together. Grant Lindberg, info at amberangels dot org."
+]
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#050a0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#050a0f"/>
+    <circle cx="600" cy="340" r="160" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="12 6"/>
+    <circle cx="600" cy="340" r="80" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="2"/>
+    <line x1="200" y1="260" x2="520" y2="320" stroke="rgba(56,189,248,0.6)" stroke-width="2"/>
+    <line x1="200" y1="420" x2="520" y2="360" stroke="rgba(56,189,248,0.6)" stroke-width="2"/>
+    <line x1="680" y1="320" x2="960" y2="260" stroke="rgba(34,197,94,0.6)" stroke-width="2"/>
+    <line x1="680" y1="360" x2="960" y2="420" stroke="rgba(34,197,94,0.6)" stroke-width="2"/>
+    <text x="600" y="640" font-family="system-ui" font-size="32" font-weight="700" fill="#f59e0b" text-anchor="middle" letter-spacing="3">PARTNERSHIP CAPABILITIES</text>
+  </svg>
+</template>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #f59e0b;
+  --sky: #38bdf8;
+  --green: #22c55e;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --teal: #2dd4bf;
+  --ink: #050a0f;
+  --ink2: #0d1117;
+  --ink3: #111827;
+  --ink4: #1a2332;
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
+  --dim: rgba(255,255,255,0.38);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+}
+section {
+  width: 1920px; height: 1080px;
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--ink); color: var(--text);
+  position: relative; overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.mono, code { font-family: 'JetBrains Mono', monospace; }
+.sn { position: absolute; bottom: 40px; right: 56px; font-size: 24px; color: var(--dim); font-weight: 500; letter-spacing: 1px; }
+.brand { position: absolute; top: 40px; left: 56px; display: flex; align-items: center; gap: 14px; z-index: 5; }
+.brand img { width: 40px; height: 40px; border-radius: 50%; }
+.brand span { font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.7); }
+.brand em { color: var(--amber); font-style: normal; }
+.tag { display: inline-block; font-size: 24px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--amber); border: 1px solid rgba(245,158,11,0.3); padding: 8px 18px; border-radius: 4px; background: rgba(245,158,11,0.07); }
+.tag.green { color: var(--green); border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.07); }
+.tag.sky { color: var(--sky); border-color: rgba(56,189,248,0.3); background: rgba(56,189,248,0.07); }
+.tag.purple { color: var(--purple); border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.07); }
+em.amber { color: var(--amber); font-style: normal; }
+em.green { color: var(--green); font-style: normal; }
+em.sky { color: var(--sky); font-style: normal; }
+em.purple { color: var(--purple); font-style: normal; }
+
+/* ── 01 TITLE ── */
+#s1 { display: flex; align-items: center; justify-content: center; }
+#s1::before { content:''; position:absolute; inset:0; background: radial-gradient(ellipse 120% 80% at 50% 110%, rgba(245,158,11,0.12) 0%, transparent 65%); }
+#s1::after  { content:''; position:absolute; top:-200px; right:-200px; width:900px; height:900px; border-radius:50%; border: 1px solid rgba(245,158,11,0.08); }
+.s1-inner { text-align:center; max-width:1600px; padding:0 80px; position:relative; z-index:1; }
+.s1-logo { width:100px; height:100px; border-radius:50%; margin-bottom:32px; }
+.s1-org { font-size:26px; font-weight:700; letter-spacing:5px; text-transform:uppercase; color:var(--amber); margin-bottom:28px; opacity:.9; }
+.s1-h { font-size:88px; font-weight:700; line-height:1.05; letter-spacing:-2px; color:#fff; margin-bottom:28px; }
+.s1-h em { color:var(--amber); font-style:normal; }
+.s1-sub { font-size:30px; color:var(--muted); max-width:1200px; margin:0 auto 56px; line-height:1.55; }
+.s1-chips { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+.s1-chip { font-size:22px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:10px 20px; border-radius:6px; }
+.s1-chip.live { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:var(--green); }
+.s1-chip.build { background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); color:var(--sky); }
+.s1-chip.vision { background:rgba(167,139,250,0.1); border:1px solid rgba(167,139,250,0.3); color:var(--purple); }
+
+/* ── 02 BASELINE ── */
+#s2 { background:var(--ink2); padding:90px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s2 h2 { font-size:60px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 16px; }
+#s2 h2 em { color:var(--amber); font-style:normal; }
+#s2 > p { font-size:26px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:48px; }
+.baseline-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+.bl-card { background:var(--ink3); border:1px solid var(--border); border-radius:14px; padding:30px 28px; display:flex; flex-direction:column; gap:12px; }
+.bl-card.live { border-color:rgba(34,197,94,0.35); background:linear-gradient(180deg,rgba(34,197,94,0.06),var(--ink3)); }
+.bl-live-dot { display:flex; align-items:center; gap:10px; font-size:22px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--green); }
+.bl-live-dot::before { content:''; width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(34,197,94,0.6); flex-shrink:0; }
+.bl-card h4 { font-size:28px; font-weight:700; color:#fff; line-height:1.2; }
+.bl-card p { font-size:24px; color:var(--muted); line-height:1.45; flex:1; }
+.bl-card .stat { font-family:'JetBrains Mono',monospace; font-size:22px; color:var(--amber); padding-top:10px; border-top:1px solid var(--border); }
+
+/* ── 03 PARTNERSHIP LAYER ── */
+#s3 { padding:80px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s3 h2 { font-size:58px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 14px; }
+#s3 h2 em { color:var(--amber); font-style:normal; }
+#s3 > p { font-size:24px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:44px; }
+.layer-diagram { display:grid; grid-template-columns:1fr 2fr 1fr; gap:32px; align-items:stretch; }
+.ld-col { display:flex; flex-direction:column; gap:14px; }
+.ld-col-h { font-size:22px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+.ld-col-h.in { color:var(--sky); }
+.ld-col-h.out { color:var(--green); }
+.ld-item { border-radius:10px; padding:18px 22px; border:1px solid; }
+.ld-item.in { border-color:rgba(56,189,248,0.3); background:rgba(56,189,248,0.06); }
+.ld-item.out { border-color:rgba(34,197,94,0.3); background:rgba(34,197,94,0.06); }
+.ld-item h5 { font-size:24px; font-weight:700; color:#fff; margin-bottom:4px; }
+.ld-item p { font-size:22px; color:var(--muted); line-height:1.4; }
+.ld-center { background:linear-gradient(180deg,rgba(245,158,11,0.12),var(--ink2)); border:2px solid rgba(245,158,11,0.4); border-radius:18px; padding:32px 36px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px; }
+.ld-center-logo { width:64px; height:64px; border-radius:50%; }
+.ld-center h3 { font-size:34px; font-weight:700; color:#fff; }
+.ld-center p { font-size:24px; color:var(--muted); line-height:1.5; }
+.ld-center .layers { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:6px; }
+.ld-layer-chip { font-size:19px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:6px 12px; border-radius:4px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); color:var(--amber); }
+.ld-arrow { display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--dim); }
+
+/* ── 04 CAD DISPATCH ── */
+#s4 { background:var(--ink2); padding:90px 96px; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+.s4-l h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 20px; }
+.s4-l h2 em { color:var(--amber); font-style:normal; }
+.s4-l > p { font-size:24px; color:var(--muted); line-height:1.6; margin-bottom:32px; }
+.cad-flow { display:flex; flex-direction:column; gap:14px; }
+.cad-step { display:grid; grid-template-columns:48px 1fr; gap:18px; align-items:baseline; padding:18px 20px; background:var(--ink3); border:1px solid var(--border); border-radius:10px; }
+.cad-step.active { border-color:rgba(245,158,11,0.4); background:linear-gradient(90deg,rgba(245,158,11,0.07),var(--ink3)); }
+.cad-step .n { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:var(--amber); }
+.cad-step .b h5 { font-size:24px; font-weight:700; color:#fff; margin-bottom:4px; }
+.cad-step .b p { font-size:22px; color:var(--muted); line-height:1.4; }
+.cad-note { margin-top:8px; padding:18px 22px; background:rgba(56,189,248,0.06); border:1px solid rgba(56,189,248,0.25); border-radius:8px; font-size:22px; color:rgba(56,189,248,0.85); line-height:1.5; }
+.cad-screen { background:var(--ink3); border:1px solid rgba(245,158,11,0.3); border-radius:14px; padding:28px; display:flex; flex-direction:column; gap:20px; }
+.cad-screen-h { font-family:'JetBrains Mono',monospace; font-size:22px; color:var(--amber); letter-spacing:1px; }
+.hit-card { background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.35); border-radius:10px; padding:18px 22px; }
+.hit-plate { font-family:'JetBrains Mono',monospace; font-size:40px; font-weight:700; color:#fbbf24; letter-spacing:4px; margin-bottom:8px; }
+.hit-meta { font-size:22px; color:var(--muted); margin-bottom:14px; }
+.hit-badges { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+.hit-badge { font-size:18px; font-weight:800; letter-spacing:1px; text-transform:uppercase; padding:5px 12px; border-radius:4px; }
+.hit-badge.amber-b { background:#f59e0b; color:#050a0f; }
+.hit-badge.conf { background:rgba(34,197,94,0.2); border:1px solid rgba(34,197,94,0.4); color:var(--green); }
+.dispatch-btn { background:var(--amber); border-radius:8px; padding:14px 24px; font-size:24px; font-weight:800; color:#050a0f; text-align:center; letter-spacing:0.5px; }
+
+/* ── 05 RTCC ── */
+#s5 { padding:90px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s5 h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 16px; }
+#s5 h2 em { color:var(--sky); font-style:normal; }
+#s5 > p { font-size:24px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:44px; }
+.rtcc-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:32px; }
+.rtcc-card { background:var(--ink2); border:1px solid var(--border); border-radius:14px; padding:26px 24px; display:flex; flex-direction:column; gap:10px; }
+.rtcc-card.primary { border-color:rgba(56,189,248,0.4); background:linear-gradient(180deg,rgba(56,189,248,0.07),var(--ink2)); }
+.rtcc-icon { font-size:32px; line-height:1; }
+.rtcc-card h4 { font-size:26px; font-weight:700; color:#fff; line-height:1.2; }
+.rtcc-card p { font-size:22px; color:var(--muted); line-height:1.45; flex:1; }
+.rtcc-card .tag-sm { font-family:'JetBrains Mono',monospace; font-size:20px; color:var(--sky); padding-top:10px; border-top:1px solid var(--border); }
+.rtcc-foot { padding:22px 28px; background:var(--ink2); border:1px solid rgba(56,189,248,0.2); border-left:3px solid var(--sky); border-radius:8px; font-size:24px; color:var(--muted); line-height:1.5; }
+.rtcc-foot strong { color:#fff; }
+
+/* ── 06 NCIC SYNC ── */
+#s6 { background:var(--ink2); padding:90px 96px; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+.s6-l h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 20px; }
+.s6-l h2 em { color:var(--green); font-style:normal; }
+.s6-l > p { font-size:24px; color:var(--muted); line-height:1.6; margin-bottom:28px; }
+.ncic-compare { display:flex; flex-direction:column; gap:20px; }
+.ncic-compare-row { display:grid; grid-template-columns:1fr 40px 1fr; gap:16px; align-items:center; }
+.ncic-before, .ncic-after { padding:18px 22px; border-radius:10px; }
+.ncic-before { background:rgba(255,255,255,0.04); border:1px solid var(--border); }
+.ncic-after  { background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.3); }
+.ncic-before h5 { font-size:22px; font-weight:700; color:var(--muted); margin-bottom:4px; }
+.ncic-after  h5 { font-size:22px; font-weight:700; color:var(--green); margin-bottom:4px; }
+.ncic-before p, .ncic-after p { font-size:22px; color:var(--muted); line-height:1.4; }
+.ncic-arr { text-align:center; font-size:26px; color:var(--dim); }
+.ncic-stat { margin-top:8px; padding:20px 24px; background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:10px; }
+.ncic-stat p { font-size:22px; color:var(--muted); line-height:1.5; }
+.ncic-stat strong { color:var(--green); }
+.ncic-table { background:var(--ink3); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+.ncic-table-h { display:grid; grid-template-columns:1fr 1fr 100px; padding:14px 20px; background:rgba(255,255,255,0.04); border-bottom:1px solid var(--border); font-size:21px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim); }
+.ncic-table-r { display:grid; grid-template-columns:1fr 1fr 100px; padding:14px 20px; border-bottom:1px solid var(--border); font-size:22px; align-items:center; }
+.ncic-table-r:last-child { border-bottom:none; }
+.ncic-table-r .src { color:var(--text); font-weight:600; }
+.ncic-table-r .type { color:var(--muted); }
+.ncic-table-r .status { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; }
+.ncic-table-r .status.live { color:var(--green); }
+.ncic-table-r .status.mou  { color:var(--amber); }
+
+/* ── 07 NCMEC AGENT ── */
+#s7 { padding:90px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s7 h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 16px; }
+#s7 h2 em { color:var(--purple); font-style:normal; }
+#s7 > p { font-size:24px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:40px; }
+.agent-flow { display:grid; grid-template-columns:320px 1fr 320px; gap:28px; align-items:stretch; }
+.agent-input, .agent-output { display:flex; flex-direction:column; gap:14px; }
+.agent-input h4, .agent-output h4 { font-size:22px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--dim); margin-bottom:4px; }
+.agent-box { background:var(--ink2); border:1px solid var(--border); border-radius:10px; padding:18px 22px; }
+.agent-box .name { font-size:24px; font-weight:700; color:#fff; margin-bottom:6px; }
+.agent-box .detail { font-size:22px; color:var(--muted); line-height:1.4; }
+.agent-core { background:linear-gradient(180deg,rgba(167,139,250,0.10),var(--ink2)); border:2px solid rgba(167,139,250,0.4); border-radius:16px; padding:28px; display:flex; flex-direction:column; gap:16px; align-items:center; justify-content:center; text-align:center; }
+.agent-core-icon { font-size:48px; line-height:1; }
+.agent-core h3 { font-size:30px; font-weight:700; color:#fff; }
+.agent-core p { font-size:22px; color:var(--muted); line-height:1.5; }
+.agent-extract { background:var(--ink3); border:1px solid rgba(167,139,250,0.3); border-radius:10px; padding:18px 22px; font-family:'JetBrains Mono',monospace; font-size:21px; line-height:1.7; text-align:left; width:100%; }
+.agent-extract .k { color:var(--purple); }
+.agent-extract .v { color:#86efac; }
+.agent-extract .s { color:#fbbf24; }
+.agent-note { padding:20px 24px; background:rgba(167,139,250,0.06); border:1px solid rgba(167,139,250,0.2); border-left:3px solid var(--purple); border-radius:8px; font-size:22px; color:var(--muted); line-height:1.5; margin-top:8px; }
+.agent-note strong { color:var(--purple); }
+
+/* ── 08 SEARCH OPS ── */
+#s8 { background:var(--ink2); padding:90px 96px; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+.s8-l h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 20px; }
+.s8-l h2 em { color:var(--amber); font-style:normal; }
+.s8-l > p { font-size:24px; color:var(--muted); line-height:1.6; margin-bottom:28px; }
+.search-modes { display:flex; flex-direction:column; gap:16px; }
+.search-mode { background:var(--ink3); border:1px solid var(--border); border-radius:12px; padding:22px 26px; }
+.search-mode.active { border-color:rgba(245,158,11,0.4); background:linear-gradient(90deg,rgba(245,158,11,0.06),var(--ink3)); }
+.search-mode.unlocks { border-color:rgba(56,189,248,0.3); background:linear-gradient(90deg,rgba(56,189,248,0.05),var(--ink3)); }
+.search-mode .sm-h { display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+.search-mode .sm-icon { font-size:28px; }
+.search-mode h4 { font-size:26px; font-weight:700; color:#fff; }
+.search-mode .sm-badge { font-size:18px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:4px; }
+.search-mode .sm-badge.live-b { background:rgba(34,197,94,0.15); color:var(--green); }
+.search-mode .sm-badge.partner { background:rgba(56,189,248,0.12); color:var(--sky); }
+.search-mode p { font-size:22px; color:var(--muted); line-height:1.45; }
+.search-visual { background:var(--ink3); border:1px solid var(--border); border-radius:14px; padding:28px; display:flex; align-items:center; justify-content:center; }
+.lawnmower-svg { width:100%; max-width:480px; }
+
+/* ── 09 EVIDENCE ── */
+#s9 { padding:90px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s9 h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 16px; }
+#s9 h2 em { color:var(--amber); font-style:normal; }
+#s9 > p { font-size:24px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:40px; }
+.evidence-layout { display:grid; grid-template-columns:1fr 1fr; gap:32px; }
+.evidence-sections { display:flex; flex-direction:column; gap:14px; }
+.ev-section { display:grid; grid-template-columns:44px 1fr; gap:16px; align-items:baseline; padding:18px 22px; background:var(--ink2); border:1px solid var(--border); border-radius:10px; }
+.ev-section .num { font-family:'JetBrains Mono',monospace; font-size:26px; color:var(--amber); font-weight:700; }
+.ev-section h5 { font-size:24px; font-weight:700; color:#fff; margin-bottom:4px; }
+.ev-section p { font-size:22px; color:var(--muted); line-height:1.4; }
+.evidence-doc { background:var(--ink2); border:1px solid rgba(245,158,11,0.3); border-radius:14px; padding:28px; font-family:'JetBrains Mono',monospace; font-size:21px; color:var(--muted); line-height:1.75; }
+.evidence-doc .doc-h { font-size:22px; font-weight:700; color:var(--amber); letter-spacing:1px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+.evidence-doc .field { color:var(--dim); }
+.evidence-doc .val { color:rgba(255,255,255,0.85); }
+.evidence-doc .val.g { color:#86efac; }
+.evidence-doc .val.a { color:#fbbf24; }
+.evidence-doc .sig-block { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); font-size:20px; color:var(--dim); }
+
+/* ── 10 INFRASTRUCTURE PLAY ── */
+#s10 { background:var(--ink2); padding:90px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s10 h2 { font-size:60px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 16px; }
+#s10 h2 em { color:var(--amber); font-style:normal; }
+#s10 > p { font-size:26px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:44px; }
+.infra-rings { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:28px; }
+.infra-ring { text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; }
+.infra-ring-circle { width:120px; height:120px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px; position:relative; }
+.infra-ring-circle::before { content:''; position:absolute; inset:-6px; border-radius:50%; border:2px solid; }
+.infra-ring.r1 .infra-ring-circle { background:rgba(245,158,11,0.12); }
+.infra-ring.r1 .infra-ring-circle::before { border-color:rgba(245,158,11,0.5); }
+.infra-ring.r2 .infra-ring-circle { background:rgba(56,189,248,0.1); }
+.infra-ring.r2 .infra-ring-circle::before { border-color:rgba(56,189,248,0.4); border-style:dashed; }
+.infra-ring.r3 .infra-ring-circle { background:rgba(167,139,250,0.1); }
+.infra-ring.r3 .infra-ring-circle::before { border-color:rgba(167,139,250,0.3); border-style:dashed; }
+.infra-ring.r4 .infra-ring-circle { background:rgba(255,255,255,0.04); }
+.infra-ring.r4 .infra-ring-circle::before { border-color:rgba(255,255,255,0.1); border-style:dashed; }
+.infra-ring h4 { font-size:24px; font-weight:700; color:#fff; }
+.infra-ring p { font-size:21px; color:var(--muted); line-height:1.4; text-align:center; max-width:240px; }
+.infra-foot { padding:24px 30px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.3); border-radius:10px; font-size:24px; color:var(--muted); line-height:1.6; }
+.infra-foot strong { color:var(--amber); }
+
+/* ── 11 ROADMAP ── */
+#s11 { padding:90px 96px; display:flex; flex-direction:column; justify-content:center; }
+#s11 h2 { font-size:58px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 14px; }
+#s11 h2 em { color:var(--amber); font-style:normal; }
+#s11 > p { font-size:24px; color:var(--muted); max-width:1400px; line-height:1.55; margin-bottom:48px; }
+.roadmap { display:grid; grid-template-columns:repeat(4,1fr); gap:0; position:relative; }
+.roadmap::before { content:''; position:absolute; top:42px; left:10%; right:10%; height:2px; background:linear-gradient(90deg,var(--amber),rgba(56,189,248,0.6),rgba(167,139,250,0.4),rgba(255,255,255,0.1)); }
+.rm-col { display:flex; flex-direction:column; align-items:center; gap:0; padding:0 16px; }
+.rm-dot { width:24px; height:24px; border-radius:50%; border:3px solid; z-index:1; margin-bottom:20px; flex-shrink:0; }
+.rm-col.now .rm-dot { background:var(--amber); border-color:var(--amber); box-shadow:0 0 16px rgba(245,158,11,0.5); }
+.rm-col.mou .rm-dot { background:var(--sky); border-color:var(--sky); box-shadow:0 0 12px rgba(56,189,248,0.4); }
+.rm-col.q3 .rm-dot { background:rgba(167,139,250,0.8); border-color:var(--purple); }
+.rm-col.v2 .rm-dot { background:rgba(255,255,255,0.2); border-color:rgba(255,255,255,0.3); }
+.rm-col h4 { font-size:26px; font-weight:700; color:#fff; margin-bottom:6px; text-align:center; }
+.rm-col.now h4 { color:var(--amber); }
+.rm-col.mou h4 { color:var(--sky); }
+.rm-col.q3  h4 { color:var(--purple); }
+.rm-col.v2  h4 { color:var(--dim); }
+.rm-when { font-family:'JetBrains Mono',monospace; font-size:20px; color:var(--dim); margin-bottom:16px; text-align:center; letter-spacing:1px; }
+.rm-items { list-style:none; display:flex; flex-direction:column; gap:8px; width:100%; }
+.rm-items li { font-size:22px; color:var(--muted); line-height:1.4; padding:10px 14px; background:var(--ink2); border:1px solid var(--border); border-radius:8px; }
+.rm-col.now .rm-items li { border-color:rgba(245,158,11,0.15); }
+.rm-col.mou .rm-items li { border-color:rgba(56,189,248,0.15); }
+.rm-col.q3  .rm-items li { border-color:rgba(167,139,250,0.15); }
+
+/* ── 12 CLOSE ── */
+#s12 { background:var(--amber); display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:80px; position:relative; }
+#s12::before { content:''; position:absolute; inset:0; background:repeating-linear-gradient(-45deg,transparent,transparent 50px,rgba(0,0,0,0.05) 50px,rgba(0,0,0,0.05) 51px); }
+.s12-logo { width:92px; height:92px; border-radius:50%; margin-bottom:32px; position:relative; z-index:1; }
+.s12-org { font-size:24px; font-weight:700; letter-spacing:5px; text-transform:uppercase; color:var(--ink); opacity:.55; margin-bottom:24px; position:relative; z-index:1; }
+.s12-h { font-size:72px; font-weight:700; color:var(--ink); letter-spacing:-2px; line-height:1.1; max-width:1600px; position:relative; z-index:1; margin-bottom:32px; }
+.s12-sub { font-size:28px; color:rgba(12,10,5,0.65); max-width:1200px; line-height:1.6; position:relative; z-index:1; margin-bottom:56px; }
+.s12-contact { display:flex; gap:80px; position:relative; z-index:1; }
+.s12-c-l { font-size:22px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:rgba(12,10,5,0.45); margin-bottom:8px; }
+.s12-c-v { font-size:28px; font-weight:700; color:var(--ink); }
+</style>
+</head>
+<body>
+<deck-stage>
+
+<!-- ── 01 TITLE ── -->
+<section id="s1" data-screen-label="01 Title">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="s1-inner">
+    <img src="mobile/assets/icon.png" class="s1-logo" alt="AA">
+    <div class="s1-org">AMBER Angels</div>
+    <h1 class="s1-h">A Formal Partnership<br><em>Changes Everything.</em></h1>
+    <p class="s1-sub">What Amber's Angels + Carrollton PD can build together — from CAD integration and NCIC sync to real-time crime center infrastructure.</p>
+    <div class="s1-chips">
+      <div class="s1-chip live">Live Today</div>
+      <div class="s1-chip build">Partnership Unlocks</div>
+      <div class="s1-chip vision">Infrastructure Vision</div>
+    </div>
+  </div>
+  <div class="sn">01</div>
+</section>
+
+<!-- ── 02 BASELINE ── -->
+<section id="s2" data-screen-label="02 Baseline">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag">Today's Platform</div>
+  <h2>What's <em>live right now</em> — without a partnership.</h2>
+  <p>This is the floor. A formal partnership doesn't build this — it extends it.</p>
+  <div class="baseline-grid">
+    <div class="bl-card live">
+      <div class="bl-live-dot">Live</div>
+      <h4>FEMA IPAWS Alert Ingestion</h4>
+      <p>Three polling sources — CMAS (5 min), EAS (2 min), NWS. AMBER, Silver, Mattie's, Blue, Purple alerts auto-extracted and pushed to volunteer phones.</p>
+      <div class="stat">≤ 5 min federal → phone</div>
+    </div>
+    <div class="bl-card live">
+      <div class="bl-live-dot">Live</div>
+      <h4>Autonomous Drone Swarm</h4>
+      <p>Pilots relinquish drones from home. Coordinators dispatch via map click. DJI MSDK V5 uploads waypoints automatically. VLOS + BVLOS Tactical modes.</p>
+      <div class="stat">30s heartbeat · ADS-B deconfliction</div>
+    </div>
+    <div class="bl-card live">
+      <div class="bl-live-dot">Live</div>
+      <h4>ALPR + YOLO Composite Scoring</h4>
+      <p>OpenALPR + YOLOv8-nano + optional Plate Recognizer cloud. Five-second aggregation window. HIGH_CONFIDENCE threshold 90+ with 3 supporting frames.</p>
+      <div class="stat">~30% ALPR false-positive → &lt;5% composite</div>
+    </div>
+    <div class="bl-card live">
+      <div class="bl-live-dot">Live</div>
+      <h4>Mission Map + NCMEC Cross-Ref</h4>
+      <p>7-layer coordinator dashboard: alert polygons, road coverage gaps, drone positions, ADS-B traffic, watchlist hits. NCMEC cases cross-referenced against active vehicle targets.</p>
+      <div class="stat">50-state NCMEC · 30-min poll</div>
+    </div>
+    <div class="bl-card live">
+      <div class="bl-live-dot">Live</div>
+      <h4>Road Coverage Intelligence</h4>
+      <p>Flock Safety camera network overlaid on road segments — coordinators see which corridors have zero coverage and route pilots to fill gaps before a suspect vehicle escapes.</p>
+      <div class="stat">Uncovered segments highlighted in real time</div>
+    </div>
+    <div class="bl-card live">
+      <div class="bl-live-dot">Live</div>
+      <h4>Airspace Deconfliction</h4>
+      <p>OpenSky ADS-B feed integrated into dispatch modal. Any aircraft within 5 nm below 3,000 ft flagged with callsign, altitude, and heading before a mission is confirmed.</p>
+      <div class="stat">CPA math · 2-min look-ahead · real-time conflict ring</div>
+    </div>
+  </div>
+  <div class="sn">02</div>
+</section>
+
+<!-- ── 03 PARTNERSHIP LAYER ── -->
+<section id="s3" data-screen-label="03 Partnership Layer">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag">The Partnership Layer</div>
+  <h2>Two credentials in. <em>Three capabilities out.</em></h2>
+  <p>A signed MOU gives us two data access points. In return, CPD gets an aerial sensing layer that feeds directly into existing law enforcement infrastructure.</p>
+  <div class="layer-diagram">
+    <div class="ld-col">
+      <div class="ld-col-h in">CPD Data In</div>
+      <div class="ld-item in">
+        <h5>NCIC / GCIC Hotlist</h5>
+        <p>Stolen vehicles, ATL entries, wanted persons' plates — automated daily sync into the watchlist.</p>
+      </div>
+      <div class="ld-item in">
+        <h5>CAD API Access</h5>
+        <p>Endpoint + API key to create calls-for-service on HIGH_CONFIDENCE match. Motorola PremierOne, Tyler New World, or any REST CAD.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+      <div class="ld-arrow">→</div>
+      <div class="ld-center">
+        <img src="mobile/assets/icon.png" class="ld-center-logo" alt="AA">
+        <h3>Amber's Angels Platform</h3>
+        <p>Aerial ALPR · NCMEC cross-reference<br>Swarm dispatch · Composite scoring</p>
+        <div class="layers">
+          <div class="ld-layer-chip">FEMA</div>
+          <div class="ld-layer-chip">NCMEC</div>
+          <div class="ld-layer-chip">ADS-B</div>
+          <div class="ld-layer-chip">NCIC</div>
+          <div class="ld-layer-chip">CAD</div>
+        </div>
+      </div>
+      <div class="ld-arrow">→</div>
+    </div>
+    <div class="ld-col">
+      <div class="ld-col-h out">CPD Systems Out</div>
+      <div class="ld-item out">
+        <h5>RTCC Live Feed</h5>
+        <p>Detection events, drone positions, and alert polygons streamed to your real-time crime center as a standardized data layer.</p>
+      </div>
+      <div class="ld-item out">
+        <h5>Direct to Dispatch</h5>
+        <p>HIGH_CONFIDENCE plate match → call-for-service created in CAD automatically, units notified.</p>
+      </div>
+      <div class="ld-item out">
+        <h5>Evidence Packages</h5>
+        <p>Closed missions generate chain-of-custody PDF reports for records management system import.</p>
+      </div>
+    </div>
+  </div>
+  <div class="sn">03</div>
+</section>
+
+<!-- ── 04 CAD DISPATCH ── -->
+<section id="s4" data-screen-label="04 Direct to Dispatch">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="s4-l">
+    <div class="tag">Direct to Dispatch</div>
+    <h2>HIGH_CONFIDENCE match → <em>call for service.</em></h2>
+    <p>When composite scoring crosses the threshold, coordinators today get a Discord embed. With CAD integration, a verified match creates a call-for-service directly in your system — no coordinator in the loop required.</p>
+    <div class="cad-flow">
+      <div class="cad-step active">
+        <div class="n">01</div>
+        <div class="b"><h5>Match fires</h5><p>ALPR + YOLO composite score ≥ 90, 3+ supporting frames, active watchlist plate.</p></div>
+      </div>
+      <div class="cad-step active">
+        <div class="n">02</div>
+        <div class="b"><h5>Payload formatted</h5><p>Plate, vehicle description, GPS coordinates, confidence score, drone ID, timestamp.</p></div>
+      </div>
+      <div class="cad-step active">
+        <div class="n">03</div>
+        <div class="b"><h5>CAD call created</h5><p>POST to Motorola PremierOne / Tyler New World — priority assigned, nearest units notified.</p></div>
+      </div>
+      <div class="cad-step">
+        <div class="n">04</div>
+        <div class="b"><h5>Evidence frame attached</h5><p>Golden frame linked in call notes. Chain of custody begins at match time.</p></div>
+      </div>
+    </div>
+    <div class="cad-note">Needs from IT: CAD API endpoint URL + API key. Integration wrapper is built — waiting for credentials.</div>
+  </div>
+  <div>
+    <div class="cad-screen">
+      <div class="cad-screen-h">MISSION MAP · HIGH CONFIDENCE HIT</div>
+      <div class="hit-card">
+        <div class="hit-plate">GKB 4821</div>
+        <div class="hit-meta">2019 Silver Honda Odyssey · drone-alpha · 33.58012°N, 85.07661°W</div>
+        <div class="hit-badges">
+          <div class="hit-badge amber-b">AMBER ALERT</div>
+          <div class="hit-badge conf">94.3% confidence</div>
+        </div>
+        <div class="dispatch-btn">📡 Send to Dispatch</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+        <div style="padding:14px 18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;">
+          <div style="font-size:20px;color:rgba(255,255,255,0.35);margin-bottom:4px;">FRAME COUNT</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:28px;color:#fff;font-weight:700;">7 frames</div>
+        </div>
+        <div style="padding:14px 18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;">
+          <div style="font-size:20px;color:rgba(255,255,255,0.35);margin-bottom:4px;">TIME TO MATCH</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:28px;color:#fff;font-weight:700;">3 min 12 s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">04</div>
+</section>
+
+<!-- ── 05 RTCC ── -->
+<section id="s5" data-screen-label="05 RTCC Integration">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag sky">Real-Time Crime Center Feed</div>
+  <h2>Becoming the <em class="sky">aerial layer</em> for your common operating picture.</h2>
+  <p>Your RTCC already monitors cameras, CAD, and ALPR on a unified map. We become the data source for aerial detections — no separate login, no operator on scene.</p>
+  <div class="rtcc-grid">
+    <div class="rtcc-card primary">
+      <div class="rtcc-icon">🗺</div>
+      <h4>Alert Polygon Overlay</h4>
+      <p>Active FEMA and NWS search areas rendered as map layers in your COP — color-coded by alert type, auto-removed on federal cancellation.</p>
+      <div class="tag-sm">GeoJSON feed · REST API</div>
+    </div>
+    <div class="rtcc-card primary">
+      <div class="rtcc-icon">🚁</div>
+      <h4>Live Drone Positions</h4>
+      <p>All active swarm drones stream GPS position, altitude, heading, and mission status. Coordinators and officers see the aerial asset layer in real time.</p>
+      <div class="tag-sm">5s telemetry · WebSocket or poll</div>
+    </div>
+    <div class="rtcc-card primary">
+      <div class="rtcc-icon">📸</div>
+      <h4>ALPR Detection Feed</h4>
+      <p>Every detection event — plate, confidence, vehicle description, GPS, frame thumbnail — available as a live event stream for RTCC ingestion.</p>
+      <div class="tag-sm">Standardized event schema</div>
+    </div>
+    <div class="rtcc-card primary">
+      <div class="rtcc-icon">⚡</div>
+      <h4>HIGH_CONFIDENCE Alerts</h4>
+      <p>Watchlist match events with full context pushed as priority notifications. Integrates with Genetec, Motorola Avigilon, Fusus, or any platform with a webhook receiver.</p>
+      <div class="tag-sm">Webhook · REST · custom adapter</div>
+    </div>
+  </div>
+  <div class="rtcc-foot"><strong>What this looks like operationally:</strong> A missing child case opens. FEMA fires an AMBER Alert. The polygon appears on the RTCC map. Swarm drones launch. ALPR hits feed in as point events. A HIGH_CONFIDENCE match auto-creates a CAD call. Officers responding to the scene see the drone feed and the detection coordinates — all from their existing RTCC terminal. <strong>Zero new software for CPD to run.</strong></div>
+  <div class="sn">05</div>
+</section>
+
+<!-- ── 06 NCIC SYNC ── -->
+<section id="s6" data-screen-label="06 NCIC Hotlist Sync">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="s6-l">
+    <div class="tag green">NCIC / GCIC Hotlist Sync</div>
+    <h2>A watchlist <em class="green">orders of magnitude larger</em> than FEMA alone.</h2>
+    <p>Today the watchlist is exclusively FEMA-derived — plates extracted from active federal alerts. GCIC/NCIC access changes what every drone in the network is scanning for, passively, on every flight.</p>
+    <div class="ncic-compare">
+      <div class="ncic-compare-row">
+        <div class="ncic-before"><h5>Today</h5><p>FEMA-issued AMBER / Silver Alert plates only. Watchlist is empty between active alerts.</p></div>
+        <div class="ncic-arr">→</div>
+        <div class="ncic-after"><h5>With GCIC Access</h5><p>Stolen vehicles, ATL entries, wanted persons' plates — live hotlist, continuously refreshed.</p></div>
+      </div>
+      <div class="ncic-compare-row">
+        <div class="ncic-before"><h5>Passive coverage</h5><p>Drones scan only when a federal alert is active.</p></div>
+        <div class="ncic-arr">→</div>
+        <div class="ncic-after"><h5>Always-on network</h5><p>Every volunteer patrol, every training flight — the entire hotlist is being scanned in real time.</p></div>
+      </div>
+    </div>
+    <div class="ncic-stat"><p>A patrol route that would previously generate zero actionable detections becomes a distributed ALPR network queried against <strong>every plate law enforcement is actively looking for.</strong></p></div>
+  </div>
+  <div>
+    <div class="ncic-table">
+      <div class="ncic-table-h"><div>Source</div><div>Plate Type</div><div>Status</div></div>
+      <div class="ncic-table-r"><div class="src">FEMA IPAWS CMAS</div><div class="type">AMBER / Silver Alert extracts</div><div class="status live">Live</div></div>
+      <div class="ncic-table-r"><div class="src">FEMA IPAWS EAS</div><div class="type">EAS supplemental plates</div><div class="status live">Live</div></div>
+      <div class="ncic-table-r"><div class="src">NWS Alerts API</div><div class="type">WEA-distributed AMBER</div><div class="status live">Live</div></div>
+      <div class="ncic-table-r" style="background:rgba(34,197,94,0.04)"><div class="src" style="color:var(--green)">Georgia CJIS / GCIC</div><div class="type">ATL · stolen vehicles · warrants</div><div class="status mou">MOU</div></div>
+      <div class="ncic-table-r" style="background:rgba(34,197,94,0.04)"><div class="src" style="color:var(--green)">NCIC Hot File</div><div class="type">National stolen / wanted</div><div class="status mou">MOU</div></div>
+      <div class="ncic-table-r" style="background:rgba(34,197,94,0.04)"><div class="src" style="color:var(--green)">CPD Local ATL</div><div class="type">Department-issued lookout plates</div><div class="status mou">MOU</div></div>
+    </div>
+    <div style="margin-top:20px;padding:20px 24px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:10px;font-size:22px;color:var(--muted);line-height:1.55;">
+      Watchlist entries marked <span style="font-weight:700;color:var(--green)">MOU</span> require GCIC/CJIS credentialing. The ingestion pipeline, daily sync job, and match logic are <span style="font-weight:700;color:#fff;">already implemented</span> — waiting for authorized credentials.
+    </div>
+  </div>
+  <div class="sn">06</div>
+</section>
+
+<!-- ── 07 NCMEC AGENT ── -->
+<section id="s7" data-screen-label="07 NCMEC Vehicle Agent">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag purple">NCMEC Vehicle Intelligence</div>
+  <h2>Closing the gap between <em class="purple">NCMEC and FEMA.</em></h2>
+  <p>A child goes missing. A NCMEC report is filed within hours. A federal AMBER Alert may take days — or never issue. An LLM agent that reads each poster on ingest and extracts structured vehicle data activates aerial search <em class="purple">before</em> the federal alert system acts.</p>
+  <div class="agent-flow">
+    <div class="agent-input">
+      <h4>NCMEC Inputs</h4>
+      <div class="agent-box"><div class="name">Poster HTML / Text</div><div class="detail">"Last seen getting into a 2019 blue Honda Civic, GA tag GKB-4821..."</div></div>
+      <div class="agent-box"><div class="name">Case Metadata</div><div class="detail">Name, age, city, state, missing since, photo URL — already ingested every 30 min.</div></div>
+      <div class="agent-box"><div class="name">50-State RSS Feed</div><div class="detail">Live NCMEC updates across all US states, polled continuously.</div></div>
+    </div>
+    <div class="agent-core">
+      <div class="agent-core-icon">🤖</div>
+      <h3>Vehicle Extraction Agent</h3>
+      <p>LLM structured extraction pass on each new NCMEC poster. Outputs a validated vehicle profile or null if no vehicle data is present.</p>
+      <div class="agent-extract">
+<span class="k">year</span>:  <span class="v">2019</span><br>
+<span class="k">make</span>:  <span class="v">"Honda"</span><br>
+<span class="k">model</span>: <span class="v">"Civic"</span><br>
+<span class="k">color</span>: <span class="v">"blue"</span><br>
+<span class="k">plate</span>: <span class="v">"GKB4821"</span><br>
+<span class="k">state</span>: <span class="v">"GA"</span>
+      </div>
+    </div>
+    <div class="agent-output">
+      <h4>Platform Actions</h4>
+      <div class="agent-box"><div class="name">Watchlist Entry Created</div><div class="detail">Plate and vehicle profile written to watchlist table. Active immediately across all drones.</div></div>
+      <div class="agent-box"><div class="name">Vehicle Target Profile</div><div class="detail">Color + body type + make sent to YOLO inference pipeline for plate-free vehicle matching.</div></div>
+      <div class="agent-box"><div class="name">Discord Notification</div><div class="detail">Coordinator alert with case details, vehicle description, and NCMEC poster link.</div></div>
+    </div>
+  </div>
+  <div class="agent-note"><strong>Federal alert gap:</strong> AMBER Alerts require strict criteria — child under 17, credible abduction, sufficient descriptive info. Many missing child cases never qualify. This agent activates aerial search on every NCMEC case that includes a vehicle description, regardless of alert status.</div>
+  <div class="sn">07</div>
+</section>
+
+<!-- ── 08 SEARCH OPS ── -->
+<section id="s8" data-screen-label="08 Systematic Search">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="s8-l">
+    <div class="tag">Systematic Search Operations</div>
+    <h2>From single hover point<br>to <em>full polygon coverage.</em></h2>
+    <p>Today swarm drones fly to one observation point and hover. The infrastructure for systematic grid search is already in the codebase — a partnership activates it operationally.</p>
+    <div class="search-modes">
+      <div class="search-mode active">
+        <div class="sm-h"><div class="sm-icon">📍</div><h4>Observation Post Mode</h4><span class="sm-badge live-b">Live Today</span></div>
+        <p>Coordinator places a single pin. Drone flies to that point and hovers at altitude, running ALPR + YOLO on passing vehicles. Used for choke points, intersections, highway on-ramps.</p>
+      </div>
+      <div class="search-mode unlocks">
+        <div class="sm-h"><div class="sm-icon">🗂</div><h4>Polygon Grid Sweep</h4><span class="sm-badge partner">Partnership Mode</span></div>
+        <p>Coordinator draws or imports a search area. System divides into sectors by drone count. Each drone flies a systematic lawnmower pattern. <strong style="color:#fff">Full polygon coverage guaranteed</strong> — not probabilistic hovering. Code is built. Config flag activates it.</p>
+      </div>
+      <div class="search-mode unlocks">
+        <div class="sm-h"><div class="sm-icon">🔁</div><h4>Multi-Drone Coordinated Sweep</h4><span class="sm-badge partner">Partnership Mode</span></div>
+        <p>Five drones, five sectors, one coordinator action. Combined with the NCMEC vehicle agent, a search area can be fully covered within one hour of a case being opened — before a federal alert is issued.</p>
+      </div>
+    </div>
+  </div>
+  <div class="search-visual">
+    <svg class="lawnmower-svg" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg">
+      <rect width="460" height="460" rx="8" fill="#0d1117"/>
+      <!-- search polygon -->
+      <polygon points="40,60 420,60 420,400 40,400" fill="rgba(245,158,11,0.06)" stroke="#f59e0b" stroke-width="2" stroke-dasharray="10 5"/>
+      <!-- lawnmower lines drone 1 (left sector) -->
+      <g stroke="#38bdf8" stroke-width="2" opacity="0.7">
+        <polyline points="50,90 200,90" fill="none"/>
+        <polyline points="200,90 200,140" fill="none"/>
+        <polyline points="200,140 50,140" fill="none"/>
+        <polyline points="50,140 50,190" fill="none"/>
+        <polyline points="50,190 200,190" fill="none"/>
+        <polyline points="200,190 200,240" fill="none"/>
+        <polyline points="200,240 50,240" fill="none"/>
+        <polyline points="50,240 50,290" fill="none"/>
+        <polyline points="50,290 200,290" fill="none"/>
+        <polyline points="200,290 200,340" fill="none"/>
+        <polyline points="200,340 50,340" fill="none"/>
+        <polyline points="50,340 50,385" fill="none"/>
+        <polyline points="50,385 200,385" fill="none"/>
+      </g>
+      <!-- lawnmower lines drone 2 (right sector) -->
+      <g stroke="#a78bfa" stroke-width="2" opacity="0.7">
+        <polyline points="220,90 410,90" fill="none"/>
+        <polyline points="410,90 410,140" fill="none"/>
+        <polyline points="410,140 220,140" fill="none"/>
+        <polyline points="220,140 220,190" fill="none"/>
+        <polyline points="220,190 410,190" fill="none"/>
+        <polyline points="410,190 410,240" fill="none"/>
+        <polyline points="410,240 220,240" fill="none"/>
+        <polyline points="220,240 220,290" fill="none"/>
+        <polyline points="220,290 410,290" fill="none"/>
+        <polyline points="410,290 410,340" fill="none"/>
+        <polyline points="410,340 220,340" fill="none"/>
+        <polyline points="220,340 220,385" fill="none"/>
+        <polyline points="220,385 410,385" fill="none"/>
+      </g>
+      <!-- divider -->
+      <line x1="210" y1="60" x2="210" y2="400" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="6 4"/>
+      <!-- drone icons -->
+      <text x="70" y="75" font-size="22" fill="#38bdf8">🚁</text>
+      <text x="240" y="75" font-size="22" fill="#a78bfa">🚁</text>
+      <!-- sector labels -->
+      <text x="125" y="430" font-family="JetBrains Mono,monospace" font-size="20" fill="rgba(56,189,248,0.7)" text-anchor="middle">SECTOR A</text>
+      <text x="315" y="430" font-family="JetBrains Mono,monospace" font-size="20" fill="rgba(167,139,250,0.7)" text-anchor="middle">SECTOR B</text>
+    </svg>
+  </div>
+  <div class="sn">08</div>
+</section>
+
+<!-- ── 09 EVIDENCE ── -->
+<section id="s9" data-screen-label="09 Evidence Package">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag">Evidence &amp; Chain of Custody</div>
+  <h2>Closed missions become <em>defense-proof case documentation.</em></h2>
+  <p>Every HIGH_CONFIDENCE match already stores a golden evidence frame with timestamp, drone ID, and confidence score. A partnership-tier evidence package makes that record court-ready and RMS-importable.</p>
+  <div class="evidence-layout">
+    <div class="evidence-sections">
+      <div class="ev-section"><div class="num">01</div><div><h5>Mission Timeline</h5><p>Full log of detection events, confidence scores, and status transitions from dispatch to landing — with UTC timestamps.</p></div></div>
+      <div class="ev-section"><div class="num">02</div><div><h5>ALPR Evidence Frames</h5><p>Golden frames with plate bounding box, confidence score, drone ID, GPS coordinates, and frame sequence number. All stored at time of match — no post-processing.</p></div></div>
+      <div class="ev-section"><div class="num">03</div><div><h5>Flight Path Map</h5><p>Rendered GPS track with waypoints, altitude profile, and detection event markers — exportable as PDF or KML.</p></div></div>
+      <div class="ev-section"><div class="num">04</div><div><h5>Chain-of-Custody Block</h5><p>Source alert (FEMA identifier), watchlist match criteria, scoring methodology, operator username, and mission ID. Defensible provenance from federal alert to detection.</p></div></div>
+    </div>
+    <div class="evidence-doc">
+      <div class="doc-h">📋 EVIDENCE PACKAGE · MISSION #0047</div>
+      <span class="field">CASE_ALERT   </span><span class="val a">GA-AMBER-2026-0112</span><br>
+      <span class="field">PLATE        </span><span class="val">GKB4821 · Georgia</span><br>
+      <span class="field">VEHICLE      </span><span class="val">2019 Silver Honda Odyssey</span><br>
+      <span class="field">MATCH_SCORE  </span><span class="val g">94.3% (HIGH_CONFIDENCE)</span><br>
+      <span class="field">FRAME_COUNT  </span><span class="val">7 supporting frames</span><br>
+      <span class="field">DRONE_ID     </span><span class="val">drone-alpha · DJI M30T</span><br>
+      <span class="field">GPS_AT_MATCH </span><span class="val">33.58012°N 85.07661°W</span><br>
+      <span class="field">MATCH_UTC    </span><span class="val">2026-06-03T14:22:07Z</span><br>
+      <span class="field">OPERATOR     </span><span class="val">coordinator-jwilliams</span><br>
+      <span class="field">SOURCE_FEMA  </span><span class="val">urn:oid:2.49.0.1.840.0.1749...</span><br>
+      <div class="sig-block">
+        ─────────────────────────────<br>
+        CHAIN OF CUSTODY CERTIFIED<br>
+        Amber's Angels · EIN 42-2052151<br>
+        info@amberangels.org
+      </div>
+    </div>
+  </div>
+  <div class="sn">09</div>
+</section>
+
+<!-- ── 10 INFRASTRUCTURE PLAY ── -->
+<section id="s10" data-screen-label="10 Infrastructure Play">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag">The Bigger Picture</div>
+  <h2>Carrollton writes the playbook<br>for <em>every deployment after it.</em></h2>
+  <p>What we're describing is a lightweight RTCC module for missing-persons aerial response — built for municipalities that can't afford helicopter units. Every city that partners gets what Carrollton gets. The first partnership defines the model.</p>
+  <div class="infra-rings">
+    <div class="infra-ring r1">
+      <div class="infra-ring-circle">🏙</div>
+      <h4>Carrollton, GA</h4>
+      <p>Proof of concept. Live platform, formal partnership, CAD + NCIC integration. The reference deployment.</p>
+    </div>
+    <div class="infra-ring r2">
+      <div class="infra-ring-circle">🗺</div>
+      <h4>West Georgia Region</h4>
+      <p>Adjacent counties join under mutual aid. Volunteer swarm capacity pools. Shared detection feed across jurisdictions.</p>
+    </div>
+    <div class="infra-ring r3">
+      <div class="infra-ring-circle">🌟</div>
+      <h4>Georgia Statewide</h4>
+      <p>GEMA partnership. Statewide aerial AMBER response network. GCIC integration state-level. Every active alert has drone coverage.</p>
+    </div>
+    <div class="infra-ring r4">
+      <div class="infra-ring-circle">🇺🇸</div>
+      <h4>National Network</h4>
+      <p>Agency partnerships as RTCC data provider. Interoperable with NCMEC, DHS, state fusion centers.</p>
+    </div>
+  </div>
+  <div class="infra-foot"><strong>This is not a volunteer app that scales.</strong> It's a detection infrastructure layer that cities subscribe to — the same way they subscribe to Flock Safety or Fusus, except the aerial component is <strong>volunteer-powered and zero marginal cost per alert.</strong> Carrollton becomes the customer zero that proves the model to every grant writer, GEMA official, and agency director who asks for a reference.</div>
+  <div class="sn">10</div>
+</section>
+
+<!-- ── 11 ROADMAP ── -->
+<section id="s11" data-screen-label="11 Roadmap">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="tag">What Gets Built When</div>
+  <h2>Every step is additive. <em>Nothing built for CPD is wasted.</em></h2>
+  <p>The platform is already running. A partnership agreement is the only gate between today and the capabilities on this roadmap.</p>
+  <div class="roadmap">
+    <div class="rm-col now">
+      <div class="rm-dot"></div>
+      <h4>Live Today</h4>
+      <div class="rm-when">No partnership needed</div>
+      <ul class="rm-items">
+        <li>FEMA IPAWS 3-source ingestion</li>
+        <li>Autonomous swarm dispatch</li>
+        <li>ALPR + YOLO composite scoring</li>
+        <li>ADS-B airspace deconfliction</li>
+        <li>NCMEC 50-state cross-reference</li>
+        <li>Road coverage gap intelligence</li>
+        <li>Mobile coordinator dispatch</li>
+      </ul>
+    </div>
+    <div class="rm-col mou">
+      <div class="rm-dot"></div>
+      <h4>MOU Signed</h4>
+      <div class="rm-when">Weeks, not months</div>
+      <ul class="rm-items">
+        <li>CAD direct-to-dispatch integration</li>
+        <li>NCIC / GCIC hotlist sync</li>
+        <li>RTCC live data feed</li>
+        <li>CPD local ATL watchlist</li>
+        <li>Twilio SMS for HIGH_CONFIDENCE hits</li>
+      </ul>
+    </div>
+    <div class="rm-col q3">
+      <div class="rm-dot"></div>
+      <h4>90-Day Sprint</h4>
+      <div class="rm-when">Post-MOU</div>
+      <ul class="rm-items">
+        <li>NCMEC vehicle extraction agent</li>
+        <li>Evidence package / chain of custody</li>
+        <li>Polygon grid search (code complete)</li>
+        <li>Multi-drone sector assignment</li>
+        <li>RMS evidence import format</li>
+      </ul>
+    </div>
+    <div class="rm-col v2">
+      <div class="rm-dot"></div>
+      <h4>6–12 Month Vision</h4>
+      <div class="rm-when">Regional expansion</div>
+      <ul class="rm-items">
+        <li>Multi-agency coordination layer</li>
+        <li>Georgia GEMA partnership</li>
+        <li>iOS DJI SDK (needs Mac)</li>
+        <li>Fixed-wing / long-endurance drones</li>
+        <li>RTCC vendor certification</li>
+      </ul>
+    </div>
+  </div>
+  <div class="sn">11</div>
+</section>
+
+<!-- ── 12 CLOSE ── -->
+<section id="s12" data-screen-label="12 Close">
+  <img src="mobile/assets/icon.png" class="s12-logo" alt="AA">
+  <div class="s12-org">AMBER Angels</div>
+  <h2 class="s12-h">The technology is built.<br>The volunteers are ready.<br>The alerts are live.</h2>
+  <p class="s12-sub">What's missing is the data handshake that turns a volunteer drone network into law enforcement infrastructure. One signed partnership agreement changes what this platform can do — and sets the blueprint for every deployment after it.</p>
+  <div class="s12-contact">
+    <div><div class="s12-c-l">Contact</div><div class="s12-c-v">Grant Lindberg</div></div>
+    <div><div class="s12-c-l">Email</div><div class="s12-c-v">info@amberangels.org</div></div>
+    <div><div class="s12-c-l">EIN</div><div class="s12-c-v">42-2052151</div></div>
+    <div><div class="s12-c-l">Address</div><div class="s12-c-v">103 Springwood Dr, Carrollton GA 30117</div></div>
+  </div>
+</section>
+
+</deck-stage>
+</body>
+</html>

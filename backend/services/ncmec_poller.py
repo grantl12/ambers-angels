@@ -71,6 +71,26 @@ _DESC_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+# Vehicle mention patterns in NCMEC description text
+_VEHICLE_RE = re.compile(
+    r"(?:may be in|last seen in|possibly in|traveling in|in a)\s+(?:a\s+)?"
+    r"(?P<vehicle>.{8,80}?)(?:\.|\band\b|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+_PLATE_RE = re.compile(
+    r"(?:[A-Z]{2})\s+(?:tag|plate|license plate|registration)\s+([A-Z0-9\-]{4,9})"
+    r"|(?:plate|tag|license)\s*[#:\s]+([A-Z0-9\-]{4,9})",
+    re.IGNORECASE,
+)
+
+def _extract_vehicle(desc: str) -> tuple[str | None, str | None]:
+    """Return (vehicle_description, plate) extracted from NCMEC RSS description text."""
+    vm = _VEHICLE_RE.search(desc)
+    vehicle = vm.group("vehicle").strip() if vm else None
+    pm = _PLATE_RE.search(desc)
+    plate = next((g for g in (pm.group(1), pm.group(2)) if g), None) if pm else None
+    return vehicle, plate
+
 def _parse_feed(xml_bytes: bytes, state: str) -> list[dict]:
     """
     Parse NCMEC RSS and return a list of case dicts:
@@ -119,16 +139,19 @@ def _parse_feed(xml_bytes: bytes, state: str) -> list[dict]:
             continue
 
         city = m.group("city").strip().title()
+        vehicle_desc, vehicle_plate = _extract_vehicle(desc)
 
         cases.append({
-            "guid":         guid,
-            "name":         name,
-            "age_now":      age,
-            "state":        state,
-            "city":         city,
-            "missing_since": missing_since,
-            "poster_url":   poster_url,
-            "photo_url":    photo_url,
+            "guid":               guid,
+            "name":               name,
+            "age_now":            age,
+            "state":              state,
+            "city":               city,
+            "missing_since":      missing_since,
+            "poster_url":         poster_url,
+            "photo_url":          photo_url,
+            "vehicle_description": vehicle_desc,
+            "vehicle_plate":      vehicle_plate,
         })
 
     return cases
@@ -153,25 +176,31 @@ async def _upsert_cases(session_factory, cases: list[dict]) -> list[dict]:
                         INSERT INTO ncmec_cases
                             (guid, name, age_now, state, city,
                              missing_since, poster_url, photo_url,
+                             vehicle_description, vehicle_plate,
                              first_seen_at, last_seen_at)
                         VALUES
                             (:guid, :name, :age, :state, :city,
                              :missing_since, :poster_url, :photo_url,
+                             :vehicle_description, :vehicle_plate,
                              NOW(), NOW())
                         ON CONFLICT (guid) DO UPDATE
-                            SET last_seen_at = NOW(),
-                                resolved_at  = NULL
+                            SET last_seen_at        = NOW(),
+                                resolved_at         = NULL,
+                                vehicle_description = COALESCE(EXCLUDED.vehicle_description, ncmec_cases.vehicle_description),
+                                vehicle_plate       = COALESCE(EXCLUDED.vehicle_plate, ncmec_cases.vehicle_plate)
                         RETURNING (xmax = 0) AS is_new
                     """),
                     {
-                        "guid":         c["guid"],
-                        "name":         c["name"],
-                        "age":          c["age_now"],
-                        "state":        c["state"],
-                        "city":         c["city"],
-                        "missing_since": c["missing_since"],
-                        "poster_url":   c["poster_url"],
-                        "photo_url":    c["photo_url"],
+                        "guid":               c["guid"],
+                        "name":               c["name"],
+                        "age":                c["age_now"],
+                        "state":              c["state"],
+                        "city":               c["city"],
+                        "missing_since":      c["missing_since"],
+                        "poster_url":         c["poster_url"],
+                        "photo_url":          c["photo_url"],
+                        "vehicle_description": c.get("vehicle_description"),
+                        "vehicle_plate":      c.get("vehicle_plate"),
                     },
                 )
                 row = result.fetchone()
@@ -419,6 +448,7 @@ async def ncmec_background_loop(
     session_factory,
     webhook_url: Optional[str] = None,
 ) -> None:
+    from services.health_tracker import stamp
     global last_poll_at
 
     logger.info("[NCMEC] Started. %d states, interval: %ds, recent window: %d days",
@@ -435,5 +465,6 @@ async def ncmec_background_loop(
                 await asyncio.sleep(0.5)  # 0.5s between states → ~25s total per cycle
         except Exception as e:
             logger.error("[NCMEC] Unexpected error: %s", e)
+        stamp("ncmec")
 
         await asyncio.sleep(POLL_INTERVAL)
