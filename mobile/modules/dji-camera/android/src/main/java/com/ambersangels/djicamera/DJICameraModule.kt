@@ -18,8 +18,6 @@ import dji.v5.manager.KeyManager
 import dji.v5.manager.SDKManager
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionExecuteStateListener
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager
-import dji.v5.manager.aircraft.waypoint3.WaylineExecutingInfo
-import dji.v5.manager.aircraft.waypoint3.WaylineExecutingInfoListener
 import dji.v5.manager.datacenter.MediaDataCenter
 import dji.v5.manager.interfaces.ICameraStreamManager
 import dji.v5.manager.interfaces.SDKManagerCallback
@@ -226,7 +224,7 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
         try {
             @Suppress("UNCHECKED_CAST")
             KeyManager.getInstance().performAction(
-                KeyTools.createKey(FlightControllerKey.KeyStartGoHome) as DJIKey<Any>,
+                KeyTools.createKey(FlightControllerKey.KeyStartGoHome) as DJIKey.ActionKey<Nothing?, Any>,
                 null,
                 object : CommonCallbacks.CompletionCallbackWithParam<Any> {
                     override fun onSuccess(t: Any?) { promise.resolve(null) }
@@ -319,18 +317,6 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
                     })
                 }
 
-            // Wayline executing-info listener (two methods — explicit object)
-            WaypointMissionManager.getInstance()
-                .addWaylineExecutingInfoListener(object : WaylineExecutingInfoListener {
-                    override fun onWaylineExecutingInfoUpdate(info: WaylineExecutingInfo) {
-                        sendEvent(EVENT_MISSION_STATE, Arguments.createMap().apply {
-                            putString("state", "executing")
-                            putInt("progressPct", 0)
-                            putInt("waypointIndex", info.currentWaypointIndex)
-                        })
-                    }
-                    override fun onWaylineExecutingInterruptReasonUpdate(error: IDJIError?) {}
-                })
         } catch (e: Exception) {
             android.util.Log.w(TAG, "Key listener registration failed: ${e.message}")
         }
@@ -348,7 +334,6 @@ class DJICameraModule(private val reactContext: ReactApplicationContext) :
         stopKeyListeners()
         try {
             WaypointMissionManager.getInstance().clearAllWaypointMissionExecuteStateListener()
-            WaypointMissionManager.getInstance().clearAllWaylineExecutingInfoListener()
         } catch (_: Exception) {}
         try { SDKManager.getInstance().destroy() } catch (_: Exception) {}
         super.invalidate()
