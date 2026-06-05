@@ -11,14 +11,6 @@ const TABS = [
   { key: 'mission', label: 'Start a Mission',    svg: '03-start-mission.svg',         caption: '5-step in-app onboarding: volunteer mode → device identity → capture interval → save settings → go live. Settings persist across restarts.' },
 ]
 
-const DECKS = [
-  { label: 'Carrollton Pilot',  href: '/deck/carrollton'          },
-  { label: 'Financial Info',    href: '/deck/grant'                },
-  { label: 'Technical',         href: '/deck/tech'                 },
-  { label: 'Volunteer Stories', href: '/deck/stories'              },
-  { label: 'About the Founder', href: '/deck/about'                },
-  { label: 'Partnership',       href: '/deck/partnership'          },
-]
 
 const FAQS = [
   {
@@ -61,7 +53,6 @@ const FAQS = [
 
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('scan')
-  const [deckOpen, setDeckOpen] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -92,6 +83,7 @@ export default function LandingPage() {
           <li><a href="#pilot">Pilot</a></li>
           <li><a href="#privacy">Privacy</a></li>
           <li><a href="#faq">FAQ</a></li>
+          <li><a href="#explore">Explore</a></li>
         </ul>
         <a href="/login" className={s.navSignIn}>Sign In</a>
         <a href="#involve" className={s.navCta}>Get Involved →</a>
@@ -407,6 +399,43 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* EXPLORE */}
+      <section id="explore" className={`${s.section} ${s.explore}`}>
+        <div className={s.fadeUp}>
+          <span className={s.label}>Go Deeper</span>
+          <div className={s.sectionHeader}>
+            <h2>See the full picture.</h2>
+            <p>The platform is more than the app. Explore the operational strategy, the technical architecture, and the people behind it.</p>
+          </div>
+        </div>
+        <div className={`${s.exploreGrid} ${s.fadeUp}`}>
+          <a href="/deck/carrollton" target="_blank" rel="noopener noreferrer" className={s.exploreCard}>
+            <span className={s.exploreTag}>Carrollton PD Pitch</span>
+            <h3>What we presented to law enforcement.</h3>
+            <p>Community deployment strategy, operational readiness timeline, and the partnership framework we brought to the Carrollton Police Department. If you want to understand where the pilot is headed, start here.</p>
+            <span className={s.exploreArrow}>View deck →</span>
+          </a>
+          <a href="/deck/tech" target="_blank" rel="noopener noreferrer" className={s.exploreCard}>
+            <span className={s.exploreTag}>Technical Deep Dive</span>
+            <h3>Alert through to coordinator determination — end to end.</h3>
+            <p>FEMA IPAWS ingestion, Cascade Inference engine, YOLO + OpenALPR fusion, human review loop, and mission dispatch. Every layer of the stack, explained without the marketing.</p>
+            <span className={s.exploreArrow}>View deck →</span>
+          </a>
+          <a href="/deck/stories" target="_blank" rel="noopener noreferrer" className={s.exploreCard}>
+            <span className={s.exploreTag}>Volunteer Stories</span>
+            <h3>Four ways to help. Zero overlap.</h3>
+            <p>Maria scanned 340 plates during her lunch break. DeShawn covered two thousand on a single delivery shift — and didn&apos;t know about the flag until later. The platform fits everyone.</p>
+            <span className={s.exploreArrow}>View deck →</span>
+          </a>
+        </div>
+        <div className={`${s.exploreMore} ${s.fadeUp}`}>
+          <span>More</span>
+          <a href="/deck/grant" target="_blank" rel="noopener noreferrer">Grant &amp; Financial Info</a>
+          <a href="/deck/about" target="_blank" rel="noopener noreferrer">About the Founder</a>
+          <a href="/deck/partnership" target="_blank" rel="noopener noreferrer">Partnership Capabilities</a>
+        </div>
+      </section>
+
       {/* FOOTER */}
       <footer className={s.footer}>
         <div className={s.footerBrand}>
@@ -415,48 +444,8 @@ export default function LandingPage() {
         </div>
         <div className={s.footerLinks}>
           <a href="/privacy">Privacy Policy</a>
-          <span style={{ position: 'relative' }}>
-            <button
-              onClick={() => setDeckOpen(o => !o)}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, color: 'var(--text-dim)', fontFamily: 'inherit', transition: 'color 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
-            >
-              Information Sheets ▾
-            </button>
-            {deckOpen && (
-              <>
-                <div onClick={() => setDeckOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
-                <div style={{
-                  position: 'absolute', bottom: '100%', left: 0, marginBottom: 8, zIndex: 10,
-                  background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 8, padding: '6px 0', minWidth: 180,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}>
-                  {DECKS.map(d => (
-                    <a
-                      key={d.href}
-                      href={d.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setDeckOpen(false)}
-                      style={{
-                        display: 'block', padding: '8px 16px', fontSize: 13,
-                        color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap',
-                        transition: 'background 0.1s, color 0.1s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
-                    >
-                      {d.label}
-                    </a>
-                  ))}
-                </div>
-              </>
-            )}
-          </span>
-          <a href="https://www.faa.gov/uas/commercial_operators/become_a_drone_pilot" target="_blank" rel="noopener noreferrer">FAA Part 107</a>
           <a href="/terms">Terms of Service</a>
+          <a href="https://www.faa.gov/uas/commercial_operators/become_a_drone_pilot" target="_blank" rel="noopener noreferrer">FAA Part 107</a>
           <a href="mailto:info@amberangels.org">Contact</a>
         </div>
       </footer>
