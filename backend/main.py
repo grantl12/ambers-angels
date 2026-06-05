@@ -651,6 +651,38 @@ def _require_worker_or_pilot(
     raise HTTPException(status_code=401, detail="Not authenticated")
 
 
+@app.post("/telemetry")
+async def post_telemetry(
+    payload: schemas.TelemetryCreate,
+    auth: dict = Depends(get_current_pilot),
+):
+    """Position update from mobile app (phone GPS or DJI telemetry)."""
+    ts = payload.ts or datetime.now(timezone.utc)
+    async with database.AsyncSessionLocal() as session:
+        await session.execute(text("""
+            INSERT INTO telemetry_points
+                (drone_id, pilot_id, ts, lat, lon, altitude_m,
+                 heading_deg, speed_mps, accuracy_m, source, volunteer_mode)
+            VALUES
+                (:drone_id, :pilot_id, :ts, :lat, :lon, :alt,
+                 :heading, :speed, :accuracy, :source, :volunteer_mode)
+        """), {
+            "drone_id":      payload.drone_id,
+            "pilot_id":      payload.pilot_id or auth.get("sub"),
+            "ts":            ts,
+            "lat":           payload.lat,
+            "lon":           payload.lng,
+            "alt":           payload.altitude,
+            "heading":       payload.heading,
+            "speed":         payload.speed,
+            "accuracy":      payload.accuracy,
+            "source":        payload.source or "phone_gps",
+            "volunteer_mode": payload.volunteer_mode,
+        })
+        await session.commit()
+    return {"status": "ok"}
+
+
 @app.post("/detections/")
 async def create_detection(
     det: schemas.DetectionCreate,

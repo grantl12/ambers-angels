@@ -830,9 +830,15 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
       - 'email' in prefs → email via SMTP
     Default is both, so pilots who haven't set a preference get everything.
     """
-    try:
-        async with session_factory() as session:
-            rows = await session.execute(
+    # Use the synchronous session to avoid asyncpg pool/event-loop mismatch
+    # that occurs after PM2 restarts (asyncpg Futures bound to old loop).
+    import database as _db_module
+    import asyncio
+
+    def _fetch_pilots(area: str):
+        db = _db_module.SessionLocal()
+        try:
+            rows = db.execute(
                 text("""
                     SELECT DISTINCT email, full_name, expo_push_token, notification_prefs
                     FROM pilots
@@ -850,9 +856,14 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                         )
                       )
                 """),
-                {"area": alert["area"] or ""},
+                {"area": area},
             )
-            matched = rows.fetchall()
+            return rows.fetchall()
+        finally:
+            db.close()
+
+    try:
+        matched = await asyncio.to_thread(_fetch_pilots, alert["area"] or "")
     except Exception as e:
         logger.error("Watch-area query failed: %s", e)
         return
