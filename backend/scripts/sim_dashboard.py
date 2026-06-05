@@ -206,8 +206,8 @@ def create_sim_alert(conn):
         ]:
             cur.execute("""
                 INSERT INTO watchlist (plate_text, description, alert_type, source,
-                                       vehicle_color, vehicle_type, active, created_at)
-                VALUES (%s, %s, 'amber', 'demo', %s, %s, TRUE, NOW())
+                                       vehicle_color, vehicle_type, active)
+                VALUES (%s, %s, 'amber', 'demo', %s, %s, TRUE)
                 ON CONFLICT DO NOTHING
             """, (
                 plate,
