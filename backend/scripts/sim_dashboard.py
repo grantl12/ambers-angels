@@ -182,10 +182,6 @@ def register_drone(conn, drone_id_str, pilot_username, home_lat, home_lng):
                 (pilot_username, drone_model, serial_number,
                  home_lat, home_lng, last_seen_at, bvlos_authorized, vlos_radius_m)
             VALUES (%s, %s, %s, %s, %s, %s, FALSE, 400)
-            ON CONFLICT (serial_number) DO UPDATE
-                SET home_lat = EXCLUDED.home_lat,
-                    home_lng = EXCLUDED.home_lng,
-                    last_seen_at = NOW()
             RETURNING id
         """, (
             pilot_username, SIM_TAG, drone_id_str,
