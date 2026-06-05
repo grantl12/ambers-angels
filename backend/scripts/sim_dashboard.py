@@ -28,7 +28,6 @@ import math
 import os
 import sys
 import time
-import uuid
 from datetime import datetime, timezone
 
 import psycopg2
@@ -67,6 +66,46 @@ def offset(lat, lng, d_lat_m, d_lng_m):
     )
 
 
+def bearing(a_lat, a_lng, b_lat, b_lng):
+    """Compass bearing in degrees from A to B."""
+    d = math.radians(b_lng - a_lng)
+    lat1, lat2 = math.radians(a_lat), math.radians(b_lat)
+    x = math.sin(d) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(d)
+    return (math.degrees(math.atan2(x, y)) + 360) % 360
+
+
+def interpolate_route(waypoints, n_frames):
+    """
+    Distribute n_frames evenly along a polyline of (lat, lng) waypoints.
+    Returns list of (lat, lng, heading_deg) tuples.
+    """
+    def seg_len(a, b):
+        dlat = (b[0] - a[0]) * 111_320
+        dlng = (b[1] - a[1]) * 111_320 * math.cos(math.radians(a[0]))
+        return math.sqrt(dlat**2 + dlng**2)
+
+    segs = list(zip(waypoints, waypoints[1:]))
+    lengths = [seg_len(a, b) for a, b in segs]
+    total = sum(lengths)
+
+    result = []
+    for i in range(n_frames):
+        t = i / max(n_frames - 1, 1) * total
+        acc = 0.0
+        for (a, b), l in zip(segs, lengths):
+            if t <= acc + l or (a, b) == segs[-1]:
+                seg_t = ((t - acc) / l) if l > 0 else 0.0
+                seg_t = max(0.0, min(1.0, seg_t))
+                lat = a[0] + seg_t * (b[0] - a[0])
+                lng = a[1] + seg_t * (b[1] - a[1])
+                hdg = bearing(a[0], a[1], b[0], b[1])
+                result.append((lat, lng, hdg))
+                break
+            acc += l
+    return result
+
+
 def ts_now():
     return datetime.now(timezone.utc)
 
@@ -103,9 +142,25 @@ ANGEL2_CENTER = offset(CENTER_LAT, CENTER_LNG,  100,  350)
 # ANGEL-3: VLOS independent, flying south side
 ANGEL3_START = offset(CENTER_LAT, CENTER_LNG, -200, -100)
 
-# Volunteers — ground, driving on surface streets
-HAWK_START   = offset(CENTER_LAT, CENTER_LNG,   50, -500)   # west, driving east
-RANGER_START = offset(CENTER_LAT, CENTER_LNG, -150,  200)   # south-east, slow
+# Volunteers — road-following waypoints (Carrollton, GA street grid)
+# HAWK: east along Bankhead Hwy / Maple St corridor
+HAWK_ROUTE = [
+    (33.5790, -85.0870),  # west end, near Hwy 166 junction
+    (33.5790, -85.0820),  # continuing east
+    (33.5793, -85.0775),  # slight bend near downtown core
+    (33.5793, -85.0730),  # past Newnan St
+    (33.5790, -85.0685),  # east end of corridor
+]
+
+# RANGER: slower patrol on N/S and cross streets near target zone
+RANGER_ROUTE = [
+    (33.5760, -85.0775),  # south on Newnan St-ish
+    (33.5800, -85.0775),  # north
+    (33.5800, -85.0730),  # east on cross street
+    (33.5760, -85.0730),  # south
+    (33.5760, -85.0700),  # jog east
+    (33.5800, -85.0700),  # north again
+]
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +293,6 @@ def create_mission(conn, drone_db_id):
 
 def post_detection(drone_id, lat, lng, plate, confidence, color, vtype, source_label):
     payload = {
-        "frame_id":     str(uuid.uuid4()),
         "drone_id":     drone_id,
         "plate_text":   plate,
         "confidence":   confidence,
@@ -300,6 +354,10 @@ def run(conn):
     HIT_CAR_AT    = 17    # frame index for car hit
     CAD_SHOW_AT   = 25    # frame index for CAD display
 
+    # Pre-compute road-following positions for volunteers
+    hawk_route   = interpolate_route(HAWK_ROUTE,   FRAMES)
+    ranger_route = interpolate_route(RANGER_ROUTE, FRAMES)
+
     drone_hit_fired = False
     car_hit_fired   = False
     cad_shown       = False
@@ -340,21 +398,21 @@ def run(conn):
                         "dji_telemetry", "drone")
                     print(f"  {i:5d}  | ANGEL-3    | {a3_lat:.5f}, {a3_lng:.6f}  | VLOS / independent")
 
-                    # HAWK: driving east along Bankhead, phone camera scanning
-                    hawk_lat, hawk_lng = offset(*HAWK_START, 0, i * 15)
+                    # HAWK: following road route east, phone camera scanning
+                    hawk_lat, hawk_lng, hawk_hdg = hawk_route[i]
                     insert_telemetry(cur,
                         "SIM-HAWK", "HAWK",
-                        hawk_lat, hawk_lng, 0.0, 90, 13.0,
+                        hawk_lat, hawk_lng, 0.0, round(hawk_hdg), 13.0,
                         "phone_gps", "phone")
-                    print(f"  {i:5d}  | 🚗 HAWK     | {hawk_lat:.5f}, {hawk_lng:.6f}  | ground / driving east")
+                    print(f"  {i:5d}  | 🚗 HAWK     | {hawk_lat:.5f}, {hawk_lng:.6f}  | ground / hdg={round(hawk_hdg)}°")
 
-                    # RANGER: slow near target zone
-                    ranger_lat, ranger_lng = offset(*RANGER_START, i * 3, -i * 4)
+                    # RANGER: slow patrol on cross streets
+                    ranger_lat, ranger_lng, ranger_hdg = ranger_route[i]
                     insert_telemetry(cur,
                         "SIM-RANGER", "RANGER",
-                        ranger_lat, ranger_lng, 0.0, 220, 5.0,
+                        ranger_lat, ranger_lng, 0.0, round(ranger_hdg), 5.0,
                         "phone_gps", "phone")
-                    print(f"  {i:5d}  | 🚗 RANGER   | {ranger_lat:.5f}, {ranger_lng:.6f}  | ground / slow patrol")
+                    print(f"  {i:5d}  | 🚗 RANGER   | {ranger_lat:.5f}, {ranger_lng:.6f}  | ground / hdg={round(ranger_hdg)}°")
 
                 frame_conn.commit()
             finally:

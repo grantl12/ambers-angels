@@ -165,6 +165,7 @@ export function EventFeed({ onFlyTo }: Props) {
                           src={thumbUrl}
                           alt={detection.plateText ?? "alert frame"}
                           className="w-full h-28 object-cover opacity-90 hover:opacity-100 transition-opacity"
+                          onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none" }}
                         />
                       </button>
                     )}
