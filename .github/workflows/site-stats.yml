@@ -37,24 +37,24 @@ jobs:
 
             echo ""
             echo "--- Raw visitor count from GoAccess JSON ---"
-            echo "$REPORT" | python3 - <<'PYEOF'
-import sys, re, json
-html = sys.stdin.read()
-m = re.search(r'window\.GoAccess\s*=\s*(\{.*?\});', html, re.DOTALL)
-if not m:
-    print('Could not find GoAccess data block')
-    sys.exit(0)
-try:
-    data = json.loads(m.group(1))
-    gen = data.get('general', {})
-    print(f'Unique visitors:  {gen.get("unique_visitors", "?")}')
-    print(f'Total requests:   {gen.get("total_requests", "?")}')
-    print(f'Valid requests:   {gen.get("valid_requests", "?")}')
-    print(f'Log size:         {gen.get("log_size", "?")}')
-    print(f'Bandwidth:        {gen.get("bandwidth", "?")}')
-    print(f'Log file:         {gen.get("log_file", "?")}')
-    print(f'Date range:       {gen.get("start_date", "?")} to {gen.get("end_date", "?")}')
-except Exception as e:
-    print(f'Parse error: {e}')
-    print(html[:500])
-PYEOF
+            echo "$REPORT" > /tmp/goaccess_report.html
+            python3 - <<'PYEOF'
+            import json, re
+            html = open('/tmp/goaccess_report.html').read()
+            m = re.search(r'window\.GoAccess\s*=\s*(\{.*?\});', html, re.DOTALL)
+            if not m:
+                print('Could not find GoAccess data block')
+            else:
+                try:
+                    data = json.loads(m.group(1))
+                    gen = data.get('general', {})
+                    print(f'Unique visitors:  {gen.get("unique_visitors", "?")}')
+                    print(f'Total requests:   {gen.get("total_requests", "?")}')
+                    print(f'Valid requests:   {gen.get("valid_requests", "?")}')
+                    print(f'Bandwidth:        {gen.get("bandwidth", "?")}')
+                    print(f'Date range:       {gen.get("start_date", "?")} to {gen.get("end_date", "?")}')
+                except Exception as e:
+                    print(f'Parse error: {e}')
+                    print(html[:500])
+            PYEOF
+            rm -f /tmp/goaccess_report.html
