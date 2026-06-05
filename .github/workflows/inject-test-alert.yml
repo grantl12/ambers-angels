@@ -1,0 +1,112 @@
+name: Inject Test Alert
+
+on:
+  workflow_dispatch:
+    inputs:
+      plate:
+        description: "License plate"
+        required: true
+        default: "YVJ024"
+      vehicle_color:
+        description: "Vehicle color"
+        required: true
+        default: "white"
+      vehicle_make:
+        description: "Vehicle make"
+        required: true
+        default: "Tesla"
+      vehicle_type:
+        description: "Vehicle body type (car/truck/suv/motorcycle)"
+        required: true
+        default: "car"
+      area:
+        description: "Alert area description"
+        required: true
+        default: "Carrollton, GA"
+      headline:
+        description: "Alert headline"
+        required: true
+        default: "TEST - System verification"
+
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inject test alert via server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 157.245.125.103
+          username: ambers-angels
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/ambers-angels/proj_dir/ambers-angels
+
+            python3 - <<'PYEOF'
+            import os, sys, json, hashlib, httpx
+            from datetime import datetime, timezone
+
+            # Load .env
+            env = {}
+            with open(".env") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, _, v = line.partition("=")
+                        env[k.strip()] = v.strip().strip('"').strip("'")
+
+            PLATE      = "${{ github.event.inputs.plate }}".upper()
+            COLOR      = "${{ github.event.inputs.vehicle_color }}"
+            MAKE       = "${{ github.event.inputs.vehicle_make }}"
+            VTYPE      = "${{ github.event.inputs.vehicle_type }}"
+            AREA       = "${{ github.event.inputs.area }}"
+            HEADLINE   = "${{ github.event.inputs.headline }}"
+            WEBHOOK    = env.get("ALERT_WEBHOOK_URL", "")
+            DB_URL     = env.get("DATABASE_URL", "")
+
+            import subprocess, textwrap
+
+            # Use psql to insert watchlist + vehicle_targets entries
+            psql_cmd = ["psql", "-h", "127.0.0.1", "-U", "postgres", "ambersangels"]
+            env_with_pw = {**os.environ, "PGPASSWORD": "Ambers1Angels"}
+
+            sql = textwrap.dedent(f"""
+                INSERT INTO watchlist (plate_text, description, alert_type, source_program, vehicle_color, vehicle_type, vehicle_make, active, added_at)
+                VALUES ('{PLATE}', '{HEADLINE}', 'amber', 'Manual Test', '{COLOR}', '{VTYPE}', '{MAKE}', true, NOW())
+                ON CONFLICT (plate_text) DO UPDATE SET active = true, description = EXCLUDED.description;
+
+                INSERT INTO vehicle_targets (color, body_type, make, description, alert_type, source_program, active)
+                VALUES ('{COLOR}', '{VTYPE}', '{MAKE}', '{HEADLINE}', 'amber', 'Manual Test', true);
+            """)
+
+            result = subprocess.run(psql_cmd, input=sql, capture_output=True, text=True, env=env_with_pw)
+            if result.returncode != 0:
+                print("psql error:", result.stderr)
+                sys.exit(1)
+            print("DB entries created.")
+
+            # Fire Discord notification
+            if WEBHOOK:
+                color_int = 0xF59E0B  # amber
+                payload = {
+                    "embeds": [{
+                        "title": f"🚨 TEST ALERT — {PLATE}",
+                        "description": HEADLINE,
+                        "color": color_int,
+                        "fields": [
+                            {"name": "Plate",   "value": f"`{PLATE}`",          "inline": True},
+                            {"name": "Vehicle", "value": f"{COLOR} {MAKE} ({VTYPE})", "inline": True},
+                            {"name": "Area",    "value": AREA,                  "inline": False},
+                            {"name": "Source",  "value": "Manual Test Inject",  "inline": True},
+                        ],
+                        "footer": {"text": "Amber's Angels — Test Injection"},
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }]
+                }
+                r = httpx.post(WEBHOOK, json=payload, timeout=10)
+                print(f"Discord: {r.status_code}")
+            else:
+                print("No webhook configured — skipping Discord.")
+
+            print(f"Done. Plate {PLATE} is now active on the watchlist.")
+            PYEOF
