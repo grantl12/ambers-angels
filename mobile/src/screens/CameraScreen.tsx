@@ -25,6 +25,7 @@ import { postTelemetry } from "../api/telemetry"
 import { setApiBaseUrl } from "../api/client"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings, type AppSettings } from "../lib/settings"
+import { getAuthState } from "../lib/auth"
 import { nearestAlert } from "../lib/polygon"
 import {
   initializeDJI,
@@ -134,10 +135,12 @@ export default function CameraScreen() {
     if (!settings) return
     setError(null)
 
-    // Require at least one active FEMA alert before starting
+    // Require at least one active FEMA alert before starting (admins/coordinators bypass for testing)
     try {
+      const auth   = await getAuthState()
+      const isPriv = auth?.role === "admin" || auth?.role === "coordinator"
       const alerts = await fetchFemaAlerts()
-      if (alerts.length === 0) {
+      if (alerts.length === 0 && !isPriv) {
         setError("No active alerts. Mission can only start when a FEMA/AMBER alert is active.")
         return
       }
