@@ -149,6 +149,13 @@ ALTER TABLE detection_events  ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAUL
 ALTER TABLE watchlist         ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAULT 'fema';
 ALTER TABLE vehicle_targets   ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAULT 'fema';
 
+-- vehicle_targets columns added after initial deploy (nullable so existing rows are not broken)
+ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS fema_identifier TEXT;
+ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS headline        TEXT;
+ALTER TABLE vehicle_targets ADD COLUMN IF NOT EXISTS area            TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS vehicle_targets_fema_identifier_idx
+    ON vehicle_targets (fema_identifier) WHERE fema_identifier IS NOT NULL;
+
 -- Back-fill existing manual/demo rows by heuristic
 UPDATE watchlist       SET source = 'manual' WHERE source_program IN ('manual','demo') AND source = 'fema';
 UPDATE vehicle_targets SET source = 'manual' WHERE source_program IN ('manual','demo') AND source = 'fema';

@@ -75,8 +75,9 @@ jobs:
                 VALUES ('{PLATE}', '{HEADLINE}', 'amber', 'Manual Test', '{COLOR}', '{VTYPE}', '{MAKE}', true, NOW())
                 ON CONFLICT (plate_text) DO UPDATE SET active = true, description = EXCLUDED.description;
 
-                INSERT INTO vehicle_targets (color, body_type, make, description, alert_type, source_program, headline, area, active)
-                VALUES ('{COLOR}', '{VTYPE}', '{MAKE}', '{HEADLINE}', 'amber', 'Manual Test', '{HEADLINE}', '{AREA}', true);
+                INSERT INTO vehicle_targets (fema_identifier, alert_type, source_program, headline, area, color, body_type, make)
+                VALUES ('manual-test-{PLATE}', 'amber', 'Manual Test', '{HEADLINE}', '{AREA}', '{COLOR}', '{VTYPE}', '{MAKE}')
+                ON CONFLICT (fema_identifier) DO UPDATE SET headline = EXCLUDED.headline, area = EXCLUDED.area;
             """)
 
             result = subprocess.run(psql_cmd, input=sql, capture_output=True, text=True, env=env_with_pw)
