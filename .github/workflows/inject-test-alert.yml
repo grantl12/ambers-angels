@@ -85,6 +85,57 @@ jobs:
                 sys.exit(1)
             print("DB entries created.")
 
+            # Send Expo push notifications to all eligible pilots
+            push_sql = """
+                SELECT expo_push_token, watch_areas, alert_scope
+                FROM pilots
+                WHERE status = 'approved'
+                  AND expo_push_token IS NOT NULL
+                  AND expo_push_token != ''
+            """
+            rows_result = subprocess.run(
+                psql_cmd + ["-t", "-A", "-F", "\t", "-c", push_sql],
+                capture_output=True, text=True, env=env_with_pw
+            )
+            tokens = []
+            for row in rows_result.stdout.strip().splitlines():
+                parts = row.split("\t")
+                if not parts or not parts[0]:
+                    continue
+                token       = parts[0].strip()
+                alert_scope = parts[2].strip() if len(parts) > 2 else ""
+                watch_areas = parts[1].strip() if len(parts) > 1 else "[]"
+                # Nationwide pilots always get it; area-scoped pilots get it if area matches
+                if alert_scope == "nationwide" or not watch_areas or watch_areas == "[]":
+                    tokens.append(token)
+                else:
+                    import json as _json
+                    areas = _json.loads(watch_areas) if watch_areas else []
+                    if any(AREA.lower() in a.lower() or a.lower() in AREA.lower() for a in areas):
+                        tokens.append(token)
+
+            if tokens:
+                push_payload = [
+                    {
+                        "to":    token,
+                        "title": f"🚨 TEST ALERT — {PLATE}",
+                        "body":  f"{COLOR} {MAKE} · {AREA}",
+                        "sound": "default",
+                        "data":  {"alertType": "amber", "area": AREA},
+                        "priority": "high",
+                    }
+                    for token in tokens
+                ]
+                pr = httpx.post(
+                    "https://exp.host/--/api/v2/push/send",
+                    json=push_payload,
+                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                    timeout=15,
+                )
+                print(f"Expo push: {pr.status_code} — {len(tokens)} token(s)")
+            else:
+                print("No eligible push tokens found.")
+
             # Fire Discord notification
             if WEBHOOK:
                 color_int = 0xF59E0B  # amber
