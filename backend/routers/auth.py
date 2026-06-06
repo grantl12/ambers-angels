@@ -900,6 +900,23 @@ def _handle_sso_login(provider: str, sub: str, email: Optional[str]) -> dict:
                 "status":       row[3],
             }
 
+        # If this email is already registered to a different account, surface that
+        # clearly rather than letting sso_complete crash on a unique constraint.
+        if email:
+            existing_email = db.execute(
+                text("SELECT 1 FROM pilots WHERE email = :email"),
+                {"email": email.strip().lower()},
+            ).fetchone()
+            if existing_email:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "This email address is already associated with an existing account. "
+                        "Please sign in with your original login method, then link Apple Sign In "
+                        "from your account settings."
+                    ),
+                )
+
         # New SSO user — short-lived token so the mobile app can collect a username
         return {
             "registration_token": _make_sso_reg_token(provider, sub, email),
@@ -999,17 +1016,26 @@ def sso_complete(req: SSOCompleteRequest):
                      :status, :role, :approved_at)
             """,
         }
-        db.execute(text(_SSO_INSERT[provider]), {
-            "username":   username,
-            "email":      email or f"{username}@sso.placeholder",
-            "full_name":  req.full_name,
-            "provider":   provider,
-            "sub":        sub,
-            "status":     pilot_status,
-            "role":       pilot_role,
-            "approved_at": datetime.now(timezone.utc),
-        })
-        db.commit()
+        try:
+            db.execute(text(_SSO_INSERT[provider]), {
+                "username":   username,
+                "email":      email or f"{username}@sso.placeholder",
+                "full_name":  req.full_name,
+                "provider":   provider,
+                "sub":        sub,
+                "status":     pilot_status,
+                "role":       pilot_role,
+                "approved_at": datetime.now(timezone.utc),
+            })
+            db.commit()
+        except Exception as db_exc:
+            db.rollback()
+            err = str(db_exc).lower()
+            if "email" in err and "unique" in err:
+                raise HTTPException(status_code=400, detail="This email is already registered. Sign in with your original account.")
+            if "username" in err and "unique" in err:
+                raise HTTPException(status_code=400, detail="Username already taken — please choose a different one.")
+            raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
 
         token = _make_token(username, pilot_role)
         return TokenResponse(

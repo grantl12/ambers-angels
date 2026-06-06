@@ -608,7 +608,7 @@ async def ingest_detection(
     speed:            Optional[float] = Form(None),
     pilot_id:         Optional[str]   = Form(None),
     source:           str             = Form("phone_mlkit"),
-    _pilot: dict = Depends(get_current_pilot),
+    _pilot: Optional[dict] = Depends(_optional_pilot),
 ):
     """
     On-device detection result from ML Kit OCR.
@@ -671,6 +671,19 @@ async def ingest_detection(
             watchlist_hit = status in ("alerted", "probable")
 
     return {"status": "ingested", "watchlist_hit": watchlist_hit or on_watchlist}
+
+
+def _optional_pilot(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),
+) -> Optional[dict]:
+    """Accept any request; decode JWT if present but don't require it."""
+    if creds:
+        try:
+            from routers.auth import _decode_token
+            return _decode_token(creds.credentials)
+        except Exception:
+            pass
+    return None
 
 
 def _require_worker_or_pilot(
