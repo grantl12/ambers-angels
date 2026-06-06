@@ -13,7 +13,7 @@ type SystemHealth = {
   database: string
   worker: string
   nginx: string
-  rtmp_feeds: { active: number; configured: number }
+  rtmp_feeds: { active: number }
   watchlist_entries: number
   detections_last_1h: number
   last_detection_at: string | null

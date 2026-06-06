@@ -134,13 +134,16 @@ class EventService:
           - MUST NOT be in cooldown
         """
         async with self.repository.session_factory() as session:
-            rows = await session.execute(text("SELECT plate_text, vehicle_color, vehicle_type, vehicle_make FROM watchlist WHERE active = TRUE"))
+            rows = await session.execute(text(
+                "SELECT plate_text, vehicle_color, vehicle_type, vehicle_make, "
+                "alert_type, description, source_program FROM watchlist WHERE active = TRUE"
+            ))
             watchlist = rows.fetchall()
 
         match_found = False
         matched_row = None
         p_norm = snapshot.plate_normalized
-        
+
         for row in watchlist:
             w_plate = row[0].upper().replace(" ", "")
             # Fuzzy match: same length, at most 1 char difference
@@ -163,6 +166,10 @@ class EventService:
             expected_type=matched_row[2] if matched_row else None,
             expected_make=matched_row[3] if matched_row else None,
         )
+        # Attach alert metadata so the dispatcher can include it in Discord
+        vehicle_context["watchlist_alert_type"]  = matched_row[4] if matched_row else None
+        vehicle_context["watchlist_description"] = matched_row[5] if matched_row else None
+        vehicle_context["watchlist_source"]      = matched_row[6] if matched_row else None
 
         # Reduce reported confidence when detected vehicle doesn't match watchlist profile
         penalty = vehicle_context.get("mismatch_penalty", 0.0)

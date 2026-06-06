@@ -64,12 +64,14 @@ class AlertDispatcher:
         vehicle_context: Optional[dict] = None,
     ) -> None:
         """Keyword-arg entry point used by EventService."""
+        # Pull alert metadata from vehicle_context (populated by event_service watchlist lookup)
+        wl_alert_type = (vehicle_context or {}).get("watchlist_alert_type")
         event_dict = {
             "plate_best": plate,
             "drone_id": drone_id,
             "confidence": confidence,
             "frame_url": f"/frames/{frame_id}" if frame_id else None,
-            "alert_type": None,
+            "alert_type": wl_alert_type,
         }
         await self.dispatch(event_dict, vehicle_context=vehicle_context, location=location)
 
@@ -123,6 +125,17 @@ class AlertDispatcher:
 
         if alert_type:
             embed["fields"].insert(0, {"name": "Alert type", "value": alert_type.upper(), "inline": True})
+
+        # Source program (e.g. "FEMA IPAWS", "Demo Inject") and alert description
+        wl_source = (vehicle_context or {}).get("watchlist_source")
+        wl_desc   = (vehicle_context or {}).get("watchlist_description")
+        if wl_source:
+            embed["fields"].append({"name": "Source", "value": wl_source, "inline": True})
+        if wl_desc:
+            embed["fields"].append({"name": "Alert Details", "value": wl_desc[:256], "inline": False})
+
+        if not frame_bytes:
+            embed["fields"].append({"name": "Detection source", "value": "On-device OCR — no frame transmitted", "inline": False})
 
         if location:
             lat  = location.get("lat")
