@@ -13,6 +13,7 @@ export interface ScanOptions {
   droneId:     string
   pilotId?:    string
   intervalMs?: number   // milliseconds between captures (default 1500)
+  authToken?:  string   // JWT — required for watchlist hit detection
 }
 
 /** Start background scanning. On Android this launches a foreground service. */
@@ -23,6 +24,7 @@ export async function startBackgroundScan(options: ScanOptions): Promise<void> {
     droneId:    options.droneId,
     pilotId:    options.pilotId   ?? '',
     intervalMs: options.intervalMs ?? 1500,
+    authToken:  options.authToken  ?? '',
   })
 }
 

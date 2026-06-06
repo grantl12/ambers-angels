@@ -31,15 +31,18 @@ import java.util.concurrent.atomic.AtomicInteger
 class ScanService : Service() {
 
     companion object {
-        const val CHANNEL_ID   = "aa_scan"
-        const val NOTIF_ID     = 1001
-        const val ACTION_START = "com.ambersangels.phonecamera.START"
-        const val ACTION_STOP  = "com.ambersangels.phonecamera.STOP"
+        const val CHANNEL_ID      = "aa_scan"
+        const val CHANNEL_ID_HIT  = "aa_hit"
+        const val NOTIF_ID        = 1001
+        const val NOTIF_ID_HIT    = 1002
+        const val ACTION_START    = "com.ambersangels.phonecamera.START"
+        const val ACTION_STOP     = "com.ambersangels.phonecamera.STOP"
 
         const val EXTRA_API_BASE    = "api_base"
         const val EXTRA_DRONE_ID    = "drone_id"
         const val EXTRA_PILOT_ID    = "pilot_id"
         const val EXTRA_INTERVAL_MS = "interval_ms"
+        const val EXTRA_AUTH_TOKEN  = "auth_token"
 
         // Readable from PhoneCameraModule without binding
         @Volatile var isRunning    = false
@@ -50,7 +53,10 @@ class ScanService : Service() {
     private var apiBase    = "http://192.168.1.100:8000"
     private var droneId    = "phone-1"
     private var pilotId    = ""
+    private var authToken  = ""
     @Volatile private var intervalMs = 1500L
+
+    private var lastHitNotifMs = 0L  // cooldown: at most one hit alert per minute
 
     // ── Camera2 ──────────────────────────────────────────────────────────────
     private var cameraDevice:    CameraDevice?            = null
@@ -116,6 +122,7 @@ class ScanService : Service() {
         apiBase    = intent?.getStringExtra(EXTRA_API_BASE)           ?: apiBase
         droneId    = intent?.getStringExtra(EXTRA_DRONE_ID)           ?: droneId
         pilotId    = intent?.getStringExtra(EXTRA_PILOT_ID)           ?: ""
+        authToken  = intent?.getStringExtra(EXTRA_AUTH_TOKEN)         ?: ""
         intervalMs = intent?.getLongExtra(EXTRA_INTERVAL_MS, 1500L)   ?: 1500L
 
         framesUploaded.set(0)
@@ -299,6 +306,7 @@ class ScanService : Service() {
             val req = Request.Builder()
                 .url("$apiBase/ingest/detection")
                 .post(body)
+                .apply { if (authToken.isNotBlank()) header("Authorization", "Bearer $authToken") }
                 .build()
 
             http.newCall(req).execute().use { resp ->
@@ -307,10 +315,12 @@ class ScanService : Service() {
                     val isHit = try {
                         org.json.JSONObject(resp.body?.string() ?: "{}").optBoolean("watchlist_hit", false)
                     } catch (_: Exception) { false }
-                    updateNotification(
-                        if (isHit) "🚨 WATCHLIST HIT — $plateText"
-                        else "Scanning  •  $n plates read"
-                    )
+                    if (isHit) {
+                        updateNotification("🚨 WATCHLIST HIT — $plateText")
+                        fireHitAlert(plateText)
+                    } else {
+                        updateNotification("Scanning  •  $n plates read")
+                    }
                 }
             }
         } catch (_: IOException) {
@@ -347,13 +357,37 @@ class ScanService : Service() {
     // =========================================================================
 
     private fun createNotificationChannel() {
-        val ch = NotificationChannel(CHANNEL_ID, "AA Background Scan",
-            NotificationManager.IMPORTANCE_LOW).apply {
-            description  = "Amber's Angels plate scanning"
-            setShowBadge(false)
-        }
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, "AA Background Scan", NotificationManager.IMPORTANCE_LOW).apply {
+                description  = "Amber's Angels plate scanning"
+                setShowBadge(false)
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID_HIT, "AA Watchlist Alert", NotificationManager.IMPORTANCE_HIGH).apply {
+                description     = "Watchlist plate match — heads-up alert"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 400, 200, 400)
+            }
+        )
+    }
+
+    private fun fireHitAlert(plateText: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastHitNotifMs < 60_000L) return  // at most one alert per minute
+        lastHitNotifMs = now
+        val notif = NotificationCompat.Builder(this, CHANNEL_ID_HIT)
+            .setContentTitle("🚨 WATCHLIST MATCH")
+            .setContentText("Plate $plateText matches an active alert")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setVibrate(longArrayOf(0, 400, 200, 400))
+            .build()
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .createNotificationChannel(ch)
+            .notify(NOTIF_ID_HIT, notif)
     }
 
     private fun buildNotification(text: String): Notification {

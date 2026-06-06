@@ -601,6 +601,24 @@ async def ingest_detection(
 
     ts = datetime.now(timezone.utc)
 
+    # Quick watchlist check before aggregation — gives the pilot immediate feedback
+    # even when a single scan hasn't accumulated enough confidence to reach "probable"
+    on_watchlist = False
+    if plate_confidence * 100 >= 55.0:
+        try:
+            async with database.AsyncSessionLocal() as _wl_sess:
+                _wl = await _wl_sess.execute(
+                    text(
+                        "SELECT 1 FROM watchlist "
+                        "WHERE UPPER(REPLACE(REPLACE(plate_text,' ',''),'-','')) = :p "
+                        "AND active = TRUE LIMIT 1"
+                    ),
+                    {"p": plate},
+                )
+                on_watchlist = _wl.fetchone() is not None
+        except Exception:
+            pass
+
     det = AggDetectionInput(
         detection_id = str(uuid.uuid4()),
         frame_id     = str(uuid.uuid4()),
@@ -631,7 +649,7 @@ async def ingest_detection(
             status = decision.event.status if hasattr(decision.event, "status") else decision.event.get("status", "")
             watchlist_hit = status in ("alerted", "probable")
 
-    return {"status": "ingested", "watchlist_hit": watchlist_hit}
+    return {"status": "ingested", "watchlist_hit": watchlist_hit or on_watchlist}
 
 
 def _require_worker_or_pilot(

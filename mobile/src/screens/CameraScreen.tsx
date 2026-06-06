@@ -136,8 +136,10 @@ export default function CameraScreen() {
     setError(null)
 
     // Require at least one active FEMA alert before starting (admins/coordinators bypass for testing)
+    let scanAuthToken: string | undefined
     try {
       const auth   = await getAuthState()
+      scanAuthToken = auth?.token ?? undefined
       const isPriv = auth?.role === "admin" || auth?.role === "coordinator"
       const alerts = await fetchFemaAlerts()
       if (alerts.length === 0 && !isPriv) {
@@ -219,6 +221,7 @@ export default function CameraScreen() {
           droneId:    settings.droneId,
           pilotId:    settings.pilotId || undefined,
           intervalMs: settings.captureIntervalSec * 1000,
+          authToken:  scanAuthToken,
         }).catch(() => setError("Could not start background scan"))
 
         // Poll the native side for frame count to keep the HUD updated

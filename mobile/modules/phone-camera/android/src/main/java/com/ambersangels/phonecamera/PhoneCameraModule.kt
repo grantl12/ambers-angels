@@ -19,6 +19,7 @@ class PhoneCameraModule(private val reactContext: ReactApplicationContext) :
                 putExtra(ScanService.EXTRA_DRONE_ID,    options.getString("droneId")    ?: "phone-1")
                 putExtra(ScanService.EXTRA_PILOT_ID,    options.getString("pilotId")    ?: "")
                 putExtra(ScanService.EXTRA_INTERVAL_MS, options.getDouble("intervalMs").toLong())
+                putExtra(ScanService.EXTRA_AUTH_TOKEN,  options.getString("authToken")  ?: "")
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 reactContext.startForegroundService(intent)
