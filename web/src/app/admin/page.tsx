@@ -79,7 +79,7 @@ type SystemHealth = {
   database: string
   worker: string
   nginx: string
-  rtmp_feeds: { active: number; configured: number }
+  rtmp_feeds: { active: number }
   watchlist_entries: number
   detections_last_1h: number
   last_detection_at: string | null
@@ -411,9 +411,9 @@ export default function AdminPage() {
               <div className="flex items-center justify-between px-5 py-3">
                 <span className="text-sm text-white/70">RTMP Feeds</span>
                 <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${health.rtmp_feeds.active > 0 ? "bg-emerald-400" : "bg-white/20"}`} />
-                  <span className={`text-xs font-medium ${health.rtmp_feeds.active > 0 ? "text-emerald-400" : "text-white/40"}`}>
-                    {health.rtmp_feeds.active} / {health.rtmp_feeds.configured} active
+                  <span className={`h-2 w-2 rounded-full ${health.rtmp_feeds.active > 0 ? "bg-emerald-400" : "bg-sky-400/50"}`} />
+                  <span className={`text-xs font-medium ${health.rtmp_feeds.active > 0 ? "text-emerald-400" : "text-sky-400/60"}`}>
+                    {health.rtmp_feeds.active > 0 ? `${health.rtmp_feeds.active} active` : "Ready"}
                   </span>
                 </div>
               </div>

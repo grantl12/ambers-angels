@@ -317,11 +317,12 @@ def health_check(db: Session = Depends(get_db)):
     except Exception:
         worker_ok = False
 
-    # ── ffmpeg / rtmp feed harvesters ─────────────────────────────────────────
+    # ── rtmp active streams (nginx stat endpoint) ─────────────────────────────
     try:
-        r = subprocess.run(["pgrep", "-f", "rtmp://127.0.0.1/live/"], capture_output=True)
-        feed_pids = [p for p in r.stdout.decode().strip().split("\n") if p]
-        active_feeds = len(feed_pids)
+        import urllib.request, xml.etree.ElementTree as _ET
+        with urllib.request.urlopen("http://127.0.0.1/rtmp-stat", timeout=1) as _resp:
+            _xml = _ET.fromstring(_resp.read())
+        active_feeds = len(_xml.findall(".//application[name='live']/live/stream"))
     except Exception:
         active_feeds = 0
 
@@ -360,7 +361,7 @@ def health_check(db: Session = Depends(get_db)):
         "database": "connected" if db_ok else "error",
         "worker": "running" if worker_ok else "stopped",
         "nginx": "running" if nginx_ok else "stopped",
-        "rtmp_feeds": {"active": active_feeds, "configured": 3},
+        "rtmp_feeds": {"active": active_feeds},
         "watchlist_entries": watchlist_count,
         "detections_last_1h": detections_1h,
         "last_detection_at": last_detection_at,
