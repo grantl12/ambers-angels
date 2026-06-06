@@ -765,11 +765,14 @@ async def create_detection(
     )
 
     snapshot = _aggregation_service.ingest(internal_det)
+    alert_triggered = False
     if snapshot:
         service = EventService(
             repository=EventRepository(database.AsyncSessionLocal),
             dispatcher=_alert_dispatcher,
         )
-        await service.upsert_from_snapshot(snapshot)
-    
-    return {"status": "ingested"}
+        decision = await service.upsert_from_snapshot(snapshot)
+        if decision:
+            alert_triggered = decision.should_dispatch_alert
+
+    return {"status": "ingested", "alert_triggered": alert_triggered}
