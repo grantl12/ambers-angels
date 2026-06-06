@@ -371,6 +371,46 @@ def list_pending(payload: dict = Depends(require_admin)):
         db.close()
 
 
+@router.delete("/pending/{username}")
+def deny_pending_pilot(username: str, _: dict = Depends(require_admin)):
+    """Admin: reject and delete a pending volunteer registration."""
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("DELETE FROM pilots WHERE username = :u AND status = 'pending' RETURNING username"),
+            {"u": username.lower()},
+        ).fetchone()
+        db.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="Pending pilot not found")
+        return {"status": "denied", "username": username}
+    finally:
+        db.close()
+
+
+@router.delete("/pilots/{username}")
+def remove_pilot(username: str, payload: dict = Depends(require_admin)):
+    """Admin: deactivate (suspend) an approved pilot. Cannot remove yourself."""
+    if payload.get("sub") == username.lower():
+        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("""
+                UPDATE pilots SET status = 'suspended'
+                WHERE username = :u AND status = 'approved'
+                RETURNING username
+            """),
+            {"u": username.lower()},
+        ).fetchone()
+        db.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="Active pilot not found")
+        return {"status": "suspended", "username": username}
+    finally:
+        db.close()
+
+
 class UpdateProfileRequest(BaseModel):
     full_name:            Optional[str] = None
     phone:                Optional[str] = None

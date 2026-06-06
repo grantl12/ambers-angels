@@ -1208,28 +1208,33 @@ def delete_manual_vehicle(alert_id: int):
 
 
 @router.delete("/admin/test-data", dependencies=[Depends(require_admin)])
-def clear_test_data():
+def clear_test_data(full_reset: bool = False):
     """
-    Wipe user-created test data only.
-    FEMA/NCMEC-sourced data is never touched — it has its own TTL-based retention.
-    Retention policy:
-      - source='fema'   → 90-day TTL via scheduled purge
-      - source='ncmec'  → governed by NCMEC_RECENT_DAYS
-      - source='worker' → 30-day non-alerted, 365-day alerted, via scheduled purge
-      - source='manual'/'demo' → cleared by this endpoint only
+    Wipe user-created test data.
+    full_reset=true also removes alerted detection_events (for demo resets — use carefully).
+    FEMA/NCMEC-sourced alerts are never touched; they have TTL-based retention.
     """
     db = database.SessionLocal()
     try:
         wl = db.execute(text(
-            "DELETE FROM watchlist WHERE source_program IN ('manual','demo','automated_test') RETURNING plate_text"
+            "DELETE FROM watchlist "
+            "WHERE source_program NOT IN ('fema','ncmec') RETURNING plate_text"
         )).rowcount
         vt = db.execute(text(
-            "DELETE FROM vehicle_targets WHERE source_program IN ('manual','demo','automated_test') RETURNING id"
+            "DELETE FROM vehicle_targets "
+            "WHERE source_program NOT IN ('fema','ncmec') RETURNING id"
         )).rowcount
-        # Only remove worker-source detections that are NOT alerted (preserve evidence)
-        de = db.execute(text(
-            "DELETE FROM detection_events WHERE event_type NOT IN ('demo') AND status != 'alerted' RETURNING id"
-        )).rowcount
+        if full_reset:
+            # Full demo reset: wipe all non-FEMA/NCMEC detections including alerted ones
+            de = db.execute(text(
+                "DELETE FROM detection_events "
+                "WHERE source NOT IN ('fema','ncmec') RETURNING id"
+            )).rowcount
+        else:
+            # Normal: preserve alerted events as evidence, clear everything else
+            de = db.execute(text(
+                "DELETE FROM detection_events WHERE status != 'alerted' RETURNING id"
+            )).rowcount
         db.commit()
         return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de}}
     finally:

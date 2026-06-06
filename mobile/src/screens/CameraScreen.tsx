@@ -261,15 +261,21 @@ export default function CameraScreen() {
               if (now - lastHitNotifRef.current > 60_000) {
                 lastHitNotifRef.current = now
                 const plate = result.outcomes?.[0]?.plate ?? "unknown"
-                Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: "🚨 WATCHLIST MATCH",
-                    body: `Plate ${plate} matches an active alert`,
-                    sound: true,
-                    priority: Notifications.AndroidNotificationPriority.MAX,
-                  },
-                  trigger: null,
-                })
+                // Admins/coordinators already receive a server push — skip local
+                // notification so they don't get the same alert twice.
+                const auth2 = await getAuthState()
+                const isCoordOrAdmin = auth2?.role === "admin" || auth2?.role === "coordinator"
+                if (!isCoordOrAdmin) {
+                  Notifications.scheduleNotificationAsync({
+                    content: {
+                      title: "🚨 WATCHLIST MATCH",
+                      body: `Plate ${plate} matches an active alert`,
+                      sound: true,
+                      priority: Notifications.AndroidNotificationPriority.MAX,
+                    },
+                    trigger: null,
+                  })
+                }
               }
             }
           } catch (e) {

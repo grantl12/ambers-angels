@@ -281,12 +281,42 @@ async def inject_alert(
         req.plate.upper().strip(),
         desc,
         alert_type=atype["key"],
-        source_program=req.source_program,
-        vehicle_color=req.vehicle_color,
-        vehicle_type=req.vehicle_type,
-        vehicle_make=req.vehicle_make,
+        source_program="manual",
+        vehicle_color=req.vehicle_color or None,
+        vehicle_type=req.vehicle_type or None,
+        vehicle_make=req.vehicle_make or None,
     )
-    await _add_vehicle_target(database.AsyncSessionLocal, alert)
+    # Always insert a vehicle_target so the camera gate opens — bypass the
+    # profile-completeness guard that _add_vehicle_target enforces for FEMA alerts.
+    from datetime import timedelta as _td
+    async with database.AsyncSessionLocal() as _sess:
+        try:
+            await _sess.execute(
+                text("""
+                    INSERT INTO vehicle_targets
+                        (fema_identifier, alert_type, source_program, headline,
+                         area, color, body_type, make, polygon, expires_at)
+                    VALUES
+                        (:fema_id, :atype, 'manual', :headline,
+                         :area, :color, :btype, :make, NULL,
+                         NOW() + INTERVAL '24 hours')
+                    ON CONFLICT (fema_identifier) DO UPDATE
+                        SET expires_at = NOW() + INTERVAL '24 hours'
+                """),
+                {
+                    "fema_id": ident,
+                    "atype":   atype["key"],
+                    "headline": req.headline,
+                    "area":    req.area,
+                    "color":   req.vehicle_color or None,
+                    "btype":   req.vehicle_type or None,
+                    "make":    req.vehicle_make or None,
+                },
+            )
+            await _sess.commit()
+        except Exception as _e:
+            logger.warning("Vehicle target insert for inject failed: %s", _e)
+            await _sess.rollback()
     await _notify_watching_pilots(database.AsyncSessionLocal, alert)
     if webhook_url:
         await _notify_plates(webhook_url, alert, [req.plate.upper().strip()])

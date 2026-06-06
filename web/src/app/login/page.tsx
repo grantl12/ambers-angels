@@ -57,7 +57,7 @@ function LoginForm() {
       if (data.registration_token) {
         // New SSO user — send to registration with pre-filled email
         const params = new URLSearchParams({ sso_token: data.registration_token, email: data.email ?? "" })
-        router.replace(`/pilot/register.html?${params}`)
+        router.replace(`/pilot/register?${params}`)
         return
       }
       setAuth({
@@ -240,7 +240,7 @@ function LoginForm() {
 
         <p className="mt-4 text-center text-xs text-white/30">
           New pilot?{" "}
-          <a href="/pilot/register.html" className="text-sky-400 hover:text-sky-300">
+          <a href="/pilot/register" className="text-sky-400 hover:text-sky-300">
             Register here
           </a>
         </p>

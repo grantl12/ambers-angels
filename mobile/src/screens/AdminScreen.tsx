@@ -75,7 +75,9 @@ export default function AdminScreen() {
   const [injectPlate,  setInjectPlate]  = useState('')
   const [clearing,     setClearing]     = useState(false)
   const [approvingP,   setApprovingP]   = useState<string | null>(null)
+  const [denyingP,     setDenyingP]     = useState<string | null>(null)
   const [approvingC,   setApprovingC]   = useState<string | null>(null)
+  const [removingPilot, setRemovingPilot] = useState<string | null>(null)
 
   // ── data loading ──────────────────────────────────────────────────────────
 
@@ -150,19 +152,22 @@ export default function AdminScreen() {
     }
   }
 
-  function confirmClearTestData() {
+  function confirmClearTestData(fullReset = false) {
     Alert.alert(
-      'Clear Test Data',
-      'Delete all demo watchlist entries, vehicle targets, and non-alerted detection events? This cannot be undone.',
+      fullReset ? 'Full Demo Reset' : 'Clear Test Data',
+      fullReset
+        ? 'Delete ALL non-FEMA/NCMEC watchlist entries, vehicle targets, and detection events (including alerted)? Use this before demos. Cannot be undone.'
+        : 'Delete all non-FEMA/NCMEC watchlist entries, vehicle targets, and non-alerted detections?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Clear', style: 'destructive',
+          text: fullReset ? 'Full Reset' : 'Clear', style: 'destructive',
           onPress: async () => {
             setClearing(true)
             setTestMsg(null)
             try {
-              const res = await apiDelete<{ cleared: { watchlist: number; vehicle_targets: number; detection_events: number } }>('/admin/test-data')
+              const url = fullReset ? '/admin/test-data?full_reset=true' : '/admin/test-data'
+              const res = await apiDelete<{ cleared: { watchlist: number; vehicle_targets: number; detection_events: number } }>(url)
               setTestMsg(
                 `Cleared — ${res.cleared.watchlist} watchlist, ` +
                 `${res.cleared.vehicle_targets} targets, ` +
@@ -191,6 +196,54 @@ export default function AdminScreen() {
     } finally {
       setApprovingP(null)
     }
+  }
+
+  function confirmDenyPilot(username: string) {
+    Alert.alert(
+      'Deny Registration',
+      `Remove @${username}'s pending registration? They will need to re-register.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deny', style: 'destructive',
+          onPress: async () => {
+            setDenyingP(username)
+            try {
+              await apiDelete(`/auth/pending/${username}`)
+              setPending(prev => prev.filter(p => p.username !== username))
+            } catch (e: unknown) {
+              Alert.alert('Error', e instanceof Error ? e.message : 'Denial failed.')
+            } finally {
+              setDenyingP(null)
+            }
+          },
+        },
+      ],
+    )
+  }
+
+  function confirmRemovePilot(username: string) {
+    Alert.alert(
+      'Deactivate Volunteer',
+      `Suspend @${username}? They will no longer be able to sign in.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate', style: 'destructive',
+          onPress: async () => {
+            setRemovingPilot(username)
+            try {
+              await apiDelete(`/auth/pilots/${username}`)
+              setPilots(prev => prev.filter(p => p.username !== username))
+            } catch (e: unknown) {
+              Alert.alert('Error', e instanceof Error ? e.message : 'Deactivation failed.')
+            } finally {
+              setRemovingPilot(null)
+            }
+          },
+        },
+      ],
+    )
   }
 
   async function approveCoord(username: string) {
@@ -302,13 +355,23 @@ export default function AdminScreen() {
         </Text>
         <TouchableOpacity
           style={[s.btn, s.btnDanger, clearing && s.btnDisabled]}
-          onPress={confirmClearTestData}
+          onPress={() => confirmClearTestData(false)}
           disabled={clearing}
         >
           {clearing
             ? <ActivityIndicator color="#fff" size="small" />
             : <Text style={s.btnText}>Clear Test Data</Text>}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.btn, s.btnDangerStrong, clearing && s.btnDisabled]}
+          onPress={() => confirmClearTestData(true)}
+          disabled={clearing}
+        >
+          <Text style={s.btnText}>Full Demo Reset</Text>
+        </TouchableOpacity>
+        <Text style={s.helpText}>
+          Full Demo Reset also wipes alerted detections — use before presenting to CPD/RTCC.
+        </Text>
       </Section>
 
       {/* ── REGISTERED PILOTS ── */}
@@ -328,6 +391,15 @@ export default function AdminScreen() {
             {p.canDispatchDrones && (
               <Text style={[s.cardMeta, { color: '#818cf8' }]}>✓ Dispatch authorized</Text>
             )}
+            <TouchableOpacity
+              style={[s.btn, s.btnDangerSm, s.btnSm, removingPilot === p.username && s.btnDisabled]}
+              onPress={() => confirmRemovePilot(p.username)}
+              disabled={removingPilot === p.username}
+            >
+              {removingPilot === p.username
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={[s.btnText, { fontSize: 12 }]}>Deactivate</Text>}
+            </TouchableOpacity>
           </View>
         ))}
       </Section>
@@ -344,15 +416,26 @@ export default function AdminScreen() {
             </View>
             <Text style={s.cardMeta}>@{p.username}{p.city ? ` · ${p.city}` : ''}</Text>
             <Text style={s.cardMeta}>{p.email}</Text>
-            <TouchableOpacity
-              style={[s.btn, s.btnApprove, s.btnSm, approvingP === p.username && s.btnDisabled]}
-              onPress={() => approvePilot(p.username)}
-              disabled={approvingP === p.username}
-            >
-              {approvingP === p.username
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={s.btnText}>Approve</Text>}
-            </TouchableOpacity>
+            <View style={s.actionRow}>
+              <TouchableOpacity
+                style={[s.btn, s.btnApprove, s.btnFlex, approvingP === p.username && s.btnDisabled]}
+                onPress={() => approvePilot(p.username)}
+                disabled={approvingP === p.username}
+              >
+                {approvingP === p.username
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.btnText}>Approve</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.btn, s.btnDanger, s.btnFlex, denyingP === p.username && s.btnDisabled]}
+                onPress={() => confirmDenyPilot(p.username)}
+                disabled={denyingP === p.username}
+              >
+                {denyingP === p.username
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.btnText}>Deny</Text>}
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </Section>
@@ -471,7 +554,9 @@ const s = StyleSheet.create({
   btnFlex:    { flex: 1 },
   btnAmber:   { backgroundColor: '#f59e0b' },
   btnApprove: { backgroundColor: '#065f46', borderWidth: 1, borderColor: '#059669' },
-  btnDanger:  { backgroundColor: '#7f1d1d', borderWidth: 1, borderColor: '#991b1b' },
+  btnDanger:       { backgroundColor: '#7f1d1d', borderWidth: 1, borderColor: '#991b1b' },
+  btnDangerStrong: { backgroundColor: '#991b1b', borderWidth: 1, borderColor: '#ef4444' },
+  btnDangerSm:     { backgroundColor: '#3b0c0c', borderWidth: 1, borderColor: '#7f1d1d', paddingVertical: 6 },
   btnDisabled:{ opacity: 0.45 },
   btnText:    { color: '#fff', fontWeight: '700', fontSize: 14 },
   btnTextDark:{ color: '#050a0f', fontWeight: '700', fontSize: 14 },
