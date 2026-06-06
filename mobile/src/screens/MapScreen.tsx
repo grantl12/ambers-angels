@@ -8,7 +8,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import MapView, { Callout, Marker, Polygon, PROVIDER_DEFAULT } from "react-native-maps"
+import MapView, { Callout, Marker, Polygon, Polyline, PROVIDER_DEFAULT } from "react-native-maps"
 import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
 import { useFocusEffect } from "@react-navigation/native"
@@ -195,19 +195,19 @@ export default function MapScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {/* Priority flight zones */}
+        {/* Priority flight zones — rendered as road-segment polylines */}
         {showPriorityLayer && priorityZones.map((zone, i) => {
+          if (!zone.polygon) return null
           const coords = parsePolygonCoords(zone.polygon)
             .filter(c => isFinite(c.latitude) && isFinite(c.longitude))
-          if (coords.length < 3) return null
+          if (coords.length < 2) return null
           const isHigh = zone.priority === "high"
           return (
-            <Polygon
+            <Polyline
               key={`pz-${i}`}
               coordinates={coords}
-              fillColor={isHigh ? "rgba(239,68,68,0.13)" : "rgba(245,158,11,0.10)"}
-              strokeColor={isHigh ? "rgba(239,68,68,0.5)" : "rgba(245,158,11,0.4)"}
-              strokeWidth={1}
+              strokeColor={isHigh ? "rgba(239,68,68,0.7)" : "rgba(245,158,11,0.5)"}
+              strokeWidth={isHigh ? 3 : 2}
             />
           )
         })}

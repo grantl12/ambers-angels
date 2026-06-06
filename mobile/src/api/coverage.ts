@@ -1,9 +1,10 @@
 import { apiGet } from "./client"
 
 export type PriorityZone = {
-  polygon:  string           // space-separated "lat,lng" pairs
+  polygon:  string | null    // space-separated "lat,lng" pairs derived from GeoJSON geometry
   priority: "high" | "medium"
-  label:    string           // e.g. "Northwest sector"
+  label:    string
+  name?:    string
 }
 
 export type CoverageCell = {

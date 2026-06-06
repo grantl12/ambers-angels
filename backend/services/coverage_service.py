@@ -164,11 +164,19 @@ def _score_segments(segment_rows, cameras: list[tuple]) -> list[dict]:
 
         geom = geometry_json if isinstance(geometry_json, dict) else json.loads(geometry_json)
 
+        # Build a space-separated "lat,lng" polygon string from the GeoJSON
+        # coordinates (which are [lng, lat] order) so the mobile parsePoly helper
+        # can consume it without knowing about GeoJSON.
+        coords = geom.get("coordinates", []) if isinstance(geom, dict) else []
+        polygon_str = " ".join(f"{lat},{lng}" for lng, lat in coords) if coords else ""
+
         result.append({
             "id":            seg_id,
             "name":          name,
             "highwayType":   highway_type or "road",
             "geometry":      geom,
+            "polygon":       polygon_str,
+            "label":         name or highway_type or "road",
             "centroidLat":   round(c_lat, 6),
             "centroidLng":   round(c_lng, 6),
             "coverageScore": score,
