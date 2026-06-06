@@ -376,12 +376,19 @@ export default function CameraScreen() {
 
         {/* Start / Stop button */}
         <View style={styles.controls}>
+          {settings?.volunteerMode === "drone" && (
+            <View style={styles.rtmpNote}>
+              <Text style={styles.rtmpNoteText}>
+                🚁 RTMP feed is processed automatically — no need to tap Start Mission. Go live in DJI Fly and the system will start scanning when an alert is active.
+              </Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[styles.captureBtn, active && styles.captureBtnActive]}
             onPress={active ? stopMission : startMission}
           >
             <Text style={styles.captureBtnText}>
-              {active ? "STOP MISSION" : "START MISSION"}
+              {active ? "STOP MISSION" : settings?.volunteerMode === "drone" ? "START DJI SDK SCAN" : "START MISSION"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -451,4 +458,18 @@ const styles = StyleSheet.create({
   },
   rangeWarningTitle: { color: "#fff", fontWeight: "700", fontSize: 12 },
   rangeWarningBody:  { color: "rgba(255,255,255,0.75)", fontSize: 10, marginTop: 2 },
+  rtmpNote: {
+    backgroundColor: "rgba(0,0,0,0.7)",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.3)",
+  },
+  rtmpNoteText: {
+    color: "#38bdf8",
+    fontSize: 13,
+    textAlign: "center" as const,
+    lineHeight: 20,
+  },
 })
