@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -26,7 +27,7 @@ type SystemHealth = {
   database:            string
   worker:              string
   nginx:               string
-  rtmp_feeds:          { active: number; configured: number }
+  rtmp_feeds:          { active: number }
   watchlist_entries:   number
   detections_last_1h:  number
   last_fema_poll:      string | null
@@ -71,6 +72,7 @@ export default function AdminScreen() {
 
   const [testMsg,      setTestMsg]      = useState<string | null>(null)
   const [testing,      setTesting]      = useState(false)
+  const [injectPlate,  setInjectPlate]  = useState('')
   const [clearing,     setClearing]     = useState(false)
   const [approvingP,   setApprovingP]   = useState<string | null>(null)
   const [approvingC,   setApprovingC]   = useState<string | null>(null)
@@ -120,22 +122,27 @@ export default function AdminScreen() {
   // ── actions ───────────────────────────────────────────────────────────────
 
   async function injectTestAlert() {
+    const plate = injectPlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!plate || plate.length < 2 || plate.length > 10) {
+      setTestMsg('Enter a valid plate (2–10 characters).')
+      return
+    }
     setTesting(true)
     setTestMsg(null)
     try {
       const res = await apiPost<{ ok: boolean; plate: string; identifier: string }>(
         '/admin/inject-alert',
         {
-          plate:          'YVJ024',
-          headline:       'Demo Alert — Test Scan Active — Carrollton GA',
+          plate,
+          headline:       `On-Device OCR Test — Plate ${plate} — Carrollton GA`,
           area:           'Carrollton, GA',
           alert_type:     'amber',
-          source_program: 'Demo Inject',
-          vehicle_color:  'White',
-          vehicle_type:   'car',
+          source_program: 'On-Device OCR Test',
+          vehicle_color:  '',
+          vehicle_type:   '',
         },
       )
-      setTestMsg(`Demo alert live — plate ${res.plate} on watchlist. Check Discord.`)
+      setTestMsg(`Alert live — plate ${res.plate} on watchlist. Scan it and check Discord.`)
     } catch (e: unknown) {
       setTestMsg(e instanceof Error ? e.message : 'Injection failed.')
     } finally {
@@ -271,17 +278,27 @@ export default function AdminScreen() {
             {testMsg}
           </Text>
         )}
+        <TextInput
+          style={s.plateInput}
+          value={injectPlate}
+          onChangeText={setInjectPlate}
+          placeholder="Enter plate (e.g. ABC1234)"
+          placeholderTextColor="#4b5563"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={10}
+        />
         <TouchableOpacity
-          style={[s.btn, s.btnAmber, testing && s.btnDisabled]}
+          style={[s.btn, s.btnAmber, (testing || !injectPlate.trim()) && s.btnDisabled]}
           onPress={injectTestAlert}
-          disabled={testing}
+          disabled={testing || !injectPlate.trim()}
         >
           {testing
             ? <ActivityIndicator color="#050a0f" size="small" />
-            : <Text style={s.btnTextDark}>Inject Demo Alert (YVJ024)</Text>}
+            : <Text style={s.btnTextDark}>Inject OCR Test Alert</Text>}
         </TouchableOpacity>
         <Text style={s.helpText}>
-          Activates a demo AMBER alert for plate YVJ024 (your vehicle), fires Discord, and opens the camera gate.
+          Creates an AMBER alert for the entered plate, opens the camera gate, and fires Discord when scanned. Use a real plate from the parking lot for CPD demos.
         </Text>
         <TouchableOpacity
           style={[s.btn, s.btnDanger, clearing && s.btnDisabled]}
@@ -443,6 +460,12 @@ const s = StyleSheet.create({
     borderRadius: 4, overflow: 'hidden',
   },
 
+  plateInput: {
+    backgroundColor: '#0d1117', borderWidth: 1, borderColor: '#1a2332',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    color: '#e2e8f0', fontSize: 16, fontWeight: '600',
+    letterSpacing: 2, marginTop: 4,
+  },
   btn:        { borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 8 },
   btnSm:      { marginTop: 10 },
   btnFlex:    { flex: 1 },

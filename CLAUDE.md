@@ -58,7 +58,10 @@ Manual migration without full deploy — trigger via GitHub Actions UI:
 - **`autoIncrement` in eas.json is NOT supported with app.config.js** — never add it
 - **`--build-number` flag does not work with app.config.js** — never use it
 - Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.)
-- Current build number: **7** (app.config.js is source of truth — CLAUDE.md may lag)
+- Current build number: **11** (iOS cb0f0b20 / Android 87a5961c) — app.config.js is source of truth
+- EAS account: `ambersangels` (with 's') — confirmed via `eas whoami`. Slug: `ambers-angels`
+- OTA update channel: `eas update --branch preview` delivers JS-only changes to build 11
+- All mobile changes in June 2026 are OTA-compatible (no native code changed)
 
 Build and submit:
 ```
@@ -106,6 +109,14 @@ eas submit --platform ios --profile production --latest
 - **Phone/DJI App (CameraScreen direct upload)**: `POST /ingest/frame` — pilot JWT required, 25 MB limit, image content-type enforced, runs ALPR + YOLO server-side. Used for DJI SDK path; phone background scan now uses on-device OCR.
 - **Worker** (`worker/unified_worker.py`): scans frame directories, runs OpenALPR + YOLOv8-nano + optional Plate Recognizer, posts to `POST /detections/` with `X-Internal-Key` header
 - **On-device result endpoint**: `POST /ingest/detection` — accepts plate_text + plate_confidence + GPS, no image. Feeds into same AggregationService pipeline. Returns `watchlist_hit` boolean.
+
+**Auth notes (easy to break):**
+- `POST /telemetry` — requires pilot JWT. `postTelemetry()` in `mobile/src/api/telemetry.ts` must send `Authorization: Bearer {token}`. If omitted, server returns 401 silently swallowed → location never appears on map.
+- `GET /telemetry/latest` — requires pilot JWT (changed from coordinator-only in June 2026 to allow all pilots to see each other). Returns only points from last 5 minutes.
+- `POST /ingest/detection` — does NOT require JWT (uses `_optional_pilot` FastAPI dependency). Android `ScanService.kt` can scan without login.
+- `POST /ingest/frame` — requires pilot JWT.
+
+**Phone scan → Discord image note:** Phone ML Kit path is on-device OCR — no frame is ever uploaded. Discord hit messages for phone scans will say "Detection source: On-device OCR — no frame transmitted." This is correct and intentional. Frame attachments only appear for drone RTMP path.
 
 ### Confidence Scoring
 
@@ -164,6 +175,48 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 - CORS restricted to `https://amberangels.org`, `https://www.amberangels.org`, `http://localhost:3000`, `http://localhost:19006`
 - SSL: all httpx clients use certifi CA bundle. `apps.fema.gov` has an incomplete cert chain — `verify=False` scoped to that host only; all other clients use `verify=certifi.where()`
 - ToS gate enforced in mobile: `TosGateScreen` blocks app access until user accepts current version (`CURRENT_TOS_VERSION` in `mobile/src/api/tos.ts`). Acceptance recorded server-side via `POST /auth/tos/accept`, checked via `GET /auth/tos-status`
+
+### Critical Rules — Things That Break Silently
+
+**`_optional_pilot` in `backend/main.py`**
+Python evaluates default parameter values at module load time, not at call time. `_optional_pilot` is used as `Depends(_optional_pilot)` in the `ingest_detection` function signature. It MUST be defined BEFORE line ~610 where `ingest_detection` is decorated. If you move it below that line, the server crashes on startup with `NameError: name '_optional_pilot' is not defined` — PM2 restarts it, it crashes again, every request fails. Fix: keep `_optional_pilot` defined around line 599 in `main.py`, before the `ingest_detection` endpoint.
+
+**`GET /fema/alerts` reads `vehicle_targets` table, NOT `alerts`**
+The camera gate in `CameraScreen.tsx` calls `fetchFemaAlerts()` which hits `GET /fema/alerts`. This endpoint reads from `vehicle_targets`, not the `alerts` table. When you inject a test alert via `POST /admin/inject-alert`, it calls `_add_vehicle_target()` which writes to `vehicle_targets`. That's why injection opens the camera gate. Don't confuse the `alerts` table (Discord-dispatched high-confidence hits) with `vehicle_targets` (FEMA alert vehicle profiles that gate scanning).
+
+**Demo inject endpoint — use `POST /admin/inject-alert`, not `POST /fema/test`**
+`POST /fema/test` just polls the real FEMA feed — it does NOT create a synthetic alert. `POST /admin/inject-alert` is the correct endpoint to inject a demo. Body: `{plate, headline, area, alert_type, source_program, vehicle_color, vehicle_type}`.
+
+**`autonomous.ts` API base URL**
+`mobile/src/api/autonomous.ts` must use `getApiBaseUrl()` from `client.ts`, not a hardcoded IP. The server is behind nginx on port 443 (HTTPS). Port 8000 is blocked externally by firewall. Any hardcoded `http://157.245.125.103:8000` will fail for external clients.
+
+**Google SSO redirect URI**
+`mobile/src/screens/LoginScreen.tsx` uses `Google.useAuthRequest` with `redirectUri: "https://auth.expo.io/@ambersangels/ambers-angels"`. This exact URI must be registered in Google Cloud Console. The EAS account is `ambersangels` (with 's').
+
+**Mobile `client.ts` 401 handling**
+`mobile/src/api/client.ts` registers a session-expired handler via `registerSessionExpiredHandler`. `App.tsx` must call `registerSessionExpiredHandler(() => setAuthed(false))` in a `useEffect`. And `resetSessionExpiredState()` must be called in `handleLogin()` to re-arm after a fresh login. Without this, 401s from a stale JWT silently fail instead of logging the user out.
+
+**nginx RTMP stat endpoint**
+Added `/rtmp-stat` location to `/etc/nginx/sites-enabled/telemetry` (default server). The backend health endpoint (`GET /health`) queries `http://127.0.0.1/rtmp-stat` to count active RTMP streams via XML. `rtmp_feeds.active` = number of `<stream>` elements in the `<live>` application. Returns 0 when no drones are streaming. Do NOT use `pgrep -f "rtmp://..."` — the ffmpeg processes use `rtmp://localhost/` (not `127.0.0.1`) so pgrep never matched.
+
+**Volunteer count on MapScreen**
+`myDroneId` is loaded from settings. `const alreadyInList = myDroneId ? drones.some(d => d.droneId === myDroneId) : false; const count = drones.length + (myLocation && !alreadyInList ? 1 : 0)` — this avoids double-counting yourself.
+
+**Demo/SIM data cleanup**
+SIM watchlist entries (source='demo') and vehicle_targets (source='demo') can be deleted with:
+```sql
+DELETE FROM watchlist WHERE source = 'demo';
+DELETE FROM vehicle_targets WHERE source = 'demo';
+UPDATE watchlist SET active = false, removed_at = NOW() WHERE plate_text = 'YVJ024' AND active = true;
+```
+Alerted detection_events (status='alerted') are NEVER deleted — they are evidence. The admin "Clear Test Data" button only removes source='manual'/'demo' entries.
+
+**E2E test flow (verified working June 6, 2026)**
+1. Web admin → "Inject Demo Alert (YVJ024)" button → creates vehicle_target + watchlist entry
+2. Mobile camera → tap "Start Mission" → camera gate opens (fetchFemaAlerts returns active alert)
+3. Point camera at plate "YVJ024" → ML Kit detects → `POST /ingest/detection` → AggregationService → EventService → dispatch_alert → Discord hit fires
+4. Discord embed shows: Alert type (AMBER), Plate (YVJ024), Confidence (%), Source program, Alert Details, Detection source (On-device OCR), Location
+5. To reset: SQL above, or admin "Clear Test Data" button
 
 ### Key Files
 
