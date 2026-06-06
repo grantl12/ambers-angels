@@ -70,13 +70,14 @@ jobs:
             psql_cmd = ["psql", "-h", "127.0.0.1", "-U", "postgres", "ambersangels"]
             env_with_pw = {**os.environ, "PGPASSWORD": "Ambers1Angels"}
 
+            FEMA_ID = f"manual-test-{PLATE}"
             sql = textwrap.dedent(f"""
                 INSERT INTO watchlist (plate_text, description, alert_type, source_program, vehicle_color, vehicle_type, vehicle_make, active, added_at)
-                VALUES ('{PLATE}', '{HEADLINE}', 'amber', 'Manual Test', '{COLOR}', '{VTYPE}', '{MAKE}', true, NOW())
+                VALUES ('{PLATE}', '{HEADLINE} [ID: {FEMA_ID}]', 'amber', 'Manual Test', '{COLOR}', '{VTYPE}', '{MAKE}', true, NOW())
                 ON CONFLICT (plate_text) DO UPDATE SET active = true, description = EXCLUDED.description;
 
                 INSERT INTO vehicle_targets (fema_identifier, alert_type, source_program, headline, area, color, body_type, make)
-                VALUES ('manual-test-{PLATE}', 'amber', 'Manual Test', '{HEADLINE}', '{AREA}', '{COLOR}', '{VTYPE}', '{MAKE}')
+                VALUES ('{FEMA_ID}', 'amber', 'Manual Test', '{HEADLINE}', '{AREA}', '{COLOR}', '{VTYPE}', '{MAKE}')
                 ON CONFLICT (fema_identifier) DO UPDATE SET headline = EXCLUDED.headline, area = EXCLUDED.area;
             """)
 

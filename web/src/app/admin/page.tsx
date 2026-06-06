@@ -57,6 +57,15 @@ type ManualVehicle = {
 
 type ManualAlerts = { plates: ManualPlate[]; vehicles: ManualVehicle[] }
 
+type ActiveAlert = {
+  id:             number
+  femaIdentifier: string | null
+  alertType:      string
+  headline:       string | null
+  area:           string | null
+  addedAt:        string | null
+}
+
 type AuditLogEntry = {
   id:        number
   username:  string
@@ -175,6 +184,11 @@ export default function AdminPage() {
   // active manual alerts
   const [manualAlerts, setManualAlerts] = useState<ManualAlerts>({ plates: [], vehicles: [] })
 
+  // active FEMA/NWS alerts + resolution
+  const [activeAlerts,  setActiveAlerts]  = useState<ActiveAlert[]>([])
+  const [resolvingId,   setResolvingId]   = useState<string | null>(null)
+  const [resolveMsg,    setResolveMsg]    = useState<string | null>(null)
+
   // audit log
   const [auditLog,        setAuditLog]        = useState<AuditLogEntry[]>([])
   const [auditLoading,    setAuditLoading]    = useState(false)
@@ -218,6 +232,30 @@ export default function AdminPage() {
     } catch { /* silent */ }
   }, [])
 
+  const loadActiveAlerts = useCallback(async () => {
+    try {
+      setActiveAlerts(await apiGet<ActiveAlert[]>("/fema/alerts"))
+    } catch { /* silent */ }
+  }, [])
+
+  async function resolveAlert(femaIdentifier: string, headline: string | null) {
+    const reason = prompt(`Cancel alert: "${headline ?? femaIdentifier}"\n\nEnter reason (e.g. "child found safe", "test cleanup"):`)
+    if (reason === null) return
+    if (!reason.trim()) { window.alert("Reason is required."); return }
+    setResolvingId(femaIdentifier)
+    setResolveMsg(null)
+    try {
+      await apiPost("/alerts/resolve", { fema_identifier: femaIdentifier, reason: reason.trim() })
+      setResolveMsg(`Cancelled: ${headline ?? femaIdentifier}`)
+      loadActiveAlerts()
+      loadHealth()
+    } catch (e: unknown) {
+      setResolveMsg(e instanceof Error ? e.message : "Cancel failed.")
+    } finally {
+      setResolvingId(null)
+    }
+  }
+
   useEffect(() => {
     const auth = getAuthState()
     if (!auth || auth.role !== "admin") { router.replace("/map"); return }
@@ -225,10 +263,11 @@ export default function AdminPage() {
     loadCoordRequests()
     loadApprovedPilots()
     loadManualAlerts()
+    loadActiveAlerts()
     loadHealth()
     const interval = setInterval(loadHealth, 10_000)
     return () => clearInterval(interval)
-  }, [router, loadPendingPilots, loadCoordRequests, loadApprovedPilots, loadManualAlerts, loadHealth])
+  }, [router, loadPendingPilots, loadCoordRequests, loadApprovedPilots, loadManualAlerts, loadActiveAlerts, loadHealth])
 
   async function approveCoordinator(username: string) {
     setApprovingCoord(username)
@@ -398,6 +437,66 @@ export default function AdminPage() {
                   <div className="text-xs text-white/40 mt-0.5">Last Hit</div>
                 </div>
               </div>
+            </div>
+          )}
+        </section>
+
+        {/* ── Active Alerts ── */}
+        <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-amber-400">Active Alerts</h2>
+              <p className="text-xs text-white/40 mt-0.5">
+                {activeAlerts.length === 0
+                  ? "No active alerts"
+                  : `${activeAlerts.length} alert${activeAlerts.length !== 1 ? "s" : ""} currently active — coordinators and pilots are being notified`}
+              </p>
+            </div>
+            <button
+              onClick={loadActiveAlerts}
+              className="text-xs text-white/30 hover:text-white/60 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+          {resolveMsg && (
+            <div className={`text-xs px-3 py-2 rounded-lg ${resolveMsg.startsWith("Cancelled") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+              {resolveMsg}
+            </div>
+          )}
+          {activeAlerts.length > 0 && (
+            <div className="space-y-2">
+              {activeAlerts.map((fAlert) => (
+                <div key={fAlert.femaIdentifier ?? fAlert.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase ${
+                        fAlert.alertType === "amber" ? "bg-amber-500/20 text-amber-400" :
+                        fAlert.alertType === "silver" ? "bg-blue-400/20 text-blue-300" :
+                        fAlert.alertType === "blue" ? "bg-sky-500/20 text-sky-300" :
+                        "bg-white/10 text-white/60"
+                      }`}>{fAlert.alertType}</span>
+                      {fAlert.addedAt && (
+                        <span className="text-xs text-white/25">
+                          {new Date(fAlert.addedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-white/80 truncate">{fAlert.headline ?? "—"}</div>
+                    {fAlert.area && <div className="text-xs text-white/40 mt-0.5">{fAlert.area}</div>}
+                    {fAlert.femaIdentifier && (
+                      <div className="text-xs text-white/20 mt-0.5 font-mono">{fAlert.femaIdentifier}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => fAlert.femaIdentifier && resolveAlert(fAlert.femaIdentifier, fAlert.headline)}
+                    disabled={!fAlert.femaIdentifier || resolvingId === fAlert.femaIdentifier}
+                    className="shrink-0 rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                  >
+                    {resolvingId === fAlert.femaIdentifier ? "Cancelling…" : "Cancel alert"}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </section>

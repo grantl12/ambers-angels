@@ -169,6 +169,9 @@ class AlertDispatcher:
         if confidence and confidence >= SMS_CONFIDENCE_THRESHOLD:
             await self._send_sms(plate, confidence, drone_id, location, alert_type)
 
+        # 4. Expo push — notify coordinators/admins on their phones
+        await self._send_push(plate, confidence, drone_id, alert_type, location)
+
     # -------------------------------------------------------------------------
 
     async def _send_sms(
@@ -239,6 +242,68 @@ class AlertDispatcher:
                         logger.warning("Twilio SMS to %s returned %s", to, resp.status_code)
                 except Exception as e:
                     logger.error("SMS send error: %s", e)
+
+    # -------------------------------------------------------------------------
+
+    async def _send_push(
+        self,
+        plate: str,
+        confidence: Optional[float],
+        drone_id: str,
+        alert_type: Optional[str],
+        location: Optional[dict],
+    ) -> None:
+        """Push watchlist-hit notification to coordinators and admins via Expo."""
+        try:
+            import database
+            from sqlalchemy import text as _text
+            _db = database.SessionLocal()
+            try:
+                rows = _db.execute(_text(
+                    "SELECT expo_push_token FROM pilots "
+                    "WHERE expo_push_token IS NOT NULL AND expo_push_token != '' "
+                    "AND role IN ('coordinator', 'admin') AND status = 'approved'"
+                )).fetchall()
+                tokens = [r[0] for r in rows]
+            finally:
+                _db.close()
+        except Exception as exc:
+            logger.warning("Could not load coordinator push tokens: %s", exc)
+            return
+
+        if not tokens:
+            return
+
+        conf_str   = f"{confidence:.0f}% confidence" if confidence else ""
+        alert_str  = (alert_type or "AMBER").upper()
+        lat = location.get("lat") if location else None
+        lng = location.get("lng") or (location.get("lon") if location else None)
+        body = conf_str or drone_id
+        if lat and lng:
+            body = f"{body} · {lat:.4f},{lng:.4f}"
+
+        payload = [
+            {
+                "to":       token,
+                "title":    f"🚨 {alert_str} DETECTION — {plate}",
+                "body":     body,
+                "sound":    "default",
+                "priority": "high",
+                "data":     {"plate": plate, "alertType": alert_type or "amber"},
+            }
+            for token in tokens
+        ]
+
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
+            try:
+                resp = await client.post(
+                    "https://exp.host/--/api/v2/push/send",
+                    json=payload,
+                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                )
+                logger.info("Expo push dispatch: %s — %d token(s)", resp.status_code, len(tokens))
+            except Exception as exc:
+                logger.warning("Expo push dispatch failed: %s", exc)
 
     # -------------------------------------------------------------------------
 
