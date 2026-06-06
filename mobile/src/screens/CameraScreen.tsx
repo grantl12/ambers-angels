@@ -75,6 +75,7 @@ export default function CameraScreen() {
   const femaAlertsRef = useRef<FemaAlert[]>([])
   const wasOutsideRef = useRef(false)
   const lastNotifRef = useRef(0)
+  const lastHitNotifRef = useRef(0)
 
   // Load settings once — also sync the in-memory API base URL so postFrame
   // hits the address the user configured in Settings, not the hardcoded default.
@@ -237,7 +238,7 @@ export default function CameraScreen() {
             const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: true })
             if (!photo) return
             const loc = locationRef.current
-            await postFrame({
+            const result = await postFrame({
               uri:      photo.uri,
               droneId:  settings.droneId,
               pilotId:  settings.pilotId || undefined,
@@ -251,6 +252,22 @@ export default function CameraScreen() {
             })
             setFrameCount((n) => n + 1)
             setError(null)
+            if (result.watchlist_hit) {
+              const now = Date.now()
+              if (now - lastHitNotifRef.current > 60_000) {
+                lastHitNotifRef.current = now
+                const plate = result.outcomes?.[0]?.plate ?? "unknown"
+                Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: "🚨 WATCHLIST MATCH",
+                    body: `Plate ${plate} matches an active alert`,
+                    sound: true,
+                    priority: Notifications.AndroidNotificationPriority.MAX,
+                  },
+                  trigger: null,
+                })
+              }
+            }
           } catch {
             setError("Frame post failed — check API URL in Settings")
           }

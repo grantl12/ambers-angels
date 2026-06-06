@@ -461,7 +461,28 @@ async def ingest_frame(
     if not results or not results.get("results"):
         # No plates — slow down unless primary vehicle seen
         interval_ms = 1200 if primary_vehicle else 2500
-        return {"status": "no_plates", "plates": [], "capture_interval_ms": interval_ms}
+        return {"status": "no_plates", "plates": [], "watchlist_hit": False, "capture_interval_ms": interval_ms}
+
+    # Fast-path watchlist check: tell the client immediately if any detected plate
+    # is on the active watchlist, before waiting for aggregation pipeline.
+    _frame_watchlist_hit = False
+    _frame_hit_plate: str | None = None
+    for _pr in results.get("results", []):
+        _pt = (_pr.get("plate") or "").upper().replace(" ", "").replace("-", "")
+        if not _pt or _pr.get("confidence", 0) < 55:
+            continue
+        try:
+            async with database.AsyncSessionLocal() as _wl_sess:
+                _wl = await _wl_sess.execute(
+                    text("SELECT 1 FROM watchlist WHERE UPPER(REPLACE(REPLACE(plate_text,' ',''),'-','')) = :p AND active = TRUE LIMIT 1"),
+                    {"p": _pt},
+                )
+                if _wl.fetchone():
+                    _frame_watchlist_hit = True
+                    _frame_hit_plate = _pt
+                    break
+        except Exception:
+            pass
 
     telemetry = None
     if lat is not None and lng is not None:
@@ -572,7 +593,7 @@ async def ingest_frame(
 
     # Return the next capture interval. If we saw plates, we speed up.
     interval_ms = 800 if outcomes else 1500
-    return {"status": "ok", "outcomes": outcomes, "capture_interval_ms": interval_ms}
+    return {"status": "ok", "outcomes": outcomes, "watchlist_hit": _frame_watchlist_hit, "capture_interval_ms": interval_ms}
 
 
 @app.post("/ingest/detection")

@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "./client"
+import { getToken } from "../lib/auth"
 
 export type FrameSource = "phone_gps" | "dji_sdk"
 
@@ -15,7 +16,14 @@ export type FramePayload = {
   source?: FrameSource
 }
 
-export async function postFrame(payload: FramePayload): Promise<void> {
+export type FrameResult = {
+  status: string
+  watchlist_hit?: boolean
+  outcomes?: { plate: string; confidence: number; status: string; alert_sent: boolean }[]
+  capture_interval_ms?: number
+}
+
+export async function postFrame(payload: FramePayload): Promise<FrameResult> {
   const form = new FormData()
   form.append("file", {
     uri: payload.uri,
@@ -32,8 +40,15 @@ export async function postFrame(payload: FramePayload): Promise<void> {
   if (payload.speed    != null) form.append("speed",    String(payload.speed))
   if (payload.accuracy != null) form.append("accuracy", String(payload.accuracy))
 
-  await fetch(`${getApiBaseUrl()}/ingest/frame`, {
+  const token = await getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers["Authorization"] = `Bearer ${token}`
+
+  const res = await fetch(`${getApiBaseUrl()}/ingest/frame`, {
     method: "POST",
+    headers,
     body: form,
   })
+  if (!res.ok) throw new Error(`/ingest/frame → ${res.status}`)
+  return res.json()
 }
