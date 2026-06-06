@@ -247,7 +247,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
 
         {/* Stats */}
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <StatCard label="Drones"     value={drones.length}                                  color="text-sky-400" />
+          <StatCard label="Volunteers" value={drones.length}                                  color="text-sky-400" />
           <StatCard label="Detections" value={detections.length}                              color="text-amber-400" />
           <StatCard label="With GPS"   value={detections.filter((d) => d.lat != null).length} color="text-emerald-400" />
         </div>
@@ -396,55 +396,65 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
         })()}
       </div>
 
-      {/* Drone status */}
+      {/* Active volunteers — split by mode */}
       <div className="px-4 py-3 border-b border-white/10 shrink-0">
-        <div className="text-xs uppercase tracking-widest text-white/40 mb-2">Drone Status</div>
-        {drones.length === 0 ? (
-          <div className="text-sm text-white/30">No drones online</div>
-        ) : (
-          <div className="space-y-2">
-            {drones.map((drone) => {
-              const nearest =
-                outsidePolygonNotif && femaAlerts.length > 0 && drone.lat != null && drone.lng != null
-                  ? closestAlertDistance(drone.lat, drone.lng, femaAlerts)
-                  : null
-              const outsideBy =
-                nearest !== null && nearest.miles > alertRange ? nearest.miles : null
-
-              return (
-                <div key={drone.droneId}>
-                  <div
-                    onClick={() => onFlyTo?.(drone.lat, drone.lng)}
-                    className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm cursor-pointer hover:border-violet-400/50 hover:bg-violet-400/10 transition-colors"
-                    title="Click to center map on drone"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{drone.droneId}</span>
-                      <span className="text-xs text-emerald-400">online</span>
-                    </div>
-                    <div className="mt-1 text-xs text-white/40">
-                      {drone.altitude != null ? `${drone.altitude}m` : "—"}
-                      {drone.heading != null ? ` · ${Math.round(drone.heading)}°` : ""}
-                      {drone.speed != null ? ` · ${drone.speed.toFixed(1)}m/s` : ""}
-                    </div>
-                  </div>
-                  {outsideBy !== null && nearest && (
-                    <div className="mt-1 rounded-lg border border-orange-500/40 bg-orange-500/10 px-2.5 py-2 text-xs">
-                      <div className="flex items-center gap-1.5 font-semibold text-orange-300">
-                        <span>⚠</span>
-                        <span>{outsideBy.toFixed(1)} mi outside search area</span>
+        {(() => {
+          const airDrones  = drones.filter((d) => d.volunteerMode === "drone" || d.volunteerMode === "both")
+          const groundVols = drones.filter((d) => d.volunteerMode === "phone")
+          const unknown    = drones.filter((d) => !d.volunteerMode || (d.volunteerMode !== "drone" && d.volunteerMode !== "phone" && d.volunteerMode !== "both"))
+          const allSections: { label: string; color: string; items: typeof drones }[] = []
+          if (airDrones.length  > 0) allSections.push({ label: "Drones Online",     color: "text-violet-400", items: airDrones  })
+          if (groundVols.length > 0) allSections.push({ label: "Ground Volunteers", color: "text-sky-400",    items: groundVols })
+          if (unknown.length    > 0) allSections.push({ label: "Volunteers Online", color: "text-emerald-400", items: unknown  })
+          if (allSections.length === 0) return <div className="text-sm text-white/30">No volunteers online</div>
+          return allSections.map(({ label, color, items }) => (
+            <div key={label} className="mb-3 last:mb-0">
+              <div className={`text-xs uppercase tracking-widest mb-1.5 ${color}`}>{label}</div>
+              <div className="space-y-2">
+                {items.map((drone) => {
+                  const nearest =
+                    outsidePolygonNotif && femaAlerts.length > 0 && drone.lat != null && drone.lng != null
+                      ? closestAlertDistance(drone.lat, drone.lng, femaAlerts)
+                      : null
+                  const outsideBy = nearest !== null && nearest.miles > alertRange ? nearest.miles : null
+                  return (
+                    <div key={drone.droneId}>
+                      <div
+                        onClick={() => onFlyTo?.(drone.lat, drone.lng)}
+                        className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm cursor-pointer hover:border-violet-400/50 hover:bg-violet-400/10 transition-colors"
+                        title="Click to center map"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{drone.droneId}</span>
+                          <span className="text-xs text-emerald-400">online</span>
+                        </div>
+                        {(drone.altitude != null || drone.heading != null || drone.speed != null) && (
+                          <div className="mt-1 text-xs text-white/40">
+                            {drone.altitude != null ? `${drone.altitude}m` : ""}
+                            {drone.heading  != null ? ` · ${Math.round(drone.heading)}°` : ""}
+                            {drone.speed    != null ? ` · ${drone.speed.toFixed(1)}m/s`  : ""}
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-0.5 text-orange-400/70 truncate">
-                        {nearest.alert.sourceProgram ?? nearest.alert.alertType.toUpperCase()}
-                        {nearest.alert.area ? ` · ${nearest.alert.area}` : ""}
-                      </div>
+                      {outsideBy !== null && nearest && (
+                        <div className="mt-1 rounded-lg border border-orange-500/40 bg-orange-500/10 px-2.5 py-2 text-xs">
+                          <div className="flex items-center gap-1.5 font-semibold text-orange-300">
+                            <span>⚠</span>
+                            <span>{outsideBy.toFixed(1)} mi outside search area</span>
+                          </div>
+                          <div className="mt-0.5 text-orange-400/70 truncate">
+                            {nearest.alert.sourceProgram ?? nearest.alert.alertType.toUpperCase()}
+                            {nearest.alert.area ? ` · ${nearest.alert.area}` : ""}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        })()}
       </div>
 
       {/* Swarm missions */}
