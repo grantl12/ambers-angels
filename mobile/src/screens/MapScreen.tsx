@@ -8,16 +8,19 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import MapView, { Callout, Marker, Polygon, Polyline, PROVIDER_DEFAULT } from "react-native-maps"
+import MapView, { Callout, Marker, Polygon, PROVIDER_DEFAULT } from "react-native-maps"
 import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
 import { useFocusEffect } from "@react-navigation/native"
 import { fetchLatestTelemetry, type DronePosition } from "../api/telemetry"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
-import { fetchPriorityZones, type PriorityZone } from "../api/coverage"
 import { loadSettings } from "../lib/settings"
 import { nearestAlert, parsePoly } from "../lib/polygon"
 import { consumePendingAlertTarget } from "../lib/alertTarget"
+
+function toTitleCase(s: string): string {
+  return s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+}
 
 // Alert type → fill/stroke colour for polygon overlays
 const ALERT_COLORS: Record<string, { fill: string; stroke: string }> = {
@@ -73,9 +76,8 @@ export default function MapScreen() {
   const [femaAlerts, setFemaAlerts] = useState<FemaAlert[]>([])
   const [alertRangeMiles, setAlertRangeMiles] = useState(25)
   const [outsidePolygonNotif, setOutsidePolygonNotif] = useState(true)
-  const [priorityZones, setPriorityZones] = useState<PriorityZone[]>([])
-  const [showPriorityLayer, setShowPriorityLayer] = useState(true)
   const [showAlertPanel, setShowAlertPanel] = useState(false)
+  const [myDroneId, setMyDroneId] = useState<string | null>(null)
 
   const mapRef = useRef<MapView>(null)
   const seenAlertIds = useRef<Set<number>>(new Set())
@@ -112,6 +114,7 @@ export default function MapScreen() {
     loadSettings().then((s) => {
       setAlertRangeMiles(s.alertRangeMiles)
       setOutsidePolygonNotif(s.notifOutsidePolygon)
+      setMyDroneId(s.droneId || null)
     })
   }, [])
 
@@ -129,7 +132,7 @@ export default function MapScreen() {
           if (seenAlertIds.current.size <= alerts.length) continue
           Notifications.scheduleNotificationAsync({
             content: {
-              title: `🚨 ${(a.sourceProgram ?? a.alertType).toUpperCase()} — ${a.area ?? "Unknown area"}`,
+              title: `🚨 ${toTitleCase(a.sourceProgram ?? a.alertType)} — ${a.area ?? "Unknown area"}`,
               body: a.headline ?? "A new alert has been issued. Open the map for details.",
               sound: true,
               data: {
@@ -166,16 +169,6 @@ export default function MapScreen() {
     return () => clearInterval(id)
   }, [loadDrones])
 
-  // Fetch priority zones once on focus, refresh every 5 minutes
-  useFocusEffect(
-    useCallback(() => {
-      fetchPriorityZones().then(setPriorityZones).catch(() => {})
-      const id = setInterval(() => {
-        fetchPriorityZones().then(setPriorityZones).catch(() => {})
-      }, 5 * 60 * 1000)
-      return () => clearInterval(id)
-    }, [])
-  )
 
   const polygonWarning = (() => {
     if (!outsidePolygonNotif || !myLocation || femaAlerts.length === 0) return null
@@ -195,23 +188,6 @@ export default function MapScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {/* Priority flight zones — rendered as road-segment polylines */}
-        {showPriorityLayer && priorityZones.map((zone, i) => {
-          if (!zone.polygon) return null
-          const coords = parsePolygonCoords(zone.polygon)
-            .filter(c => isFinite(c.latitude) && isFinite(c.longitude))
-          if (coords.length < 2) return null
-          const isHigh = zone.priority === "high"
-          return (
-            <Polyline
-              key={`pz-${i}`}
-              coordinates={coords}
-              strokeColor={isHigh ? "rgba(239,68,68,0.7)" : "rgba(245,158,11,0.5)"}
-              strokeWidth={isHigh ? 3 : 2}
-            />
-          )
-        })}
-
         {/* FEMA alert polygons */}
         {femaAlerts.map((alert) => {
           if (!alert.polygon) return null
@@ -238,7 +214,7 @@ export default function MapScreen() {
                   <Callout tooltip>
                     <View style={[styles.callout, { borderColor: stroke }]}>
                       <Text style={[styles.calloutTitle, { color: stroke }]}>
-                        {(alert.sourceProgram ?? alert.alertType).toUpperCase()}
+                        {toTitleCase(alert.sourceProgram ?? alert.alertType)}
                       </Text>
                       {alert.headline ? (
                         <Text style={styles.calloutLine}>{alert.headline}</Text>
@@ -286,11 +262,17 @@ export default function MapScreen() {
         ))}
       </MapView>
 
-      {/* Volunteer count badge */}
+      {/* Volunteer count badge — always at least 1 when map is open and location available */}
       <View style={styles.badge}>
-        <Text style={styles.badgeText}>
-          {drones.length} volunteer{drones.length !== 1 ? "s" : ""} online
-        </Text>
+        {(() => {
+          const alreadyInList = myDroneId ? drones.some(d => d.droneId === myDroneId) : false
+          const count = drones.length + (myLocation && !alreadyInList ? 1 : 0)
+          return (
+            <Text style={styles.badgeText}>
+              {count} volunteer{count !== 1 ? "s" : ""} online
+            </Text>
+          )
+        })()}
       </View>
 
       {/* Active alert count badge — tappable to open alert list panel */}
@@ -336,7 +318,7 @@ export default function MapScreen() {
                   <View style={[styles.alertDot, { backgroundColor: dotColor }]} />
                   <View style={styles.alertPanelRowText}>
                     <Text style={styles.alertPanelHeadline} numberOfLines={2}>
-                      {alert.headline || (alert.sourceProgram ?? alert.alertType).toUpperCase()}
+                      {alert.headline || toTitleCase(alert.sourceProgram ?? alert.alertType)}
                     </Text>
                     {alert.area ? (
                       <Text style={styles.alertPanelArea} numberOfLines={1}>{alert.area}</Text>
@@ -350,18 +332,6 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Priority zones toggle */}
-      {priorityZones.length > 0 && (
-        <TouchableOpacity
-          style={styles.priorityToggle}
-          onPress={() => setShowPriorityLayer((v) => !v)}
-        >
-          <Text style={styles.priorityToggleText}>
-            {showPriorityLayer ? "▣" : "□"} Flight priority zones
-          </Text>
-        </TouchableOpacity>
-      )}
-
       {/* Outside search area warning */}
       {polygonWarning && (
         <View style={styles.polygonWarning}>
@@ -369,7 +339,7 @@ export default function MapScreen() {
             ⚠  {polygonWarning.miles.toFixed(1)} mi outside search area
           </Text>
           <Text style={styles.polygonWarningBody} numberOfLines={1}>
-            {polygonWarning.alert.sourceProgram ?? polygonWarning.alert.alertType.toUpperCase()}
+            {toTitleCase(polygonWarning.alert.sourceProgram ?? polygonWarning.alert.alertType)}
             {polygonWarning.alert.area ? ` · ${polygonWarning.alert.area}` : ""}
           </Text>
         </View>
@@ -418,18 +388,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   alertBadgeText: { color: "#f59e0b", fontSize: 12, fontWeight: "600" },
-  priorityToggle: {
-    position: "absolute",
-    bottom: 80,
-    right: 16,
-    backgroundColor: "rgba(10,15,22,0.88)",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.35)",
-  },
-  priorityToggleText: { color: "#f87171", fontSize: 12, fontWeight: "600" },
   polygonWarning: {
     position: "absolute",
     bottom: 24,

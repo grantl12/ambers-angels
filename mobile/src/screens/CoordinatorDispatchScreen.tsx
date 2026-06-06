@@ -71,14 +71,22 @@ export default function CoordinatorDispatchScreen() {
     if (!token) return
     setError(null)
     try {
-      const [droneList, alertList] = await Promise.all([
+      // Run independently — a FEMA hiccup shouldn't block the drone list
+      const [droneResult, alertResult] = await Promise.allSettled([
         fetchAllDrones(token),
         fetchFemaAlerts(),
       ])
-      setDrones(droneList)
-      setAlerts(alertList)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load data.')
+
+      if (droneResult.status === 'fulfilled') {
+        setDrones(droneResult.value)
+      } else {
+        setError('Could not load drones. Pull down to refresh.')
+      }
+
+      if (alertResult.status === 'fulfilled') {
+        setAlerts(alertResult.value)
+      }
+      // Alert failures are silent — the picker just shows empty
     } finally {
       setLoading(false)
     }

@@ -11,7 +11,7 @@ import LoginScreen from "./src/screens/LoginScreen"
 import SSOCompleteScreen from "./src/screens/SSOCompleteScreen"
 import TosGateScreen from "./src/screens/TosGateScreen"
 import { loadSettings, saveSettings } from "./src/lib/settings"
-import { setApiBaseUrl, apiPost } from "./src/api/client"
+import { setApiBaseUrl, apiPost, registerSessionExpiredHandler, resetSessionExpiredState } from "./src/api/client"
 import { getAuthState } from "./src/lib/auth"
 import { setPendingAlertTarget } from "./src/lib/alertTarget"
 import { fetchTosStatus, acceptTos } from "./src/api/tos"
@@ -66,6 +66,14 @@ export default function App() {
     provider:          "apple" | "google"
   } | null>(null)
   const navRef = useNavigationContainerRef()
+
+  // Wire up session-expiry handler — fires whenever any API call gets a 401
+  // or the stored JWT is found to be expired before a request goes out.
+  useEffect(() => {
+    registerSessionExpiredHandler(() => {
+      setAuthed(false)
+    })
+  }, [])
 
   // Notification tap → route based on notification type
   useEffect(() => {
@@ -136,6 +144,7 @@ export default function App() {
   }, [])
 
   function handleLogin() {
+    resetSessionExpiredState()  // re-arm 401 handler for the new session
     getAuthState().then((auth) => {
       if (auth) {
         setUsername(auth.username)

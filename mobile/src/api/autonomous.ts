@@ -4,8 +4,10 @@
  */
 
 import type { WaypointMissionPoint } from '../../modules/dji-camera/waypoint-mission'
+import { getApiBaseUrl } from './client'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://157.245.125.103:8000'
+// Resolved at call-time so Settings changes take effect without restarting.
+const apiBase = () => getApiBaseUrl()
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,7 +82,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
  */
 export async function fetchPendingMissions(token: string): Promise<Mission[]> {
   const res = await fetch(
-    `${API_BASE}/autonomous/missions?status=pending`,
+    `${apiBase()}/autonomous/missions?status=pending`,
     {
       method: 'GET',
       headers: authHeaders(token),
@@ -97,7 +99,7 @@ export async function fetchMissionById(
   missionId: number,
 ): Promise<Mission> {
   const res = await fetch(
-    `${API_BASE}/autonomous/missions/${missionId}`,
+    `${apiBase()}/autonomous/missions/${missionId}`,
     {
       method: 'GET',
       headers: authHeaders(token),
@@ -114,7 +116,7 @@ export async function fetchMissionById(
  * @param progressPct - Optional 0-100 value persisted server-side.
  */
 export async function fetchMyDrones(token: string): Promise<Drone[]> {
-  const res = await fetch(`${API_BASE}/autonomous/drones/mine`, {
+  const res = await fetch(`${apiBase()}/autonomous/drones/mine`, {
     headers: authHeaders(token),
   })
   return parseResponse<Drone[]>(res)
@@ -126,7 +128,7 @@ export async function sendHeartbeat(
   lat: number,
   lng: number,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/autonomous/drones/${droneId}/heartbeat`, {
+  const res = await fetch(`${apiBase()}/autonomous/drones/${droneId}/heartbeat`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({ lat, lng }),
@@ -136,7 +138,7 @@ export async function sendHeartbeat(
 
 /** Coordinator: fetch all registered swarm drones. */
 export async function fetchAllDrones(token: string): Promise<Drone[]> {
-  const res = await fetch(`${API_BASE}/autonomous/drones`, {
+  const res = await fetch(`${apiBase()}/autonomous/drones`, {
     headers: authHeaders(token),
   })
   return parseResponse<Drone[]>(res)
@@ -157,7 +159,7 @@ export async function dispatchMission(
   token: string,
   req:   DispatchRequest,
 ): Promise<{ id: number }> {
-  const res = await fetch(`${API_BASE}/autonomous/plan`, {
+  const res = await fetch(`${apiBase()}/autonomous/plan`, {
     method:  'POST',
     headers: authHeaders(token),
     body:    JSON.stringify(req),
@@ -195,7 +197,7 @@ export async function updateMissionStatus(
   }
 
   const res = await fetch(
-    `${API_BASE}/autonomous/missions/${missionId}/status`,
+    `${apiBase()}/autonomous/missions/${missionId}/status`,
     {
       method: 'PUT',
       headers: authHeaders(token),

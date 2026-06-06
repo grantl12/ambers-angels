@@ -1,4 +1,5 @@
-import { getApiBaseUrl } from "./client"
+import { apiGet, apiPost, getApiBaseUrl } from "./client"
+import { getToken } from "../lib/auth"
 
 export type TelemetryPayload = {
   drone_id: string
@@ -24,15 +25,22 @@ export type DronePosition = {
 }
 
 export async function postTelemetry(payload: TelemetryPayload): Promise<void> {
+  const token = await getToken()
+  if (!token) return  // no point posting if not authenticated
   await fetch(`${getApiBaseUrl()}/telemetry`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
     body: JSON.stringify({ ...payload, source: payload.source ?? "phone_gps", volunteer_mode: payload.volunteerMode }),
   })
 }
 
 export async function fetchLatestTelemetry(): Promise<DronePosition[]> {
-  const res = await fetch(`${getApiBaseUrl()}/telemetry/latest`)
-  if (!res.ok) return []
-  return res.json()
+  try {
+    return await apiGet<DronePosition[]>("/telemetry/latest")
+  } catch {
+    return []
+  }
 }

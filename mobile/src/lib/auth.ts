@@ -46,3 +46,27 @@ export async function setAuth(state: AuthState): Promise<void> {
 export async function clearAuth(): Promise<void> {
   await AsyncStorage.multiRemove([KEY_TOKEN, KEY_USERNAME, KEY_FULLNAME, KEY_ROLE, KEY_STATUS])
 }
+
+function _decodePayload(token: string): Record<string, unknown> | null {
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4)
+    return JSON.parse(atob(padded))
+  } catch {
+    return null
+  }
+}
+
+/** Returns true if the stored JWT is expired. Unknown expiry → false (assume valid). */
+export function isTokenExpired(token: string): boolean {
+  const payload = _decodePayload(token)
+  if (!payload || typeof payload.exp !== "number") return false
+  return Date.now() / 1000 > payload.exp
+}
+
+/** Seconds until the token expires, or null if indeterminate. */
+export function tokenSecondsRemaining(token: string): number | null {
+  const payload = _decodePayload(token)
+  if (!payload || typeof payload.exp !== "number") return null
+  return Math.max(0, payload.exp - Date.now() / 1000)
+}

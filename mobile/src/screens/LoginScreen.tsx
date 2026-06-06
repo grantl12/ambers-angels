@@ -37,6 +37,7 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
     iosClientId:     extra.googleIosClientId     ?? "",
     androidClientId: extra.googleAndroidClientId ?? "",
     webClientId:     extra.googleWebClientId     ?? "",
+    redirectUri:     "https://auth.expo.io/@ambersangels/ambers-angels",
   })
 
   useEffect(() => {

@@ -20,6 +20,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera"
 import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake"
 import { postFrame } from "../api/ingest"
 import { postTelemetry } from "../api/telemetry"
 import { setApiBaseUrl } from "../api/client"
@@ -125,6 +126,7 @@ export default function CameraScreen() {
     telemetryTimerRef.current  = null
     bgFrameTimerRef.current    = null
     wasOutsideRef.current = false
+    deactivateKeepAwake()
     // Stop the native background service on Android
     if (Platform.OS === 'android') stopBackgroundScan().catch(() => {})
     setActive(false)
@@ -136,23 +138,25 @@ export default function CameraScreen() {
     if (!settings) return
     setError(null)
 
-    // Require at least one active FEMA alert before starting (admins/coordinators bypass for testing)
-    let scanAuthToken: string | undefined
+    const auth = await getAuthState()
+    const scanAuthToken: string | undefined = auth?.token ?? undefined
+
+    // Block scanning until there is a confirmed active FEMA/AMBER alert.
+    // On network error, warn but allow — can't verify doesn't mean there isn't one.
     try {
-      const auth   = await getAuthState()
-      scanAuthToken = auth?.token ?? undefined
-      const isPriv = auth?.role === "admin" || auth?.role === "coordinator"
       const alerts = await fetchFemaAlerts()
-      if (alerts.length === 0 && !isPriv) {
-        setError("No active alerts. Mission can only start when a FEMA/AMBER alert is active.")
+      if (alerts.length === 0) {
+        setError("No active FEMA/AMBER alerts. Scanning is only available during an active search mission.")
         return
       }
       femaAlertsRef.current = alerts
     } catch {
-      setError("Could not verify active alerts. Check your connection and try again.")
-      return
+      setError("Could not reach server to confirm active alerts — proceeding offline.")
+      // Fall through — don't hard-block on a network failure
     }
 
+    setError(null)  // clear any transient warning now that mission is starting
+    activateKeepAwakeAsync()
     setActive(true)
     wasOutsideRef.current = false
     setRangeWarning(null)
@@ -268,8 +272,9 @@ export default function CameraScreen() {
                 })
               }
             }
-          } catch {
-            setError("Frame post failed — check API URL in Settings")
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "unknown"
+            setError(`Frame upload failed (${msg}) — check API URL in Settings`)
           }
         }, settings.captureIntervalSec * 1000)
       }
@@ -346,14 +351,11 @@ export default function CameraScreen() {
               DJI {djiConnected ? "connected" : "not connected"}
             </Text>
           )}
-          {active && (
-            <Text style={styles.hudSub}>{frameCount} frame{frameCount !== 1 ? "s" : ""} sent</Text>
-          )}
           {active && Platform.OS === "android" && (
             <Text style={[styles.hudSub, { color: "#34d399" }]}>running in background</Text>
           )}
           {active && Platform.OS === "ios" && (settings?.volunteerMode === "phone" || settings?.volunteerMode === "both") && (
-            <Text style={[styles.hudSub, { color: "#fbbf24" }]}>keep this screen open — scanning stops if you switch</Text>
+            <Text style={[styles.hudSub, { color: "#fbbf24" }]}>Keep this screen open — scanning stops if you switch away</Text>
           )}
           {error && (
             <Text style={[styles.hudSub, { color: "#f87171" }]}>{error}</Text>

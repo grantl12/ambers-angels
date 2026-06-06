@@ -2,7 +2,7 @@
  * mobile/src/screens/AdminScreen.tsx
  *
  * Admin-only control panel. Accessible only when role === 'admin'.
- * Covers: system health, test alert injection, pending pilot approvals,
+ * Covers: system health, test alert injection, pilot listing, pending approvals,
  * and coordinator request management.
  */
 
@@ -34,6 +34,16 @@ type SystemHealth = {
   last_detection_at:   string | null
 }
 
+type Pilot = {
+  username:          string
+  fullName:          string | null
+  email:             string
+  city:              string | null
+  role:              string
+  canDispatchDrones: boolean
+  approvedAt:        string | null
+}
+
 type PendingPilot = {
   username: string
   fullName: string | null
@@ -54,6 +64,7 @@ type CoordRequest = {
 export default function AdminScreen() {
   const [health,       setHealth]       = useState<SystemHealth | null>(null)
   const [healthErr,    setHealthErr]    = useState<string | null>(null)
+  const [pilots,       setPilots]       = useState<Pilot[]>([])
   const [pending,      setPending]      = useState<PendingPilot[]>([])
   const [coordReqs,    setCoordReqs]    = useState<CoordRequest[]>([])
   const [loading,      setLoading]      = useState(true)
@@ -75,13 +86,19 @@ export default function AdminScreen() {
     }
   }, [])
 
+  const loadPilots = useCallback(async () => {
+    try {
+      setPilots(await apiGet<Pilot[]>('/pilots'))
+    } catch { /* non-fatal */ }
+  }, [])
+
   const loadPending = useCallback(async () => {
     try {
-      const [pilots, coords] = await Promise.all([
+      const [pendingList, coords] = await Promise.all([
         apiGet<PendingPilot[]>('/auth/pending'),
         apiGet<CoordRequest[]>('/auth/coordinator-requests'),
       ])
-      setPending(pilots)
+      setPending(pendingList)
       setCoordReqs(coords)
     } catch { /* non-fatal */ }
   }, [])
@@ -91,13 +108,13 @@ export default function AdminScreen() {
       let alive = true
       const run = async () => {
         setLoading(true)
-        await Promise.all([loadHealth(), loadPending()])
+        await Promise.all([loadHealth(), loadPilots(), loadPending()])
         if (alive) setLoading(false)
       }
       run()
       const id = setInterval(loadHealth, 15_000)
       return () => { alive = false; clearInterval(id) }
-    }, [loadHealth, loadPending]),
+    }, [loadHealth, loadPilots, loadPending]),
   )
 
   // ── actions ───────────────────────────────────────────────────────────────
@@ -106,8 +123,19 @@ export default function AdminScreen() {
     setTesting(true)
     setTestMsg(null)
     try {
-      await apiPost('/fema/test', {})
-      setTestMsg('Test alert injected — check Discord.')
+      const res = await apiPost<{ ok: boolean; plate: string; identifier: string }>(
+        '/admin/inject-alert',
+        {
+          plate:          'YVJ024',
+          headline:       'Demo Alert — Test Scan Active — Carrollton GA',
+          area:           'Carrollton, GA',
+          alert_type:     'amber',
+          source_program: 'Demo Inject',
+          vehicle_color:  'White',
+          vehicle_type:   'car',
+        },
+      )
+      setTestMsg(`Demo alert live — plate ${res.plate} on watchlist. Check Discord.`)
     } catch (e: unknown) {
       setTestMsg(e instanceof Error ? e.message : 'Injection failed.')
     } finally {
@@ -130,7 +158,7 @@ export default function AdminScreen() {
               const res = await apiDelete<{ cleared: { watchlist: number; vehicle_targets: number; detection_events: number } }>('/admin/test-data')
               setTestMsg(
                 `Cleared — ${res.cleared.watchlist} watchlist, ` +
-                `${res.cleared.vehicle_targets} zones, ` +
+                `${res.cleared.vehicle_targets} targets, ` +
                 `${res.cleared.detection_events} detections`
               )
               loadHealth()
@@ -150,6 +178,7 @@ export default function AdminScreen() {
     try {
       await apiPost(`/auth/approve/${username}`, {})
       setPending(prev => prev.filter(p => p.username !== username))
+      loadPilots()
     } catch (e: unknown) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Approval failed.')
     } finally {
@@ -162,6 +191,7 @@ export default function AdminScreen() {
     try {
       await apiPost(`/auth/approve-coordinator/${username}`, {})
       setCoordReqs(prev => prev.filter(r => r.username !== username))
+      loadPilots()
     } catch (e: unknown) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Approval failed.')
     } finally {
@@ -194,6 +224,9 @@ export default function AdminScreen() {
 
   const dot = (s: string) =>
     s === 'ok' || s === 'healthy' || s === 'up' ? '#34d399' : '#f87171'
+
+  const roleColor = (role: string) =>
+    role === 'admin' ? '#f59e0b' : role === 'coordinator' ? '#818cf8' : '#34d399'
 
   if (loading) {
     return (
@@ -234,7 +267,7 @@ export default function AdminScreen() {
       {/* ── TEST CONTROLS ── */}
       <Section title="Test Controls">
         {testMsg && (
-          <Text style={[s.feedbackText, testMsg.includes('failed') || testMsg.includes('Failed') ? s.errorText : null]}>
+          <Text style={[s.feedbackText, testMsg.toLowerCase().includes('fail') ? s.errorText : null]}>
             {testMsg}
           </Text>
         )}
@@ -245,8 +278,11 @@ export default function AdminScreen() {
         >
           {testing
             ? <ActivityIndicator color="#050a0f" size="small" />
-            : <Text style={s.btnTextDark}>Inject FEMA Test Alert</Text>}
+            : <Text style={s.btnTextDark}>Inject Demo Alert (YVJ024)</Text>}
         </TouchableOpacity>
+        <Text style={s.helpText}>
+          Activates a demo AMBER alert for plate YVJ024 (your vehicle), fires Discord, and opens the camera gate.
+        </Text>
         <TouchableOpacity
           style={[s.btn, s.btnDanger, clearing && s.btnDisabled]}
           onPress={confirmClearTestData}
@@ -258,8 +294,29 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </Section>
 
+      {/* ── REGISTERED PILOTS ── */}
+      <Section title={`Registered Pilots (${pilots.length})`}>
+        {pilots.length === 0 ? (
+          <Text style={s.emptyText}>No approved pilots yet.</Text>
+        ) : pilots.map(p => (
+          <View key={p.username} style={s.card}>
+            <View style={s.cardRow}>
+              <Text style={s.cardName}>{p.fullName ?? p.username}</Text>
+              <View style={[s.roleBadge, { borderColor: roleColor(p.role) }]}>
+                <Text style={[s.roleText, { color: roleColor(p.role) }]}>{p.role}</Text>
+              </View>
+            </View>
+            <Text style={s.cardMeta}>@{p.username}{p.city ? ` · ${p.city}` : ''}</Text>
+            <Text style={s.cardMeta}>{p.email}</Text>
+            {p.canDispatchDrones && (
+              <Text style={[s.cardMeta, { color: '#818cf8' }]}>✓ Dispatch authorized</Text>
+            )}
+          </View>
+        ))}
+      </Section>
+
       {/* ── PENDING PILOTS ── */}
-      <Section title={`Pending Pilots${pending.length > 0 ? ` (${pending.length})` : ''}`}>
+      <Section title={`Pending Approval${pending.length > 0 ? ` (${pending.length})` : ''}`}>
         {pending.length === 0 ? (
           <Text style={s.emptyText}>No pending registrations.</Text>
         ) : pending.map(p => (
@@ -373,6 +430,12 @@ const s = StyleSheet.create({
     backgroundColor: '#0a0f16', borderRadius: 4,
   },
 
+  roleBadge: {
+    borderWidth: 1, borderRadius: 4,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  roleText: { fontSize: 10, fontWeight: '700' },
+
   badge107: {
     backgroundColor: '#052e16', color: '#34d399',
     fontSize: 10, fontWeight: '700',
@@ -390,6 +453,7 @@ const s = StyleSheet.create({
   btnText:    { color: '#fff', fontWeight: '700', fontSize: 14 },
   btnTextDark:{ color: '#050a0f', fontWeight: '700', fontSize: 14 },
 
+  helpText:    { color: '#4b5563', fontSize: 11, marginTop: 4, lineHeight: 16 },
   actionRow:   { flexDirection: 'row', gap: 8 },
   feedbackText:{ color: '#34d399', fontSize: 13, marginBottom: 6, textAlign: 'center' },
   errorText:   { color: '#f87171', fontSize: 13, marginBottom: 6 },
