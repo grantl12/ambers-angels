@@ -316,7 +316,7 @@ def get_mission_debrief(mission_id: str):
 # Telemetry — latest position per drone
 # ---------------------------------------------------------------------------
 
-@router.get("/telemetry/latest", dependencies=[Depends(require_coordinator)])
+@router.get("/telemetry/latest", dependencies=[Depends(get_current_pilot)])
 def get_latest_telemetry(mission_id: Optional[str] = None):
     db = database.SessionLocal()
     try:
@@ -324,6 +324,7 @@ def get_latest_telemetry(mission_id: Optional[str] = None):
             SELECT DISTINCT ON (drone_id)
                 drone_id, pilot_id, ts, lat, lon, altitude_m, heading_deg, speed_mps, volunteer_mode
             FROM telemetry_points
+            WHERE ts > NOW() - INTERVAL '5 minutes'
             ORDER BY drone_id, ts DESC
         """)).fetchall()
 
