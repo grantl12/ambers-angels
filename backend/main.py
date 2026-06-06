@@ -596,6 +596,19 @@ async def ingest_frame(
     return {"status": "ok", "outcomes": outcomes, "watchlist_hit": _frame_watchlist_hit, "capture_interval_ms": interval_ms}
 
 
+def _optional_pilot(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),
+) -> Optional[dict]:
+    """Accept any request; decode JWT if present but don't require it."""
+    if creds:
+        try:
+            from routers.auth import _decode_token
+            return _decode_token(creds.credentials)
+        except Exception:
+            pass
+    return None
+
+
 @app.post("/ingest/detection")
 async def ingest_detection(
     drone_id:         str            = Form(...),
@@ -671,19 +684,6 @@ async def ingest_detection(
             watchlist_hit = status in ("alerted", "probable")
 
     return {"status": "ingested", "watchlist_hit": watchlist_hit or on_watchlist}
-
-
-def _optional_pilot(
-    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),
-) -> Optional[dict]:
-    """Accept any request; decode JWT if present but don't require it."""
-    if creds:
-        try:
-            from routers.auth import _decode_token
-            return _decode_token(creds.credentials)
-        except Exception:
-            pass
-    return None
 
 
 def _require_worker_or_pilot(
