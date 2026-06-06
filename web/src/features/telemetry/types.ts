@@ -7,6 +7,7 @@ export type DronePosition = {
   altitude?: number
   heading?: number
   speed?: number
+  volunteerMode?: "drone" | "phone" | "both" | string
 }
 
 export type TelemetryTrail = {
