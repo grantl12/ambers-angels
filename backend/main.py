@@ -494,26 +494,46 @@ async def ingest_frame(
         interval_ms = 1200 if primary_vehicle else 2500
         return {"status": "no_plates", "plates": [], "watchlist_hit": False, "capture_interval_ms": interval_ms}
 
+    # Pre-fetch active watchlist plates once — used for candidate selection below.
+    # ALPR candidates are sorted by confidence; the top hit is often a partial read
+    # (e.g. "YVJ02" instead of "YVJ024"). We prefer a lower-ranked candidate when
+    # it exactly matches the watchlist over the highest-confidence mis-read.
+    _active_wl_plates: set[str] = set()
+    try:
+        _wl_db = database.SessionLocal()
+        try:
+            _wl_rows = _wl_db.execute(
+                text("SELECT UPPER(REPLACE(REPLACE(plate_text,' ',''),'-','')) FROM watchlist WHERE active = TRUE")
+            ).fetchall()
+            _active_wl_plates = {r[0] for r in _wl_rows}
+        finally:
+            _wl_db.close()
+    except Exception:
+        pass
+
+    def _pick_best_plate(plate_res: dict) -> tuple[str, float]:
+        """Return (plate_text, confidence) preferring a watchlist match over top rank."""
+        top = (plate_res.get("plate") or "").upper().replace(" ", "").replace("-", "")
+        top_conf = float(plate_res.get("confidence", 0.0))
+        for cand in plate_res.get("candidates", []):
+            pt = (cand.get("plate") or "").upper().replace(" ", "").replace("-", "")
+            conf = float(cand.get("confidence", 0.0))
+            if pt and conf >= 55 and pt in _active_wl_plates:
+                return pt, conf
+        return top, top_conf
+
     # Fast-path watchlist check: tell the client immediately if any detected plate
     # is on the active watchlist, before waiting for aggregation pipeline.
     _frame_watchlist_hit = False
     _frame_hit_plate: str | None = None
     for _pr in results.get("results", []):
-        _pt = (_pr.get("plate") or "").upper().replace(" ", "").replace("-", "")
-        if not _pt or _pr.get("confidence", 0) < 55:
+        _pt, _pconf = _pick_best_plate(_pr)
+        if not _pt or _pconf < 55:
             continue
-        try:
-            async with database.AsyncSessionLocal() as _wl_sess:
-                _wl = await _wl_sess.execute(
-                    text("SELECT 1 FROM watchlist WHERE UPPER(REPLACE(REPLACE(plate_text,' ',''),'-','')) = :p AND active = TRUE LIMIT 1"),
-                    {"p": _pt},
-                )
-                if _wl.fetchone():
-                    _frame_watchlist_hit = True
-                    _frame_hit_plate = _pt
-                    break
-        except Exception:
-            pass
+        if _pt in _active_wl_plates:
+            _frame_watchlist_hit = True
+            _frame_hit_plate = _pt
+            break
 
     telemetry = None
     if lat is not None and lng is not None:
@@ -574,7 +594,7 @@ async def ingest_frame(
 
     # Process each plate result into the aggregation service
     for plate_res in results.get("results", []):
-        plate_text = plate_res.get("plate", "").upper()
+        plate_text, plate_conf_override = _pick_best_plate(plate_res)
         if not plate_text:
             continue
 
@@ -587,7 +607,7 @@ async def ingest_frame(
             drone_id=drone_id,
             detected_at=ts,
             plate_raw=plate_text,
-            confidence=plate_res.get("confidence", 0.0),
+            confidence=plate_conf_override,
             quality_flags=[f.get("type") for f in plate_res.get("quality_flags", []) if f.get("type")],
             telemetry=telemetry,
             bbox=plate_res.get("coordinates"),

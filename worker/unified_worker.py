@@ -136,11 +136,39 @@ def process_frame(frame_path: str, drone_id: str) -> bool:
         except Exception as e:
             print(f"[Worker] ⚠️ Plate Recognizer failed: {e}")
 
+    # Fetch active watchlist plates once for candidate selection.
+    # ALPR top candidate is often a partial mis-read (e.g. "YVJ02" vs "YVJ024").
+    # We prefer a lower-ranked candidate when it exactly matches the watchlist.
+    _active_plates: set[str] = set()
+    try:
+        resp = requests.get(
+            os.getenv("API_BASE", "http://127.0.0.1:8000") + "/fema/alerts",
+            headers={"X-Internal-Key": INTERNAL_API_KEY} if INTERNAL_API_KEY else {},
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            for entry in resp.json():
+                if entry.get("plateText"):
+                    _active_plates.add(entry["plateText"].upper().replace(" ", "").replace("-", ""))
+    except Exception:
+        pass
+
+    def _pick_plate(res: dict) -> tuple[str, float]:
+        top = res.get("plate", "").upper().replace(" ", "").replace("-", "")
+        top_conf = float(res.get("confidence", 0.0))
+        for cand in res.get("candidates", []):
+            pt = (cand.get("plate") or "").upper().replace(" ", "").replace("-", "")
+            conf = float(cand.get("confidence", 0.0))
+            if pt and conf >= 55 and pt in _active_plates:
+                return pt, conf
+        return top, top_conf
+
     api_ok = True
     for res in results.get("results", []):
-        plate_text = res.get("plate", "").upper()
-        confidence = res.get("confidence", 0.0)
-        
+        plate_text, confidence = _pick_plate(res)
+        if not plate_text:
+            continue
+
         pr = pr_by_plate.get(plate_text)
         payload = {
             "plate_text":    plate_text,
