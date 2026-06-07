@@ -8,6 +8,7 @@
  * GPS is also posted to POST /telemetry at ~1 Hz independently.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
+import { useFocusEffect } from "@react-navigation/native"
 import {
   ActivityIndicator,
   AppState,
@@ -77,15 +78,19 @@ export default function CameraScreen() {
   const wasOutsideRef = useRef(false)
   const lastNotifRef = useRef(0)
   const lastHitNotifRef = useRef(0)
+  const mountedRef = useRef(true)
 
-  // Load settings once — also sync the in-memory API base URL so postFrame
-  // hits the address the user configured in Settings, not the hardcoded default.
-  useEffect(() => {
+  useEffect(() => { return () => { mountedRef.current = false } }, [])
+
+  // Reload settings whenever this tab comes into focus so interval/droneId
+  // changes made in Settings are reflected immediately without a full restart.
+  useFocusEffect(useCallback(() => {
     loadSettings().then((s) => {
+      if (!mountedRef.current) return
       setSettings(s)
       setApiBaseUrl(s.apiBaseUrl)
     })
-  }, [])
+  }, []))
 
   // Initialize DJI SDK and watch connection state
   useEffect(() => {
@@ -280,6 +285,9 @@ export default function CameraScreen() {
             }
           } catch (e) {
             const msg = e instanceof Error ? e.message : "unknown"
+            // Swallow camera lifecycle errors — these fire when the component
+            // unmounts mid-capture and are not actionable by the user.
+            if (!mountedRef.current || msg.toLowerCase().includes("unmount") || msg.toLowerCase().includes("not running")) return
             setError(msg.includes("expired") || msg.includes("authorized")
               ? msg
               : `Frame upload failed — ${msg}`)
