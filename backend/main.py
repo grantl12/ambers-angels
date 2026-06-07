@@ -317,6 +317,23 @@ async def inject_alert(
         except Exception as _e:
             logger.warning("Vehicle target insert for inject failed: %s", _e)
             await _sess.rollback()
+    # Auto-create a named mission if none is active so phone and web stay in sync
+    async with database.AsyncSessionLocal() as _m:
+        try:
+            existing = (await _m.execute(
+                text("SELECT id FROM missions WHERE status = 'active' LIMIT 1")
+            )).fetchone()
+            if not existing:
+                title = (req.headline or f"AMBER Alert – {req.plate.upper().strip()}")[:80]
+                await _m.execute(
+                    text("INSERT INTO missions (title, status) VALUES (:title, 'active')"),
+                    {"title": title},
+                )
+                await _m.commit()
+        except Exception as _me:
+            logger.warning("Auto-mission create failed: %s", _me)
+            await _m.rollback()
+
     await _notify_watching_pilots(database.AsyncSessionLocal, alert)
     if webhook_url:
         await _notify_plates(webhook_url, alert, [req.plate.upper().strip()])

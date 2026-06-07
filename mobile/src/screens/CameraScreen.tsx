@@ -24,7 +24,7 @@ import * as Notifications from "expo-notifications"
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake"
 import { postFrame } from "../api/ingest"
 import { postTelemetry } from "../api/telemetry"
-import { setApiBaseUrl } from "../api/client"
+import { setApiBaseUrl, apiGet } from "../api/client"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
 import { loadSettings, type AppSettings } from "../lib/settings"
 import { getAuthState } from "../lib/auth"
@@ -66,6 +66,7 @@ export default function CameraScreen() {
   const [error, setError] = useState<string | null>(null)
   const [rangeWarning, setRangeWarning] = useState<{ miles: number; area: string } | null>(null)
   const [djiConnected, setDjiConnected] = useState(false)
+  const [activeMissionName, setActiveMissionName] = useState<string | null>(null)
 
   const cameraRef = useRef<CameraView>(null)
   const locationRef = useRef<Location.LocationObject | null>(null)
@@ -137,6 +138,7 @@ export default function CameraScreen() {
     setActive(false)
     setFrameCount(0)
     setRangeWarning(null)
+    setActiveMissionName(null)
   }, [])
 
   const startMission = useCallback(async () => {
@@ -158,6 +160,14 @@ export default function CameraScreen() {
     } catch {
       setError("Could not reach server to confirm active alerts — proceeding offline.")
       // Fall through — don't hard-block on a network failure
+    }
+
+    // Fetch active named mission for HUD display (non-blocking — best effort)
+    try {
+      const missions = await apiGet<{ id: string; title: string }[]>("/missions/active")
+      setActiveMissionName(missions.length > 0 ? missions[0].title : null)
+    } catch {
+      setActiveMissionName(null)
     }
 
     setError(null)  // clear any transient warning now that mission is starting
@@ -356,6 +366,11 @@ export default function CameraScreen() {
               {active ? "LIVE" : "STANDBY"}
             </Text>
           </View>
+          {active && activeMissionName && (
+            <Text style={[styles.hudSub, { color: "#fde68a" }]} numberOfLines={1}>
+              {activeMissionName}
+            </Text>
+          )}
           {settings && (
             <Text style={styles.hudSub}>
               {settings.droneId} · every {settings.captureIntervalSec}s

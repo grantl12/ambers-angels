@@ -1242,6 +1242,11 @@ def clear_test_data(full_reset: bool = False):
                 "DELETE FROM detection_events WHERE status != 'alerted' RETURNING id"
             )).rowcount
 
+        # End any active named missions (injected via test alert)
+        db.execute(text(
+            "UPDATE missions SET status = 'completed', ended_at = NOW() WHERE status = 'active'"
+        ))
+
         # Always clear sim drones/missions and their telemetry
         db.execute(text(
             "DELETE FROM autonomous_missions WHERE drone_id IN "
