@@ -156,6 +156,13 @@ class AlertDispatcher:
 
         if vehicle_context:
             embed["fields"].append(_vehicle_context_field(vehicle_context))
+            reasoning = vehicle_context.get("agent_reasoning")
+            if reasoning:
+                embed["fields"].append({
+                    "name": "🤖 Agent reasoning",
+                    "value": reasoning[:1024],
+                    "inline": False,
+                })
 
         async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
             try:

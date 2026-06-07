@@ -52,6 +52,7 @@ from services.fema_connector import fema_background_loop, poll_fema_ipaws, check
 from services.amber_alert_poller import amber_background_loop
 from services.ncmec_poller import ncmec_background_loop
 from services.autonomous_mission_service import mission_timeout_loop
+from services import detection_agent
 from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from services.frame_preprocessor import apply_clahe, enhance_alpr_results
@@ -669,6 +670,7 @@ async def ingest_frame(
                     "status": decision.event.status if hasattr(decision.event, "status") else decision.event.get("status"),
                     "alert_sent": decision.should_dispatch_alert
                 })
+                asyncio.create_task(detection_agent.maybe_evaluate(snapshot, decision, _alert_dispatcher))
 
     # Return the next capture interval. If we saw plates, we speed up.
     interval_ms = 800 if outcomes else 1500
@@ -761,6 +763,7 @@ async def ingest_detection(
         if decision:
             status = decision.event.status if hasattr(decision.event, "status") else decision.event.get("status", "")
             watchlist_hit = status in ("alerted", "probable")
+            asyncio.create_task(detection_agent.maybe_evaluate(snapshot, decision, _alert_dispatcher))
 
     return {"status": "ingested", "watchlist_hit": watchlist_hit or on_watchlist}
 
@@ -899,5 +902,6 @@ async def create_detection(
         decision = await service.upsert_from_snapshot(snapshot)
         if decision:
             alert_triggered = decision.should_dispatch_alert
+            asyncio.create_task(detection_agent.maybe_evaluate(snapshot, decision, _alert_dispatcher))
 
     return {"status": "ingested", "alert_triggered": alert_triggered}
