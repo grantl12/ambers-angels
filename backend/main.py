@@ -829,12 +829,22 @@ async def create_detection(
         try:
             _tp_db = database.SessionLocal()
             try:
+                # First try: telemetry posted under this drone_id (future DJI SDK path)
+                # Fallback: any active pilot's phone within 10 min — RTMP drones
+                # have no onboard GPS; the pilot's phone is the location source.
                 _tp = _tp_db.execute(text("""
                     SELECT lat, lon FROM telemetry_points
                     WHERE drone_id = :did AND lat IS NOT NULL
                       AND ts > NOW() - INTERVAL '10 minutes'
                     ORDER BY ts DESC LIMIT 1
                 """), {"did": det.drone_id}).fetchone()
+                if not _tp:
+                    _tp = _tp_db.execute(text("""
+                        SELECT lat, lon FROM telemetry_points
+                        WHERE lat IS NOT NULL
+                          AND ts > NOW() - INTERVAL '10 minutes'
+                        ORDER BY ts DESC LIMIT 1
+                    """)).fetchone()
                 if _tp:
                     _det_lat, _det_lon = _tp[0], _tp[1]
             finally:
