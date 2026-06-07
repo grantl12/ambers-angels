@@ -148,6 +148,8 @@ export default function AdminPage() {
 
   // pending user registrations
   const [pendingPilots,   setPendingPilots]   = useState<PendingPilot[]>([])
+  const [denyingPilot,    setDenyingPilot]    = useState<string | null>(null)
+  const [removingPilot,   setRemovingPilot]   = useState<string | null>(null)
   const [approvingPilot,  setApprovingPilot]  = useState<string | null>(null)
 
   const loadPendingPilots = useCallback(async () => {
@@ -166,6 +168,32 @@ export default function AdminPage() {
       alert(e instanceof Error ? e.message : "Approval failed.")
     } finally {
       setApprovingPilot(null)
+    }
+  }
+
+  async function denyPilot(username: string) {
+    if (!confirm(`Deny and delete registration for @${username}? This cannot be undone.`)) return
+    setDenyingPilot(username)
+    try {
+      await apiDelete(`/auth/pending/${username}`)
+      setPendingPilots((prev) => prev.filter((p) => p.username !== username))
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Deny failed.")
+    } finally {
+      setDenyingPilot(null)
+    }
+  }
+
+  async function removePilot(username: string) {
+    if (!confirm(`Remove @${username} from the platform? Their account will be deleted.`)) return
+    setRemovingPilot(username)
+    try {
+      await apiDelete(`/auth/pilots/${username}`)
+      setApprovedPilots((prev) => prev.filter((p) => p.username !== username))
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Remove failed.")
+    } finally {
+      setRemovingPilot(null)
     }
   }
 
@@ -557,13 +585,22 @@ export default function AdminPage() {
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => approvePilot(pilot.username)}
-                      disabled={approvingPilot === pilot.username}
-                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors shrink-0"
-                    >
-                      {approvingPilot === pilot.username ? "Approving…" : "Approve"}
-                    </button>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => denyPilot(pilot.username)}
+                        disabled={denyingPilot === pilot.username || approvingPilot === pilot.username}
+                        className="rounded-lg border border-red-500/40 px-3 py-2 text-sm font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+                      >
+                        {denyingPilot === pilot.username ? "Denying…" : "Deny"}
+                      </button>
+                      <button
+                        onClick={() => approvePilot(pilot.username)}
+                        disabled={approvingPilot === pilot.username || denyingPilot === pilot.username}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                      >
+                        {approvingPilot === pilot.username ? "Approving…" : "Approve"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -671,6 +708,16 @@ export default function AdminPage() {
                         <option value="coordinator">Coordinator</option>
                         <option value="admin">Admin</option>
                       </select>
+                    )}
+                    {pilot.role !== "admin" && (
+                      <button
+                        onClick={() => removePilot(pilot.username)}
+                        disabled={removingPilot === pilot.username}
+                        className="rounded-lg border border-red-500/30 px-2 py-1.5 text-xs font-semibold text-red-400/70 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 transition-colors"
+                        title="Remove pilot from platform"
+                      >
+                        {removingPilot === pilot.username ? "…" : "Remove"}
+                      </button>
                     )}
                   </div>
                 </div>
