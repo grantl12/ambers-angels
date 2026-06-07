@@ -1,14 +1,20 @@
 # Amber's Angels — Claude Instructions
 
-## Privacy Model — On-Device Inference (NON-NEGOTIABLE)
+## Privacy Model — On-Device Inference
 
-**Raw camera frames never leave volunteer devices.** This is a core architectural guarantee, not a preference.
+Two distinct phone paths with different privacy properties — do not conflate them:
 
-- **Android phone scanning**: `ScanService.kt` runs Google ML Kit text recognition fully on-device. Only `plate_text + plate_confidence + GPS` are POSTed to `POST /ingest/detection`. No JPEG, no pixel data, nothing else.
-- **DJI drone RTMP path**: Frames are streamed to the operator's own nginx server (self-hosted), processed server-side by OpenALPR + YOLO. The server is under the operator's control.
-- **Detection agent**: When `request_edge_inference` is called, it pushes a repositioning request to the pilot — their phone keeps doing on-device OCR. No frame upload is triggered.
+| Path | How it works | Frames leave device? |
+|---|---|---|
+| **Background passive scan** (`ScanService.kt`) | ML Kit OCR runs on-device. Only `plate_text + plate_confidence + GPS` hit `POST /ingest/detection`. | **Never.** |
+| **Active pilot camera** (`CameraScreen.tsx`) | Raw JPEG posted to `POST /ingest/frame`. Server runs ALPR + YOLO. High-confidence frames stored as golden frames on server for evidence. | **Yes — intentionally.** |
 
-Do not add any code path that uploads raw frames from a volunteer's phone to any server. If a future feature requires image data, it must go through an explicit user-initiated flow with clear disclosure. This constraint exists because volunteers are private citizens scanning public roads — any frame upload creates legal exposure and violates the privacy promise made to them at signup.
+The background scan path is the default volunteer experience and its no-frame-upload guarantee is non-negotiable. The active camera path is an explicit pilot action (they tapped Start Mission) — frame upload is expected and required for evidence chain of custody.
+
+- **Detection agent `request_edge_inference`**: sends an Expo push asking the pilot to reposition. Does NOT trigger a frame upload from `ScanService`. The pilot is already scanning on-device.
+- **DJI RTMP path**: frames streamed to operator-controlled nginx server, not to a third party.
+
+Do not add frame upload to `ScanService.kt` or any background/passive scanning path. If a future feature needs images from background scan, it requires explicit per-detection user consent and clear disclosure — volunteers are private citizens scanning public roads.
 
 ## SSH / Server Access
 
