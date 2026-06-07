@@ -818,6 +818,26 @@ async def create_detection(
     """
     Standard detection endpoint (used by RTMP worker).
     """
+    # For RTMP drones the worker sends no GPS. Look up the pilot's most recent
+    # telemetry point so Discord embeds can show location and map links.
+    _det_lat, _det_lon = det.latitude, det.longitude
+    if _det_lat is None:
+        try:
+            _tp_db = database.SessionLocal()
+            try:
+                _tp = _tp_db.execute(text("""
+                    SELECT lat, lon FROM telemetry_points
+                    WHERE drone_id = :did AND lat IS NOT NULL
+                      AND ts > NOW() - INTERVAL '10 minutes'
+                    ORDER BY ts DESC LIMIT 1
+                """), {"did": det.drone_id}).fetchone()
+                if _tp:
+                    _det_lat, _det_lon = _tp[0], _tp[1]
+            finally:
+                _tp_db.close()
+        except Exception:
+            pass
+
     # Convert schema to internal AggDetectionInput
     internal_det = AggDetectionInput(
         detection_id=str(uuid.uuid4()),
@@ -827,7 +847,7 @@ async def create_detection(
         plate_raw=det.plate_text,
         confidence=det.confidence,
         quality_flags=[], # RTMP worker doesn't yet provide quality flags
-        telemetry={"lat": det.latitude, "lon": det.longitude},
+        telemetry={"lat": _det_lat, "lon": _det_lon},
         # We don't have CDC label in the old schema yet — RTMP worker needs update too
         vehicle_color=det.vehicle_color,
         vehicle_type=det.vehicle_type,

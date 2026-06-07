@@ -222,7 +222,7 @@ class AlertDispatcher:
             return
 
         lat = location.get("lat") if location else None
-        lon = location.get("lon") or (location.get("lng") if location else None)
+        lon = (location.get("lon") or location.get("lng")) if location else None
         maps_line = f"https://maps.google.com/maps?q={lat},{lon}\n" if lat and lon else ""
 
         body = (
@@ -290,7 +290,7 @@ class AlertDispatcher:
         conf_str   = f"{confidence:.0f}% confidence" if confidence else ""
         alert_str  = (alert_type or "AMBER").upper()
         lat = location.get("lat") if location else None
-        lng = location.get("lng") or (location.get("lon") if location else None)
+        lng = (location.get("lng") or location.get("lon")) if location else None
         body = conf_str or drone_id
         if lat and lng:
             body = f"{body} · {lat:.4f},{lng:.4f}"

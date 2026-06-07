@@ -186,6 +186,12 @@ def process_frame(frame_path: str, drone_id: str) -> bool:
             "cdc_conf":      yolo_primary.cdc_conf  if yolo_primary else 0.0,
         }
 
+        # Save golden frame BEFORE the API call so Discord dispatch can attach it.
+        # The API triggers Discord synchronously during the POST; if we save after,
+        # _load_frame always misses it (race condition).
+        if plate_text in _active_plates:
+            _save_to_golden(frame_path, plate_text)
+
         try:
             headers = {"X-Internal-Key": INTERNAL_API_KEY} if INTERNAL_API_KEY else {}
             resp = requests.post(API_URL, json=payload, timeout=5, headers=headers)
@@ -193,8 +199,6 @@ def process_frame(frame_path: str, drone_id: str) -> bool:
                 data = resp.json()
                 flag = "🚨" if data.get("alert_triggered") else "✅"
                 print(f"[Worker] {flag} [{drone_id}] {plate_text} ({confidence:.1f}%) → {data.get('status')}")
-                if data.get("alert_triggered"):
-                    _save_to_golden(frame_path, plate_text)
             else:
                 print(f"[Worker] ⚠️  API {resp.status_code} for {plate_text} [{drone_id}]")
         except requests.exceptions.RequestException as e:
