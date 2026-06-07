@@ -126,12 +126,16 @@ export default function AdminPage() {
   const [clearing, setClearing] = useState(false)
   const [clearMsg, setClearMsg] = useState<string | null>(null)
 
-  async function clearTestData() {
-    if (!confirm("Delete all test alerts, search zones, and detection events? Demo Run data is preserved. This cannot be undone.")) return
+  async function clearTestData(fullReset = false) {
+    const msg = fullReset
+      ? "FULL DEMO RESET — deletes all test data INCLUDING alerted detections. Use before CPD/RTCC presentations. Cannot be undone."
+      : "Delete all test alerts, search zones, and non-alerted detections? Cannot be undone."
+    if (!confirm(msg)) return
     setClearing(true)
     setClearMsg(null)
     try {
-      const res = await apiDelete<{ cleared: { watchlist: number; vehicle_targets: number; detection_events: number } }>("/admin/test-data")
+      const url = fullReset ? "/admin/test-data?full_reset=true" : "/admin/test-data"
+      const res = await apiDelete<{ cleared: { watchlist: number; vehicle_targets: number; detection_events: number } }>(url)
       setClearMsg(`Cleared — ${res.cleared.watchlist} watchlist, ${res.cleared.vehicle_targets} zones, ${res.cleared.detection_events} detections`)
       loadManualAlerts()
       loadHealth()
@@ -804,13 +808,23 @@ export default function AdminPage() {
           {clearMsg && (
             <div className="text-xs px-3 py-2 rounded-lg bg-white/5 text-white/60">{clearMsg}</div>
           )}
-          <button
-            onClick={clearTestData}
-            disabled={clearing}
-            className="rounded-lg border border-red-500/40 px-4 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
-          >
-            {clearing ? "Clearing…" : "Clear all test data"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => clearTestData(false)}
+              disabled={clearing}
+              className="rounded-lg border border-red-500/40 px-4 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+            >
+              {clearing ? "Clearing…" : "Clear test data"}
+            </button>
+            <button
+              onClick={() => clearTestData(true)}
+              disabled={clearing}
+              className="rounded-lg border border-red-700/60 bg-red-900/20 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-700/20 disabled:opacity-50 transition-colors"
+            >
+              Full Demo Reset
+            </button>
+          </div>
+          <p className="text-xs text-red-400/50">Full Demo Reset also wipes alerted detections — use before CPD/RTCC presentations.</p>
         </section>
 
         {/* ── Audit Log ── */}

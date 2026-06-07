@@ -401,10 +401,15 @@ def get_telemetry_trail(
 def get_detections_feed(
     limit: int = Query(50, ge=1, le=200),
     status: Optional[str] = None,
+    hours: int = Query(24, ge=1, le=720),
 ):
     db = database.SessionLocal()
     try:
         status_filter = "AND de.status = :status" if status else ""
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
+        params: dict = {"limit": limit, "since": since}
+        if status:
+            params["status"] = status
         rows = db.execute(text(f"""
             SELECT
                 de.id::text,
@@ -430,10 +435,11 @@ def get_detections_feed(
                 ORDER BY detected_at DESC
                 LIMIT 1
             ) d ON true
+            WHERE de.last_seen >= :since
             {status_filter}
             ORDER BY de.last_seen DESC
             LIMIT :limit
-        """), {"limit": limit, "status": status} if status else {"limit": limit}).fetchall()
+        """), params).fetchall()
 
         return [
             {
