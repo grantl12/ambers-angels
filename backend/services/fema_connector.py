@@ -876,10 +876,11 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
 
     # Partition by preference
     # row: (email, full_name, expo_push_token, notification_prefs)
-    push_tokens = [
+    # Deduplicate tokens — two accounts sharing a device would send duplicate pushes
+    push_tokens = list({
         row[2] for row in matched
         if row[2] and "push" in (row[3] or ["push", "email"])
-    ]
+    })
     if push_tokens:
         push_title = f"🚨 {atype['short']} — {alert['area'] or 'Unknown area'}"
         push_body  = alert["headline"] or atype["cta"]
