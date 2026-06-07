@@ -86,7 +86,7 @@ class EventService:
         if should_dispatch_alert:
             logger.info("Alert triggered for %s", snapshot.plate_best)
             # Store frame_url so the frontend can show the thumbnail
-            frame_url = f"/frames/{snapshot.best_frame_id}" if snapshot.best_frame_id else None
+            frame_url = f"/frames/{snapshot.best_frame_id}.jpg" if snapshot.best_frame_id else None
             event = await self.repository.update_event(
                 event,
                 {

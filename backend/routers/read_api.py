@@ -428,11 +428,11 @@ def get_detections_feed(
             FROM detection_events de
             LEFT JOIN LATERAL (
                 SELECT lat, lon
-                FROM detections
+                FROM telemetry_points
                 WHERE drone_id = de.drone_id
-                  AND plate_text = de.plate_best
                   AND lat IS NOT NULL
-                ORDER BY detected_at DESC
+                  AND ABS(EXTRACT(EPOCH FROM (ts - de.last_seen))) < 60
+                ORDER BY ABS(EXTRACT(EPOCH FROM (ts - de.last_seen)))
                 LIMIT 1
             ) d ON true
             WHERE de.last_seen >= :since
