@@ -40,5 +40,11 @@ jobs:
             npm run build
             cd ..
 
-            # Restart all three processes with fresh env
-            ~/.local/bin/pm2 restart ambers-angels-web ambers-angels-api ambers-angels-worker --update-env
+            # Start rtmp-monitor if not already registered, then restart all
+            ~/.local/bin/pm2 describe ambers-angels-rtmp-monitor > /dev/null 2>&1 \
+              || ~/.local/bin/pm2 start worker/rtmp_monitor.py \
+                   --name ambers-angels-rtmp-monitor \
+                   --interpreter python3
+
+            # Restart all four processes with fresh env
+            ~/.local/bin/pm2 restart ambers-angels-web ambers-angels-api ambers-angels-worker ambers-angels-rtmp-monitor --update-env
