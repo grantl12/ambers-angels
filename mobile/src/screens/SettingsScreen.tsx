@@ -86,8 +86,27 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
     } catch {}
   }
 
+  const DRONE_PRESETS = [
+    { label: "Avata",      id: "avata",     name: "DJI Avata" },
+    { label: "Mini 4 Pro", id: "mini-4-pro", name: "DJI Mini 4 Pro" },
+    { label: "Mavic 3",    id: "mavic-3",   name: "DJI Mavic 3" },
+    { label: "Air 3",      id: "air-3",     name: "DJI Air 3" },
+  ]
+
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }))
+    setSaved(false)
+  }
+
+  function selectVolunteerMode(mode: VolunteerMode) {
+    const needsDroneDefaults = (mode === "drone" || mode === "both")
+      && (settings.droneId === "phone-1" || settings.droneId === "" || settings.droneId === "drone-1")
+    if (needsDroneDefaults) {
+      // Clear the phone default so the preset chips are visually unselected until user picks one
+      setSettings((prev) => ({ ...prev, volunteerMode: mode, droneId: "" }))
+    } else {
+      update("volunteerMode", mode)
+    }
     setSaved(false)
   }
 
@@ -324,7 +343,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
             <View style={styles.modeRow}>
               <TouchableOpacity
                 style={[styles.modeBtn, settings.volunteerMode === "phone" && styles.modeBtnActive]}
-                onPress={() => update("volunteerMode", "phone")}
+                onPress={() => selectVolunteerMode("phone")}
               >
                 <Text style={[styles.modeBtnText, settings.volunteerMode === "phone" && styles.modeBtnTextActive]}>
                   📱 Phone
@@ -334,7 +353,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
 
               <TouchableOpacity
                 style={[styles.modeBtn, settings.volunteerMode === "drone" && styles.modeBtnActive]}
-                onPress={() => update("volunteerMode", "drone")}
+                onPress={() => selectVolunteerMode("drone")}
               >
                 <Text style={[styles.modeBtnText, settings.volunteerMode === "drone" && styles.modeBtnTextActive]}>
                   🚁 Drone
@@ -344,7 +363,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
 
               <TouchableOpacity
                 style={[styles.modeBtn, settings.volunteerMode === "both" && styles.modeBtnActive]}
-                onPress={() => update("volunteerMode", "both")}
+                onPress={() => selectVolunteerMode("both")}
               >
                 <Text style={[styles.modeBtnText, settings.volunteerMode === "both" && styles.modeBtnTextActive]}>
                   📱+🚁 Both
@@ -352,6 +371,35 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
                 <Text style={styles.modeSubText}>DJI RC only</Text>
               </TouchableOpacity>
             </View>
+
+            {(settings.volunteerMode === "drone" || settings.volunteerMode === "both") && (
+              <View style={{ marginTop: 10 }}>
+                <Text style={styles.modeNote}>Select your aircraft — sets the Drone ID and RTMP stream URL:</Text>
+                <View style={styles.presetRow}>
+                  {DRONE_PRESETS.map((p) => {
+                    const active = settings.droneId === p.id
+                    return (
+                      <TouchableOpacity
+                        key={p.id}
+                        style={[styles.presetChip, active && styles.presetChipActive]}
+                        onPress={() => {
+                          setSettings((prev) => ({
+                            ...prev,
+                            droneId: p.id,
+                            pilotId: prev.pilotId || p.name,
+                          }))
+                          setSaved(false)
+                        }}
+                      >
+                        <Text style={[styles.presetChipText, active && styles.presetChipTextActive]}>
+                          {p.label}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              </View>
+            )}
 
             {settings.volunteerMode === "both" && (
               <Text style={styles.modeNote}>
@@ -741,6 +789,19 @@ const styles = StyleSheet.create({
     borderRadius: 6, padding: 8,
     borderWidth: 1, borderColor: "rgba(251,146,60,0.2)",
   },
+  presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  presetChip: {
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  presetChipActive: {
+    borderColor: "#f59e0b",
+    backgroundColor: "rgba(245,158,11,0.15)",
+  },
+  presetChipText:       { fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.5)" },
+  presetChipTextActive: { color: "#f59e0b" },
   rtmpBox: {
     backgroundColor: "rgba(56,189,248,0.06)",
     borderWidth: 1, borderColor: "rgba(56,189,248,0.2)",
