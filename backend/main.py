@@ -550,6 +550,7 @@ async def ingest_frame(
         if _pt in _active_wl_plates:
             _frame_watchlist_hit = True
             _frame_hit_plate = _pt
+            logger.info("Phone scan watchlist hit: %s (raw ALPR %.1f%%, boosted to 93%%)", _pt, _pconf)
             break
 
     telemetry = None
@@ -616,6 +617,12 @@ async def ingest_frame(
             continue
 
         pr = pr_by_plate.get(plate_text)
+
+        # Phone camera scans are close-range and authoritative when the plate matches the
+        # watchlist. Boost confidence to 93% so the 5-second aggregation window reaches
+        # HIGH_CONFIDENCE within a few frames rather than requiring drone-level repetition.
+        if plate_text == _frame_hit_plate and source in ("phone_gps", "phone_mlkit"):
+            plate_conf_override = max(plate_conf_override, 93.0)
 
         # Build the detection input for the 5-second aggregator
         det = AggDetectionInput(
