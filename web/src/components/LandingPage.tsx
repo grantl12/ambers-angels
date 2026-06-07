@@ -384,12 +384,12 @@ export default function LandingPage() {
           <div className={s.involveCard}>
             <h3>Volunteer — Ground</h3>
             <p>Drive your normal routes during active alerts. Your phone does the work. No special hardware needed — just a car mount and the app.</p>
-            <a href="/pilot/register.html">Create an Account →</a>
+            <a href="/pilot/register">Create an Account →</a>
           </div>
           <div className={s.involveCard}>
             <h3>Volunteer — Drone</h3>
             <p>Part 107 certified? Put your skills and your aircraft to work. DJI hardware connects directly to our platform in four steps.</p>
-            <a href="/pilot/register.html">Register as a Pilot →</a>
+            <a href="/pilot/register">Register as a Pilot →</a>
           </div>
           <div className={s.involveCard}>
             <h3>Fund the Mission</h3>

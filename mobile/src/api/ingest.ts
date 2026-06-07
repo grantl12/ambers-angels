@@ -49,6 +49,8 @@ export async function postFrame(payload: FramePayload): Promise<FrameResult> {
     headers,
     body: form,
   })
-  if (!res.ok) throw new Error(`/ingest/frame → ${res.status}`)
+  if (res.status === 401) throw new Error("Session expired — please log out and log back in")
+  if (res.status === 403) throw new Error("Account not authorized — contact your coordinator")
+  if (!res.ok) throw new Error(`Upload failed (server ${res.status})`)
   return res.json()
 }

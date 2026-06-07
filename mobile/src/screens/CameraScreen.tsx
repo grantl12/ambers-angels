@@ -280,7 +280,9 @@ export default function CameraScreen() {
             }
           } catch (e) {
             const msg = e instanceof Error ? e.message : "unknown"
-            setError(`Frame upload failed (${msg}) — check API URL in Settings`)
+            setError(msg.includes("expired") || msg.includes("authorized")
+              ? msg
+              : `Frame upload failed — ${msg}`)
           }
         }, settings.captureIntervalSec * 1000)
       }
