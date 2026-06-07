@@ -1,5 +1,15 @@
 # Amber's Angels — Claude Instructions
 
+## Privacy Model — On-Device Inference (NON-NEGOTIABLE)
+
+**Raw camera frames never leave volunteer devices.** This is a core architectural guarantee, not a preference.
+
+- **Android phone scanning**: `ScanService.kt` runs Google ML Kit text recognition fully on-device. Only `plate_text + plate_confidence + GPS` are POSTed to `POST /ingest/detection`. No JPEG, no pixel data, nothing else.
+- **DJI drone RTMP path**: Frames are streamed to the operator's own nginx server (self-hosted), processed server-side by OpenALPR + YOLO. The server is under the operator's control.
+- **Detection agent**: When `request_edge_inference` is called, it pushes a repositioning request to the pilot — their phone keeps doing on-device OCR. No frame upload is triggered.
+
+Do not add any code path that uploads raw frames from a volunteer's phone to any server. If a future feature requires image data, it must go through an explicit user-initiated flow with clear disclosure. This constraint exists because volunteers are private citizens scanning public roads — any frame upload creates legal exposure and violates the privacy promise made to them at signup.
+
 ## SSH / Server Access
 
 **The deploy key is broken. Always use plink. Never prompt the user for the password.**

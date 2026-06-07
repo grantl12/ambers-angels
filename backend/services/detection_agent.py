@@ -107,8 +107,11 @@ TOOLS: list[dict] = [
     {
         "name": "request_edge_inference",
         "description": (
-            "Request on-device plate/vehicle inference from drone hardware. "
-            "Reserved for future Intel edge compute integration — not yet active."
+            "Push a targeted scan request to the pilot's Android device. "
+            "ScanService already runs ML Kit OCR on-device continuously — no raw frames "
+            "ever leave the phone. This nudge asks the pilot to reposition for a cleaner "
+            "read of a specific plate or vehicle. Use when confidence is borderline and "
+            "a better angle would resolve the ambiguity."
         ),
         "input_schema": {
             "type": "object",
@@ -220,6 +223,78 @@ async def _tool_reposition_drone(drone_id: str, obs_lat: float, obs_lon: float) 
         return f"failed: {exc}"
 
 
+async def _tool_request_edge_inference(drone_id: str, plate: str, inference_type: str) -> str:
+    """
+    Sends an Expo push notification to the pilot flying drone_id asking them
+    to attempt a direct on-device scan of the target plate. On Android,
+    ScanService.kt is already running ML Kit OCR — this nudge asks the pilot
+    to reposition for a cleaner read. No raw frames ever leave the device.
+    """
+    import database
+    import certifi
+    import httpx
+    from sqlalchemy import text
+
+    # Find the pilot's Expo token via most recent telemetry for this drone
+    async with database.AsyncSessionLocal() as session:
+        row = (await session.execute(text("""
+            SELECT p.expo_push_token
+            FROM telemetry_points tp
+            JOIN pilots p ON p.id::text = tp.pilot_id::text
+            WHERE tp.drone_id = :drone_id
+              AND p.expo_push_token IS NOT NULL
+              AND p.expo_push_token != ''
+            ORDER BY tp.ts DESC
+            LIMIT 1
+        """), {"drone_id": drone_id})).fetchone()
+
+    if not row:
+        # Fallback: check autonomous_drones table
+        async with database.AsyncSessionLocal() as session:
+            row = (await session.execute(text("""
+                SELECT p.expo_push_token
+                FROM autonomous_drones ad
+                JOIN pilots p ON p.username = ad.pilot_username
+                WHERE ad.drone_id = :drone_id
+                  AND p.expo_push_token IS NOT NULL
+                  AND p.expo_push_token != ''
+                LIMIT 1
+            """), {"drone_id": drone_id})).fetchone()
+
+    if not row:
+        return "no push token found for this drone's pilot"
+
+    token = row[0]
+    msg = (
+        f"Agent: possible plate match ({plate}) at borderline confidence. "
+        "Please reposition for a direct scan — hold steady at close range."
+        if inference_type == "plate"
+        else
+        f"Agent: vehicle profile ambiguous near {plate} alert zone. "
+        "Please capture vehicle from broadside for type/color confirmation."
+    )
+
+    payload = [{
+        "to":       token,
+        "title":    "📡 Edge Scan Requested",
+        "body":     msg,
+        "sound":    "default",
+        "priority": "high",
+        "data":     {"type": "edge_inference_request", "plate": plate},
+    }]
+
+    try:
+        async with httpx.AsyncClient(verify=certifi.where(), timeout=5.0) as c:
+            r = await c.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=payload,
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+            )
+            return f"push sent: HTTP {r.status_code}"
+    except Exception as exc:
+        return f"push failed: {exc}"
+
+
 # ---------------------------------------------------------------------------
 # Cost gate — haversine proximity check
 # ---------------------------------------------------------------------------
@@ -257,9 +332,16 @@ _SYSTEM = """\
 You are a detection agent for Amber's Angels, a nonprofit drone ALPR system \
 that supports FEMA AMBER/Silver/Blue Alert responses.
 
+Privacy architecture — important context:
+Android volunteers run ScanService, which performs ML Kit OCR entirely on-device. \
+No raw camera frames ever leave the phone — only plate text + confidence are transmitted. \
+This is a core privacy guarantee, not a limitation. When you call request_edge_inference, \
+you are asking the pilot to reposition for a better angle; their phone is already scanning.
+
 Your task: evaluate a borderline plate detection (75–85% confidence) that the \
 static threshold pipeline did not automatically alert on. Decide whether to \
-escalate to a full alert, reposition the drone for a better read, or dismiss.
+escalate to a full alert, reposition the drone for a better read, request a \
+sharper on-device scan from the pilot, or dismiss.
 
 Escalate only when multiple signals align:
 - Plate text is a plausible OCR variant of an active alert plate (common errors: \
@@ -269,8 +351,8 @@ O↔0, I↔1, S↔5, B↔8, Z↔2, G↔6)
 - Recent detection history shows consistent reads
 
 Be conservative. A false positive wastes coordinator attention and erodes trust. \
-If in doubt, dismiss. If you escalate, state your reasoning clearly and \
-specifically — coordinators read it."""
+If in doubt, use request_edge_inference to ask for a better read before escalating. \
+If you escalate, state your reasoning clearly — coordinators read it."""
 
 
 # ---------------------------------------------------------------------------
@@ -410,7 +492,12 @@ async def maybe_evaluate(snapshot: Any, decision: Any, dispatcher: Any) -> None:
                     )
 
                 elif block.name == "request_edge_inference":
-                    result = "edge inference not yet active — stub recorded"
+                    result = await _tool_request_edge_inference(
+                        drone_id=block.input.get("drone_id", snapshot.drone_id),
+                        plate=snapshot.plate_best,
+                        inference_type=block.input.get("inference_type", "plate"),
+                    )
+                    logger.info("agent: edge inference request drone=%s result=%s", snapshot.drone_id, result)
 
                 else:
                     result = f"unknown tool: {block.name}"
