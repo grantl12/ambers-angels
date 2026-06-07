@@ -1241,8 +1241,21 @@ def clear_test_data(full_reset: bool = False):
             de = db.execute(text(
                 "DELETE FROM detection_events WHERE status != 'alerted' RETURNING id"
             )).rowcount
+
+        # Always clear sim drones/missions and their telemetry
+        db.execute(text(
+            "DELETE FROM autonomous_missions WHERE drone_id IN "
+            "(SELECT id FROM autonomous_drones WHERE drone_model = 'sim_dashboard')"
+        ))
+        sim_drones = db.execute(text(
+            "DELETE FROM autonomous_drones WHERE drone_model = 'sim_dashboard' RETURNING id"
+        )).rowcount
+        db.execute(text(
+            "DELETE FROM telemetry_points WHERE drone_id LIKE 'SIM-%' OR drone_id LIKE 'sim-%'"
+        ))
+
         db.commit()
-        return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de}}
+        return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de, "sim_drones": sim_drones}}
     finally:
         db.close()
 
