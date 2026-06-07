@@ -82,6 +82,10 @@ GOLDEN_DIR = os.getenv(
     "GOLDEN_DIR",
     "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
 )
+FRAMES_ROOT = os.getenv(
+    "FRAMES_ROOT",
+    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates",
+)
 
 # The alert dispatcher singleton — reads ALERT_WEBHOOK_URL from env
 _alert_dispatcher = AlertDispatcher(
@@ -857,6 +861,23 @@ async def create_detection(
         cdc_label=det.cdc_label,
         cdc_conf=det.cdc_conf or 0.0,
     )
+
+    # Pre-copy frame to golden_dir before pipeline runs. The worker holds the
+    # file open while awaiting this response, so it's guaranteed to be on disk.
+    # Discord dispatch runs synchronously inside upsert_from_snapshot — if we
+    # don't copy first, _load_frame always misses for RTMP detections.
+    if det.best_frame_id:
+        _src = os.path.join(FRAMES_ROOT, det.drone_id, det.best_frame_id)
+        if not _src.lower().endswith(".jpg"):
+            _src += ".jpg"
+        _dst = os.path.join(GOLDEN_DIR, os.path.basename(_src))
+        try:
+            import shutil as _shutil
+            os.makedirs(GOLDEN_DIR, exist_ok=True)
+            if os.path.isfile(_src):
+                _shutil.copy2(_src, _dst)
+        except Exception as _cp_err:
+            logger.warning("Golden frame pre-copy failed: %s", _cp_err)
 
     snapshot = _aggregation_service.ingest(internal_det)
     alert_triggered = False
