@@ -85,7 +85,6 @@ export function TopBar() {
         <div className="hidden md:flex items-center gap-3">
           <Link href="/leaderboard" className="text-white/40 hover:text-white/80 transition-colors">Leaderboard</Link>
           <Link href="/debrief"     className="text-white/40 hover:text-white/80 transition-colors">Debrief</Link>
-          <Link href="/alerts"      className="text-white/40 hover:text-white/80 transition-colors">Alerts</Link>
           <Link href="/settings"    className="text-white/40 hover:text-white/80 transition-colors">Settings</Link>
           {isAdmin && (
             <Link href="/admin" className="text-amber-500/70 hover:text-amber-400 transition-colors">Admin</Link>

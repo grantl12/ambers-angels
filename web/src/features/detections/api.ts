@@ -5,7 +5,7 @@ import type { Detection } from "./types"
 export function useDetectionsFeed(limit = 50) {
   return useQuery<Detection[]>({
     queryKey: ["detections", "feed", limit],
-    queryFn: () => apiGet<Detection[]>(`/detections/feed?limit=${limit}`),
+    queryFn: () => apiGet<Detection[]>(`/detections/feed?limit=${limit}&hours=72`),
     refetchInterval: 5_000,
     staleTime: 3_000,
   })

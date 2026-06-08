@@ -22,17 +22,26 @@ type SystemHealth = {
 }
 
 function useHealth() {
-  const [health, setHealth] = useState<SystemHealth | null>(null)
+  const [health, setHealth]       = useState<SystemHealth | null>(null)
+  const [apiDown, setApiDown]     = useState(false)
+  const [polled, setPolled]       = useState(false)
   useEffect(() => {
     let live = true
     async function poll() {
-      try { const h = await apiGet<SystemHealth>("/health"); if (live) setHealth(h) } catch { /* swallow */ }
+      try {
+        const h = await apiGet<SystemHealth>("/health")
+        if (live) { setHealth(h); setApiDown(false) }
+      } catch {
+        if (live) setApiDown(true)
+      } finally {
+        if (live) setPolled(true)
+      }
     }
     poll()
     const id = setInterval(poll, 30_000)
     return () => { live = false; clearInterval(id) }
   }, [])
-  return health
+  return { health, apiDown: polled && apiDown }
 }
 
 function ageSince(iso: string | null): string {
@@ -43,7 +52,21 @@ function ageSince(iso: string | null): string {
   return `${Math.floor(s / 3600)}h ago`
 }
 
-function HealthBar({ health }: { health: SystemHealth | null }) {
+function HealthBar({ health, apiDown }: { health: SystemHealth | null; apiDown: boolean }) {
+  if (apiDown) {
+    return (
+      <div style={{
+        position: "absolute", top: 12, left: 12, zIndex: 10,
+        display: "flex", alignItems: "center", gap: 7,
+        background: "rgba(10,15,22,0.88)", border: "1px solid rgba(239,68,68,0.5)",
+        borderRadius: 6, padding: "5px 10px", fontSize: 11,
+        backdropFilter: "blur(8px)", color: "rgba(252,165,165,0.9)",
+      }}>
+        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#ef4444", boxShadow: "0 0 4px #ef444488" }} />
+        <span style={{ fontWeight: 700 }}>API offline</span>
+      </div>
+    )
+  }
   if (!health) return null
   const services = [
     { label: "DB",     ok: health.database === "connected" },
@@ -115,7 +138,7 @@ export default function MapPage() {
 
   const [flockBbox, setFlockBbox] = useState<FlockBbox | undefined>(undefined)
   const mapControlsRef = useRef<MapControls | null>(null)
-  const health = useHealth()
+  const { health, apiDown } = useHealth()
 
   const toggleLayer = (key: keyof LayerState) =>
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -157,7 +180,7 @@ export default function MapPage() {
         {/* Map — always full width on mobile */}
         <div className="flex-1 relative">
           <MapLoader layers={layers} flockBbox={flockBbox} onMapReady={(controls) => { mapControlsRef.current = controls }} />
-          <HealthBar health={health} />
+          <HealthBar health={health} apiDown={apiDown} />
 
           {/* Mobile toggle buttons */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-3 md:hidden">

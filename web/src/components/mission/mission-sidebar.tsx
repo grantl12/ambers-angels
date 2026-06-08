@@ -132,7 +132,7 @@ const LAYER_LABELS: { key: keyof LayerState; label: string; color: string }[] = 
 
 export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, flockBbox, onFlockSearch }: Props) {
   const [collapsed, setCollapsed] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(288) // 288 = w-72
+  const [sidebarWidth, setSidebarWidth] = useState(320)
   const isDragging = useRef(false)
 
   function startResize(e: React.MouseEvent) {
@@ -247,9 +247,9 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
 
         {/* Stats */}
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <StatCard label="Volunteers" value={drones.length}                                  color="text-sky-400" />
-          <StatCard label="Detections" value={detections.length}                              color="text-amber-400" />
-          <StatCard label="With GPS"   value={detections.filter((d) => d.lat != null).length} color="text-emerald-400" />
+          <StatCard label="Pilots"  value={drones.length}                                  color="text-sky-400" />
+          <StatCard label="Scans"   value={detections.length}                              color="text-amber-400" />
+          <StatCard label="GPS"     value={detections.filter((d) => d.lat != null).length} color="text-emerald-400" />
         </div>
       </div>
 
