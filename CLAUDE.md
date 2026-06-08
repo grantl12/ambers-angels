@@ -41,6 +41,7 @@ plink -pw 'Ambers1Angels' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:
 | `ambers-angels-api` | FastAPI/uvicorn backend on port 8000 |
 | `ambers-angels-web` | Next.js frontend |
 | `ambers-angels-worker` | unified_worker.py (ALPR + YOLO frame pipeline) |
+| `ambers-angels-rtmp-monitor` | worker/rtmp_monitor.py — manages ffmpeg per RTMP stream + **PM2 crash watchdog** |
 
 Restart all with env reload:
 ```
@@ -53,6 +54,8 @@ su -l ambers-angels -c '/home/ambers-angels/.local/bin/pm2 restart ambers-angels
 ```
 
 `start_all.sh` / `stop_all.sh` are archived — PM2 owns everything.
+
+**PM2 crash watchdog** — `rtmp_monitor.py` checks `pm2 jlist` every 60s. If any process gains ≥5 restarts in one interval, it fires a Discord alert (max once per 30 min per process). This catches startup crashes that kill the process before any Python-level logging handler is registered. The Discord `DiscordErrorHandler` in `discord_logger.py` only fires for errors inside a *running* API — it cannot catch import-time or module-level crashes.
 
 ## CI/CD
 
@@ -197,11 +200,20 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 **`_optional_pilot` in `backend/main.py`**
 Python evaluates default parameter values at module load time, not at call time. `_optional_pilot` is used as `Depends(_optional_pilot)` in the `ingest_detection` function signature. It MUST be defined BEFORE line ~610 where `ingest_detection` is decorated. If you move it below that line, the server crashes on startup with `NameError: name '_optional_pilot' is not defined` — PM2 restarts it, it crashes again, every request fails. Fix: keep `_optional_pilot` defined around line 599 in `main.py`, before the `ingest_detection` endpoint.
 
+**`@dataclass(slots=True)` field ordering in `aggregation_service.py`**
+Python dataclasses require all fields *without* defaults to come before fields *with* defaults. `DetectionInput` uses `slots=True`; adding a default value to any field that appears before a required field causes `TypeError: non-default argument 'X' follows default argument` at import time. The API crashes on every startup, PM2 loops thousands of restarts, and nothing in the Discord logger fires (it's not running yet). `frame_id: UUID | str | None = None` must appear after `detection_id`, `drone_id`, `detected_at`, `plate_raw`, and `confidence` — all of which have no default.
+
+**`frame_id` / `frame_url` alignment for golden frames**
+`frame_url` stored in `detection_events` is `/frames/{snapshot.best_frame_id}.jpg`. For this URL to resolve, the file `{best_frame_id}.jpg` must exist in `GOLDEN_DIR`.
+- **Phone camera (`POST /ingest/frame`)**: `frame_id = uuid4()` is generated, frame is saved as `GOLDEN_DIR/{uuid}.jpg`, and `AggDetectionInput.frame_id = uuid`. This chain is consistent — do not break it.
+- **RTMP worker (`POST /detections/`)**: worker sends `best_frame_id = "frame_0042.jpg"`. Backend pre-copies `FRAMES_ROOT/{drone_id}/frame_0042.jpg` → `GOLDEN_DIR/frame_0042.jpg`. `AggDetectionInput.frame_id` must be set to `os.path.splitext(det.best_frame_id)[0]` (i.e. `"frame_0042"`) so the stored URL is `/frames/frame_0042.jpg`, which matches the pre-copied file.
+- **ML Kit (`POST /ingest/detection`)**: no frame is ever uploaded. `frame_id` must be `None` so `frame_url` stays `None`. Do not generate a UUID here — it produces a broken URL pointing to a file that doesn't exist.
+
 **`GET /fema/alerts` reads `vehicle_targets` table, NOT `alerts`**
 The camera gate in `CameraScreen.tsx` calls `fetchFemaAlerts()` which hits `GET /fema/alerts`. This endpoint reads from `vehicle_targets`, not the `alerts` table. When you inject a test alert via `POST /admin/inject-alert`, it calls `_add_vehicle_target()` which writes to `vehicle_targets`. That's why injection opens the camera gate. Don't confuse the `alerts` table (Discord-dispatched high-confidence hits) with `vehicle_targets` (FEMA alert vehicle profiles that gate scanning).
 
-**Demo inject endpoint — use `POST /admin/inject-alert`, not `POST /fema/test`**
-`POST /fema/test` just polls the real FEMA feed — it does NOT create a synthetic alert. `POST /admin/inject-alert` is the correct endpoint to inject a demo. Body: `{plate, headline, area, alert_type, source_program, vehicle_color, vehicle_type}`.
+**Demo inject endpoint — always use the web admin UI, not plink**
+`POST /fema/test` just polls the real FEMA feed — it does NOT create a synthetic alert. `POST /admin/inject-alert` is the correct API endpoint (body: `{plate, headline, area, alert_type, source_program, vehicle_color, vehicle_type}`), but **always trigger this via the admin panel UI**, not via plink/curl. When injected directly via plink, the watchlist entry is created with `source='manual'` and does NOT appear in the "Active FEMA Alerts" section of the admin page — it's only visible under "Manual Alerts". The user cannot cancel it through the resolve flow; only "Clear Test Data" or direct SQL removes it. Use the admin UI so the entry is always cancellable by the admin without SQL.
 
 **`autonomous.ts` API base URL**
 `mobile/src/api/autonomous.ts` must use `getApiBaseUrl()` from `client.ts`, not a hardcoded IP. The server is behind nginx on port 443 (HTTPS). Port 8000 is blocked externally by firewall. Any hardcoded `http://157.245.125.103:8000` will fail for external clients.
@@ -219,20 +231,20 @@ Added `/rtmp-stat` location to `/etc/nginx/sites-enabled/telemetry` (default ser
 `myDroneId` is loaded from settings. `const alreadyInList = myDroneId ? drones.some(d => d.droneId === myDroneId) : false; const count = drones.length + (myLocation && !alreadyInList ? 1 : 0)` — this avoids double-counting yourself.
 
 **Demo/SIM data cleanup**
-SIM watchlist entries (source='demo') and vehicle_targets (source='demo') can be deleted with:
+SIM watchlist entries (source='demo'/'manual') and vehicle_targets (source='demo'/'manual') can be deleted with:
 ```sql
-DELETE FROM watchlist WHERE source = 'demo';
-DELETE FROM vehicle_targets WHERE source = 'demo';
-UPDATE watchlist SET active = false, removed_at = NOW() WHERE plate_text = 'YVJ024' AND active = true;
+UPDATE watchlist SET active = false, removed_at = NOW() WHERE source IN ('demo','manual') AND active = true;
+DELETE FROM vehicle_targets WHERE source IN ('demo', 'manual');
 ```
-Alerted detection_events (status='alerted') are NEVER deleted — they are evidence. The admin "Clear Test Data" button only removes source='manual'/'demo' entries.
+Alerted detection_events (status='alerted') are NEVER deleted — they are evidence. The admin "Clear Test Data" button removes source='manual'/'demo' entries from watchlist and vehicle_targets only.
 
-**E2E test flow (verified working June 6, 2026)**
-1. Web admin → "Inject Demo Alert (YVJ024)" button → creates vehicle_target + watchlist entry
+**E2E test flow (verified working June 7, 2026)**
+1. Web admin panel → "Inject Demo Alert (YVJ024)" button → creates vehicle_target + watchlist entry (source='demo')
 2. Mobile camera → tap "Start Mission" → camera gate opens (fetchFemaAlerts returns active alert)
-3. Point camera at plate "YVJ024" → ML Kit detects → `POST /ingest/detection` → AggregationService → EventService → dispatch_alert → Discord hit fires
-4. Discord embed shows: Alert type (AMBER), Plate (YVJ024), Confidence (%), Source program, Alert Details, Detection source (On-device OCR), Location
-5. To reset: SQL above, or admin "Clear Test Data" button
+3. Point camera at plate "YVJ024" → phone uploads frame → `POST /ingest/frame` → server-side ALPR → AggregationService → EventService → dispatch_alert → Discord hit fires with frame thumbnail
+4. Discord embed shows: Alert type (AMBER), Plate (YVJ024), Confidence (%), Detection source, Location (GPS from phone telemetry)
+5. Stats from June 7 test: 47s end-to-end, 99% peak confidence, sub-meter GPS, 23 frames to first hit
+6. To reset: admin "Clear Test Data" button, or SQL above. Detection events with status='alerted' are kept (evidence).
 
 ### Key Files
 
