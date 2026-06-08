@@ -63,7 +63,7 @@ NEGATIVE_QUALITY_FLAGS = {
 @dataclass(slots=True)
 class DetectionInput:
     detection_id: UUID | str
-    frame_id: UUID | str
+    frame_id: UUID | str | None = None
     drone_id: str
     detected_at: datetime
     plate_raw: str
@@ -311,7 +311,8 @@ class ActiveDetectionGroup:
             grouped_scores[plate] += adjusted_score
             grouped_raw_scores[plate] += detection.confidence
             grouped_counts[plate] += 1
-            distinct_frame_ids.add(detection.frame_id)
+            if detection.frame_id is not None:
+                distinct_frame_ids.add(detection.frame_id)
             quality_flags_union.update(detection.quality_flags)
             per_detection_weights.append(weight)
             confidences.append(detection.confidence)

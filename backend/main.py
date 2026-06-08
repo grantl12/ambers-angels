@@ -736,7 +736,7 @@ async def ingest_detection(
 
     det = AggDetectionInput(
         detection_id = str(uuid.uuid4()),
-        frame_id     = str(uuid.uuid4()),
+        frame_id     = None,  # on-device OCR — no frame uploaded, no file to reference
         drone_id     = drone_id,
         detected_at  = ts,
         plate_raw    = plate,
@@ -855,10 +855,15 @@ async def create_detection(
         except Exception:
             pass
 
-    # Convert schema to internal AggDetectionInput
+    # Convert schema to internal AggDetectionInput.
+    # Use the actual filename (stripped of extension) as frame_id so frame_url
+    # matches the pre-copied golden frame file at GOLDEN_DIR/{best_frame_id}.jpg.
+    _frame_id: str | None = det.frame_id or (
+        os.path.splitext(det.best_frame_id)[0] if det.best_frame_id else None
+    )
     internal_det = AggDetectionInput(
         detection_id=str(uuid.uuid4()),
-        frame_id=det.frame_id or str(uuid.uuid4()),
+        frame_id=_frame_id,
         drone_id=det.drone_id,
         detected_at=det.detected_at or datetime.now(timezone.utc),
         plate_raw=det.plate_text,

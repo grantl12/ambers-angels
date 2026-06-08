@@ -140,7 +140,7 @@ export function EventFeed({ onFlyTo }: Props) {
                 const time    = detection.timestamp
                   ? new Date(detection.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                   : null
-                const thumbUrl = isAlert && detection.frameUrl
+                const thumbUrl = (isAlert || detection.status === "alerted") && detection.frameUrl
                   ? `${env.apiBaseUrl}${detection.frameUrl}`
                   : null
                 const hasGps = detection.lat != null && detection.lng != null

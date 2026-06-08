@@ -429,10 +429,11 @@ def get_detections_feed(
             LEFT JOIN LATERAL (
                 SELECT lat, lon
                 FROM telemetry_points
-                WHERE drone_id = de.drone_id
-                  AND lat IS NOT NULL
-                  AND ABS(EXTRACT(EPOCH FROM (ts - de.last_seen))) < 60
-                ORDER BY ABS(EXTRACT(EPOCH FROM (ts - de.last_seen)))
+                WHERE lat IS NOT NULL
+                  AND ABS(EXTRACT(EPOCH FROM (ts - de.last_seen))) < 300
+                ORDER BY
+                    CASE WHEN drone_id = de.drone_id THEN 0 ELSE 1 END,
+                    ABS(EXTRACT(EPOCH FROM (ts - de.last_seen)))
                 LIMIT 1
             ) d ON true
             WHERE de.last_seen >= :since
