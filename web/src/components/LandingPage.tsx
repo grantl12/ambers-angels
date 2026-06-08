@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import s from '@/app/landing.module.css'
+import LiveTerminal from './LiveTerminal'
 
 const TABS = [
   { key: 'scan',    label: 'Phone Scanning',    svg: '04-phone-background-mode.svg',  caption: 'Scan-while-you-drive: a persistent foreground service keeps frame uploads running even when you navigate to Maps or Uber (Android). iOS: keep app foregrounded.' },
@@ -194,6 +195,8 @@ export default function LandingPage() {
           <strong>Cascade Inference:</strong>{' '}Our proprietary model identifies make, model, and year range — so coordinators can tell law enforcement &ldquo;Blue 2018–2021 Honda CR-V, Highway 5, 14:32&rdquo; even when the plate is obscured or switched. Reducing false positives from ~30% to &lt;5%.
         </div>
       </section>
+
+      <LiveTerminal />
 
       {/* PLATFORM */}
       <section id="platform" className={`${s.section} ${s.platform}`}>

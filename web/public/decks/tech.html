@@ -20,7 +20,8 @@
 "The coordinator dashboard has seven toggleable map layers: coverage planner showing Flock camera sectors, road coverage coloring every through-road by camera count, priority roads highlighting uncovered segments for pilot routing, active drone positions, swarm drone home positions, watchlist hit markers, and live ADS-B air traffic. No other platform gives coordinators the fixed-infrastructure coverage gap and the live swarm layer simultaneously. The dispatch flow: click a swarm drone icon, place the observation pin by clicking anywhere on the map, check the airspace advisory, set altitude and speed, hit dispatch. The mission panel in the left sidebar shows every active and recent mission with status, progress bar, and fly-to. Flock DroneSense costs three to six thousand per drone per year and requires an operator on scene. Ours is zero incremental cost and the pilot can be at home.",
 "Every external dependency is auditable and self-hostable. The ML stack is fully open-source. Three inbound alert sources — FEMA IPAWS CMAS at five minutes, FEMA IPAWS EAS at two minutes, NCMEC RSS at thirty minutes. ADS-B from OpenSky Network for airspace deconfliction in the dispatch modal. Twilio SMS is an optional HIGH_CONFIDENCE escalation path — silently skips if the environment variables are absent. Discord webhooks for all coordinator alerts. Self-hostable on any Ubuntu 20.04 VPS with PostgreSQL, Node 18, and Python 3.10.",
 "Privacy is enforced by the topology, not by policy. Non-matching frames are never written to persistent storage — they pass through RAM for inference and are deleted immediately. When a HIGH_CONFIDENCE watchlist match fires, one golden evidence frame is saved: it's attached to the coordinator Discord alert inline so they can see what the drone saw, and it's stored with the detection record as case evidence. That's the only frame retention path. No video, no mass plate logging, no accumulation of non-alert vehicle data. The platform is event-triggered — between active alerts, the inference pipeline is fully idle. Telemetry purges after ninety days, detection records after one year. The watchlist contains only plates from active government alerts, never our own database of plate sightings.",
-"That's the system. FastAPI plus Postgres backend, unified worker with shared frame queue, OpenALPR plus YOLOv8 with composite confidence scoring, three active alert polling sources — FEMA IPAWS CMAS at five minutes, FEMA IPAWS EAS at two minutes, and NCMEC RSS across all fifty states at thirty minutes — Expo Foreground Service mobile, DJI MSDK 5.17 with map-click autonomous waypoint dispatch, airspace advisory via OpenSky ADS-B, tiered VLOS and BVLOS regulatory modes, and a Next.js 14 dashboard with mission lifecycle tracking and the drone swarm dispatch layer. Privacy by topology: non-matching frames are deleted on processing, and the only frame we ever store is the one that proved the match — attached to the coordinator alert as evidence. The pilot relinquishing their drone from home is not a gimmick — it removes the physical-presence requirement that makes volunteer search networks fail at scale. Find me at info at amberangels dot org."
+"That's the system. FastAPI plus Postgres backend, unified worker with shared frame queue, OpenALPR plus YOLOv8 with composite confidence scoring, three active alert polling sources — FEMA IPAWS CMAS at five minutes, FEMA IPAWS EAS at two minutes, and NCMEC RSS across all fifty states at thirty minutes — Expo Foreground Service mobile, DJI MSDK 5.17 with map-click autonomous waypoint dispatch, airspace advisory via OpenSky ADS-B, tiered VLOS and BVLOS regulatory modes, and a Next.js 14 dashboard with mission lifecycle tracking and the drone swarm dispatch layer. Privacy by topology: non-matching frames are deleted on processing, and the only frame we ever store is the one that proved the match — attached to the coordinator alert as evidence. The pilot relinquishing their drone from home is not a gimmick — it removes the physical-presence requirement that makes volunteer search networks fail at scale. Find me at info at amberangels dot org.",
+"These are the actual log lines from June 7. Phone pipeline: FEMA alert ingested at 14:15:57, push to 3 volunteers, phone-1 opened 3 seconds later, camera at one frame per second, watchlist match at 14:16:43 — 47 seconds total, 95.15% composite confidence. Drone pipeline: DJI Avata RTMP at 15:09:00, ffmpeg spawned five seconds in, first read SYVJ0Z4 — len=7 versus watchlist len=6, Z-for-2 OCR confusion — correctly dismissed. YVJ024 confirmed at 15:09:19, aggregation window filled, 99% peak confidence sustained, Discord with golden frame in under four seconds from stream start. 193 alerted events in one session. The fuzzy dismiss-then-confirm is the aggregation layer working exactly as designed — OCR variants collapse to the correct plate before any alert fires."
 ]
 </script>
 <template id="__bundler_thumbnail" data-bg-color="#050a0f">
@@ -264,6 +265,7 @@ em.amber { color: var(--amber); font-style: normal; }
 .s14-contact { display: flex; gap: 80px; position: relative; z-index: 1; }
 .s14-c-l { font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(12,10,5,0.45); margin-bottom: 10px; }
 .s14-c-v { font-size: 28px; font-weight: 700; color: var(--ink); }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 </style>
 </head>
 <body>
@@ -284,7 +286,7 @@ em.amber { color: var(--amber); font-style: normal; }
         <div><div class="s1-mi-l">Status</div><div class="s1-mi-v">Pilot · Carrollton, GA</div></div>
       </div>
     </div>
-    <div class="sn">01 / 14</div>
+    <div class="sn">01 / 15</div>
   </section>
 
   <!-- ── 02 SYSTEM OVERVIEW ── -->
@@ -324,7 +326,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">02 / 14</div>
+    <div class="sn">02 / 15</div>
   </section>
 
   <!-- ── 03 ARCHITECTURE ── -->
@@ -353,7 +355,7 @@ em.amber { color: var(--amber); font-style: normal; }
     </div>
     <div class="arch-foot"><strong>Hard constraint:</strong> there is no write path to disk for raw frames. <span class="a">Frames hold in RAM only for inference duration</span>; only structured detection metadata persists past the worker.</div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">03 / 14</div>
+    <div class="sn">03 / 15</div>
   </section>
 
   <!-- ── 04 UNIFIED WORKER ── -->
@@ -387,7 +389,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">04 / 14</div>
+    <div class="sn">04 / 15</div>
   </section>
 
   <!-- ── 05 COMPOSITE SCORE ── -->
@@ -436,7 +438,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">05 / 14</div>
+    <div class="sn">05 / 15</div>
   </section>
 
   <!-- ── 06 CLASSIFICATION ── -->
@@ -480,7 +482,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">06 / 14</div>
+    <div class="sn">06 / 15</div>
   </section>
 
   <!-- ── 07 FEMA INGEST ── -->
@@ -534,7 +536,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">07 / 14</div>
+    <div class="sn">07 / 15</div>
   </section>
 
   <!-- ── 08 SCREEN: MISSION START ── -->
@@ -555,7 +557,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">08 / 14</div>
+    <div class="sn">08 / 15</div>
   </section>
 
   <!-- ── 09 SCREEN: BACKGROUND ── -->
@@ -576,7 +578,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">09 / 14</div>
+    <div class="sn">09 / 15</div>
   </section>
 
   <!-- ── 10 SCREEN: DRONE / DJI ── -->
@@ -597,7 +599,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">10 / 14</div>
+    <div class="sn">10 / 15</div>
   </section>
 
   <!-- ── 11 SCREEN: MAP / DASHBOARD ── -->
@@ -618,7 +620,7 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">11 / 14</div>
+    <div class="sn">11 / 15</div>
   </section>
 
   <!-- ── 12 INTEGRATIONS ── -->
@@ -641,7 +643,7 @@ em.amber { color: var(--amber); font-style: normal; }
       <div class="int-card"><div class="cat">infra</div><h4>DigitalOcean + nginx</h4><p>Single Droplet, self-hostable. nginx reverse-proxy. Let's Encrypt TLS. PM2 supervised.</p><div class="meta">Ubuntu 20.04</div></div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">12 / 14</div>
+    <div class="sn">12 / 15</div>
   </section>
 
   <!-- ── 13 PRIVACY ── -->
@@ -690,11 +692,50 @@ em.amber { color: var(--amber); font-style: normal; }
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
-    <div class="sn">13 / 14</div>
+    <div class="sn">13 / 15</div>
+  </section>
+
+  <!-- ── 14 SYSTEM IN ACTION ── -->
+  <section id="slog" data-screen-label="14 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
+    <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:0;">
+      <span class="tag">System in Action</span>
+      <h2 style="margin-top:28px;font-size:52px;font-weight:700;line-height:1.1;letter-spacing:-1.5px;margin-bottom:24px;">Real logs.<br><em style="color:var(--amber);font-style:normal;">June 7, 2026.</em></h2>
+      <p style="font-size:19px;color:var(--muted);line-height:1.65;margin-bottom:40px;">Demo AMBER Alert injected. Two volunteers — one phone, one drone — both hit 99% peak confidence on plate YVJ024.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--amber);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">47 s</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">alert-to-hit · phone</div></div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--amber);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">4 s</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">stream-to-hit · drone</div></div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--green);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">99%</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">peak confidence · both</div></div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--sky);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">193</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">alerted events · session</div></div>
+      </div>
+    </div>
+    <div style="flex:1;background:#070b10;border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;font-family:'JetBrains Mono','Menlo','Consolas',monospace;">
+      <div style="display:flex;align-items:center;gap:7px;padding:12px 18px;background:#111827;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:inline-block;flex-shrink:0;"></span><span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e;display:inline-block;flex-shrink:0;"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:inline-block;flex-shrink:0;"></span><span style="margin-left:8px;font-size:12px;color:rgba(255,255,255,0.25);">ambers-angels-api  ·  2026-06-07 UTC</span></div>
+      <div style="padding:18px 22px;font-size:11.5px;line-height:1.75;">
+        <div style="color:rgba(255,255,255,0.2);font-size:10.5px;margin-bottom:8px;letter-spacing:0.4px;">── Phone Pipeline ─────────────────────────────────────────────</div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:15:57</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;">ALERT</span><span style="color:rgba(255,255,255,0.75);">FEMA IPAWS — AMBER Alert ingested &nbsp;<span style="color:rgba(255,255,255,0.32);">plate=YVJ024 · white sedan · Carroll Co., GA</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:15:57</span><span style="color:rgba(255,255,255,0.4);min-width:60px;flex-shrink:0;font-weight:700;">NOTIFY</span><span style="color:rgba(255,255,255,0.75);">3 volunteers in coverage area — mission push sent</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:00</span><span style="color:rgba(255,255,255,0.4);min-width:60px;flex-shrink:0;font-weight:700;">MISSION</span><span style="color:rgba(255,255,255,0.75);">phone-1 · mission opened · camera scanning active</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:20</span><span style="color:#7dd3fc;min-width:60px;flex-shrink:0;font-weight:700;">SCAN</span><span style="color:rgba(255,255,255,0.75);">/ingest/frame · 1 frame/sec · OpenALPR + YOLO</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:43</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=YVJ024 · conf=90.2%→95.15% composite · <strong style="color:#22c55e;">MATCH</strong> &nbsp;<span style="color:rgba(255,255,255,0.32);">watchlist hit · vehicle: white sedan ✓</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:43</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;">ALERT</span><span style="color:rgba(255,255,255,0.75);">Discord dispatched · frame attached · <strong style="color:#f59e0b;">← 47 s alert-to-hit</strong></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:48</span><span style="color:#22c55e;min-width:60px;flex-shrink:0;font-weight:700;">PEAK</span><span style="color:rgba(255,255,255,0.75);">conf=99.00% · aggregation window saturated</span></div>
+        <div style="color:rgba(255,255,255,0.2);font-size:10.5px;margin:10px 0 8px;letter-spacing:0.4px;">── Drone Pipeline (DJI Avata, same session) ───────────────────</div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:00</span><span style="color:#a78bfa;min-width:60px;flex-shrink:0;font-weight:700;">STREAM</span><span style="color:rgba(255,255,255,0.75);">DJI Avata → rtmp://amberangels.org/live/avata</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:05</span><span style="color:#a78bfa;min-width:60px;flex-shrink:0;font-weight:700;">PROC</span><span style="color:rgba(255,255,255,0.75);">rtmp_monitor → ffmpeg spawned · 3 fps frame extraction</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:14</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=SYVJ0Z4 · conf=86.8% · PROBABLE &nbsp;<span style="color:rgba(255,255,255,0.32);">fuzzy: len=7≠6 · Z↔2 OCR variant · dismissed</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:19</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=YVJ024 · conf=86.81% · <strong style="color:#22c55e;">MATCH</strong> &nbsp;<span style="color:rgba(255,255,255,0.32);">len=6 ✓ · 0-char delta · escalating</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:20</span><span style="color:#fbbf24;min-width:60px;flex-shrink:0;font-weight:700;">AGG</span><span style="color:rgba(255,255,255,0.75);">aggregation window filling · composite confidence rising...</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:34</span><span style="color:#22c55e;min-width:60px;flex-shrink:0;font-weight:700;">PEAK</span><span style="color:rgba(255,255,255,0.75);">conf=99.00% · sustained · 193 alerted events · 5m 42s</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:34</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;">ALERT</span><span style="color:rgba(255,255,255,0.75);">Discord dispatched · frame attached · <strong style="color:#f59e0b;">← 4 s stream-to-alert</strong></span></div>
+        <div style="color:#f59e0b;animation:blink 1.2s step-end infinite;font-size:13px;margin-top:6px;display:inline-block;">█</div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">14 / 15</div>
   </section>
 
   <!-- ── 14 CLOSE ── -->
-  <section id="s14" data-screen-label="14 Close">
+  <section id="s15" data-screen-label="15 Close">
     <img src="mobile/assets/icon.png" class="s14-logo" alt="AA">
     <div class="s14-org">AMBER Angels</div>
     <h2 class="s14-h">Composite scoring,<br>evidence-only frame retention,<br>privacy by topology.</h2>
@@ -704,7 +745,7 @@ em.amber { color: var(--amber); font-style: normal; }
       <div><div class="s14-c-l">Email</div><div class="s14-c-v">info@amberangels.org</div></div>
       <div><div class="s14-c-l">Web</div><div class="s14-c-v">amberangels.org</div></div>
     </div>
-    <div class="sn" style="color:rgba(12,10,5,0.35);">14 / 14</div>
+    <div class="sn" style="color:rgba(12,10,5,0.35);">15 / 15</div>
   </section>
 
 </deck-stage>

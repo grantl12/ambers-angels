@@ -89,6 +89,7 @@ section{
 .close-foot .num{font-family:'JetBrains Mono',monospace;font-size:80px;font-weight:700;color:var(--amber);line-height:1;letter-spacing:-2px;}
 .close-foot .lbl{font-size:22px;color:var(--muted);max-width:900px;line-height:1.5;}
 .close-foot .lbl strong{color:#fff;font-weight:600;}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 </style>
 <script type="application/json" id="speaker-notes">
 [
@@ -97,6 +98,7 @@ section{
 "James is a Part 107 pilot with a Mavic 3 and an afternoon free. He flies to the reported last-known location, launches, and begins a lawnmower search pattern over a large parking complex. He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server. This is the heavyweight mode — the volunteer who shows up with FAA-certified hardware and time to fly. One drone covers a parking complex faster than a dozen cars could.",
 "DeShawn is an Uber Eats driver who covers thirty miles of delivery routes every weekday. During an active AMBER Alert in his zone, he mounts his phone, opens AA, taps START MISSION, and goes back to picking up orders. The app runs silently in the background — no interaction required. By the end of his shift he's scanned nearly two thousand plates across neighborhoods no fixed camera ever sees. The system flags a partial plate match at seven forty-three PM; coordinators cross-reference it and notify local officers. DeShawn doesn't know any of that. He just delivered dinner.",
 "Gilberto has his Part 107, a Mavic 3, and a BVLOS waiver on file — but today he can't leave. He's home with the kids. He opens the Autonomous Missions screen, powers on the drone in his backyard, and taps Join Swarm. The app sends a heartbeat every thirty seconds with his drone's home position. Two miles away, the coordinator sees an amber icon appear on the mission map: Mavic Three — Gilberto — online. When the next alert fires within range, his drone is dispatched automatically.",
+"Behind every volunteer story is the system logging every second. June 7 end-to-end test — real output, not a demo mode. A phone volunteer like Maria or DeShawn: FEMA alert in, push sent, mission opened, plate YVJ024 confirmed in 47 seconds. A drone volunteer like Gilberto, relinquishing from home: DJI Avata streaming, first fuzzy read correctly dismissed, confirmed match in under four seconds from stream start. Both hit 99% peak confidence on the same plate. 193 alerted events in one session. They didn't have to be on the same road, in the same city, or even know each other. They just had to have the app.",
 "Every mode is enough. Together they cover what fixed cameras can't. Maria's eighteen minutes. James's parking complex. DeShawn's two thousand plates. Gilberto's standby drone. None of them is the system. All of them are."
 ]
 </script>
@@ -137,7 +139,7 @@ section{
         <span class="quote">Couldn't leave the house. Powered up the drone in the backyard. Tapped Join Swarm.</span>
       </div>
     </div>
-    <div class="sn">01 / 06</div>
+    <div class="sn">01 / 07</div>
   </section>
 
   <!-- 02 MARIA -->
@@ -163,7 +165,7 @@ section{
         <div class="caption">Android Foreground Service · <span class="a">persistent notification visible</span> · screen can lock</div>
       </div>
     </div>
-    <div class="sn">02 / 06</div>
+    <div class="sn">02 / 07</div>
   </section>
 
   <!-- 03 JAMES -->
@@ -189,7 +191,7 @@ section{
         </div>
       </div>
     </div>
-    <div class="sn">03 / 06</div>
+    <div class="sn">03 / 07</div>
   </section>
 
   <!-- 04 DESHAWN -->
@@ -216,7 +218,7 @@ section{
         <div class="caption">Tap once · drive your route · <span class="a">notification lives at the top of the tray</span></div>
       </div>
     </div>
-    <div class="sn">04 / 06</div>
+    <div class="sn">04 / 07</div>
   </section>
 
   <!-- 05 GILBERTO -->
@@ -243,11 +245,50 @@ section{
         </div>
       </div>
     </div>
-    <div class="sn">05 / 06</div>
+    <div class="sn">05 / 07</div>
   </section>
 
   <!-- 06 CLOSING -->
-  <section id="s6" data-screen-label="06 Every Mode">
+  <!-- ── 06 SYSTEM IN ACTION ── -->
+  <section id="slog" data-screen-label="06 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
+    <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:0;">
+      <span class="tag">System in Action</span>
+      <h2 style="margin-top:28px;font-size:52px;font-weight:700;line-height:1.1;letter-spacing:-1.5px;margin-bottom:24px;">Real logs.<br><em style="color:var(--amber);font-style:normal;">June 7, 2026.</em></h2>
+      <p style="font-size:19px;color:var(--muted);line-height:1.65;margin-bottom:40px;">Demo AMBER Alert injected. Two volunteers — one phone, one drone — both hit 99% peak confidence on plate YVJ024.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--amber);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">47 s</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">alert-to-hit · phone</div></div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--amber);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">4 s</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">stream-to-hit · drone</div></div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--green);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">99%</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">peak confidence · both</div></div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;"><div style="font-size:36px;font-weight:700;color:var(--sky);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">193</div><div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">alerted events · session</div></div>
+      </div>
+    </div>
+    <div style="flex:1;background:#070b10;border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;font-family:'JetBrains Mono','Menlo','Consolas',monospace;">
+      <div style="display:flex;align-items:center;gap:7px;padding:12px 18px;background:#111827;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:inline-block;flex-shrink:0;"></span><span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e;display:inline-block;flex-shrink:0;"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:inline-block;flex-shrink:0;"></span><span style="margin-left:8px;font-size:12px;color:rgba(255,255,255,0.25);">ambers-angels-api  ·  2026-06-07 UTC</span></div>
+      <div style="padding:18px 22px;font-size:11.5px;line-height:1.75;">
+        <div style="color:rgba(255,255,255,0.2);font-size:10.5px;margin-bottom:8px;letter-spacing:0.4px;">── Phone Pipeline ─────────────────────────────────────────────</div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:15:57</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;">ALERT</span><span style="color:rgba(255,255,255,0.75);">FEMA IPAWS — AMBER Alert ingested &nbsp;<span style="color:rgba(255,255,255,0.32);">plate=YVJ024 · white sedan · Carroll Co., GA</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:15:57</span><span style="color:rgba(255,255,255,0.4);min-width:60px;flex-shrink:0;font-weight:700;">NOTIFY</span><span style="color:rgba(255,255,255,0.75);">3 volunteers in coverage area — mission push sent</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:00</span><span style="color:rgba(255,255,255,0.4);min-width:60px;flex-shrink:0;font-weight:700;">MISSION</span><span style="color:rgba(255,255,255,0.75);">phone-1 · mission opened · camera scanning active</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:20</span><span style="color:#7dd3fc;min-width:60px;flex-shrink:0;font-weight:700;">SCAN</span><span style="color:rgba(255,255,255,0.75);">/ingest/frame · 1 frame/sec · OpenALPR + YOLO</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:43</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=YVJ024 · conf=90.2%→95.15% composite · <strong style="color:#22c55e;">MATCH</strong> &nbsp;<span style="color:rgba(255,255,255,0.32);">watchlist hit · vehicle: white sedan ✓</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:43</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;">ALERT</span><span style="color:rgba(255,255,255,0.75);">Discord dispatched · frame attached · <strong style="color:#f59e0b;">← 47 s alert-to-hit</strong></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:48</span><span style="color:#22c55e;min-width:60px;flex-shrink:0;font-weight:700;">PEAK</span><span style="color:rgba(255,255,255,0.75);">conf=99.00% · aggregation window saturated</span></div>
+        <div style="color:rgba(255,255,255,0.2);font-size:10.5px;margin:10px 0 8px;letter-spacing:0.4px;">── Drone Pipeline (DJI Avata, same session) ───────────────────</div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:00</span><span style="color:#a78bfa;min-width:60px;flex-shrink:0;font-weight:700;">STREAM</span><span style="color:rgba(255,255,255,0.75);">DJI Avata → rtmp://amberangels.org/live/avata</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:05</span><span style="color:#a78bfa;min-width:60px;flex-shrink:0;font-weight:700;">PROC</span><span style="color:rgba(255,255,255,0.75);">rtmp_monitor → ffmpeg spawned · 3 fps frame extraction</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:14</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=SYVJ0Z4 · conf=86.8% · PROBABLE &nbsp;<span style="color:rgba(255,255,255,0.32);">fuzzy: len=7≠6 · Z↔2 OCR variant · dismissed</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:19</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=YVJ024 · conf=86.81% · <strong style="color:#22c55e;">MATCH</strong> &nbsp;<span style="color:rgba(255,255,255,0.32);">len=6 ✓ · 0-char delta · escalating</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:20</span><span style="color:#fbbf24;min-width:60px;flex-shrink:0;font-weight:700;">AGG</span><span style="color:rgba(255,255,255,0.75);">aggregation window filling · composite confidence rising...</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:34</span><span style="color:#22c55e;min-width:60px;flex-shrink:0;font-weight:700;">PEAK</span><span style="color:rgba(255,255,255,0.75);">conf=99.00% · sustained · 193 alerted events · 5m 42s</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:34</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;">ALERT</span><span style="color:rgba(255,255,255,0.75);">Discord dispatched · frame attached · <strong style="color:#f59e0b;">← 4 s stream-to-alert</strong></span></div>
+        <div style="color:#f59e0b;animation:blink 1.2s step-end infinite;font-size:13px;margin-top:6px;display:inline-block;">█</div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="sn">06 / 07</div>
+  </section>
+
+  <section id="s7" data-screen-label="07 Every Mode">
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
     <div class="cover-eyebrow" style="position:relative;z-index:1;">All four · together</div>
     <h1 class="close-h">Every mode is enough.<br><em>Together they cover what fixed cameras can't.</em></h1>
@@ -282,7 +323,7 @@ section{
       <span class="num">4</span>
       <span class="lbl">volunteer modes &middot; <strong>none of them requires the others.</strong> Every one of them fills a coverage gap fixed cameras can't reach.</span>
     </div>
-    <div class="sn">06 / 06</div>
+    <div class="sn">07 / 07</div>
   </section>
 
 </deck-stage>

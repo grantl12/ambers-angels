@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AMBER Angels — The Platform</title>
+<template id="__bundler_thumbnail" data-bg-color="#050a0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#050a0f"/>
+    <circle cx="600" cy="360" r="180" fill="none" stroke="#f59e0b" stroke-width="6"/>
+    <text x="600" y="395" font-family="system-ui, sans-serif" font-size="180" font-weight="700" fill="#f59e0b" text-anchor="middle">AA</text>
+    <text x="600" y="600" font-family="system-ui, sans-serif" font-size="42" font-weight="600" fill="rgba(255,255,255,0.7)" text-anchor="middle" letter-spacing="6">AMBER ANGELS</text>
+    <text x="600" y="660" font-family="system-ui, sans-serif" font-size="28" font-weight="400" fill="rgba(255,255,255,0.4)" text-anchor="middle" letter-spacing="3">THE PLATFORM</text>
+  </svg>
+</template>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<script type="application/json" id="speaker-notes">
+[
+"AMBER Angels is a privacy-first, AI-powered volunteer search platform that responds to government-issued missing persons alerts — AMBER, Silver, Blue, Purple, and NCMEC. Volunteers use the smartphones and DJI drones they already own. No hardware purchase. No special installation. When an alert fires, the platform notifies volunteers in the affected coverage area, they mount their phones or launch their drones, and the inference pipeline runs in real time.",
+"The platform ingests from three active federal sources simultaneously. FEMA IPAWS CMAS polls every five minutes — this is the federal CAP XML feed covering AMBER Alert, Levi's Call, Silver Alert, Blue Alert, Purple Alert, and MIPA. FEMA IPAWS EAS polls every two minutes — same CAP XML schema, separate federal endpoint, higher frequency. NCMEC RSS polls all fifty individual state feeds every thirty minutes, persisting missing-child cases and cross-referencing them against active vehicle targets. All three share a deduplication table backed by Postgres, so the same alert never fires twice even across restarts.",
+"No hardware required. Volunteers use the smartphones they already own. Background scan mode runs ML Kit OCR entirely on-device — frames never leave the volunteer's phone. Only the plate text and confidence score are transmitted. This is the default mode for most volunteers: mount your phone, tap Start Mission, and go back to your normal drive. Drone volunteers connect their existing DJI hardware. When an alert fires, a pilot can relinquish their drone to coordinator dispatch — power it on at home, join the swarm, and walk away. The coordinator dispatches it from the mission map.",
+"Plate-only ALPR produces false positives roughly thirty percent of the time in real-world conditions. Our Cascade Inference Engine brings that under five percent. Three layers combine: OpenALPR reads plate text and returns a confidence score. YOLOv8-nano classifies the vehicle's body type and dominant color — up to seven additional confidence points when color and body type match the alert profile. A five-second aggregation window collects multiple frames, applies fuzzy matching for common OCR confusions like O-for-zero and Z-for-two, and produces a composite score. HIGH_CONFIDENCE requires score above eighty-five with at least three supporting frames. PROBABLE — seventy-five plus — triggers the Claude Haiku detection agent for secondary evaluation before any alert fires.",
+"The platform responds to five government-issued alert categories: AMBER Alert and Levi's Call for child abduction — extracted from FEMA IPAWS CMAS CAP XML. Silver Alert for at-risk seniors, triggered by CEM event codes with keyword classification. Blue Alert for endangered or missing law enforcement officers, using LEW event codes. Purple Alert for adults with developmental disabilities. NCMEC notifications from the National Center for Missing and Exploited Children — fifty-state coverage, cross-referenced against active FEMA vehicle targets so coordinators see child cases and suspect vehicles together. All alerts are government-issued — the system responds to existing federal and state alert systems, not self-reported incidents.",
+"The autonomous drone swarm is the standout capability. A volunteer who can't respond in person powers on their DJI drone at home, opens the Autonomous Mission screen, and the app sends a heartbeat every thirty seconds with the drone's home GPS position. The coordinator sees an amber drone icon on the mission map at that position. They click anywhere on the map to place an observation point — a road, corridor, or choke point near the alert polygon. The dispatch modal shows an ADS-B airspace advisory — any aircraft within five nautical miles below three thousand feet — before confirmation. The drone flies autonomously to the observation point, streams live RTMP video, and the ALPR pipeline runs in real time without the pilot on scene. Mission lifecycle: pending, dispatched, uploading, executing, completed. VLOS enforces a four-hundred-meter software radius. BVLOS Tactical unlocks extended range when an admin records the FAA Part 107 waiver number.",
+"These are the real log lines from our June 7, 2026 end-to-end test. Demo AMBER Alert for plate YVJ024, white sedan. Phone volunteer: push notification received, mission opened, camera scanning at one frame per second, watchlist match confirmed at 47 seconds from alert ingestion — 95.15% composite confidence, Discord alert with frame attached. Drone volunteer streaming DJI Avata via RTMP: ffmpeg spawned, first read was SYVJ0Z4 — length seven versus watchlist length six, a Z-for-two OCR variant — correctly dismissed. YVJ024 confirmed five seconds later, aggregation window filled, 99% peak confidence sustained, Discord alert in under four seconds from stream start. 193 alerted events in one session. This is real pipeline output, not demo mode.",
+"Privacy is enforced by the system topology, not by policy. Non-matching frames are never written to persistent storage — they pass through RAM for inference and are deleted immediately. No plate sightings database, no accumulation of non-alert vehicle data. The system is event-triggered: between active alerts, the inference pipeline is idle. When a HIGH_CONFIDENCE match fires, one golden evidence frame is saved and attached to the coordinator alert as chain-of-custody evidence. Telemetry purges after ninety days. Detection records after one year. The watchlist holds only plates from active government alerts, never our own sightings. Background volunteers — the ScanService path — never transmit frames at all; only plate text and GPS are sent.",
+"AMBER Angels is a 501(c)(3) nonprofit, EIN 42-2052151. Built on open-source infrastructure — no vendor lock-in, fully auditable stack. FastAPI, PostgreSQL, OpenALPR, YOLOv8, Expo React Native, DJI MSDK 5.17, Next.js, Mapbox. To get involved as a volunteer, coordinator, or partner, reach out at info@amberangels.org."
+]
+</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #f59e0b;
+  --amber-soft: #fbbf24;
+  --sky: #38bdf8;
+  --green: #22c55e;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --ink: #050a0f;
+  --ink2: #0d1117;
+  --ink3: #111827;
+  --ink4: #1a2332;
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.55);
+  --dim: rgba(255,255,255,0.3);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+}
+section {
+  width: 1920px; height: 1080px;
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--ink);
+  color: var(--text);
+  position: relative;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.sn { position: absolute; bottom: 40px; right: 56px; font-size: 24px; color: var(--dim); font-weight: 500; letter-spacing: 1px; }
+.brand { position: absolute; top: 40px; left: 56px; display: flex; align-items: center; gap: 14px; z-index: 5; }
+.brand img { width: 44px; height: 44px; border-radius: 50%; }
+.brand span { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.7); letter-spacing: 0.3px; }
+.brand em { color: var(--amber); font-style: normal; }
+.tag { display: inline-block; font-size: 24px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--amber); border: 1px solid rgba(245,158,11,0.3); padding: 9px 18px; border-radius: 4px; background: rgba(245,158,11,0.07); }
+em.amber { color: var(--amber); font-style: normal; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* 01 title */
+#s1 { display: flex; align-items: center; justify-content: center; }
+#s1::after { content:''; position:absolute; right:-300px; top:-300px; width:1100px; height:1100px; background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 60%); pointer-events:none; }
+#s1::before { content:''; position:absolute; inset:0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(245,158,11,0.012) 2px, rgba(245,158,11,0.012) 3px); }
+#s1 .inner { position: relative; z-index: 2; text-align: center; max-width: 1400px; }
+#s1 .inner .tag { margin-bottom: 40px; }
+#s1 h1 { font-size: 96px; font-weight: 700; line-height: 1.05; letter-spacing: -3px; margin-bottom: 36px; }
+#s1 h1 em { color: var(--amber); font-style: normal; }
+#s1 .sub { font-size: 28px; color: var(--muted); max-width: 1100px; margin: 0 auto 56px; line-height: 1.5; }
+#s1 .badges { display: flex; gap: 20px; justify-content: center; }
+#s1 .badge { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.55); border: 1px solid var(--border-strong); padding: 10px 24px; border-radius: 40px; background: rgba(255,255,255,0.04); letter-spacing: 0.2px; }
+
+/* 02 alert ingestion */
+#s2 { padding: 80px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s2 h2 { font-size: 58px; font-weight: 700; line-height: 1.1; letter-spacing: -1.5px; margin: 24px 0 20px; max-width: 1300px; }
+#s2 h2 em { color: var(--amber); font-style: normal; }
+#s2 .desc { font-size: 22px; color: var(--muted); line-height: 1.6; margin-bottom: 48px; max-width: 1200px; }
+#s2 .sources { display: flex; gap: 24px; margin-bottom: 40px; }
+.src-card { flex: 1; background: var(--ink2); border: 1px solid var(--border); border-radius: 12px; padding: 32px; }
+.src-card .src-label { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--amber); text-transform: uppercase; margin-bottom: 14px; }
+.src-card h3 { font-size: 26px; font-weight: 700; margin-bottom: 10px; }
+.src-card p { font-size: 17px; color: var(--muted); line-height: 1.55; }
+.src-card .freq { display: inline-block; margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--green); background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); padding: 5px 12px; border-radius: 20px; font-family: 'JetBrains Mono', monospace; }
+#s2 .types { display: flex; gap: 12px; align-items: center; }
+#s2 .types .lbl { font-size: 16px; color: var(--dim); margin-right: 4px; }
+.type-chip { font-size: 14px; font-weight: 700; padding: 6px 16px; border-radius: 20px; letter-spacing: 0.3px; }
+.type-amber { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+.type-silver { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+.type-blue { background: rgba(56,189,248,0.1); color: var(--sky); border: 1px solid rgba(56,189,248,0.2); }
+.type-purple { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+.type-ncmec { background: rgba(34,197,94,0.1); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+
+/* 03 volunteer network */
+#s3 { display: flex; }
+#s3 .half { flex: 1; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; }
+#s3 .half:first-child { border-right: 1px solid var(--border); }
+#s3 .half .tag { margin-bottom: 28px; }
+#s3 h2 { font-size: 48px; font-weight: 700; line-height: 1.15; letter-spacing: -1px; margin-bottom: 20px; }
+#s3 h2 em { color: var(--amber); font-style: normal; }
+#s3 .desc { font-size: 21px; color: var(--muted); line-height: 1.6; margin-bottom: 36px; }
+#s3 ul { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+#s3 ul li { display: flex; align-items: flex-start; gap: 14px; font-size: 19px; color: rgba(255,255,255,0.8); line-height: 1.5; }
+#s3 ul li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; margin-top: 2px; font-size: 18px; }
+#s3 .note { margin-top: 32px; font-size: 15px; color: var(--dim); font-family: 'JetBrains Mono', monospace; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid var(--border); }
+
+/* 04 cascade inference */
+#s4 { padding: 80px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s4 h2 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -1.5px; margin: 24px 0 20px; max-width: 1400px; }
+#s4 h2 em { color: var(--amber); font-style: normal; }
+#s4 .sub { font-size: 22px; color: var(--muted); line-height: 1.6; margin-bottom: 48px; max-width: 1200px; }
+#s4 .pipeline { display: flex; align-items: stretch; gap: 0; }
+.pipe-step { flex: 1; background: var(--ink2); border: 1px solid var(--border); padding: 32px 28px; position: relative; }
+.pipe-step:first-child { border-radius: 12px 0 0 12px; }
+.pipe-step:last-child { border-radius: 0 12px 12px 0; }
+.pipe-step + .pipe-step { border-left: none; }
+.pipe-step .ps-label { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--amber); text-transform: uppercase; margin-bottom: 16px; }
+.pipe-step h3 { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+.pipe-step p { font-size: 17px; color: var(--muted); line-height: 1.55; }
+.pipe-arrow { flex: 0 0 48px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--dim); z-index: 1; }
+.threshold-row { display: flex; gap: 20px; margin-top: 32px; }
+.thresh-card { flex: 1; border-radius: 10px; padding: 22px 24px; }
+.thresh-hc { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); }
+.thresh-prob { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2); }
+.thresh-card .score { font-size: 32px; font-weight: 700; letter-spacing: -1px; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; }
+.thresh-hc .score { color: var(--green); }
+.thresh-prob .score { color: var(--amber-soft); }
+.thresh-card p { font-size: 15px; color: var(--muted); line-height: 1.5; }
+
+/* 05 alert types */
+#s5 { padding: 80px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s5 h2 { font-size: 58px; font-weight: 700; line-height: 1.1; letter-spacing: -1.5px; margin: 24px 0 20px; }
+#s5 h2 em { color: var(--amber); font-style: normal; }
+#s5 .sub { font-size: 22px; color: var(--muted); line-height: 1.6; margin-bottom: 52px; max-width: 1200px; }
+#s5 .alert-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; }
+.alert-card { background: var(--ink2); border: 1px solid var(--border); border-radius: 12px; padding: 36px 28px; display: flex; flex-direction: column; gap: 14px; }
+.alert-card .ac-type { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.alert-card h3 { font-size: 26px; font-weight: 700; line-height: 1.2; }
+.alert-card p { font-size: 16px; color: var(--muted); line-height: 1.55; }
+.alert-card .ac-src { font-size: 12px; color: var(--dim); margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; }
+.ac-amber .ac-type { color: var(--amber); }
+.ac-silver .ac-type { color: #94a3b8; }
+.ac-blue .ac-type { color: var(--sky); }
+.ac-purple .ac-type { color: var(--purple); }
+.ac-ncmec .ac-type { color: var(--green); }
+.ac-amber { border-color: rgba(245,158,11,0.18); }
+.ac-silver { border-color: rgba(148,163,184,0.15); }
+.ac-blue { border-color: rgba(56,189,248,0.15); }
+.ac-purple { border-color: rgba(167,139,250,0.15); }
+.ac-ncmec { border-color: rgba(34,197,94,0.15); }
+
+/* 06 autonomous swarm */
+#s6 { display: flex; }
+#s6 .s6-l { flex: 0 0 700px; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid var(--border); }
+#s6 .s6-r { flex: 1; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+#s6 h2 { font-size: 50px; font-weight: 700; line-height: 1.15; letter-spacing: -1px; margin: 24px 0 20px; }
+#s6 h2 em { color: var(--amber); font-style: normal; }
+#s6 .s6-desc { font-size: 21px; color: var(--muted); line-height: 1.6; margin-bottom: 40px; }
+.flow-row { display: flex; align-items: center; gap: 16px; }
+.flow-step { flex: 1; background: var(--ink2); border: 1px solid var(--border); border-radius: 10px; padding: 22px 18px; text-align: center; }
+.flow-step .fs-n { font-size: 32px; font-weight: 700; color: var(--amber); margin-bottom: 8px; }
+.flow-step p { font-size: 16px; color: var(--muted); line-height: 1.45; }
+.flow-arr { font-size: 22px; color: var(--dim); flex-shrink: 0; }
+.swarm-pts { list-style: none; display: flex; flex-direction: column; gap: 18px; }
+.swarm-pts li { display: flex; align-items: flex-start; gap: 16px; font-size: 20px; color: rgba(255,255,255,0.8); line-height: 1.5; }
+.swarm-pts li::before { content: '▶'; color: var(--amber); flex-shrink: 0; font-size: 14px; margin-top: 5px; }
+
+/* 07 privacy */
+#s8 { padding: 80px 96px; display: flex; flex-direction: column; justify-content: center; }
+#s8 h2 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -1.5px; margin: 24px 0 20px; max-width: 1300px; }
+#s8 h2 em { color: var(--amber); font-style: normal; }
+#s8 .sub { font-size: 22px; color: var(--muted); margin-bottom: 48px; line-height: 1.6; max-width: 1200px; }
+.priv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+.priv-card { background: var(--ink2); border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px; }
+.priv-card .pc-icon { font-size: 32px; margin-bottom: 14px; }
+.priv-card h3 { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+.priv-card p { font-size: 17px; color: var(--muted); line-height: 1.6; }
+
+/* 09 close */
+#s9 { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0; }
+#s9::after { content:''; position:absolute; right:-300px; top:-300px; width:1100px; height:1100px; background: radial-gradient(circle, rgba(245,158,11,0.09) 0%, transparent 60%); pointer-events:none; }
+#s9 img.s9-logo { width: 100px; height: 100px; border-radius: 50%; margin-bottom: 28px; position: relative; z-index: 2; }
+#s9 .s9-org { font-size: 28px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 1px; margin-bottom: 20px; position: relative; z-index: 2; }
+#s9 h2.s9-h { font-size: 72px; font-weight: 700; line-height: 1.1; letter-spacing: -2px; text-align: center; margin-bottom: 40px; position: relative; z-index: 2; }
+#s9 h2.s9-h em { color: var(--amber); font-style: normal; }
+#s9 .s9-stack { font-size: 16px; color: var(--dim); text-align: center; margin-bottom: 52px; font-family: 'JetBrains Mono', monospace; position: relative; z-index: 2; max-width: 1200px; line-height: 1.7; }
+.s9-contact { display: flex; gap: 48px; position: relative; z-index: 2; }
+.s9-c-item { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.s9-c-label { font-size: 14px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
+.s9-c-val { font-size: 22px; font-weight: 600; color: rgba(255,255,255,0.85); }
+</style>
+</head>
+<body>
+
+<deck-stage>
+
+  <!-- ── 01 TITLE ── -->
+  <section id="s1" data-screen-label="01 Title">
+    <div class="inner">
+      <span class="tag">Volunteer Platform</span>
+      <h1>Every alert. Every road.<br><em>Every volunteer.</em></h1>
+      <p class="sub">The AI-powered missing persons search network that puts eyes on every escape route — without buying a single camera or hiring a single operator.</p>
+      <div class="badges">
+        <span class="badge">501(c)(3) Nonprofit</span>
+        <span class="badge">3 Federal Alert Sources</span>
+        <span class="badge">2 Volunteer Modes</span>
+        <span class="badge">Privacy by Topology</span>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">1 / 9</div>
+  </section>
+
+  <!-- ── 02 ALERT INGESTION ── -->
+  <section id="s2" data-screen-label="02 Alert Ingestion">
+    <span class="tag">3 Active Sources</span>
+    <h2>When a child goes missing,<br>the platform knows <em>in minutes.</em></h2>
+    <p class="desc">Three simultaneous federal polling sources, all sharing a single Postgres-backed deduplication table. The same alert never fires twice, even across server restarts.</p>
+    <div class="sources">
+      <div class="src-card">
+        <div class="src-label">FEMA IPAWS CMAS</div>
+        <h3>CAP XML · federal alerts</h3>
+        <p>AMBER, Levi's Call, Silver, Blue, Purple, MIPA, EMA. Plate and vehicle profile extracted from CAP XML. Watchlist updated immediately on ingest.</p>
+        <span class="freq">poll: 5 min</span>
+      </div>
+      <div class="src-card">
+        <div class="src-label">FEMA IPAWS EAS</div>
+        <h3>Same format, higher frequency</h3>
+        <p>Separate federal endpoint, same CAP XML schema. Catches alerts that reach EAS before CMAS. Both sources share the same deduplication set.</p>
+        <span class="freq">poll: 2 min</span>
+      </div>
+      <div class="src-card">
+        <div class="src-label">NCMEC RSS · 50 states</div>
+        <h3>Missing child cross-reference</h3>
+        <p>All fifty individual state feeds polled in parallel. New cases cross-referenced against active FEMA vehicle targets — Discord fires only when a matching vehicle is in the system.</p>
+        <span class="freq">poll: 30 min</span>
+      </div>
+    </div>
+    <div class="types">
+      <span class="lbl">Alert types:</span>
+      <span class="type-chip type-amber">AMBER / Levi's Call</span>
+      <span class="type-chip type-silver">Silver Alert</span>
+      <span class="type-chip type-blue">Blue Alert</span>
+      <span class="type-chip type-purple">Purple Alert</span>
+      <span class="type-chip type-ncmec">NCMEC</span>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">2 / 9</div>
+  </section>
+
+  <!-- ── 03 VOLUNTEER NETWORK ── -->
+  <section id="s3" data-screen-label="03 Volunteer Network">
+    <div class="half">
+      <span class="tag">Phone Mode</span>
+      <h2>The drive you were<br>already <em>taking.</em></h2>
+      <p class="desc">Background scan runs ML Kit OCR entirely on-device. Frames never leave the volunteer's phone — only plate text and confidence score are transmitted.</p>
+      <ul>
+        <li>Mount your phone. Tap Start Mission. Drive normally.</li>
+        <li>Works while navigation, music, or other apps are open</li>
+        <li>Persistent notification with live frame count and one-tap stop</li>
+        <li>No extra hardware — uses the smartphone you already own</li>
+      </ul>
+      <div class="note">ScanService · ML Kit OCR · on-device · frames never leave phone</div>
+    </div>
+    <div class="half">
+      <span class="tag">Drone Mode</span>
+      <h2>Pilot powers on at home.<br>Drone responds <em>without them.</em></h2>
+      <p class="desc">Volunteers relinquish their personal DJI drone to coordinator dispatch. Same aerial ALPR capability a fixed vendor charges $40K/unit for — with volunteer hardware.</p>
+      <ul>
+        <li>Power on → join swarm → walk away. App sends 30-second heartbeats.</li>
+        <li>Coordinator places observation point by clicking directly on the mission map</li>
+        <li>DJI MSDK uploads waypoints, drone executes autonomously</li>
+        <li>ADS-B airspace advisory shown before every dispatch confirmation</li>
+      </ul>
+      <div class="note">DJI MSDK 5.17 · RTMP live stream · ALPR + YOLO inference · VLOS + BVLOS modes</div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">3 / 9</div>
+  </section>
+
+  <!-- ── 04 CASCADE INFERENCE ── -->
+  <section id="s4" data-screen-label="04 Cascade Inference">
+    <span class="tag">Cascade Inference Engine</span>
+    <h2>Plate-only ALPR is wrong 30% of the time.<br>We're wrong <em>less than 5%.</em></h2>
+    <p class="sub">Three independent signals must agree before an alert fires. The aggregation window catches OCR confusions and partial reads that single-frame systems miss entirely.</p>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="ps-label">Signal 1</div>
+        <h3>OpenALPR</h3>
+        <p>Plate text + confidence score. Highest-frame weighted (50%), mean (30%), median (10%), plus repetition bonus and quality penalty for blur / partial reads.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="ps-label">Signal 2</div>
+        <h3>YOLOv8-nano</h3>
+        <p>Vehicle body type and dominant color classification. Up to 7 additional confidence points when color and body type match the FEMA alert profile. Both signals must agree.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="ps-label">Aggregation</div>
+        <h3>5-second window</h3>
+        <p>Groups detections by drone and plate prefix. Fuzzy matching handles OCR confusions: O↔0, B↔8, Z↔2, S↔5. Composite score computed across all frames in window.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="ps-label">Decision</div>
+        <h3>Composite score</h3>
+        <p>HIGH_CONFIDENCE fires Discord + optional SMS. PROBABLE triggers the Claude Haiku detection agent for secondary evaluation. Below PROBABLE: no event, no alert.</p>
+      </div>
+    </div>
+    <div class="threshold-row">
+      <div class="thresh-card thresh-hc">
+        <div class="score">≥ 85%</div>
+        <p><strong>HIGH_CONFIDENCE</strong> — requires ≥ 3 frames. Discord alert fires immediately. Golden evidence frame saved. Optional Twilio SMS dispatched.</p>
+      </div>
+      <div class="thresh-card thresh-prob">
+        <div class="score">75–85%</div>
+        <p><strong>PROBABLE</strong> — requires ≥ 2 frames. Claude Haiku agent evaluates: active alerts nearby? Recent detections? Confirm or dismiss.</p>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">4 / 9</div>
+  </section>
+
+  <!-- ── 05 FIVE ALERT TYPES ── -->
+  <section id="s5" data-screen-label="05 Five Alert Types">
+    <span class="tag">Alert Coverage</span>
+    <h2>Five government-issued alert categories.<br><em>All active. All real-time.</em></h2>
+    <p class="sub">Volunteers respond to existing federal and state alert systems — not self-reported incidents. Every alert is government-issued before the watchlist is updated.</p>
+    <div class="alert-grid">
+      <div class="alert-card ac-amber">
+        <div class="ac-type">AMBER / Levi's Call</div>
+        <h3>Child Abduction</h3>
+        <p>Federal CAP XML. Plate and vehicle profile extracted automatically. Watchlist updated within seconds of FEMA issuance.</p>
+        <div class="ac-src">FEMA IPAWS CMAS + EAS · CAE event code</div>
+      </div>
+      <div class="alert-card ac-silver">
+        <div class="ac-type">Silver Alert</div>
+        <h3>At-Risk Senior</h3>
+        <p>CEM event code with keyword classification. Same plate extraction and volunteer dispatch pipeline as AMBER.</p>
+        <div class="ac-src">FEMA IPAWS CMAS · CEM event code</div>
+      </div>
+      <div class="alert-card ac-blue">
+        <div class="ac-type">Blue Alert</div>
+        <h3>Endangered Officer</h3>
+        <p>Law enforcement officer missing or endangered. LEW event code triggers the same ALPR + YOLO pipeline and coordinator Discord channel.</p>
+        <div class="ac-src">FEMA IPAWS CMAS · LEW event code</div>
+      </div>
+      <div class="alert-card ac-purple">
+        <div class="ac-type">Purple Alert</div>
+        <h3>Developmental Disability</h3>
+        <p>Missing adult with a developmental disability. CEM event code with Purple Alert keyword match. Same response pipeline.</p>
+        <div class="ac-src">FEMA IPAWS CMAS · CEM event code</div>
+      </div>
+      <div class="alert-card ac-ncmec">
+        <div class="ac-type">NCMEC</div>
+        <h3>Missing Child</h3>
+        <p>50-state RSS cross-referenced against active FEMA vehicle targets. Discord fires only when a matching vehicle is already in the system — no actionable alert without a vehicle to search for.</p>
+        <div class="ac-src">NCMEC RSS · 50-state feed · 30-min poll</div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">5 / 9</div>
+  </section>
+
+  <!-- ── 06 AUTONOMOUS SWARM ── -->
+  <section id="s6" data-screen-label="06 Autonomous Swarm">
+    <div class="s6-l">
+      <span class="tag">Autonomous Drone Swarm</span>
+      <h2>Pilot powers on at home.<br>Drone responds <em>without them.</em></h2>
+      <p class="s6-desc">The same aerial ALPR capability that Flock Safety sells as a company-owned product at $40K/unit — with volunteer-owned hardware and zero incremental cost per added drone.</p>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="fs-n">01</div>
+          <p>Power on drone at home. Open Autonomous Mission screen.</p>
+        </div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step">
+          <div class="fs-n">02</div>
+          <p>App sends GPS heartbeat every 30 s. Drone appears on coordinator map.</p>
+        </div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step">
+          <div class="fs-n">03</div>
+          <p>Coordinator clicks map → places observation point → confirms dispatch.</p>
+        </div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step">
+          <div class="fs-n">04</div>
+          <p>DJI SDK uploads waypoints. Drone executes. ALPR runs on live stream.</p>
+        </div>
+      </div>
+    </div>
+    <div class="s6-r">
+      <ul class="swarm-pts">
+        <li>No pilot on scene required — removes the physical-presence bottleneck that limits volunteer response at scale</li>
+        <li>ADS-B airspace advisory surfaces any aircraft within 5 nm / below 3,000 ft before every dispatch confirmation</li>
+        <li>VLOS mode enforces 400 m software radius from drone home position per FAA Part 107</li>
+        <li>BVLOS Tactical unlocks extended range when admin records FAA Part 107.39 waiver number</li>
+        <li>Mission lifecycle tracked in real time: pending → dispatched → uploading → executing → completed / aborted</li>
+        <li>Timeouts: 30 min for pending/unaccepted missions, 4 hours for executing missions</li>
+      </ul>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">6 / 9</div>
+  </section>
+
+  <!-- ── 07 SYSTEM IN ACTION ── -->
+  <section id="s7" data-screen-label="07 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
+    <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:0;">
+      <span class="tag">System in Action</span>
+      <h2 style="margin-top:28px;font-size:52px;font-weight:700;line-height:1.1;letter-spacing:-1.5px;margin-bottom:24px;">Real logs.<br><em style="color:var(--amber);font-style:normal;">June 7, 2026.</em></h2>
+      <p style="font-size:19px;color:var(--muted);line-height:1.65;margin-bottom:40px;">Demo AMBER Alert injected. Two volunteers — one phone, one drone — both hit 99% peak confidence on plate YVJ024.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;">
+          <div style="font-size:36px;font-weight:700;color:var(--amber);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">47 s</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">alert-to-hit · phone</div>
+        </div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;">
+          <div style="font-size:36px;font-weight:700;color:var(--amber);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">4 s</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">stream-to-hit · drone</div>
+        </div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;">
+          <div style="font-size:36px;font-weight:700;color:var(--green);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">99%</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">peak confidence · both</div>
+        </div>
+        <div style="background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:22px;">
+          <div style="font-size:36px;font-weight:700;color:var(--sky);letter-spacing:-1px;font-family:'Space Grotesk',sans-serif;">193</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono','Menlo',monospace;">alerted events · session</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;background:#070b10;border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;font-family:'JetBrains Mono','Menlo','Consolas',monospace;">
+      <div style="display:flex;align-items:center;gap:7px;padding:12px 18px;background:#111827;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:inline-block;flex-shrink:0;"></span>
+        <span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e;display:inline-block;flex-shrink:0;"></span>
+        <span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:inline-block;flex-shrink:0;"></span>
+        <span style="margin-left:8px;font-size:12px;color:rgba(255,255,255,0.25);">ambers-angels-api  ·  2026-06-07 UTC</span>
+      </div>
+      <div style="padding:18px 22px;font-size:11.5px;line-height:1.75;">
+        <div style="color:rgba(255,255,255,0.2);font-size:10.5px;margin-bottom:8px;letter-spacing:0.4px;">── Phone Pipeline ─────────────────────────────────────────────</div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:15:57</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">ALERT</span><span style="color:rgba(255,255,255,0.75);">FEMA IPAWS — AMBER Alert ingested &nbsp;<span style="color:rgba(255,255,255,0.32);">plate=YVJ024 · white sedan · Carroll Co., GA</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:15:57</span><span style="color:rgba(255,255,255,0.4);min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">NOTIFY</span><span style="color:rgba(255,255,255,0.75);">3 volunteers in coverage area — mission push sent</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:00</span><span style="color:rgba(255,255,255,0.4);min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">MISSION</span><span style="color:rgba(255,255,255,0.75);">phone-1 · mission opened · camera scanning active</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:20</span><span style="color:#7dd3fc;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">SCAN</span><span style="color:rgba(255,255,255,0.75);">/ingest/frame · 1 frame/sec · OpenALPR + YOLO</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:43</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=YVJ024 · conf=90.2%→95.15% composite · <strong style="color:#22c55e;">MATCH</strong> &nbsp;<span style="color:rgba(255,255,255,0.32);">watchlist hit · vehicle: white sedan ✓</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:43</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">ALERT</span><span style="color:rgba(255,255,255,0.75);">Discord dispatched · frame attached · <strong style="color:#f59e0b;">← 47 s alert-to-hit</strong></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">14:16:48</span><span style="color:#22c55e;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">PEAK</span><span style="color:rgba(255,255,255,0.75);">conf=99.00% · aggregation window saturated</span></div>
+        <div style="color:rgba(255,255,255,0.2);font-size:10.5px;margin:10px 0 8px;letter-spacing:0.4px;">── Drone Pipeline (DJI Avata, same session) ───────────────────</div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:00</span><span style="color:#a78bfa;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">STREAM</span><span style="color:rgba(255,255,255,0.75);">DJI Avata → rtmp://amberangels.org/live/avata</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:05</span><span style="color:#a78bfa;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">PROC</span><span style="color:rgba(255,255,255,0.75);">rtmp_monitor → ffmpeg spawned · 3 fps frame extraction</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:14</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=SYVJ0Z4 · conf=86.8% · PROBABLE &nbsp;<span style="color:rgba(255,255,255,0.32);">fuzzy: len=7≠6 · Z↔2 OCR variant · dismissed</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:19</span><span style="color:#38bdf8;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">READ</span><span style="color:rgba(255,255,255,0.75);">plate=YVJ024 · conf=86.81% · <strong style="color:#22c55e;">MATCH</strong> &nbsp;<span style="color:rgba(255,255,255,0.32);">len=6 ✓ · 0-char delta · escalating</span></span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:20</span><span style="color:#fbbf24;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">AGG</span><span style="color:rgba(255,255,255,0.75);">aggregation window filling · composite confidence rising...</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:34</span><span style="color:#22c55e;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">PEAK</span><span style="color:rgba(255,255,255,0.75);">conf=99.00% · sustained · 193 alerted events · 5m 42s</span></div>
+        <div style="display:flex;gap:10px;"><span style="color:rgba(255,255,255,0.22);flex-shrink:0;width:60px;">15:09:34</span><span style="color:#f59e0b;min-width:60px;flex-shrink:0;font-weight:700;letter-spacing:0.3px;">ALERT</span><span style="color:rgba(255,255,255,0.75);">Discord dispatched · frame attached · <strong style="color:#f59e0b;">← 4 s stream-to-alert</strong></span></div>
+        <div style="color:#f59e0b;animation:blink 1.2s step-end infinite;font-size:13px;margin-top:6px;display:inline-block;">█</div>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">7 / 9</div>
+  </section>
+
+  <!-- ── 08 PRIVACY ── -->
+  <section id="s8" data-screen-label="08 Privacy Model">
+    <span class="tag">Privacy by Topology</span>
+    <h2>Enforced by architecture.<br><em>Not by policy.</em></h2>
+    <p class="sub">The system cannot surveil — not because we've written a policy against it, but because the data path doesn't permit it. Non-matching frames are deleted on processing, never written to disk.</p>
+    <div class="priv-grid">
+      <div class="priv-card">
+        <div class="pc-icon">🚫</div>
+        <h3>No frame archive</h3>
+        <p>Non-matching frames pass through RAM for inference and are deleted immediately. No video stored, no mass plate logging, no accumulation of innocent drivers' data. Between active alerts, the inference pipeline is completely idle.</p>
+      </div>
+      <div class="priv-card">
+        <div class="pc-icon">🔒</div>
+        <h3>Background mode: frames never leave the phone</h3>
+        <p>ScanService runs ML Kit OCR entirely on-device. Only plate text and confidence score are transmitted — never the image. This is the default mode for most volunteers, and this guarantee is architectural, not configurable.</p>
+      </div>
+      <div class="priv-card">
+        <div class="pc-icon">📋</div>
+        <h3>Watchlist: government alerts only</h3>
+        <p>The watchlist is populated exclusively from active FEMA IPAWS and NCMEC government alerts. The system never builds its own plate sightings database. A plate not on an active alert is never stored.</p>
+      </div>
+      <div class="priv-card">
+        <div class="pc-icon">📁</div>
+        <h3>Evidence retained, surveillance never</h3>
+        <p>When HIGH_CONFIDENCE fires, one golden evidence frame is saved as chain-of-custody documentation — attached to the coordinator alert, stored with the detection record. Telemetry purges at 90 days. Detection records at 1 year. That's the full retention surface.</p>
+      </div>
+    </div>
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
+    <div class="sn">8 / 9</div>
+  </section>
+
+  <!-- ── 09 CONTACT ── -->
+  <section id="s9" data-screen-label="09 Contact">
+    <img src="mobile/assets/icon.png" class="s9-logo" alt="AA">
+    <div class="s9-org">AMBER Angels · 501(c)(3) · EIN 42-2052151</div>
+    <h2 class="s9-h">Technology that protects the innocent<br>without <em>surveilling them.</em></h2>
+    <div class="s9-stack">FastAPI · PostgreSQL · OpenALPR · YOLOv8 · Claude Haiku · Expo · React Native · DJI MSDK 5.17 · Next.js · Mapbox · FEMA IPAWS · NCMEC · PM2</div>
+    <div class="s9-contact">
+      <div class="s9-c-item"><div class="s9-c-label">Founder</div><div class="s9-c-val">Grant Lindberg</div></div>
+      <div class="s9-c-item"><div class="s9-c-label">Email</div><div class="s9-c-val">info@amberangels.org</div></div>
+      <div class="s9-c-item"><div class="s9-c-label">Web</div><div class="s9-c-val">amberangels.org</div></div>
+      <div class="s9-c-item"><div class="s9-c-label">Address</div><div class="s9-c-val">103 Springwood Dr, Carrollton GA 30117</div></div>
+    </div>
+  </section>
+
+</deck-stage>
+
+</body>
+</html>

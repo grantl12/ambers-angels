@@ -311,7 +311,8 @@ Five decks at `web/public/decks/`, each served via a Next.js iframe route:
 | `tech.html` | `/deck/tech` | Technical architecture deck |
 | `volunteer-stories.html` | `/deck/stories` | Volunteer stories |
 | `grant-bio.html`    | `/deck/about`       | About the Founder (Grant bio) |
-| `partnership.html`  | `/deck/partnership` | CPD formal partnership / future capabilities (12 slides) |
+| `partnership.html`  | `/deck/partnership` | CPD formal partnership / future capabilities (13 slides) |
+| `platform.html`     | `/deck/platform`    | Feature overview deck — not location-specific, not grant-seeking (9 slides) |
 
 Speaker notes in `const NOTES = [...]` at top of each file. Update all relevant decks when architecture changes.
 
