@@ -63,11 +63,11 @@ NEGATIVE_QUALITY_FLAGS = {
 @dataclass(slots=True)
 class DetectionInput:
     detection_id: UUID | str
-    frame_id: UUID | str | None = None
     drone_id: str
     detected_at: datetime
     plate_raw: str
     confidence: float
+    frame_id: UUID | str | None = None
     quality_flags: list[str] = field(default_factory=list)
     telemetry: dict[str, Any] | None = None
     bbox: dict[str, Any] | None = None
