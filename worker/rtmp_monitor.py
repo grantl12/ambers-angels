@@ -20,11 +20,72 @@ FRAMES_ROOT = os.getenv(
     "FRAMES_ROOT",
     "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates",
 )
-RTMP_STAT_URL = os.getenv("RTMP_STAT_URL", "http://127.0.0.1/rtmp-stat")
-RTMP_BASE_URL = os.getenv("RTMP_BASE_URL", "rtmp://localhost/live")
-POLL_INTERVAL = int(os.getenv("RTMP_POLL_INTERVAL", "5"))
+RTMP_STAT_URL   = os.getenv("RTMP_STAT_URL", "http://127.0.0.1/rtmp-stat")
+RTMP_BASE_URL   = os.getenv("RTMP_BASE_URL", "rtmp://localhost/live")
+POLL_INTERVAL   = int(os.getenv("RTMP_POLL_INTERVAL", "5"))
+DISCORD_WEBHOOK = os.getenv("ALERT_WEBHOOK_URL", "")
 
 _SKIP_NAMES = {"golden_frames", "anomalies", "recovery_bot"}
+
+# ---------------------------------------------------------------------------
+# PM2 crash watchdog — fires a Discord alert when a managed process is
+# crash-looping. Checked every WATCHDOG_INTERVAL seconds. We track the
+# restart count seen last check; a jump of ≥ RESTART_THRESHOLD in one
+# interval is treated as a crash-loop.
+# ---------------------------------------------------------------------------
+WATCHDOG_INTERVAL  = 60   # seconds between PM2 checks
+RESTART_THRESHOLD  = 5    # restart count jump that triggers an alert
+_WATCHDOG_LAST_CHECK = 0.0
+_WATCHDOG_PREV_COUNTS: dict[str, int] = {}  # process name → last seen restart count
+_WATCHDOG_ALERTED: dict[str, float]   = {}  # process name → last alert timestamp
+
+
+def _discord_post(text: str) -> None:
+    if not DISCORD_WEBHOOK:
+        return
+    import json, urllib.request as _ur
+    try:
+        data = json.dumps({"content": text}).encode()
+        req = _ur.Request(DISCORD_WEBHOOK, data=data, headers={"Content-Type": "application/json"})
+        with _ur.urlopen(req, timeout=5):
+            pass
+    except Exception as e:
+        print(f"[RTMPMonitor] Discord post failed: {e}", flush=True)
+
+
+def _check_pm2() -> None:
+    """Parse `pm2 jlist` and alert Discord if any process is crash-looping."""
+    try:
+        result = subprocess.run(
+            ["/home/ambers-angels/.local/bin/pm2", "jlist"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return
+        import json
+        procs = json.loads(result.stdout)
+    except Exception as e:
+        print(f"[RTMPMonitor] pm2 jlist error: {e}", flush=True)
+        return
+
+    now = time.time()
+    for p in procs:
+        name    = p.get("name", "?")
+        restarts = p.get("pm2_env", {}).get("restart_time", 0)
+        prev    = _WATCHDOG_PREV_COUNTS.get(name, restarts)
+        delta   = restarts - prev
+        _WATCHDOG_PREV_COUNTS[name] = restarts
+
+        if delta >= RESTART_THRESHOLD:
+            last_alerted = _WATCHDOG_ALERTED.get(name, 0)
+            if now - last_alerted > 1800:  # at most one alert per 30 min per process
+                _discord_post(
+                    f":rotating_light: **PM2 crash-loop detected** — `{name}` "
+                    f"restarted {delta}x in the last {WATCHDOG_INTERVAL}s "
+                    f"(total restarts: {restarts}). Check logs immediately."
+                )
+                _WATCHDOG_ALERTED[name] = now
+                print(f"[RTMPMonitor] ⚠ crash-loop alert sent for '{name}' ({delta} restarts)", flush=True)
 
 # stream_name -> running Popen for ffmpeg
 _ffmpeg_procs: dict[str, subprocess.Popen] = {}
@@ -74,6 +135,7 @@ def _stop_ffmpeg(name: str) -> None:
 
 
 def main() -> None:
+    global _WATCHDOG_LAST_CHECK
     print(f"[RTMPMonitor] Polling {RTMP_STAT_URL} every {POLL_INTERVAL}s", flush=True)
     while True:
         active = set(get_active_streams())
@@ -90,6 +152,12 @@ def main() -> None:
         for name in list(_ffmpeg_procs):
             if name not in active:
                 _stop_ffmpeg(name)
+
+        # PM2 crash watchdog — runs every WATCHDOG_INTERVAL seconds
+        now = time.time()
+        if now - _WATCHDOG_LAST_CHECK >= WATCHDOG_INTERVAL:
+            _check_pm2()
+            _WATCHDOG_LAST_CHECK = now
 
         time.sleep(POLL_INTERVAL)
 
