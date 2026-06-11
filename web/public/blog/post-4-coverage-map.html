@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Coverage Map Problem — Amber's Angels</title>
+<meta name="description" content="Fixed ALPR cameras cover intersections and arterials. The communities in the biggest coverage gaps are often the ones who need coverage most.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.issue-block { margin:40px 0; border:1px solid var(--rule); }
+.issue-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--amber); }
+.issue-content { padding:24px; }
+.issue-content p { margin-bottom:12px; font-size:11pt; line-height:1.7; }
+.issue-content p:last-child { margin-bottom:0; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 4 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>The Coverage Map Problem</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; July 15, 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">When I look at the flight priority zones on our mission map — the cells highlighted red where no fixed cameras exist — the gaps are predictable. Residential streets. Rural routes. The spaces between the intersections where the infrastructure is. And the communities in those gaps are often the ones who need coverage most.</p>
+
+  <h2>The Geography of Coverage</h2>
+  <p>Fixed ALPR infrastructure is expensive. A Flock Safety camera costs $2,500–$3,000 per year including hardware, software, and connectivity. A department covering 503 square miles on a limited budget makes hard choices about where those cameras go — and they go where they provide the most coverage per dollar: major intersections, arterials, entry and exit points.</p>
+  <p>The result is a coverage map that looks dense at the center and sparse at the edges. The residential streets, rural routes, and secondary roads that make up the majority of road mileage in most jurisdictions have no automated coverage. Not because anyone made a bad decision. Because the math doesn't work at scale.</p>
+  <p>Our flight priority algorithm identifies these gaps automatically — cells with zero fixed camera coverage are flagged red and prioritized for volunteer drone deployment. We don't tell volunteers why a cell is high priority. We just tell them where to fly. The coverage reasoning is visible only to coordinators.</p>
+
+  <div class="pullquote">
+    <p>"The communities in the biggest gaps are often the ones with the least infrastructure budget. That's not a coincidence — it's the same problem from two angles."</p>
+  </div>
+
+  <h2>Rural Departments</h2>
+  <p>A small department covering a large rural county faces a coverage problem that money alone can't solve. You can't put a camera on every road in a 500 square mile jurisdiction. The math doesn't work even with a large budget.</p>
+  <p>A mobile volunteer network changes the math. Volunteers are distributed across the coverage area. When an alert fires, they deploy from wherever they already are — not from a fixed installation, but from their driveways, their neighborhoods, their normal routes. The coverage scales with volunteer density, not infrastructure investment.</p>
+  <p>For a rural department, this means the possibility of meaningful alert response coverage without a capital investment in fixed infrastructure. The platform costs nothing. The volunteers bring their own hardware.</p>
+
+  <h2>Tribal Nations</h2>
+  <p>I want to address this specifically because it deserves direct attention.</p>
+  <p>The Missing and Murdered Indigenous Persons crisis is a national emergency. Indigenous people, particularly women and girls, go missing and are murdered at rates that far exceed national averages — and the cases are systematically underprioritized and underreported. The technology conversation around missing persons response has not adequately addressed tribal jurisdictions.</p>
+  <p>Tribal nations face every factor that makes coverage gaps worse simultaneously:</p>
+  <p><strong>Geography:</strong> Many tribal land holdings are vast and rural, with limited road infrastructure and no fixed ALPR coverage.</p>
+  <p><strong>Budget:</strong> Tribal law enforcement agencies are often significantly underfunded relative to the jurisdictions they cover.</p>
+  <p><strong>Jurisdictional complexity:</strong> Overlapping federal, state, and tribal jurisdiction creates coordination challenges that delay response.</p>
+  <p><strong>Community connectivity:</strong> Despite infrastructure limitations, tribal communities often have strong internal communication networks and willing community members — exactly the volunteer base a platform like ours needs.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">The privacy dimension for tribal jurisdictions</div>
+    <div class="issue-content"><p>Persistent surveillance data creates specific concerns around tribal sovereignty. An always-on system that retains vehicle movement data raises questions about who controls that data, who can access it, and under what circumstances it can be shared with federal or state agencies. These aren't hypothetical concerns — they reflect real historical experiences with data sovereignty.</p><p>Amber's Angels' no-retention architecture is specifically relevant here. No persistent data means no data sovereignty questions. The system activates on a government-issued alert, processes frames in real time, and retains nothing. There is no database to share, subpoena, or misuse.</p></div>
+  </div>
+
+  <h2>The Coverage Gap Is a Solvable Problem</h2>
+  <p>Fixed infrastructure will never cover every road. It's not designed to. The answer isn't more cameras — it's a different kind of coverage for the roads between the cameras.</p>
+  <p>A mobile volunteer network that activates on government-issued alerts, costs nothing to law enforcement, and leaves no trace of the innocent vehicles it scans is a different answer to the coverage problem. Not a replacement for fixed infrastructure. A complement to it, with specific value in exactly the jurisdictions where fixed infrastructure is most limited.</p>
+  <p>We built this to cover the gaps. The communities in the biggest gaps are the ones we most need to reach.</p>
+  <p>Next week: the most technically exciting thing we've built. Join Swarm — and what it means that a volunteer can contribute an aerial search without ever leaving their driveway.</p>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+  <div class="series-nav">
+    <a href="/blog/post-3-when-plates-disappear">← When Plates Disappear</a>
+    <a href="/blog/post-5-join-swarm">Join Swarm →</a>
+  </div>
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

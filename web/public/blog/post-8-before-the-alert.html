@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Before the Alert — Amber's Angels</title>
+<meta name="description" content="By the time a FEMA AMBER Alert fires, law enforcement has known about the situation for 30 minutes to 3 hours. Here's what we're building to close that gap.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.issue-block { margin:40px 0; border:1px solid var(--rule); }
+.issue-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--amber); }
+.issue-content { padding:24px; }
+.issue-content p { margin-bottom:12px; font-size:11pt; line-height:1.7; }
+.issue-content p:last-child { margin-bottom:0; }
+.highlight { background:#F0FDF4; border:1px solid #86EFAC; border-left:3px solid #16A34A; padding:24px 28px; margin:40px 0; }
+.highlight p { font-size:11pt; color:#166534; margin:0; line-height:1.7; }
+.highlight a { color:#16A34A; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 8 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>Before the Alert</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; August 12, 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">This is the last post in The Coverage Gap series. I want to end with the gap that bothers me most — the one that exists before any technology activates.</p>
+
+  <h2>The Gap Before the Alert</h2>
+  <p>By the time a FEMA AMBER Alert fires, law enforcement has known about the situation for somewhere between 30 minutes and 3 hours. That's not a criticism of any agency or process. It's the operational reality of how alert issuance works.</p>
+  <p>An incident occurs. Someone calls 911. Officers respond. Detectives assess whether AMBER Alert criteria are met — there are specific legal requirements that must be satisfied. State coordination begins. FEMA broadcasts.</p>
+  <p>Every step in that sequence takes time. And the data is unambiguous: 76% of child abduction victims who are murdered are killed within the first three hours. The alert often fires as the most critical window is closing, not opening.</p>
+
+  <div class="pullquote">
+    <p>"You've known about the case for an hour. You have a description, a direction of travel, a sick feeling. The technology that should be helping you hasn't been told yet. That's the gap."</p>
+  </div>
+
+  <h2>What Law Enforcement Already Knows</h2>
+  <p>If you work in law enforcement, this gap isn't news. You've worked cases where you had actionable information — a partial plate, a vehicle description, a last known direction of travel — well before the AMBER Alert issued. You've watched the clock while the coordination process ran its course.</p>
+  <p>The technology waiting to help was dormant. Not because it couldn't help. Because nobody had told it to activate yet.</p>
+
+  <h2>The LEA-Initiated Manual Alert</h2>
+  <p>We're building a feature that addresses this directly.</p>
+  <p>The LEA-Initiated Manual Alert allows authorized law enforcement coordinators to activate Amber's Angels volunteers before FEMA fires — the moment a detective decides a search is warranted. The coordinator enters the available information: vehicle color and type, last known location, direction of travel, authorizing officer name and badge number. Volunteers receive an immediate mission notification: <strong>LEA ACTIVATED — [Agency Name].</strong></p>
+  <p>When the FEMA alert eventually fires for the same incident, the missions merge automatically. Detection data is continuous from the moment law enforcement activated the search, not from when FEMA issued the broadcast.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">Privacy architecture — unchanged</div>
+    <div class="issue-content"><p>Manual alerts use the same no-retention architecture as FEMA-triggered alerts. Innocent frames deleted post-inference. No persistent movement database. The system is dormant when no alert — manual or FEMA — is active. The feature adds capability without adding retention liability.</p></div>
+    <div class="issue-label">Accountability — increased</div>
+    <div class="issue-content"><p>Every manual activation is logged permanently with the authorizing officer's name, badge number, and incident reference. The audit record is append-only and cannot be deleted. A FEMA-triggered activation has no named human responsible. A manual activation has an officer's name on it. More accountability, not less.</p></div>
+    <div class="issue-label">Authorization gate</div>
+    <div class="issue-content"><p>Not every coordinator can fire a manual alert. Only coordinators explicitly designated as LEA-authorized by an administrator can access this feature. Designed for law enforcement officers and law enforcement-adjacent personnel with operational responsibility for active searches.</p></div>
+  </div>
+
+  <h2>What the Series Was</h2>
+  <p>Eight posts. One argument.</p>
+  <p>The gap between a fixed camera and a missing child is real, predictable, and closeable. It's geographic — the roads between intersections. It's architectural — the difference between always-on retention and event-triggered activation. It's temporal — the window before FEMA fires that nobody is covering yet.</p>
+  <p>Amber's Angels is built around those gaps. Not as a replacement for the infrastructure that already exists, but as the mobile, privacy-preserving, event-triggered layer that covers what fixed infrastructure cannot.</p>
+  <p>The technology is real. The platform is live. The Carroll County pilot is active. If you work in public safety, law enforcement, or child protection and want to talk about what this looks like in your jurisdiction — I'd genuinely welcome that conversation.</p>
+  <p>Thank you for following along.</p>
+
+  <div class="highlight">
+    <p><strong>The Coverage Gap series index:</strong> All eight posts are available at <a href="/blog">amberangels.org/blog</a>. White paper versions of selected posts are available on request for grant reviewers and law enforcement partners — <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+  <div class="series-nav">
+    <a href="/blog/post-7-the-math">← The Math</a>
+    <a href="/blog">Series Index →</a>
+  </div>
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

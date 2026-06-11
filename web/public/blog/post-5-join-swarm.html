@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join Swarm — Amber's Angels</title>
+<meta name="description" content="A volunteer with a drone, kids at home, and nowhere to go — can still contribute an aerial search. Here's how Join Swarm works.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.issue-block { margin:40px 0; border:1px solid var(--rule); }
+.issue-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--amber); }
+.issue-content { padding:24px; }
+.issue-content p { margin-bottom:12px; font-size:11pt; line-height:1.7; }
+.issue-content p:last-child { margin-bottom:0; }
+.comparison { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule); margin:40px 0; }
+.comp-col { background:var(--cream); padding:24px; }
+.comp-col h3 { font-size:9pt; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid; }
+.comp-col.a h3 { color:#991B1B; border-color:#FCA5A5; }
+.comp-col.b h3 { color:#065F46; border-color:#6EE7B7; }
+.comp-col ul { list-style:none; }
+.comp-col ul li { font-size:10.5pt; padding:7px 0; border-bottom:1px solid var(--rule); line-height:1.5; }
+.comp-col ul li:last-child { border-bottom:none; }
+.highlight { background:#F0FDF4; border:1px solid #86EFAC; border-left:3px solid #16A34A; padding:24px 28px; margin:40px 0; }
+.highlight p { font-size:11pt; color:#166534; margin:0; line-height:1.7; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } .comparison { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 5 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>Join Swarm</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; July 22, 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">This is the feature I'm most proud of. A volunteer with a drone, kids at home, and nowhere to go — can still contribute an aerial search. Here's how.</p>
+
+  <h2>The Problem with Volunteer Drone Programs</h2>
+  <p>Traditional volunteer drone programs require physical deployment. Pilot gets an alert. Pilot drives to the search area. Pilot launches drone. Pilot flies the assigned sector. This model works when volunteers can respond — but it fails exactly when response is hardest: in the middle of the day, when people are at work or home with children, when the people with the best hardware and the most relevant certifications can't physically go anywhere.</p>
+  <p>For every alert, some fraction of enrolled pilots have a drone on a shelf and a reason they can't leave. Under a traditional model, that hardware sits idle. Coverage is lost.</p>
+
+  <div class="pullquote">
+    <p>"A parent with five kids at home and a Mavic 3 can contribute an aerial search during an AMBER Alert while making dinner. That's what we built."</p>
+  </div>
+
+  <h2>How Join Swarm Works</h2>
+  <p>When a volunteer taps Join Swarm in the Amber's Angels app, they relinquish active control of their drone to the mission coordinator. The coordinator can see the drone's position on the live mission map and direct it to high-priority coverage gap areas — the red zones where no fixed camera coverage exists and no other volunteer is currently scanning.</p>
+  <p>The volunteer doesn't fly anywhere. The drone does.</p>
+  <p>The coordinator directs the swarm based on the mission map's flight priority overlay — cells with zero fixed coverage are highest priority, cells with partial coverage are medium, well-covered cells are omitted. The volunteer contributed their hardware for the duration of the alert. The coordinator contributed the operational intelligence to use it effectively.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">Certification-aware geofencing</div>
+    <div class="issue-content"><p><strong>BVLOS waiver holders:</strong> The coordinator has full range control. The drone can fly to any gap area within the alert's search polygon, regardless of distance from the pilot's location. The FAA waiver is verified at registration and the platform unlocks extended range automatically.</p><p><strong>Standard Part 107 pilots:</strong> The platform automatically geofences the drone to stay within the pilot's visual line of sight — a few hundred feet from their location. The coordinator can still direct movement within that radius, contributing local gap coverage. The pilot remains within their legal certification parameters at all times.</p><p><strong>The principle:</strong> Certification ceilings are enforced in software, not on the honor system. The pilot is always the registered operator of record. FAA responsibility never transfers. We just give them a way to contribute when they can't physically deploy.</p></div>
+  </div>
+
+  <h2>What This Means in Practice</h2>
+  <p>Consider an AMBER Alert firing at 2pm on a Tuesday. Peak work hours. Most volunteers are at jobs, in meetings, managing children. Under a traditional drone model, aerial coverage is sparse until volunteers can physically respond — potentially an hour or more into the search.</p>
+  <p>Under the swarm model, any enrolled pilot with their drone accessible can contribute immediately. Power on the drone. Tap Join Swarm. Go back to whatever they were doing. The coordinator has a new aerial node on the map covering a gap area, operated remotely from whatever desk or kitchen the volunteer was already at.</p>
+  <p>The number of drones available at any moment of the day is no longer limited by who can physically respond. It's limited by who has their drone charged and within reach.</p>
+
+  <div class="comparison">
+    <div class="comp-col a">
+      <h3>Traditional Drone Deployment</h3>
+      <ul>
+        <li>Pilot must physically travel to search area</li>
+        <li>Coverage limited by who can respond</li>
+        <li>Response time: 20–60+ minutes</li>
+        <li>Idle hardware during unavailable hours</li>
+        <li>Pilot directs their own flight path</li>
+        <li>No coordination with coverage gap data</li>
+      </ul>
+    </div>
+    <div class="comp-col b">
+      <h3>Join Swarm</h3>
+      <ul>
+        <li>Pilot stays home — drone goes to the gap</li>
+        <li>Coverage scales with enrolled pilots, not responders</li>
+        <li>Response time: seconds after drone powers on</li>
+        <li>All enrolled hardware available at any time</li>
+        <li>Coordinator directs to highest-priority gaps</li>
+        <li>Flight priority driven by coverage gap data</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>The Competitive Landscape</h2>
+  <p>Flock Safety acquired Aerodome, a drone manufacturer, in 2025. Their model: drones launch from fixed stations and fly to their cameras. Camera-centric deployment. The drone goes where the infrastructure already is.</p>
+  <p>Our model: coordinator-directed deployment to coverage gaps. The drone goes where the infrastructure isn't. Volunteer-owned hardware, zero cost to the agency, remotely operated by a coordinator with full situational awareness of the search area.</p>
+  <p>No commercial law enforcement drone platform has this feature. The technology exists because someone thought carefully about what a volunteer network actually needs — not what a hardware vendor can sell.</p>
+  <p>Next week: what privacy by architecture actually means, and why a policy isn't the same thing as a constraint.</p>
+
+  <div class="highlight">
+    <p><strong>Join Swarm requires:</strong> FAA Part 107 certification minimum. BVLOS waiver for extended range operations. Drone powered on and accessible to the volunteer. One tap in the Amber's Angels app. That's it.</p>
+  </div>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+  <div class="series-nav">
+    <a href="/blog/post-4-coverage-map">← The Coverage Map Problem</a>
+    <a href="/blog/post-6-privacy-architecture">Privacy by Architecture →</a>
+  </div>
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

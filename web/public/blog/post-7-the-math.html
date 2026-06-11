@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Math — Amber's Angels</title>
+<meta name="description" content="Numbers from our live system test — and the context that makes them matter. Under a minute. Under ten seconds. 99% confidence. Here's what that means.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.stat-row { display:flex; gap:20px; margin:40px 0; }
+.stat { flex:1; background:var(--navy); padding:20px 24px; text-align:center; }
+.stat-num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; color:var(--amber); line-height:1; margin-bottom:6px; }
+.stat-label { font-size:9pt; color:rgba(250,250,248,0.55); line-height:1.4; }
+.footnote { margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:9.5pt; color:var(--muted); font-style:italic; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } .stat-row { flex-direction:column; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 7 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>The Math</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; August 5, 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">Numbers without context are just marketing. Here are the numbers from our live system test — and the context that makes them matter.</p>
+
+  <h2>What We Measured</h2>
+  <p>On June 7th, 2026, we ran a full end-to-end test on the live Amber's Angels platform. A demo AMBER Alert was injected with a real vehicle profile. One phone volunteer, one drone volunteer. Both pipelines ran simultaneously. Here's what the logs showed.</p>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-num">&lt;1 min</div>
+      <div class="stat-label">Alert to coordinator<br>notification · phone<br>pipeline</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">&lt;10 s</div>
+      <div class="stat-label">Stream to coordinator<br>notification · drone<br>pipeline</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">99%</div>
+      <div class="stat-label">Peak confidence<br>both pipelines<br>same session</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">193</div>
+      <div class="stat-label">Detection events<br>5 minutes 42 seconds<br>one session</div>
+    </div>
+  </div>
+
+  <p>Those are real numbers from a live test on production infrastructure. Not a simulation. Not a controlled lab environment. The same server, the same pipeline, the same code that would run during a real alert.</p>
+
+  <div class="pullquote">
+    <p>"Under a minute to coordinator notification means something very specific in the context of a three-hour window. It means the clock stops getting worse while the platform is running."</p>
+  </div>
+
+  <h2>The Context That Makes These Numbers Matter</h2>
+  <p>According to OJJDP research, <strong>76% of child abduction victims who are murdered are killed within the first three hours of the abduction.</strong> Three hours is the window. Everything about missing persons response technology should be evaluated against that window.</p>
+  <p>The AMBER Alert that activates our platform doesn't fire the moment an incident occurs. It fires after law enforcement responds, assesses the situation, coordinates with state emergency management, and completes the alert issuance process. That takes time — on average, somewhere between 30 minutes and 3 hours.</p>
+  <p>So by the time our platform activates, the three-hour window is already partially elapsed. The question isn't "how fast are we from incident to notification?" It's "how fast are we from alert activation to actionable intelligence in a coordinator's hands?"</p>
+  <p>The answer, in our June 7th test: under a minute for the phone pipeline. Under ten seconds for the drone pipeline.</p>
+
+  <h2>What "Coordinator Notification" Actually Means</h2>
+  <p>When we say "coordinator notification," we mean a Discord alert with the following information, delivered to the coordinator channel:</p>
+  <p>Plate text and ALPR confidence score. Vehicle color and body type from YOLO classification. Vehicle profile match verdict — does the detected vehicle match the alert description? GPS coordinates with a map link. Timestamp. Frame image attached.</p>
+  <p>Not a raw detection event. A human-reviewable lead package. Everything a coordinator needs to make a dispatch decision in one message.</p>
+  <p>Under a minute from alert activation to that lead package in a coordinator's hands. That's the number.</p>
+
+  <h2>What These Numbers Don't Mean</h2>
+  <p>They don't mean every activation will produce a detection in under a minute. They don't mean every detection will be at 99% confidence. They don't mean the platform will find every suspect vehicle in every search.</p>
+  <p>They mean that when the conditions are right — when a volunteer is in coverage, when the vehicle passes within camera range, when the plate is readable — the pipeline from detection to coordinator notification is fast. Very fast.</p>
+  <p>Building the volunteer density to make those conditions reliable is the work of the next year. That's what the Carroll County pilot is for.</p>
+  <p>Next week — and last in this series: what happens in the window before FEMA fires. And the feature we're building to close it.</p>
+
+  <div class="footnote">* Phone pipeline: alert ingestion to coordinator notification with frame image and GPS coordinates. Measured from test alert injection timestamp to Discord notification timestamp, June 7, 2026. Drone pipeline: RTMP stream start to coordinator notification. Peak confidence: 99.00% on both pipelines in the same session. 193 detection events over 5 minutes 42 seconds of active scanning. Individual results will vary based on network conditions, volunteer coverage density, vehicle distance, lighting, and plate visibility.</div>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+  <div class="series-nav">
+    <a href="/blog/post-6-privacy-architecture">← Privacy by Architecture</a>
+    <a href="/blog/post-8-before-the-alert">Before the Alert →</a>
+  </div>
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

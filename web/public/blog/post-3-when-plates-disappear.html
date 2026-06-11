@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>When Plates Disappear — Amber's Angels</title>
+<meta name="description" content="The plate is the primary key. Here's what happens in the detection pipeline when it fails — and what we're building to close that gap.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.issue-block { margin:40px 0; border:1px solid var(--rule); }
+.issue-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--amber); }
+.issue-content { padding:24px; }
+.issue-content p { margin-bottom:12px; font-size:11pt; line-height:1.7; }
+.issue-content p:last-child { margin-bottom:0; }
+.warning { background:#FEF2F2; border:1px solid #FCA5A5; border-left:3px solid #DC2626; padding:24px 28px; margin:40px 0; }
+.warning p { font-size:11pt; color:#7F1D1D; margin:0; line-height:1.7; }
+.footnote { margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:9.5pt; color:var(--muted); font-style:italic; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 3 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>When Plates Disappear</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; July 8, 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">The plate is the primary key. I want to be honest about that before I say anything else — and honest about what happens in our system when the plate fails.</p>
+
+  <h2>How Our Pipeline Actually Works</h2>
+  <p>Every detection in Amber's Angels starts with a plate read. If the pipeline can't read a plate — or reads fewer than five characters — it exits. No alert fires, no coordinator notification, no Discord message. The vehicle is not surfaced as a lead.</p>
+  <p>That's a real limitation. I'm not going to dress it up.</p>
+  <p>But plates fail in two distinct ways, and our system handles them very differently. The distinction matters for how you think about what we can and can't do.</p>
+
+  <div class="pullquote">
+    <p>"I could describe a capability we don't fully have yet as if we have it. I'd rather tell you what's real, what's coming, and let the work speak for itself."</p>
+  </div>
+
+  <h2>Failure Mode 1: The Switched Plate</h2>
+  <p>A suspect swaps plates to avoid detection — putting a different vehicle's plates on the suspect car. Our pipeline reads the switched plate, matches it to the watchlist, and then our YOLO vehicle classifier independently examines the actual car.</p>
+  <p>If the alert says white Ford Bronco but YOLO sees a red VW sedan, the system flags the discrepancy. The confidence score drops by up to 20 points. The coordinator sees a clear warning in the embed: <strong>⚠️ profile expects white Ford Bronco.</strong></p>
+  <p>The plate matched. The car didn't. That discrepancy is itself a lead — it tells a coordinator that something doesn't add up and the vehicle is worth a second look. It's not a false positive to be dismissed. It's a signal to investigate.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">Current behavior — switched plate</div>
+    <div class="issue-content"><p>Alert fires with penalized confidence score. Coordinator sees plate match AND vehicle mismatch simultaneously. The ⚠️ warning is visible in the embed body. A coordinator who reads carefully has the full picture. A coordinator who skims may miss the mismatch. We're addressing the UI to make the mismatch more prominent.</p></div>
+  </div>
+
+  <h2>Failure Mode 2: No Readable Plate</h2>
+  <p>The plate is covered, removed, or so damaged it can't be read. In this case, currently, our pipeline exits immediately. No alert fires. The vehicle is invisible to our system even if YOLO perfectly identifies it as matching the alert profile.</p>
+  <p>This is our honest gap.</p>
+  <p>The architecture for addressing it already exists. Our vehicle_targets table is populated from FEMA alerts with expected color, make, and body type. The YOLO classifier is already producing this data for every frame. What we're building is the activation logic that connects them — a plate-free detection path that surfaces a vehicle profile match to the coordinator even when no plate is readable.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">Current behavior — no readable plate</div>
+    <div class="issue-content"><p>Pipeline exits. Nothing fires. Vehicle is not surfaced.</p></div>
+    <div class="issue-label">In development — plate-free detection path</div>
+    <div class="issue-content"><p>When no readable plate is detected but YOLO matches the active alert's vehicle profile, the system will surface a coordinator notification: 👁️ VEHICLE PROFILE MATCH — NO PLATE READ. Confidence is capped at 75% maximum — it can never score as high as a confirmed plate read. Routed to a separate coordinator channel to distinguish it from plate-confirmed detections.</p></div>
+  </div>
+
+  <div class="warning">
+    <p><strong>What this won't solve:</strong> If a suspect switches both the plate AND changes the vehicle's visible characteristics — repainting, adding body panels — neither pipeline will find them. That's outside what any automated system can address. Human witnesses remain essential.</p>
+  </div>
+
+  <h2>Why Honesty Matters Here</h2>
+  <p>A coordinator who trusts our system needs to know exactly what it can and can't do. Overstating our plate-free capability would create false confidence in exactly the scenario where a missed detection has the highest stakes.</p>
+  <p>The plate is still the primary key. The vehicle profile is what we check it against. And when those two signals conflict — or when one of them is missing — we surface that clearly rather than hiding it behind a single confidence number.</p>
+  <p>Next week: where the geographic gaps are biggest — and the communities that feel them most acutely.</p>
+
+  <div class="footnote">* Vehicle profile mismatch penalty: color mismatch −12 points, body type mismatch −8 points. Maximum combined penalty −20 points. Plate-free detection path in active development; not yet in production.</div>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+  <div class="series-nav">
+    <a href="/blog/post-2-different-questions">← Different Questions</a>
+    <a href="/blog/post-4-coverage-map">The Coverage Map Problem →</a>
+  </div>
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

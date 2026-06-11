@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy by Architecture, Not Policy — Amber's Angels</title>
+<meta name="description" content="A policy says what you're allowed to do with data. An architecture makes certain uses impossible. Here's the difference, and why it matters.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.issue-block { margin:40px 0; border:1px solid var(--rule); }
+.issue-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--amber); }
+.issue-content { padding:24px; }
+.issue-content p { margin-bottom:12px; font-size:11pt; line-height:1.7; }
+.issue-content p:last-child { margin-bottom:0; }
+.footnote { margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:9.5pt; color:var(--muted); font-style:italic; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 6 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>Privacy by Architecture,<br>Not Policy</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; July 29, 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">There's a meaningful difference between a privacy policy and a privacy architecture. A policy says what you're allowed to do with data. A constraint makes certain uses architecturally impossible. I spent years in a job where understanding that difference was the work itself.</p>
+
+  <h2>What the Fourth Amendment Auditor Learned</h2>
+  <p>As a signals intelligence professional in the U.S. Army, I was part of routine audits to ensure collection activities complied with Fourth Amendment standards. My unit operated with aerial intelligence collection capabilities in Korea, and part of the operational framework was systematic review of what was collected, how it was collected, and whether it was constitutionally permissible.</p>
+  <p>That work wasn't abstract legal theory. It was applied judgment about what a system could lawfully do — and what constraints needed to exist to ensure it stayed within those limits.</p>
+  <p>The most important thing I took from that role: the most reliable constraint isn't a policy that says "we won't do X." It's an architecture that makes X impossible.</p>
+
+  <div class="pullquote">
+    <p>"A policy can be changed. A policy can be overridden by legal compulsion. A policy can be circumvented. An architectural constraint cannot. The data that doesn't exist cannot be subpoenaed."</p>
+  </div>
+
+  <h2>What Amber's Angels Actually Retains</h2>
+  <p>Let me be precise, because I've seen vague privacy claims in this space and I don't want to make one.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">Innocent frames — the vast majority of all frames processed</div>
+    <div class="issue-content"><p>Held in server RAM for the duration of AI inference. Typically milliseconds. Then released. Never written to disk. No write path exists for innocent frames in the current architecture. You cannot retrieve them because they were never stored. This is an architectural constraint, not a policy.</p></div>
+    <div class="issue-label">High-confidence match frames — the frames that matter</div>
+    <div class="issue-content"><p>Shared with law enforcement coordinators as part of the active case. Retained as detection records for one year for law enforcement case reference. A match frame is evidence. It has a name attached to it: the child we're trying to find. We keep it. We should keep it. This is the point of the system.</p></div>
+    <div class="issue-label">Volunteer GPS telemetry</div>
+    <div class="issue-content"><p>Transmitted during active missions for coordinator situational awareness. Retained for 90 days for mission analysis. Deleted on schedule via automated routine.</p></div>
+    <div class="issue-label">What we do not retain</div>
+    <div class="issue-content"><p>No database of vehicle movements. No record of innocent vehicles observed. No footage archive. No data available to market, share, or repurpose. No persistent record of where anyone was during a search session — only whether their vehicle matched an active alert profile.</p></div>
+  </div>
+
+  <h2>Why This Matters for Law Enforcement Partners</h2>
+  <p>Law enforcement agencies that partner with Amber's Angels don't inherit our data liability — because we don't have data liability to inherit. There is no database of innocent vehicle movements that can be subpoenaed in a civil case, disclosed in an investigation, or accessed by a bad actor.</p>
+  <p>The data that doesn't exist cannot create problems. That's the whole point of the architecture.</p>
+  <p>For agencies already navigating the community trust challenges that come with always-on surveillance infrastructure, a partner platform that produces no persistent data about innocent people is a different kind of conversation with their communities.</p>
+
+  <h2>The Honest Limitation</h2>
+  <p>No-retention architecture means no reach-back capability. I've said this in previous posts and I'll say it again here: we cannot tell you what drove past a volunteer last Tuesday. We cannot answer investigative queries about historical vehicle movements. That capability requires retention.</p>
+  <p>We made a trade. For missing persons response — where the question is what's happening right now — we gave up retrospective capability to eliminate retention liability. That trade makes sense for our specific use case. It won't make sense for every use case.</p>
+  <p>The architecture should match the problem. For the problem we're solving, this is the right architecture.</p>
+  <p>Next week: the actual numbers from our live system test — and what they mean in the context of the timeline that matters most.</p>
+
+  <div class="footnote">* Data retention schedules: innocent frames — not retained (deleted post-inference). Detection records — 1 year. Volunteer GPS telemetry — 90 days.</div>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+  <div class="series-nav">
+    <a href="/blog/post-5-join-swarm">← Join Swarm</a>
+    <a href="/blog/post-7-the-math">The Math →</a>
+  </div>
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

@@ -457,7 +457,7 @@ export default function LandingPage() {
             <span className={s.blogPostTag}>Series Introduction</span>
             <h3>The Coverage Gap</h3>
             <p className={s.blogPostDate}>Grant Lindberg · June 2026</p>
-            <p>Fixed ALPR asks: what happened? We ask: what&apos;s happening right now? A jurisdiction with only one has half the picture — and the half they&apos;re missing costs seconds they don&apos;t have.</p>
+            <p>Fixed ALPR covers the intersections. Amber&apos;s Angels covers everything between them. A jurisdiction with both has no blind spots — fixed infrastructure at fixed points, mobile volunteers covering every road in between.</p>
             <span className={s.blogReadLink}>Read →</span>
           </a>
           <a href="/blog/post-1-always-on" target="_blank" rel="noopener noreferrer" className={s.blogCard}>
