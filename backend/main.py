@@ -51,6 +51,7 @@ from services.alert_dispatcher import AlertDispatcher
 from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets, _refresh_vehicle_targets
 from services.amber_alert_poller import amber_background_loop
 from services.ncmec_poller import ncmec_background_loop
+from services.namus_poller import namus_background_loop
 from services.autonomous_mission_service import mission_timeout_loop
 from services import detection_agent
 from services.vehicle_classifier import classify as classify_vehicles
@@ -119,6 +120,12 @@ async def lifespan(app: FastAPI):
             webhook_url=_webhook,
         )
     )
+    namus_task = asyncio.create_task(
+        namus_background_loop(
+            session_factory=database.AsyncSessionLocal,
+            webhook_url=_webhook,
+        )
+    )
     timeout_task = asyncio.create_task(
         mission_timeout_loop(session_factory=database.AsyncSessionLocal)
     )
@@ -132,10 +139,11 @@ async def lifespan(app: FastAPI):
     fema_task.cancel()
     amber_task.cancel()
     ncmec_task.cancel()
+    namus_task.cancel()
     timeout_task.cancel()
     purge_task.cancel()
     telemetry_task.cancel()
-    for t in (fema_task, amber_task, ncmec_task, timeout_task, purge_task, telemetry_task):
+    for t in (fema_task, amber_task, ncmec_task, namus_task, timeout_task, purge_task, telemetry_task):
         try:
             await t
         except asyncio.CancelledError:
@@ -445,6 +453,156 @@ async def ingest_bolo(
     }
 
 
+@app.post("/webhooks/bolo-email")
+async def bolo_email_webhook(request: Request):
+    """
+    Email-to-BOLO bridge. Forward any law enforcement BOLO email to
+    bolo@amberangels.org (via Mailgun inbound parse or Zapier/Make.com),
+    and it lands here.
+
+    Accepts Mailgun inbound parse format (multipart/form-data with
+    'subject', 'body-plain', 'body-html', 'attachments' fields) OR
+    a simple JSON body {"subject": "...", "body": "...", "image_b64": "..."}.
+
+    Uses Claude vision/text to extract plate + vehicle info.
+    If adequate vehicle data found → creates alert, fires Discord + push.
+
+    Protected by a shared webhook secret (BOLO_WEBHOOK_SECRET env var).
+    If the env var is unset, the endpoint is disabled (returns 503).
+    """
+    from services.bolo_ingestor import extract_bolo
+    from services.fema_connector import _add_to_watchlist, _notify_watching_pilots, _notify_plates
+    import base64 as _b64
+
+    secret = os.getenv("BOLO_WEBHOOK_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BOLO webhook not configured.")
+
+    # Verify shared secret — support both header and query param
+    provided = (
+        request.headers.get("X-Bolo-Secret")
+        or request.query_params.get("secret")
+        or ""
+    )
+    if provided != secret:
+        raise HTTPException(status_code=401, detail="Invalid webhook secret.")
+
+    # Parse body — JSON or multipart
+    img_bytes: Optional[bytes] = None
+    text_body = ""
+    content_type = request.headers.get("content-type", "")
+
+    if "application/json" in content_type:
+        data = await request.json()
+        text_body = data.get("body") or data.get("body_plain") or ""
+        img_b64 = data.get("image_b64") or ""
+        if img_b64:
+            try:
+                img_bytes = _b64.b64decode(img_b64)
+            except Exception:
+                pass
+    else:
+        form = await request.form()
+        text_body = str(form.get("body-plain") or form.get("body") or "")
+        # Mailgun sends attachments as file objects
+        for key in form:
+            val = form[key]
+            if hasattr(val, "read") and hasattr(val, "content_type"):
+                ct = getattr(val, "content_type", "") or ""
+                if ct.startswith("image/"):
+                    img_bytes = await val.read()
+                    break
+
+    if not text_body and not img_bytes:
+        raise HTTPException(status_code=400, detail="No body or image in webhook payload.")
+
+    # Use image if available; fall back to creating a tiny JPEG with text for vision
+    from services.bolo_ingestor import extract_bolo as _extract
+
+    if img_bytes:
+        extracted = await _extract(img_bytes, "image/jpeg")
+    else:
+        # Text-only path — ask Claude to extract from the email body text
+        import anthropic as _anthropic
+        _client = _anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+        _prompt = (
+            "Extract BOLO / missing person alert data from this law enforcement text.\n"
+            "Return JSON only: {plate_text, vehicle_make, vehicle_model, vehicle_year, "
+            "vehicle_color, vehicle_type, person_name, case_number, headline, area, alert_type}\n\n"
+            + text_body[:4000]
+        )
+        _msg = await _client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            messages=[{"role": "user", "content": _prompt}],
+        )
+        import json as _json, re as _re
+        _raw = _msg.content[0].text.strip()
+        _raw = _re.sub(r"^```(?:json)?\n?", "", _raw).rstrip("`").strip()
+        try:
+            extracted = _json.loads(_raw)
+        except Exception:
+            raise HTTPException(status_code=422, detail="Could not parse BOLO data from email body.")
+
+    plate = (extracted.get("plate_text") or "").upper().replace(" ", "").replace("-", "")
+    make  = extracted.get("vehicle_make")
+    model = extracted.get("vehicle_model")
+    if not plate and not (make and model):
+        raise HTTPException(status_code=422, detail="Insufficient vehicle data — need plate or make+model.")
+
+    atype    = (extracted.get("alert_type") or "bolo").lower()
+    year     = extracted.get("vehicle_year")
+    color    = extracted.get("vehicle_color")
+    vtype    = extracted.get("vehicle_type") or "car"
+    name     = extracted.get("person_name")
+    case_num = extracted.get("case_number")
+    headline = extracted.get("headline") or f"BOLO — {name or plate or 'unknown'}"
+    area     = extracted.get("area") or ""
+    fema_id  = f"bolo-{plate or (make or '').replace(' ', '')}-{case_num or 'email'}"
+
+    if plate:
+        await _add_to_watchlist(
+            database.AsyncSessionLocal, plate,
+            f"{headline} [ID: {fema_id}]",
+            alert_type=atype, source_program="Email BOLO",
+            vehicle_color=color or None, vehicle_type=vtype or None, vehicle_make=make or None,
+        )
+
+    async with database.AsyncSessionLocal() as _sess:
+        try:
+            await _sess.execute(text("""
+                INSERT INTO vehicle_targets
+                    (fema_identifier, alert_type, source_program, headline,
+                     area, color, body_type, make, polygon, expires_at)
+                VALUES (:fema_id, :atype, 'manual', :headline,
+                        :area, :color, :btype, :make, NULL, NOW() + INTERVAL '72 hours')
+                ON CONFLICT (fema_identifier) DO UPDATE
+                    SET expires_at = NOW() + INTERVAL '72 hours', headline = EXCLUDED.headline
+            """), {"fema_id": fema_id, "atype": atype, "headline": headline,
+                   "area": area, "color": color or None, "btype": vtype or None, "make": make or None})
+            await _sess.commit()
+        except Exception as _e:
+            logger.warning("Email BOLO vehicle_target insert failed: %s", _e)
+            await _sess.rollback()
+
+    webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+    alert_obj = {
+        "msg_type": "alert", "identifier": fema_id,
+        "sent": datetime.now(timezone.utc).isoformat(),
+        "headline": headline, "description": headline, "area": area,
+        "polygon": None, "references": [], "plates": [plate] if plate else [],
+        "vehicle_profile": {"color": color, "body_type": vtype, "make": make},
+        "alert_type": {"key": atype, "label": atype.upper(), "emoji": "🔶"},
+        "source_program": "Email BOLO",
+    }
+    await _notify_watching_pilots(database.AsyncSessionLocal, alert_obj)
+    if webhook_url and plate:
+        await _notify_plates(webhook_url, alert_obj, [plate])
+
+    logger.info("Email BOLO webhook: plate=%s person=%s case=%s area=%s", plate, name, case_num, area)
+    return {"ok": True, "plate": plate, "person": name, "case": case_num, "headline": headline}
+
+
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     import subprocess, socket
@@ -487,6 +645,7 @@ def health_check(db: Session = Depends(get_db)):
     from services.health_tracker import get_iso as _poll_ts
     last_fema_poll  = _poll_ts("fema")
     last_ncmec_poll = _poll_ts("ncmec")
+    last_namus_poll = _poll_ts("namus")
     if db_ok:
         try:
             watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist WHERE active = TRUE")).scalar() or 0
@@ -514,6 +673,7 @@ def health_check(db: Session = Depends(get_db)):
         "last_detection_at": last_detection_at,
         "last_fema_poll":    last_fema_poll,
         "last_ncmec_poll":   last_ncmec_poll,
+        "last_namus_poll":   last_namus_poll,
     }
 
 

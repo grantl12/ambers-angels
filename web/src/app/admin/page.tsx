@@ -784,6 +784,7 @@ export default function AdminPage() {
                   <option value="amber">AMBER</option>
                   <option value="silver">SILVER</option>
                   <option value="blue">BLUE</option>
+                  <option value="bolo">BOLO</option>
                   <option value="test">TEST</option>
                 </select>
               </div>

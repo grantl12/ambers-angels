@@ -31,6 +31,7 @@ _ALERT_COLORS = {
     "purple":  0x7C3AED,
     "mipa":    0xEAB308,
     "ema":     0xD97706,
+    "bolo":    0xFF6B35,   # law enforcement BOLO — orange-red, distinct from amber yellow
 }
 _DEFAULT_COLOR = 0xF59E0B
 

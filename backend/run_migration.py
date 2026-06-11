@@ -182,6 +182,25 @@ CREATE TABLE IF NOT EXISTS vehicle_alert_priors (
 );
 CREATE INDEX IF NOT EXISTS vehicle_alert_priors_lookup_idx
     ON vehicle_alert_priors (alert_type, attribute_type, attribute_value);
+
+-- NamUs missing persons cases with vehicle data
+CREATE TABLE IF NOT EXISTS namus_cases (
+    namus_id      TEXT         PRIMARY KEY,
+    subject_name  TEXT,
+    age_now       INT,
+    state         VARCHAR(2),
+    county        TEXT,
+    city          TEXT,
+    missing_since DATE,
+    actionable    BOOLEAN      DEFAULT FALSE,
+    alert_type    VARCHAR(20),
+    vehicle_info  TEXT,
+    first_seen_at TIMESTAMPTZ  DEFAULT NOW(),
+    last_seen_at  TIMESTAMPTZ  DEFAULT NOW(),
+    resolved_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS namus_cases_state_idx      ON namus_cases (state);
+CREATE INDEX IF NOT EXISTS namus_cases_actionable_idx ON namus_cases (actionable) WHERE actionable = TRUE;
 """
 
 try:

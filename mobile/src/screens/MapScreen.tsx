@@ -32,6 +32,7 @@ const ALERT_COLORS: Record<string, { fill: string; stroke: string }> = {
   purple:  { fill: "rgba(168,85,247,0.18)",  stroke: "#a855f7" },
   mipa:    { fill: "rgba(234,179,8,0.18)",   stroke: "#eab308" },
   ema:     { fill: "rgba(234,179,8,0.18)",   stroke: "#eab308" },
+  bolo:    { fill: "rgba(255,107,53,0.18)",  stroke: "#ff6b35" },
 }
 const DEFAULT_COLOR = { fill: "rgba(245,158,11,0.18)", stroke: "#f59e0b" }
 

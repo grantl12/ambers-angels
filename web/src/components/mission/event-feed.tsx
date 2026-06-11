@@ -15,6 +15,7 @@ const ALERT_BADGE: Record<string, { label: string; bg: string; color: string }> 
   purple:  { label: "PURPLE",   bg: "#8b5cf6", color: "#fff"    },
   mipa:    { label: "MIPA",     bg: "#eab308", color: "#050a0f" },
   ema:     { label: "EMA",      bg: "#ca8a04", color: "#050a0f" },
+  bolo:    { label: "BOLO",     bg: "#ff6b35", color: "#fff"    },
 }
 
 type Tab = "detections" | "ncmec"
