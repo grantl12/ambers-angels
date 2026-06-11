@@ -48,7 +48,7 @@ from services.event_service import EventService
 from services.aggregation_service import AggregationService, DetectionInput as AggDetectionInput, SINGLE_FRAME_HIGH_CONFIDENCE
 from event_repository import EventRepository
 from services.alert_dispatcher import AlertDispatcher
-from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets
+from services.fema_connector import fema_background_loop, poll_fema_ipaws, check_vehicle_targets, _refresh_vehicle_targets
 from services.amber_alert_poller import amber_background_loop
 from services.ncmec_poller import ncmec_background_loop
 from services.autonomous_mission_service import mission_timeout_loop
@@ -426,6 +426,22 @@ _MAX_FRAME_BYTES = 25 * 1024 * 1024  # 25 MB
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 
+def _match_vehicle_target(vehicle, targets: list[dict]) -> dict | None:
+    """Return the first active vehicle_target whose color+body_type matches YOLO."""
+    v_color = (vehicle.color     or "").lower()
+    v_body  = (vehicle.body_type or "").lower()
+    for target in targets:
+        t_color = (target.get("color")     or "").lower()
+        t_body  = (target.get("body_type") or "").lower()
+        if not (t_color or t_body):
+            continue
+        color_ok = (not t_color) or (v_color == t_color)
+        body_ok  = (not t_body)  or (v_body  == t_body)
+        if color_ok and body_ok:
+            return target
+    return None
+
+
 @app.post("/ingest/frame")
 async def ingest_frame(
     file: UploadFile = File(...),
@@ -512,8 +528,39 @@ async def ingest_frame(
                 pass
 
     if not results or not results.get("results"):
-        # No plates — slow down unless primary vehicle seen
         interval_ms = 1200 if primary_vehicle else 2500
+        if primary_vehicle:
+            try:
+                _vt_targets  = await _refresh_vehicle_targets(database.AsyncSessionLocal)
+                _matched_vt  = _match_vehicle_target(primary_vehicle, _vt_targets)
+                if _matched_vt:
+                    _vo_frame_id = str(uuid.uuid4())
+                    try:
+                        os.makedirs(GOLDEN_DIR, exist_ok=True)
+                        with open(os.path.join(GOLDEN_DIR, f"{_vo_frame_id}.jpg"), "wb") as _f:
+                            _f.write(frame_bytes)
+                    except Exception as _fe:
+                        logger.warning("vehicle-only frame persist failed: %s", _fe)
+                    _vo_det = AggDetectionInput(
+                        detection_id=str(uuid.uuid4()),
+                        frame_id=_vo_frame_id,
+                        drone_id=drone_id,
+                        detected_at=ts,
+                        plate_raw="",
+                        confidence=0.0,
+                        vehicle_color=primary_vehicle.color,
+                        vehicle_type=primary_vehicle.body_type,
+                        yolo_conf=primary_vehicle.yolo_conf,
+                        cdc_label=getattr(primary_vehicle, "cdc_label", None),
+                        cdc_conf=getattr(primary_vehicle, "cdc_conf", 0.0),
+                        telemetry={"lat": lat, "lon": lng} if lat is not None else None,
+                    )
+                    _vo_snapshot = _aggregation_service.ingest_vehicle_only(_vo_det, _matched_vt)
+                    if _vo_snapshot and _vo_snapshot.should_alert:
+                        _vo_location = {"lat": lat, "lng": lng} if lat is not None and lng is not None else None
+                        await _alert_dispatcher.dispatch_vehicle_only_alert(_vo_snapshot, _matched_vt, _vo_location)
+            except Exception as _voe:
+                logger.warning("vehicle-only detection path failed: %s", _voe)
         return {"status": "no_plates", "plates": [], "watchlist_hit": False, "capture_interval_ms": interval_ms}
 
     # Pre-fetch active watchlist plates once — used for candidate selection below.

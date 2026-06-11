@@ -9,6 +9,7 @@ image embed so operators can see the triggering photo inline.
 import json
 import logging
 import os
+import time as _time
 import urllib.parse
 import httpx
 import certifi as _certifi
@@ -50,6 +51,11 @@ class AlertDispatcher:
             "GOLDEN_DIR",
             os.path.join(os.path.dirname(__file__), "..", "test_plates", "golden_frames"),
         )
+        # Falls back to main webhook if separate channels aren't configured
+        self.mismatch_webhook_url    = os.getenv("MISMATCH_WEBHOOK_URL",    "") or self.webhook_url
+        self.vehicle_only_webhook_url = os.getenv("VEHICLE_ONLY_WEBHOOK_URL", "") or self.webhook_url
+        # Per-drone cooldown for vehicle-only (plate-free) alerts — 10 min
+        self._vehicle_only_cooldowns: dict[str, float] = {}
 
     async def dispatch_alert(
         self,
@@ -90,6 +96,17 @@ class AlertDispatcher:
 
         logger.info("Dispatching alert — Plate: %s | Drone: %s", plate, drone_id)
 
+        # Routing: mismatch alerts go to a separate channel with distinct styling
+        routing = (vehicle_context or {}).get("routing", "main")
+        if routing == "mismatch":
+            embed_title  = "⚠️ PLATE MATCH — PROFILE MISMATCH"
+            embed_color  = 0xF97316  # orange
+            use_webhook  = self.mismatch_webhook_url
+        else:
+            embed_title  = "🚨 WATCHLIST MATCH"
+            embed_color  = _ALERT_COLORS.get((alert_type or "").lower(), _DEFAULT_COLOR)
+            use_webhook  = self.webhook_url
+
         # 1. Optional DB logging
         if self.repository is not None and hasattr(self.repository, "create_alert"):
             try:
@@ -103,18 +120,17 @@ class AlertDispatcher:
                 logger.warning("DB alert log failed: %s", e)
 
         # 2. Discord webhook
-        if not self.webhook_url:
+        if not use_webhook:
             logger.warning("No webhook URL configured — skipping Discord dispatch.")
             return
 
         frame_bytes = self._load_frame(frame_url)
-        color       = _ALERT_COLORS.get((alert_type or "").lower(), _DEFAULT_COLOR)
         conf_str    = f"{confidence:.0f}%" if confidence else "—"
         ts_str      = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         embed = {
-            "title":       "🚨 WATCHLIST MATCH",
-            "color":       color,
+            "title":  embed_title,
+            "color":  embed_color,
             "fields": [
                 {"name": "Plate",      "value": f"`{plate}`",  "inline": True},
                 {"name": "Drone",      "value": drone_id,      "inline": True},
@@ -170,16 +186,16 @@ class AlertDispatcher:
                     # Attach image and reference it in the embed
                     embed["image"] = {"url": "attachment://frame.jpg"}
                     resp = await client.post(
-                        self.webhook_url,
+                        use_webhook,
                         data={"payload_json": json.dumps({"embeds": [embed]})},
                         files={"file": ("frame.jpg", frame_bytes, "image/jpeg")},
                     )
                 else:
-                    resp = await client.post(self.webhook_url, json={"embeds": [embed]})
+                    resp = await client.post(use_webhook, json={"embeds": [embed]})
 
                 if resp.status_code in (200, 204):
                     attached = "with frame" if frame_bytes else "text-only"
-                    logger.info("Discord dispatch successful for %s (%s)", plate, attached)
+                    logger.info("Discord dispatch successful for %s (%s, routing=%s)", plate, attached, routing)
                 else:
                     logger.error("Discord returned %s: %s", resp.status_code, resp.text[:200])
             except Exception as e:
@@ -191,6 +207,113 @@ class AlertDispatcher:
 
         # 4. Expo push — notify coordinators/admins on their phones
         await self._send_push(plate, confidence, drone_id, alert_type, location)
+
+    # -------------------------------------------------------------------------
+
+    async def dispatch_vehicle_only_alert(
+        self,
+        snapshot: Any,
+        matched_target: dict,
+        location: Optional[dict],
+    ) -> None:
+        """
+        Fires a structured embed to the vehicle-only channel when YOLO matches
+        an active vehicle_target but no plate was read.  10-minute per-drone
+        cooldown prevents spam across the 5-second aggregation window.
+        """
+        key = f"{snapshot.drone_id}:{matched_target.get('id', 0)}"
+        now = _time.time()
+        if now - self._vehicle_only_cooldowns.get(key, 0.0) < 600:
+            logger.debug("Vehicle-only alert suppressed (cooldown) for %s", key)
+            return
+        self._vehicle_only_cooldowns[key] = now
+
+        webhook = self.vehicle_only_webhook_url
+        if not webhook:
+            logger.warning("No vehicle-only webhook URL — skipping dispatch.")
+            return
+
+        atype = (matched_target.get("alert_type") or "amber").upper()
+        t_color = matched_target.get("color") or "unknown"
+        t_body  = matched_target.get("body_type") or "unknown"
+        t_make  = matched_target.get("make") or ""
+        target_desc = " ".join(filter(None, [t_color, t_body, t_make])).title()
+
+        d_color = snapshot.vehicle_color or "unknown"
+        d_type  = snapshot.vehicle_type  or "unknown"
+        d_cdc   = (snapshot.cdc_label or "").replace("_", " ")
+        detected_desc = f"{d_color} {d_type}".strip()
+        if d_cdc:
+            detected_desc = f"{detected_desc} ({d_cdc})"
+
+        conf_str = f"{snapshot.aggregate_confidence:.0f}%"
+        ts_str   = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        embed: dict = {
+            "title":  "👁️ VEHICLE PROFILE MATCH — NO PLATE READ",
+            "color":  0x8B5CF6,  # violet — visually distinct from confirmed plate hits
+            "fields": [
+                {"name": "Alert type",     "value": atype,             "inline": True},
+                {"name": "Drone",          "value": snapshot.drone_id, "inline": True},
+                {"name": "Confidence",     "value": conf_str,          "inline": True},
+                {"name": "Target vehicle", "value": target_desc,       "inline": False},
+                {"name": "Detected",       "value": detected_desc,     "inline": False},
+            ],
+            "footer": {"text": ts_str},
+        }
+
+        src      = matched_target.get("source_program")
+        headline = matched_target.get("headline")
+        if src:
+            embed["fields"].append({"name": "Source",       "value": src,           "inline": True})
+        if headline:
+            embed["fields"].append({"name": "Alert Details","value": headline[:256], "inline": False})
+
+        if location:
+            lat = location.get("lat")
+            lng = location.get("lng") or location.get("lon")
+            if lat and lng:
+                maps_url = f"https://www.google.com/maps?q={lat},{lng}"
+                embed["fields"].append({
+                    "name":   "Location",
+                    "value":  f"[{lat:.5f}, {lng:.5f}]({maps_url})",
+                    "inline": False,
+                })
+
+        embed["fields"].append({
+            "name":   "Action required",
+            "value":  "⚡ No plate confirmed — visual match only. Reposition for a plate read.",
+            "inline": False,
+        })
+
+        frame_bytes = self._load_frame(
+            f"/frames/{snapshot.best_frame_id}" if snapshot.best_frame_id else None
+        )
+
+        async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
+            try:
+                if frame_bytes:
+                    embed["image"] = {"url": "attachment://frame.jpg"}
+                    resp = await client.post(
+                        webhook,
+                        data={"payload_json": json.dumps({"embeds": [embed]})},
+                        files={"file": ("frame.jpg", frame_bytes, "image/jpeg")},
+                    )
+                else:
+                    resp = await client.post(webhook, json={"embeds": [embed]})
+
+                if resp.status_code in (200, 204):
+                    logger.info(
+                        "Vehicle-only alert dispatched for drone %s (target #%s)",
+                        snapshot.drone_id, matched_target.get("id"),
+                    )
+                else:
+                    logger.error(
+                        "Vehicle-only Discord returned %s: %s",
+                        resp.status_code, resp.text[:200],
+                    )
+            except Exception as e:
+                logger.error("Network error sending vehicle-only alert: %s", e)
 
     # -------------------------------------------------------------------------
 

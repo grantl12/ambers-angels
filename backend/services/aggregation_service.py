@@ -21,6 +21,7 @@ SINGLE_FRAME_HIGH_CONFIDENCE = 70.0
 AGGREGATION_WINDOW_SECONDS = 5
 PLATE_LENGTH_MIN = 5
 PLATE_LENGTH_MAX = 10
+VEHICLE_ONLY_CAP = 75.0
 
 PROBABLE_EVENT_MIN_SCORE = 75.0
 HIGH_CONFIDENCE_EVENT_MIN_SCORE = 85.0
@@ -124,6 +125,7 @@ class EventSnapshot:
     vehicle_model: str | None = None
     # Cascade Stage 2: CDC
     cdc_label:     str | None = None
+    is_vehicle_only: bool = False
 
 
 # -----------------------------------------------------------------------------
@@ -480,6 +482,119 @@ class ActiveDetectionGroup:
 
 
 # -----------------------------------------------------------------------------
+# Vehicle-only (no-plate) group — YOLO-based scoring, capped at VEHICLE_ONLY_CAP
+# -----------------------------------------------------------------------------
+
+
+@dataclass
+class VehicleOnlyGroup:
+    drone_id: str
+    target_id: int
+    started_at: datetime
+    window_seconds: int = AGGREGATION_WINDOW_SECONDS
+    detections: list[DetectionInput] = field(default_factory=list)
+
+    def add(self, detection: DetectionInput) -> None:
+        self.detections.append(detection)
+
+    @property
+    def group_key(self) -> str:
+        bucket = int(self.started_at.timestamp() // self.window_seconds)
+        return f"vonly:{self.drone_id}:{self.target_id}:{bucket}"
+
+    @property
+    def last_seen_at(self) -> datetime:
+        if not self.detections:
+            return self.started_at
+        return max(d.detected_at for d in self.detections)
+
+    def is_expired(self, now: datetime | None = None) -> bool:
+        now = now or datetime.now(timezone.utc)
+        return now - self.last_seen_at > timedelta(seconds=self.window_seconds)
+
+    def build_snapshot(self, matched_target: dict) -> EventSnapshot:
+        detections = self.detections
+        yolo_confs = [d.yolo_conf for d in detections if d.yolo_conf > 0]
+        avg_yolo = mean(yolo_confs) if yolo_confs else 0.0
+
+        colors     = [d.vehicle_color for d in detections if d.vehicle_color]
+        types_     = [d.vehicle_type  for d in detections if d.vehicle_type]
+        cdc_labels = [d.cdc_label     for d in detections if d.cdc_label]
+
+        t_color = (matched_target.get("color")     or "").lower()
+        t_body  = (matched_target.get("body_type") or "").lower()
+        t_make  = (matched_target.get("make")      or "").lower()
+
+        # Base: YOLO detection quality (0–50 pts)
+        base = avg_yolo * 50.0
+
+        color_bonus, dominant_color = 0.0, None
+        if t_color and colors:
+            c_counts = Counter(colors)
+            dominant_color, cnt = c_counts.most_common(1)[0]
+            if dominant_color.lower() == t_color and cnt / len(detections) >= DOMINANT_RATIO_PROBABLE:
+                color_bonus = 10.0
+
+        type_bonus, dominant_type = 0.0, None
+        if t_body and types_:
+            t_counts = Counter(types_)
+            dominant_type, cnt = t_counts.most_common(1)[0]
+            if dominant_type.lower() == t_body and cnt / len(detections) >= DOMINANT_RATIO_PROBABLE:
+                type_bonus = 10.0
+
+        cdc_bonus, dominant_cdc = 0.0, None
+        if t_make and cdc_labels:
+            cdc_counts = Counter(cdc_labels)
+            dominant_cdc, cnt = cdc_counts.most_common(1)[0]
+            if t_make in dominant_cdc.lower() and cnt / len(detections) >= DOMINANT_RATIO_PROBABLE:
+                cdc_bonus = 5.0
+
+        rep_bonus = 5.0 if len(detections) >= 3 else (2.0 if len(detections) == 2 else 0.0)
+
+        aggregate_confidence = min(
+            VEHICLE_ONLY_CAP,
+            round(base + color_bonus + type_bonus + cdc_bonus + rep_bonus, 2),
+        )
+
+        lats = [d.telemetry["lat"] for d in detections if d.telemetry and d.telemetry.get("lat")]
+        lngs = [d.telemetry.get("lng") or d.telemetry.get("lon")
+                for d in detections if d.telemetry]
+        lngs = [v for v in lngs if v]
+        location_centroid = (
+            (sum(lats) / len(lats), sum(lngs) / len(lngs))
+            if lats and lngs else None
+        )
+
+        best = max(detections, key=lambda d: d.yolo_conf)
+
+        return EventSnapshot(
+            drone_id=self.drone_id,
+            group_key=self.group_key,
+            plate_best="",
+            plate_normalized="",
+            first_seen_at=min(d.detected_at for d in detections),
+            last_seen_at=max(d.detected_at for d in detections),
+            aggregate_confidence=aggregate_confidence,
+            classification=(
+                EventClassification.PROBABLE
+                if aggregate_confidence >= PROBABLE_EVENT_MIN_SCORE
+                else EventClassification.WEAK
+            ),
+            status=EventStatus.DETECTION,
+            detection_count=len(detections),
+            distinct_frame_count=len({d.frame_id for d in detections if d.frame_id}),
+            best_frame_id=best.frame_id,
+            should_open_event=aggregate_confidence >= 40.0,
+            should_alert=aggregate_confidence >= 50.0,
+            location_centroid=location_centroid,
+            vehicle_color=dominant_color or (colors[0] if colors else None),
+            vehicle_type=dominant_type or (types_[0] if types_ else None),
+            cdc_label=dominant_cdc,
+            is_vehicle_only=True,
+        )
+
+
+# -----------------------------------------------------------------------------
 # Aggregation service
 # -----------------------------------------------------------------------------
 
@@ -488,6 +603,7 @@ class AggregationService:
     def __init__(self, window_seconds: int = AGGREGATION_WINDOW_SECONDS) -> None:
         self.window_seconds = window_seconds
         self._active_groups: list[ActiveDetectionGroup] = []
+        self._vehicle_only_groups: list[VehicleOnlyGroup] = []
 
     def ingest(self, detection: DetectionInput) -> EventSnapshot | None:
         plate = detection.plate_normalized
@@ -529,3 +645,35 @@ class AggregationService:
 
         self._active_groups = remaining
         return expired
+
+    def ingest_vehicle_only(
+        self, detection: DetectionInput, matched_target: dict
+    ) -> EventSnapshot | None:
+        if not (detection.vehicle_color or detection.vehicle_type):
+            return None
+
+        target_id = int(matched_target.get("id") or 0)
+        group = self._find_vehicle_only_group(detection.drone_id, target_id)
+        if group is None:
+            group = VehicleOnlyGroup(
+                drone_id=detection.drone_id,
+                target_id=target_id,
+                started_at=detection.detected_at,
+                window_seconds=self.window_seconds,
+            )
+            self._vehicle_only_groups.append(group)
+
+        group.add(detection)
+        return group.build_snapshot(matched_target)
+
+    def _find_vehicle_only_group(
+        self, drone_id: str, target_id: int
+    ) -> VehicleOnlyGroup | None:
+        for group in reversed(self._vehicle_only_groups):
+            if (
+                group.drone_id == drone_id
+                and group.target_id == target_id
+                and not group.is_expired()
+            ):
+                return group
+        return None

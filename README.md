@@ -101,24 +101,36 @@ The YOLO contribution is intentionally small — ALPR dominates because the plat
 
 The full breakdown is stored in `raw_summary.vehicle_corroboration` on every detection event, so coordinators can inspect exactly what contributed to the score.
 
-### Vehicle Profile Matching
+### Detection Scenarios
 
-When FEMA issues an alert — "blue 2018 Honda sedan, plate ABC1234" — our connector parses the alert text and stores the vehicle profile alongside the plate in the watchlist. When a drone or phone camera later detects plate ABC1234, the system:
+The pipeline handles three distinct outcomes depending on whether ALPR can read a plate and whether YOLO's vehicle classification matches the alert profile.
 
-1. Looks up the watchlist entry and retrieves the expected vehicle profile
-2. Compares YOLO's detected color and body type against the expected values
-3. Computes a `color_match` and `type_match` verdict (True / False / None if no expectation)
-4. Appends the result to the Discord alert embed
+| Scenario | Plate? | YOLO profile? | Fires alert? | Channel | Embed color/title |
+|---|---|---|---|---|---|
+| **Confirmed match** | ✅ Readable | ✅ Matches alert | Yes — full pipeline | Main coordinator channel | 🔴 `🚨 WATCHLIST MATCH` |
+| **Mismatch** | ✅ Readable | ❌ Doesn't match | Yes — penalised | **Separate mismatch channel** | 🟠 `⚠️ PLATE MATCH — PROFILE MISMATCH` |
+| **Vehicle-only** | ❌ None read | ✅ Matches vehicle_target | Yes — visual only | **Separate vehicle-only channel** | 🟣 `👁️ VEHICLE PROFILE MATCH — NO PLATE READ` |
 
-The Discord notification tells coordinators not just *which plate was seen* but whether the vehicle it was attached to looks right:
+**Scenario 1 — Confirmed match:** Plate matches watchlist (fuzzy, ≤1 char OCR tolerance) and YOLO color + body type agree with the alert profile. Full aggregate confidence score displayed; Discord embed carries "✅ matches profile" verdict. Frame thumbnail attached. SMS and Expo push fire if confidence ≥ 90%.
 
-```
-Vehicle (YOLO)   blue car  ✓ matches profile
-Vehicle (YOLO)   red truck  ⚠️ profile expects blue sedan
-Vehicle (YOLO)   blue car  (no profile on file)
-```
+**Scenario 2 — Plate match, profile mismatch:** Plate matches watchlist but YOLO sees a different color or body type than the alert profile. Confidence is penalised: −12 pts for color mismatch, −8 pts for type mismatch (max −20). If the penalised effective confidence falls below 60, the alert is routed to the `MISMATCH_WEBHOOK_URL` channel instead of the main channel. The embed uses an orange color and the "⚠️ PLATE MATCH — PROFILE MISMATCH" title. Vehicle field shows the discrepancy. Coordinators should treat these as "verify before escalating."
 
-A plate match with a mismatched vehicle description prompts additional verification before escalation — the system surfaces the discrepancy rather than hiding it behind a single number.
+**Scenario 3 — Vehicle-only, no plate:** ALPR cannot read a plate (no result or below 5-character minimum) but YOLO detects a vehicle that matches color and body type in an active `vehicle_targets` record. A separate YOLO-only confidence score is computed (capped at 75, independent of ALPR):
+
+| Component | Weight |
+|---|---|
+| Average YOLO detection confidence | 0–50 pts |
+| Color matches target (≥60% frame agreement) | +10 pts |
+| Body type matches target (≥60% frame agreement) | +10 pts |
+| CDC make label matches target (≥60% agreement) | +5 pts |
+| Repetition bonus (2 frames +2, ≥3 frames +5) | +2–5 pts |
+| Hard cap | 75 pts |
+
+Fires when score ≥ 50, subject to a 10-minute per-drone cooldown. Routed to `VEHICLE_ONLY_WEBHOOK_URL`. Frame thumbnail attached. Embed includes an "Action required" prompt: *reposition for a plate read.* These are leads, not confirmations.
+
+**Env vars for separate channels (both fall back to `ALERT_WEBHOOK_URL` if not set):**
+- `MISMATCH_WEBHOOK_URL` — receives scenario 2 alerts
+- `VEHICLE_ONLY_WEBHOOK_URL` — receives scenario 3 alerts
 
 ### FEMA Alert → Watchlist
 

@@ -177,6 +177,10 @@ class EventService:
             max(0.0, snapshot.aggregate_confidence - penalty), 2
         )
 
+        # Route to mismatch channel when penalised confidence drops below floor
+        if vehicle_context.get("any_mismatch") and vehicle_context["effective_confidence"] < 60.0:
+            vehicle_context["routing"] = "mismatch"
+
         # Check Cooldown
         current_status = event.get('status') if isinstance(event, dict) else event.status
         if current_status == EventStatus.ALERTED.value:
