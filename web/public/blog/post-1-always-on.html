@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Problem with Always-On — Amber's Angels</title>
+<meta name="description" content="Every technology that retains data creates risk. The problem isn't character — it's architecture. Here's why Amber's Angels made a different trade.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:48px 0 40px; border-bottom:3px solid var(--amber); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.series-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--amber); margin-bottom:16px; }
+.post-number { font-family:'Playfair Display',serif; font-size:11pt; color:rgba(250,250,248,0.35); margin-bottom:8px; }
+h1 { font-family:'Playfair Display',serif; font-size:36pt; font-weight:700; color:#FAFAF8; line-height:1.1; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.lede { font-size:13.5pt; font-weight:300; color:#3D2B1A; line-height:1.7; margin-bottom:40px; font-style:italic; border-left:2px solid var(--amber); padding-left:20px; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+.issue-block { margin:40px 0; border:1px solid var(--rule); }
+.issue-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--amber); }
+.issue-content { padding:24px; }
+.issue-content p { margin-bottom:12px; font-size:11pt; line-height:1.7; }
+.issue-content p:last-child { margin-bottom:0; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--amber); padding-left:20px; margin:0; }
+.comparison { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule); margin:40px 0; }
+.comp-col { background:var(--cream); padding:24px; }
+.comp-col h3 { font-size:9pt; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid; }
+.comp-col.always h3 { color:#991B1B; border-color:#FCA5A5; }
+.comp-col.event h3 { color:#065F46; border-color:#6EE7B7; }
+.comp-col ul { list-style:none; }
+.comp-col ul li { font-size:10.5pt; padding:7px 0; border-bottom:1px solid var(--rule); line-height:1.5; }
+.comp-col ul li:last-child { border-bottom:none; }
+.footnote { margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:9.5pt; color:var(--muted); font-style:italic; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; }
+.series-nav { display:flex; justify-content:space-between; margin-top:48px; padding-top:24px; border-top:1px solid var(--rule); font-size:10pt; color:var(--muted); }
+.series-nav a { color:var(--amber); text-decoration:none; }
+.series-nav a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:26pt; } .pullquote { margin:40px -16px; padding:24px 20px; } .comparison { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/blog">Writing</a>
+  <span class="sep">/</span>
+  <a href="/blog/coverage-gap-intro">The Coverage Gap</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="series-label">The Coverage Gap — Post 1 of 8</p>
+    <p class="post-number">A content series on the future of public safety AI</p>
+    <h1>The Problem<br>with Always-On</h1>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; June 2026</p>
+  </div>
+</header>
+<main class="main">
+
+  <p class="lede">Every technology that retains data creates risk. That's not a criticism of any specific vendor or department — it's a structural reality. The more data a system holds, the more hands touch it. And with enough hands, some will misuse it.</p>
+
+  <h2>The Architecture of Risk</h2>
+  <p>This isn't hypothetical. Across the country, law enforcement agencies have dealt with internal investigations involving misuse of surveillance data — plate reader systems queried for personal rather than investigative purposes, access logs showing activity with no case attached.</p>
+  <p>I want to be precise: the overwhelming majority of officers handle sensitive data responsibly. <strong>The problem isn't character. The problem is architecture.</strong> A system that retains data creates liability for every officer, every department, and every community it serves — even when everyone is acting in good faith.</p>
+  <p>Because data can be subpoenaed. Data can be breached. Data can be misread years later by someone who wasn't there. The liability doesn't require bad intent. It only requires that the data exists.</p>
+
+  <div class="pullquote">
+    <p>"The problem isn't character. The problem is architecture. A system that retains data creates liability whether or not anyone ever misuses it."</p>
+  </div>
+
+  <h2>The Trade Always-On Systems Make</h2>
+  <p>Always-on ALPR is built on retention. That's the feature, not a bug. The reach-back capability — the ability to query what vehicle passed a given intersection last Tuesday — requires that the data exists. You can't have reach-back without retention. It's the same trade.</p>
+  <p>That trade is worth making for certain use cases. Cold case investigation. Pattern analysis. Retrospective suspect identification. These are legitimate law enforcement needs and always-on systems serve them well.</p>
+  <p>But for missing persons response — where the question is <em>what's happening right now</em>, not <em>what happened last week</em> — the retention trade is all downside and no upside. You're accumulating liability for a capability you don't need for this use case.</p>
+
+  <div class="issue-block">
+    <div class="issue-label">Issue</div>
+    <div class="issue-content">
+      <p>Always-on ALPR creates persistent vehicle movement databases. Every car that passes a camera is logged — the vast majority belonging to people with no connection to any investigation. This data creates institutional liability regardless of how carefully it is managed.</p>
+    </div>
+    <div class="issue-label">Discussion</div>
+    <div class="issue-content">
+      <p>Data retention policies provide procedural safeguards but not architectural ones. A policy can be changed, overridden by legal compulsion, or circumvented by internal actors. The liability exists as long as the data exists — independent of the policy governing it.</p>
+      <p>For missing persons response specifically, the retrospective capability that justifies always-on retention has no application. An AMBER Alert is a real-time problem. The data needed to respond to it is generated by the alert, not accumulated before it.</p>
+    </div>
+    <div class="issue-label">Recommendation</div>
+    <div class="issue-content">
+      <p>For jurisdictions deploying AI specifically for missing persons response, event-triggered architecture eliminates retention liability at the infrastructure level. No retention means no liability from retention — regardless of what any individual does with access to the system.</p>
+    </div>
+    <div class="issue-label">How Amber's Angels addresses this</div>
+    <div class="issue-content">
+      <p>The platform is dormant between active government-issued alerts. When an alert fires, frames are processed in real time and deleted from server memory immediately after inference. Innocent frames — the vast majority — are never written to disk and leave no record. High-confidence matches are shared with law enforcement as part of the active case. That data has a name attached to it: the child we're trying to find. That's the only data worth keeping.</p>
+    </div>
+  </div>
+
+  <h2>The Comparison</h2>
+  <div class="comparison">
+    <div class="comp-col always">
+      <h3>Always-On ALPR</h3>
+      <ul>
+        <li>Scanning continuously — 24/7/365</li>
+        <li>Every plate logged regardless of active emergency</li>
+        <li>Retention creates reach-back capability</li>
+        <li>Retention also creates liability</li>
+        <li>Data subject to subpoena, breach, misuse</li>
+        <li>Community trust eroded by continuous monitoring</li>
+        <li>Answers: what happened?</li>
+      </ul>
+    </div>
+    <div class="comp-col event">
+      <h3>Amber's Angels</h3>
+      <ul>
+        <li>Dormant between active FEMA alerts</li>
+        <li>Innocent frames deleted immediately after processing</li>
+        <li>No reach-back capability — by design</li>
+        <li>No retention means no retention liability</li>
+        <li>Match data retained only for active case</li>
+        <li>Community trust preserved by architecture</li>
+        <li>Answers: what's happening right now?</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>A Different Trade</h2>
+  <p>We gave up reach-back. We kept real-time. We deleted innocent frames. We retained only what matters.</p>
+  <p>That trade made sense for the problem we're solving. It won't make sense for every problem. A jurisdiction that needs retrospective intelligence capability should have always-on infrastructure. A jurisdiction that wants real-time activation for missing persons response without accumulating retention liability should have something like Amber's Angels.</p>
+  <p>Most jurisdictions need both. They're answering different questions.</p>
+  <p>Next week I'll walk through exactly what those different questions look like — and why the honest answer is that Flock and Amber's Angels are better together than either is alone.</p>
+
+  <div class="footnote">
+    * Performance data from live system test conducted June 7, 2026. Phone pipeline: alert ingestion to coordinator notification with frame and GPS coordinates in under one minute. Drone pipeline: stream-to-coordinator notification in under ten seconds. Peak confidence: 99% on both pipelines in the same session. Individual results will vary based on network conditions, volunteer density, and search area geography.
+  </div>
+
+  <div class="cta">
+    <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
+  </div>
+
+  <div class="series-nav">
+    <a href="/blog/coverage-gap-intro">← Series Introduction</a>
+    <span>Next: Different Questions — July 1</span>
+  </div>
+
+</main>
+<footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
+</body>
+</html>

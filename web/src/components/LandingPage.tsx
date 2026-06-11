@@ -85,6 +85,7 @@ export default function LandingPage() {
           <li><a href="#privacy">Privacy</a></li>
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#explore">Explore</a></li>
+          <li><a href="#blog">Writing</a></li>
         </ul>
         <a href="/login" className={s.navSignIn}>Sign In</a>
         <a href="#involve" className={s.navCta}>Get Involved →</a>
@@ -436,6 +437,36 @@ export default function LandingPage() {
           <a href="/deck/grant" target="_blank" rel="noopener noreferrer">Grant &amp; Financial Info</a>
           <a href="/deck/about" target="_blank" rel="noopener noreferrer">About the Founder</a>
           <a href="/deck/partnership" target="_blank" rel="noopener noreferrer">Partnership Capabilities</a>
+        </div>
+      </section>
+
+      {/* THE COVERAGE GAP — BLOG SERIES */}
+      <section id="blog" className={s.blog}>
+        <div className={`${s.blogHeader} ${s.fadeUp}`}>
+          <div>
+            <p className={s.blogSeriesLabel}>The Coverage Gap · Weekly Series</p>
+            <h2 className={s.blogTitle}>Written for the field.</h2>
+            <p className={s.blogDesc}>
+              Eight posts on where fixed ALPR ends, where mobile volunteer AI begins, and why the future of public safety technology has to be event-triggered, not always-on.
+            </p>
+          </div>
+          <a href="/blog" className={s.blogAllLink}>All posts →</a>
+        </div>
+        <div className={`${s.blogGrid} ${s.fadeUp}`}>
+          <a href="/blog/coverage-gap-intro" target="_blank" rel="noopener noreferrer" className={s.blogCard}>
+            <span className={s.blogPostTag}>Series Introduction</span>
+            <h3>The Coverage Gap</h3>
+            <p className={s.blogPostDate}>Grant Lindberg · June 2026</p>
+            <p>Fixed ALPR asks: what happened? We ask: what&apos;s happening right now? A jurisdiction with only one has half the picture — and the half they&apos;re missing costs seconds they don&apos;t have.</p>
+            <span className={s.blogReadLink}>Read →</span>
+          </a>
+          <a href="/blog/post-1-always-on" target="_blank" rel="noopener noreferrer" className={s.blogCard}>
+            <span className={s.blogPostTag}>Post 1 of 8 · June 17</span>
+            <h3>The Problem with Always-On</h3>
+            <p className={s.blogPostDate}>Grant Lindberg · June 2026</p>
+            <p>Every technology that retains data creates risk. The problem isn&apos;t character — it&apos;s architecture. A system that retains data creates liability whether or not anyone ever misuses it.</p>
+            <span className={s.blogReadLink}>Read →</span>
+          </a>
         </div>
       </section>
 

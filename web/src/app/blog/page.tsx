@@ -1,0 +1,261 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
+
+export const metadata: Metadata = {
+  title: "Writing — Amber's Angels",
+  description: "The Coverage Gap: a weekly series on event-triggered public safety AI, privacy by architecture, and the future of missing persons response.",
+}
+
+const POSTS = [
+  {
+    slug: 'coverage-gap-intro',
+    tag: 'Series Introduction',
+    title: 'The Coverage Gap',
+    date: 'June 11, 2026',
+    excerpt: 'Fixed ALPR answers: what happened? We answer: what\'s happening right now? A jurisdiction with only one has half the picture.',
+    live: true,
+  },
+  {
+    slug: 'post-1-always-on',
+    tag: 'Post 1 of 8',
+    title: 'The Problem with Always-On',
+    date: 'June 17, 2026',
+    excerpt: 'Every technology that retains data creates risk. The problem isn\'t character — it\'s architecture.',
+    live: true,
+  },
+  {
+    slug: null,
+    tag: 'Post 2 of 8',
+    title: 'Different Questions',
+    date: 'July 1, 2026',
+    excerpt: 'What Flock answers vs. what we answer — and why the honest answer is that a jurisdiction needs both.',
+    live: false,
+  },
+  {
+    slug: null,
+    tag: 'Post 3 of 8',
+    title: 'When Plates Disappear',
+    date: 'July 8, 2026',
+    excerpt: 'What happens when a suspect vehicle has no front plate, a covered plate, or a stolen tag — and what the detection pipeline does about it.',
+    live: false,
+  },
+  {
+    slug: null,
+    tag: 'Post 4 of 8',
+    title: 'The Coverage Map Problem',
+    date: 'July 15, 2026',
+    excerpt: 'Fixed ALPR cameras cover intersections. Volunteers cover routes. The search area for a missing child covers everything else.',
+    live: false,
+  },
+  {
+    slug: null,
+    tag: 'Post 5 of 8',
+    title: 'Join Swarm',
+    date: 'July 22, 2026',
+    excerpt: 'How autonomous drone coordination changes the geometry of a search — and what it takes to build it responsibly.',
+    live: false,
+  },
+  {
+    slug: null,
+    tag: 'Post 6 of 8',
+    title: 'Privacy by Architecture, Not Policy',
+    date: 'July 29, 2026',
+    excerpt: 'Policies can be changed, overridden, or ignored. Architecture can\'t. Here\'s what that distinction means in practice.',
+    live: false,
+  },
+  {
+    slug: null,
+    tag: 'Post 7 of 8',
+    title: 'The Math',
+    date: 'August 5, 2026',
+    excerpt: 'How many vehicles pass a given point in 90 minutes? How many volunteers does it take to achieve meaningful coverage? The numbers are surprising.',
+    live: false,
+  },
+  {
+    slug: null,
+    tag: 'Post 8 of 8',
+    title: 'Before the Alert',
+    date: 'August 12, 2026',
+    excerpt: 'AMBER Alerts fire after abductions are reported. What would it take to close that gap — and what are the limits of trying?',
+    live: false,
+  },
+]
+
+export default function BlogIndexPage() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#050a0f',
+      color: 'rgba(255,255,255,0.88)',
+      fontFamily: "'Inter', sans-serif",
+    }}>
+      {/* Nav */}
+      <nav style={{
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        padding: '16px 48px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+      }}>
+        <Link href="/" style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: '13px' }}>
+          ← amberangels.org
+        </Link>
+        <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '13px' }}>/</span>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', fontWeight: 600 }}>Writing</span>
+      </nav>
+
+      {/* Header */}
+      <header style={{
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        padding: '64px 48px 56px',
+        maxWidth: '900px',
+      }}>
+        <p style={{
+          fontSize: '11px',
+          fontWeight: 700,
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          color: '#f59e0b',
+          marginBottom: '16px',
+        }}>
+          The Coverage Gap · Weekly Series
+        </p>
+        <h1 style={{
+          fontSize: '48px',
+          fontWeight: 700,
+          lineHeight: 1.1,
+          letterSpacing: '-0.5px',
+          color: '#fff',
+          marginBottom: '20px',
+        }}>
+          Written for the field.
+        </h1>
+        <p style={{
+          fontSize: '17px',
+          color: 'rgba(255,255,255,0.5)',
+          lineHeight: 1.65,
+          maxWidth: '600px',
+        }}>
+          Eight posts on where fixed ALPR ends, where mobile volunteer AI begins, and why the future of public safety technology has to be event-triggered, not always-on. Published every Tuesday.
+        </p>
+      </header>
+
+      {/* Post list */}
+      <main style={{ maxWidth: '900px', padding: '0 48px 96px' }}>
+        {POSTS.map((post, i) => {
+          const content = (
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '32px',
+              padding: '36px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.07)',
+              opacity: post.live ? 1 : 0.45,
+            }}>
+              {/* Index number */}
+              <div style={{
+                flexShrink: 0,
+                width: '48px',
+                paddingTop: '4px',
+                fontWeight: 700,
+                fontSize: '28px',
+                color: 'rgba(255,255,255,0.12)',
+                lineHeight: 1,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {String(i).padStart(2, '0')}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: '#f59e0b',
+                  }}>
+                    {post.tag}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>{post.date}</span>
+                  {!post.live && (
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255,255,255,0.25)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '2px',
+                      padding: '2px 6px',
+                    }}>
+                      Coming
+                    </span>
+                  )}
+                </div>
+                <h2 style={{
+                  fontSize: '22px',
+                  fontWeight: 700,
+                  color: post.live ? '#fff' : 'rgba(255,255,255,0.6)',
+                  marginBottom: '10px',
+                  lineHeight: 1.2,
+                }}>
+                  {post.title}
+                </h2>
+                <p style={{
+                  fontSize: '14px',
+                  color: 'rgba(255,255,255,0.45)',
+                  lineHeight: 1.65,
+                  margin: 0,
+                }}>
+                  {post.excerpt}
+                </p>
+              </div>
+              {post.live && (
+                <div style={{
+                  flexShrink: 0,
+                  alignSelf: 'center',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#f59e0b',
+                  letterSpacing: '0.05em',
+                  whiteSpace: 'nowrap',
+                }}>
+                  Read →
+                </div>
+              )}
+            </div>
+          )
+
+          if (post.live && post.slug) {
+            return (
+              <Link key={i} href={`/blog/${post.slug}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                className="blog-row">
+                {content}
+              </Link>
+            )
+          }
+          return <div key={i}>{content}</div>
+        })}
+      </main>
+
+      {/* Footer */}
+      <footer style={{
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        padding: '32px 48px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontSize: '12px',
+        color: 'rgba(255,255,255,0.3)',
+      }}>
+        <span>Amber&apos;s Angels Inc. · 501(c)(3) · EIN 42-2052151 · Carrollton, Georgia</span>
+        <Link href="/" style={{ color: 'rgba(255,255,255,0.3)', textDecoration: 'none' }}>amberangels.org</Link>
+      </footer>
+
+      <style>{`
+        .blog-row:hover > div { opacity: 1 !important; }
+        .blog-row:hover h2 { color: #fff !important; }
+      `}</style>
+    </div>
+  )
+}
