@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>When Plates Disappear — Amber's Angels</title>
-<meta name="description" content="The plate is the primary key. Here's what happens in the detection pipeline when it fails — and what we're building to close that gap.">
+<meta name="description" content="Plates fail in two distinct ways. Here's exactly what the detection pipeline does in each case — including what fires when there's no readable plate at all.">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
 :root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; }
@@ -63,49 +63,48 @@ strong { color:var(--navy); font-weight:600; }
 </header>
 <main class="main">
 
-  <p class="lede">The plate is the primary key. I want to be honest about that before I say anything else — and honest about what happens in our system when the plate fails.</p>
+  <p class="lede">The plate is the primary key. I want to be honest about that before I say anything else — and honest about exactly what our system does when it fails.</p>
 
   <h2>How Our Pipeline Actually Works</h2>
-  <p>Every detection in Amber's Angels starts with a plate read. If the pipeline can't read a plate — or reads fewer than five characters — it exits. No alert fires, no coordinator notification, no Discord message. The vehicle is not surfaced as a lead.</p>
-  <p>That's a real limitation. I'm not going to dress it up.</p>
-  <p>But plates fail in two distinct ways, and our system handles them very differently. The distinction matters for how you think about what we can and can't do.</p>
+  <p>Every detection in Amber's Angels runs two independent checks simultaneously: a plate read (OpenALPR + Plate Recognizer) and a vehicle profile classification (YOLO). These two signals are compared. How the system responds depends on which signals are present, what they say, and whether they agree.</p>
+  <p>Plates fail in two distinct ways. The distinction matters for how you think about what we can and can't do.</p>
 
   <div class="pullquote">
-    <p>"I could describe a capability we don't fully have yet as if we have it. I'd rather tell you what's real, what's coming, and let the work speak for itself."</p>
+    <p>"Two signals. Plate identity and vehicle profile. When they conflict, or when one is missing entirely, we surface that explicitly rather than hiding it behind a single confidence number."</p>
   </div>
 
   <h2>Failure Mode 1: The Switched Plate</h2>
   <p>A suspect swaps plates to avoid detection — putting a different vehicle's plates on the suspect car. Our pipeline reads the switched plate, matches it to the watchlist, and then our YOLO vehicle classifier independently examines the actual car.</p>
-  <p>If the alert says white Ford Bronco but YOLO sees a red VW sedan, the system flags the discrepancy. The confidence score drops by up to 20 points. The coordinator sees a clear warning in the embed: <strong>⚠️ profile expects white Ford Bronco.</strong></p>
+  <p>If the alert says white Ford Bronco but YOLO sees a red VW sedan, the system flags the discrepancy. The confidence score drops by up to 20 points. When the penalized score falls below the mismatch threshold, the notification routes to a dedicated coordinator channel — visually distinct from a standard hit — with the title <strong>⚠️ PLATE MATCH — PROFILE MISMATCH</strong> and the vehicle discrepancy spelled out explicitly.</p>
   <p>The plate matched. The car didn't. That discrepancy is itself a lead — it tells a coordinator that something doesn't add up and the vehicle is worth a second look. It's not a false positive to be dismissed. It's a signal to investigate.</p>
 
   <div class="issue-block">
     <div class="issue-label">Current behavior — switched plate</div>
-    <div class="issue-content"><p>Alert fires with penalized confidence score. Coordinator sees plate match AND vehicle mismatch simultaneously. The ⚠️ warning is visible in the embed body. A coordinator who reads carefully has the full picture. A coordinator who skims may miss the mismatch. We're addressing the UI to make the mismatch more prominent.</p></div>
+    <div class="issue-content"><p>Alert fires to a dedicated mismatch channel with penalized confidence score and explicit vehicle discrepancy noted. Coordinator sees plate match AND vehicle mismatch in a single notification. The channel separation means a coordinator can subscribe to mismatch alerts with appropriate skepticism — they're investigative leads, not confirmed identifications.</p></div>
   </div>
 
   <h2>Failure Mode 2: No Readable Plate</h2>
-  <p>The plate is covered, removed, or so damaged it can't be read. In this case, currently, our pipeline exits immediately. No alert fires. The vehicle is invisible to our system even if YOLO perfectly identifies it as matching the alert profile.</p>
-  <p>This is our honest gap.</p>
-  <p>The architecture for addressing it already exists. Our vehicle_targets table is populated from FEMA alerts with expected color, make, and body type. The YOLO classifier is already producing this data for every frame. What we're building is the activation logic that connects them — a plate-free detection path that surfaces a vehicle profile match to the coordinator even when no plate is readable.</p>
+  <p>The plate is covered, removed, or so damaged it can't be read. In this case, until recently, our pipeline exited immediately. The vehicle was invisible to our system even if YOLO perfectly identified it as matching the alert profile.</p>
+  <p>That gap is now closed.</p>
+  <p>When no readable plate is detected, the pipeline checks whether a vehicle was identified at all. If YOLO sees a vehicle and its color and body type match the active FEMA alert profile — a white SUV when the alert says white SUV — a plate-free detection fires. It routes to its own coordinator channel, separate from both standard hits and mismatch alerts.</p>
 
   <div class="issue-block">
-    <div class="issue-label">Current behavior — no readable plate</div>
-    <div class="issue-content"><p>Pipeline exits. Nothing fires. Vehicle is not surfaced.</p></div>
-    <div class="issue-label">In development — plate-free detection path</div>
-    <div class="issue-content"><p>When no readable plate is detected but YOLO matches the active alert's vehicle profile, the system will surface a coordinator notification: 👁️ VEHICLE PROFILE MATCH — NO PLATE READ. Confidence is capped at 75% maximum — it can never score as high as a confirmed plate read. Routed to a separate coordinator channel to distinguish it from plate-confirmed detections.</p></div>
+    <div class="issue-label">Current behavior — no readable plate, vehicle profile match</div>
+    <div class="issue-content"><p>Coordinator receives: 👁️ VEHICLE PROFILE MATCH — NO PLATE READ. Confidence is capped at 75% — it can never score as high as a confirmed plate read. Notification includes YOLO-detected color, body type, a frame thumbnail, and the explicit instruction: <strong>Action required: reposition for plate read.</strong> Ten-minute cooldown per drone to avoid flooding the channel from a single vehicle.</p></div>
+    <div class="issue-label">What plate-free detection is not</div>
+    <div class="issue-content"><p>It is not a positive identification. It is a repositioning cue. The coordinator's job when they receive one is to direct the volunteer toward a better angle — not to act on the alert as if the plate had been confirmed. The channel separation and the 75% cap exist precisely to preserve that distinction.</p></div>
   </div>
 
   <div class="warning">
-    <p><strong>What this won't solve:</strong> If a suspect switches both the plate AND changes the vehicle's visible characteristics — repainting, adding body panels — neither pipeline will find them. That's outside what any automated system can address. Human witnesses remain essential.</p>
+    <p><strong>What neither path solves:</strong> If a suspect switches the plate AND changes the vehicle's visible characteristics — repainting, adding body panels — neither pipeline will find them. That's outside what any automated system can address. Human witnesses remain essential.</p>
   </div>
 
   <h2>Why Honesty Matters Here</h2>
-  <p>A coordinator who trusts our system needs to know exactly what it can and can't do. Overstating our plate-free capability would create false confidence in exactly the scenario where a missed detection has the highest stakes.</p>
-  <p>The plate is still the primary key. The vehicle profile is what we check it against. And when those two signals conflict — or when one of them is missing — we surface that clearly rather than hiding it behind a single confidence number.</p>
+  <p>A coordinator who trusts our system needs to know exactly what it can and can't do. Each of the three detection channels — confirmed plate hit, plate match with profile mismatch, profile match without plate — carries a different evidentiary weight. We've built the system to make that weight visible, not to flatten everything into a single confidence number that obscures what the underlying signal actually is.</p>
+  <p>The plate is still the primary key. Everything else is a cue to go find the plate.</p>
   <p>Next week: where the geographic gaps are biggest — and the communities that feel them most acutely.</p>
 
-  <div class="footnote">* Vehicle profile mismatch penalty: color mismatch −12 points, body type mismatch −8 points. Maximum combined penalty −20 points. Plate-free detection path in active development; not yet in production.</div>
+  <div class="footnote">* Vehicle profile mismatch penalty: color −12 points, body type −8 points, maximum −20 points combined. Mismatch routing threshold: effective confidence below 60 with any mismatch present. Plate-free detection confidence cap: 75%. Plate-free detection alert threshold: 50%. Per-drone cooldown: 10 minutes.</div>
 
   <div class="cta">
     <p><strong>Amber's Angels is a 501(c)(3) nonprofit.</strong> Our platform is provided to law enforcement at no cost. To learn more — <a href="mailto:info@amberangels.org">info@amberangels.org</a> &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></p>
