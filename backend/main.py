@@ -350,6 +350,101 @@ async def inject_alert(
     return {"ok": True, "plate": req.plate.upper().strip(), "inserted": inserted, "identifier": ident}
 
 
+@app.post("/admin/ingest-bolo")
+async def ingest_bolo(
+    file: UploadFile = File(...),
+    _payload: dict = Depends(require_admin),
+):
+    """
+    Admin: upload a screenshot of a social-media or law-enforcement BOLO.
+    Claude Haiku vision extracts the plate, vehicle, and person data, then
+    creates watchlist + vehicle_targets entries using the same pipeline as
+    /admin/inject-alert.
+    """
+    from services.bolo_ingestor import extract_bolo
+    from services.fema_connector import _add_to_watchlist, _notify_watching_pilots, _notify_plates
+
+    img_bytes = await file.read()
+    if len(img_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image must be under 10 MB.")
+
+    try:
+        extracted = await extract_bolo(img_bytes, file.content_type or "image/jpeg")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    plate = (extracted.get("plate_text") or "").upper().replace(" ", "").replace("-", "")
+    if not plate:
+        raise HTTPException(status_code=422, detail="No license plate found in the image.")
+
+    atype    = (extracted.get("alert_type") or "amber").lower()
+    make     = extracted.get("vehicle_make")
+    model    = extracted.get("vehicle_model")
+    year     = extracted.get("vehicle_year")
+    color    = extracted.get("vehicle_color")
+    vtype    = extracted.get("vehicle_type") or "car"
+    name     = extracted.get("person_name")
+    case_num = extracted.get("case_number")
+    headline = extracted.get("headline") or f"BOLO — {name or plate}"
+    area     = extracted.get("area") or ""
+    fema_id  = f"bolo-{plate}"
+    make_str = " ".join(filter(None, [year, make, model])) or make
+
+    await _add_to_watchlist(
+        database.AsyncSessionLocal,
+        plate,
+        f"{headline} [ID: {fema_id}]",
+        alert_type=atype,
+        source_program="Social Media BOLO",
+        vehicle_color=color or None,
+        vehicle_type=vtype or None,
+        vehicle_make=make or None,
+    )
+
+    async with database.AsyncSessionLocal() as _sess:
+        try:
+            await _sess.execute(text("""
+                INSERT INTO vehicle_targets
+                    (fema_identifier, alert_type, source_program, headline,
+                     area, color, body_type, make, polygon, expires_at)
+                VALUES
+                    (:fema_id, :atype, 'manual', :headline,
+                     :area, :color, :btype, :make, NULL,
+                     NOW() + INTERVAL '72 hours')
+                ON CONFLICT (fema_identifier) DO UPDATE
+                    SET expires_at = NOW() + INTERVAL '72 hours',
+                        headline   = EXCLUDED.headline
+            """), {
+                "fema_id": fema_id, "atype": atype, "headline": headline,
+                "area": area, "color": color or None, "btype": vtype or None, "make": make or None,
+            })
+            await _sess.commit()
+        except Exception as _e:
+            logger.warning("BOLO vehicle_target insert failed: %s", _e)
+            await _sess.rollback()
+
+    webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+    alert_obj = {
+        "msg_type": "alert", "identifier": fema_id,
+        "sent": datetime.now(timezone.utc).isoformat(),
+        "headline": headline, "description": headline, "area": area,
+        "polygon": None, "references": [], "plates": [plate],
+        "vehicle_profile": {"color": color, "body_type": vtype, "make": make},
+        "alert_type": {"key": atype, "label": atype.upper(), "emoji": "🚨"},
+        "source_program": "Social Media BOLO",
+    }
+    await _notify_watching_pilots(database.AsyncSessionLocal, alert_obj)
+    if webhook_url:
+        await _notify_plates(webhook_url, alert_obj, [plate])
+
+    logger.info("BOLO ingest by %s: plate=%s person=%s case=%s", _payload.get("sub"), plate, name, case_num)
+    return {
+        "ok": True, "plate": plate, "person": name, "case": case_num,
+        "vehicle": make_str, "color": color, "alert_type": atype,
+        "headline": headline, "area": area,
+    }
+
+
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     import subprocess, socket

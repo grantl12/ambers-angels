@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { getAuthState } from "@/lib/auth"
+import { getAuthState, getToken } from "@/lib/auth"
 import { apiGet, apiPost, apiDelete } from "@/lib/api-client"
+import { env } from "@/lib/env"
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -227,6 +228,12 @@ export default function AdminPage() {
   const [auditError,      setAuditError]      = useState<string | null>(null)
   const [auditLoaded,     setAuditLoaded]     = useState(false)
 
+  // BOLO ingestor
+  const [boloFile,      setBoloFile]      = useState<File | null>(null)
+  const [boloUploading, setBoloUploading] = useState(false)
+  const [boloResult,    setBoloResult]    = useState<{plate:string;person:string|null;case:string|null;vehicle:string|null;color:string|null;alert_type:string;headline:string|null;area:string|null} | null>(null)
+  const [boloError,     setBoloError]     = useState<string | null>(null)
+
   const loadAuditLog = useCallback(async () => {
     setAuditLoading(true)
     setAuditError(null)
@@ -285,6 +292,34 @@ export default function AdminPage() {
       setResolveMsg(e instanceof Error ? e.message : "Cancel failed.")
     } finally {
       setResolvingId(null)
+    }
+  }
+
+  async function uploadBolo() {
+    if (!boloFile) return
+    setBoloUploading(true)
+    setBoloError(null)
+    setBoloResult(null)
+    try {
+      const form = new FormData()
+      form.append("file", boloFile)
+      const token = getToken()
+      const res = await fetch(`${env.apiBaseUrl}/admin/ingest-bolo`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail ?? `Upload failed: ${res.status}`)
+      }
+      setBoloResult(await res.json())
+      setBoloFile(null)
+      loadActiveAlerts()
+    } catch (e: unknown) {
+      setBoloError(e instanceof Error ? e.message : "Upload failed")
+    } finally {
+      setBoloUploading(false)
     }
   }
 
@@ -840,6 +875,41 @@ export default function AdminPage() {
                     className="text-xs text-red-400/60 hover:text-red-400 transition-colors">Remove</button>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── BOLO Ingestor ── */}
+        <section className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-sky-400">BOLO Ingestor</h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              Upload a screenshot of a social media or law enforcement BOLO. Claude extracts the plate, vehicle, and person automatically.
+            </p>
+          </div>
+          <label htmlFor="bolo-upload"
+            className="flex items-center gap-2 cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60 hover:bg-white/10 transition-colors">
+            {boloFile ? boloFile.name : "Choose screenshot…"}
+          </label>
+          <input id="bolo-upload" type="file" accept="image/*" className="hidden"
+            onChange={(e) => { setBoloFile(e.target.files?.[0] ?? null); setBoloResult(null); setBoloError(null) }} />
+          {boloFile && (
+            <button onClick={uploadBolo} disabled={boloUploading}
+              className="w-full rounded-lg py-2.5 text-sm font-semibold bg-sky-500 text-black hover:bg-sky-400 disabled:opacity-50 transition-colors">
+              {boloUploading ? "Extracting with Claude…" : "Ingest BOLO"}
+            </button>
+          )}
+          {boloError && (
+            <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400">{boloError}</div>
+          )}
+          {boloResult && (
+            <div className="space-y-1 px-3 py-3 rounded-lg bg-white/5 border border-emerald-500/20 text-xs">
+              <div className="font-semibold text-emerald-400 mb-2">✓ Added to watchlist</div>
+              <div><span className="text-white/40">Plate </span><span className="font-mono font-bold text-white">{boloResult.plate}</span></div>
+              {boloResult.person  && <div><span className="text-white/40">Person  </span><span className="text-white">{boloResult.person}</span></div>}
+              {boloResult.vehicle && <div><span className="text-white/40">Vehicle </span><span className="text-white">{boloResult.vehicle}{boloResult.color ? ` · ${boloResult.color}` : ""}</span></div>}
+              {boloResult.area    && <div><span className="text-white/40">Area    </span><span className="text-white">{boloResult.area}</span></div>}
+              {boloResult.case    && <div><span className="text-white/40">Case    </span><span className="text-white">{boloResult.case}</span></div>}
             </div>
           )}
         </section>
