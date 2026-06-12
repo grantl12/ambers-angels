@@ -52,6 +52,7 @@ from services.fema_connector import fema_background_loop, poll_fema_ipaws, check
 from services.amber_alert_poller import amber_background_loop
 from services.ncmec_poller import ncmec_background_loop
 from services.namus_poller import namus_background_loop
+from services.bolo_crawler import bolo_crawler_loop
 from services.autonomous_mission_service import mission_timeout_loop
 from services import detection_agent
 from services.vehicle_classifier import classify as classify_vehicles
@@ -126,6 +127,12 @@ async def lifespan(app: FastAPI):
             webhook_url=_webhook,
         )
     )
+    bolo_crawler_task = asyncio.create_task(
+        bolo_crawler_loop(
+            session_factory=database.AsyncSessionLocal,
+            webhook_url=_webhook,
+        )
+    )
     timeout_task = asyncio.create_task(
         mission_timeout_loop(session_factory=database.AsyncSessionLocal)
     )
@@ -140,10 +147,11 @@ async def lifespan(app: FastAPI):
     amber_task.cancel()
     ncmec_task.cancel()
     namus_task.cancel()
+    bolo_crawler_task.cancel()
     timeout_task.cancel()
     purge_task.cancel()
     telemetry_task.cancel()
-    for t in (fema_task, amber_task, ncmec_task, namus_task, timeout_task, purge_task, telemetry_task):
+    for t in (fema_task, amber_task, ncmec_task, namus_task, bolo_crawler_task, timeout_task, purge_task, telemetry_task):
         try:
             await t
         except asyncio.CancelledError:
@@ -453,6 +461,95 @@ async def ingest_bolo(
     }
 
 
+@app.get("/admin/bolo-sources")
+async def list_bolo_sources(payload: dict = Depends(require_admin)):
+    """List all BOLO crawler sources (admin)."""
+    async with database.AsyncSessionLocal() as session:
+        rows = await session.execute(
+            text(
+                "SELECT id, name, url, source_type, state, css_selector, "
+                "active, last_crawled_at, created_at "
+                "FROM bolo_sources ORDER BY created_at DESC"
+            )
+        )
+        cols = ["id", "name", "url", "source_type", "state", "css_selector",
+                "active", "last_crawled_at", "created_at"]
+        return [dict(zip(cols, row)) for row in rows.fetchall()]
+
+
+@app.post("/admin/bolo-sources")
+async def add_bolo_source(req: dict, payload: dict = Depends(require_admin)):
+    """Add a new BOLO crawler source (admin)."""
+    name        = (req.get("name") or "").strip()
+    url         = (req.get("url") or "").strip()
+    source_type = (req.get("source_type") or "rss").strip().lower()
+    state       = (req.get("state") or "").strip().upper()[:2] or None
+    css_selector = (req.get("css_selector") or "").strip() or None
+
+    if not name or not url:
+        raise HTTPException(status_code=422, detail="name and url are required.")
+    if source_type not in ("rss", "html"):
+        raise HTTPException(status_code=422, detail="source_type must be 'rss' or 'html'.")
+
+    async with database.AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(
+                text("""
+                    INSERT INTO bolo_sources (name, url, source_type, state, css_selector)
+                    VALUES (:name, :url, :stype, :state, :sel)
+                    RETURNING id
+                """),
+                {"name": name, "url": url, "stype": source_type, "state": state, "sel": css_selector},
+            )
+            await session.commit()
+            new_id = result.fetchone()[0]
+            return {"ok": True, "id": new_id}
+        except Exception as exc:
+            await session.rollback()
+            raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.patch("/admin/bolo-sources/{source_id}")
+async def update_bolo_source(source_id: int, req: dict, payload: dict = Depends(require_admin)):
+    """Enable/disable or update a BOLO crawler source (admin)."""
+    updates = {}
+    if "active" in req:
+        updates["active"] = bool(req["active"])
+    if "name" in req:
+        updates["name"] = str(req["name"]).strip()
+    if "css_selector" in req:
+        updates["css_selector"] = str(req["css_selector"]).strip() or None
+
+    if not updates:
+        raise HTTPException(status_code=422, detail="No updatable fields provided.")
+
+    set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+    updates["source_id"] = source_id
+    async with database.AsyncSessionLocal() as session:
+        result = await session.execute(
+            text(f"UPDATE bolo_sources SET {set_clause} WHERE id = :source_id"),
+            updates,
+        )
+        await session.commit()
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Source not found.")
+    return {"ok": True}
+
+
+@app.delete("/admin/bolo-sources/{source_id}")
+async def delete_bolo_source(source_id: int, payload: dict = Depends(require_admin)):
+    """Remove a BOLO crawler source (admin)."""
+    async with database.AsyncSessionLocal() as session:
+        result = await session.execute(
+            text("DELETE FROM bolo_sources WHERE id = :id"),
+            {"id": source_id},
+        )
+        await session.commit()
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Source not found.")
+    return {"ok": True}
+
+
 @app.post("/webhooks/bolo-email")
 async def bolo_email_webhook(request: Request):
     """
@@ -643,9 +740,10 @@ def health_check(db: Session = Depends(get_db)):
     detections_1h = 0
     last_detection_at = None
     from services.health_tracker import get_iso as _poll_ts
-    last_fema_poll  = _poll_ts("fema")
-    last_ncmec_poll = _poll_ts("ncmec")
-    last_namus_poll = _poll_ts("namus")
+    last_fema_poll         = _poll_ts("fema")
+    last_ncmec_poll        = _poll_ts("ncmec")
+    last_namus_poll        = _poll_ts("namus")
+    last_bolo_crawler_poll = _poll_ts("bolo_crawler")
     if db_ok:
         try:
             watchlist_count = db.execute(text("SELECT COUNT(*) FROM watchlist WHERE active = TRUE")).scalar() or 0
@@ -671,9 +769,10 @@ def health_check(db: Session = Depends(get_db)):
         "watchlist_entries": watchlist_count,
         "detections_last_1h": detections_1h,
         "last_detection_at": last_detection_at,
-        "last_fema_poll":    last_fema_poll,
-        "last_ncmec_poll":   last_ncmec_poll,
-        "last_namus_poll":   last_namus_poll,
+        "last_fema_poll":         last_fema_poll,
+        "last_ncmec_poll":        last_ncmec_poll,
+        "last_namus_poll":        last_namus_poll,
+        "last_bolo_crawler_poll": last_bolo_crawler_poll,
     }
 
 

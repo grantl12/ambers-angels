@@ -201,6 +201,31 @@ CREATE TABLE IF NOT EXISTS namus_cases (
 );
 CREATE INDEX IF NOT EXISTS namus_cases_state_idx      ON namus_cases (state);
 CREATE INDEX IF NOT EXISTS namus_cases_actionable_idx ON namus_cases (actionable) WHERE actionable = TRUE;
+
+-- BOLO crawler configurable sources
+CREATE TABLE IF NOT EXISTS bolo_sources (
+    id              SERIAL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    url             TEXT NOT NULL UNIQUE,
+    source_type     VARCHAR(10) NOT NULL DEFAULT 'rss',  -- 'rss' | 'html'
+    state           VARCHAR(2),                           -- NULL = national
+    css_selector    TEXT,                                 -- for source_type='html' only
+    active          BOOLEAN NOT NULL DEFAULT TRUE,
+    last_crawled_at TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bolo_sources_active_idx ON bolo_sources (active) WHERE active = TRUE;
+
+-- Seed national RSS sources (idempotent)
+INSERT INTO bolo_sources (name, url, source_type, state) VALUES
+    ('FBI Wanted - Kidnappings',      'https://www.fbi.gov/wanted/kidnap/@/rss.xml',                              'rss', NULL),
+    ('FBI Wanted - Missing Persons',  'https://www.fbi.gov/wanted/vicap/missing-persons/@/rss.xml',               'rss', NULL),
+    ('FBI Wanted - Violent Crimes',   'https://www.fbi.gov/wanted/crimes-against-children/@/rss.xml',             'rss', NULL),
+    ('NCMEC News Releases',           'https://www.missingkids.org/newsroom/pressreleases/rss',                   'rss', NULL),
+    ('GA GBI Press Releases',         'https://gbi.georgia.gov/press-releases/rss.xml',                          'rss', 'GA'),
+    ('TBI Missing Persons',           'https://www.tn.gov/tbi/news-releases.html',                               'html', 'TN'),
+    ('FL FDLE Alerts',                'https://www.fdle.state.fl.us/AMBER-Alert/AMBER-Alert-History',             'html', 'FL')
+ON CONFLICT (url) DO NOTHING;
 """
 
 try:
