@@ -17,10 +17,10 @@
 <script type="application/json" id="speaker-notes">
 [
 "AMBER Angels is a privacy-first, AI-powered volunteer search platform that responds to government-issued missing persons alerts — AMBER, Silver, Blue, Purple, and NCMEC. Volunteers use the smartphones and DJI drones they already own. No hardware purchase. No special installation. When an alert fires, the platform notifies volunteers in the affected coverage area, they mount their phones or launch their drones, and the inference pipeline runs in real time.",
-"The platform ingests from three active federal sources simultaneously. FEMA IPAWS CMAS polls every five minutes — this is the federal CAP XML feed covering AMBER Alert, Levi's Call, Silver Alert, Blue Alert, Purple Alert, and MIPA. FEMA IPAWS EAS polls every two minutes — same CAP XML schema, separate federal endpoint, higher frequency. NCMEC RSS polls all fifty individual state feeds every thirty minutes, persisting missing-child cases and cross-referencing them against active vehicle targets. All three share a deduplication table backed by Postgres, so the same alert never fires twice even across restarts.",
+"The platform ingests from five active sources simultaneously. FEMA IPAWS CMAS polls every five minutes — the federal CAP XML feed covering AMBER Alert, Levi's Call, Silver Alert, Blue Alert, Purple Alert, and MIPA. FEMA IPAWS EAS polls every two minutes — same CAP XML schema, separate federal endpoint, higher frequency. NWS Alerts API runs each EAS cycle and catches WEA-distributed alerts that bypass the public CMAS feed — for example, Georgia alerts that reach phones but don't appear in the FEMA public feed. NamUs, the DOJ federal missing persons database, polls every thirty minutes for cases with vehicle data — plate or make plus model triggers the same watchlist and YOLO pipeline as FEMA. A configurable BOLO crawler polls law enforcement RSS feeds and agency websites every fifteen minutes, extracting vehicle data locally with no API calls per post. All five sources share a single Postgres-backed deduplication table, so the same case never fires twice across restarts.",
 "No hardware required. Volunteers use the smartphones they already own. Background scan mode runs ML Kit OCR entirely on-device — frames never leave the volunteer's phone. Only the plate text and confidence score are transmitted. This is the default mode for most volunteers: mount your phone, tap Start Mission, and go back to your normal drive. Drone volunteers connect their existing DJI hardware. When an alert fires, a pilot can relinquish their drone to coordinator dispatch — power it on at home, join the swarm, and walk away. The coordinator dispatches it from the mission map.",
-"Plate-only ALPR produces false positives roughly thirty percent of the time in real-world conditions. Our Cascade Inference Engine brings that under five percent. Three layers combine: OpenALPR reads plate text and returns a confidence score. YOLOv8-nano classifies the vehicle's body type and dominant color — up to seven additional confidence points when color and body type match the alert profile. A five-second aggregation window collects multiple frames, applies fuzzy matching for common OCR confusions like O-for-zero and Z-for-two, and produces a composite score. HIGH_CONFIDENCE requires score above eighty-five with at least three supporting frames. PROBABLE — seventy-five plus — triggers the Claude Haiku detection agent for secondary evaluation before any alert fires.",
-"The platform responds to five government-issued alert categories: AMBER Alert and Levi's Call for child abduction — extracted from FEMA IPAWS CMAS CAP XML. Silver Alert for at-risk seniors, triggered by CEM event codes with keyword classification. Blue Alert for endangered or missing law enforcement officers, using LEW event codes. Purple Alert for adults with developmental disabilities. NCMEC notifications from the National Center for Missing and Exploited Children — fifty-state coverage, cross-referenced against active FEMA vehicle targets so coordinators see child cases and suspect vehicles together. All alerts are government-issued — the system responds to existing federal and state alert systems, not self-reported incidents.",
+"The Cascade Inference Engine requires three independent signals to agree before any alert fires. OpenALPR reads plate text and returns a confidence score. YOLOv8-nano classifies the vehicle's body type and dominant color — up to seven additional confidence points when color and body type match the alert profile. Both signals must agree before a composite score is computed. A five-second aggregation window collects multiple frames, applies fuzzy matching for common OCR confusions like O-for-zero and Z-for-two, and produces a final composite score. HIGH_CONFIDENCE requires score above eighty-five with at least three supporting frames. PROBABLE — seventy-five plus — triggers the Claude Haiku detection agent for secondary evaluation before any alert fires. A single uncertain read never triggers an alert.",
+"The platform responds to six alert categories. AMBER Alert and Levi's Call for child abduction — extracted from FEMA IPAWS CMAS CAP XML. Silver Alert for at-risk seniors, triggered by CEM event codes with keyword classification. Blue Alert for endangered or missing law enforcement officers, using LEW event codes. Purple Alert for adults with developmental disabilities. NCMEC notifications from the National Center for Missing and Exploited Children — fifty-state coverage, cross-referenced against active FEMA vehicle targets. And BOLO — law enforcement be-on-the-lookout notices ingested from NamUs federal database and configurable agency feeds, classified by age: under eighteen becomes amber, sixty-five and over becomes silver, adults become BOLO. All non-BOLO alerts are government-issued before the watchlist is updated.",
 "The autonomous drone swarm is the standout capability. A volunteer who can't respond in person powers on their DJI drone at home, opens the Autonomous Mission screen, and the app sends a heartbeat every thirty seconds with the drone's home GPS position. The coordinator sees an amber drone icon on the mission map at that position. They click anywhere on the map to place an observation point — a road, corridor, or choke point near the alert polygon. The dispatch modal shows an ADS-B airspace advisory — any aircraft within five nautical miles below three thousand feet — before confirmation. The drone flies autonomously to the observation point, streams live RTMP video, and the ALPR pipeline runs in real time without the pilot on scene. Mission lifecycle: pending, dispatched, uploading, executing, completed. VLOS enforces a four-hundred-meter software radius. BVLOS Tactical unlocks extended range when an admin records the FAA Part 107 waiver number.",
 "These are the real log lines from our June 7, 2026 end-to-end test. Demo AMBER Alert for plate YVJ024, white sedan. Phone volunteer: push notification received, mission opened, camera scanning at one frame per second, watchlist match confirmed at 47 seconds from alert ingestion — 95.15% composite confidence, Discord alert with frame attached. Drone volunteer streaming DJI Avata via RTMP: ffmpeg spawned, first read was SYVJ0Z4 — length seven versus watchlist length six, a Z-for-two OCR variant — correctly dismissed. YVJ024 confirmed five seconds later, aggregation window filled, 99% peak confidence sustained, Discord alert in under four seconds from stream start. 193 alerted events in one session. This is real pipeline output, not demo mode.",
 "Privacy is enforced by the system topology, not by policy. Non-matching frames are never written to persistent storage — they pass through RAM for inference and are deleted immediately. No plate sightings database, no accumulation of non-alert vehicle data. The system is event-triggered: between active alerts, the inference pipeline is idle. When a HIGH_CONFIDENCE match fires, one golden evidence frame is saved and attached to the coordinator alert as chain-of-custody evidence. Telemetry purges after ninety days. Detection records after one year. The watchlist holds only plates from active government alerts, never our own sightings. Background volunteers — the ScanService path — never transmit frames at all; only plate text and GPS are sent.",
@@ -207,7 +207,7 @@ em.amber { color: var(--amber); font-style: normal; }
       <p class="sub">The AI-powered missing persons search network that puts eyes on every escape route — without buying a single camera or hiring a single operator.</p>
       <div class="badges">
         <span class="badge">501(c)(3) Nonprofit</span>
-        <span class="badge">3 Federal Alert Sources</span>
+        <span class="badge">5 Ingestion Sources</span>
         <span class="badge">2 Volunteer Modes</span>
         <span class="badge">Privacy by Topology</span>
       </div>
@@ -218,27 +218,39 @@ em.amber { color: var(--amber); font-style: normal; }
 
   <!-- ── 02 ALERT INGESTION ── -->
   <section id="s2" data-screen-label="02 Alert Ingestion">
-    <span class="tag">3 Active Sources</span>
+    <span class="tag">5 Active Sources</span>
     <h2>When a child goes missing,<br>the platform knows <em>in minutes.</em></h2>
-    <p class="desc">Three simultaneous federal polling sources, all sharing a single Postgres-backed deduplication table. The same alert never fires twice, even across server restarts.</p>
-    <div class="sources">
+    <p class="desc">Five simultaneous ingestion sources, all sharing a single Postgres-backed deduplication table. The same alert never fires twice, even across server restarts.</p>
+    <div class="sources" style="margin-bottom:28px;">
       <div class="src-card">
         <div class="src-label">FEMA IPAWS CMAS</div>
         <h3>CAP XML · federal alerts</h3>
-        <p>AMBER, Levi's Call, Silver, Blue, Purple, MIPA, EMA. Plate and vehicle profile extracted from CAP XML. Watchlist updated immediately on ingest.</p>
+        <p>AMBER, Levi's Call, Silver, Blue, Purple, MIPA, EMA. Plate and vehicle profile extracted. Watchlist updated within seconds.</p>
         <span class="freq">poll: 5 min</span>
       </div>
       <div class="src-card">
         <div class="src-label">FEMA IPAWS EAS</div>
-        <h3>Same format, higher frequency</h3>
-        <p>Separate federal endpoint, same CAP XML schema. Catches alerts that reach EAS before CMAS. Both sources share the same deduplication set.</p>
+        <h3>Higher frequency, same format</h3>
+        <p>Separate federal endpoint, same CAP XML schema. Catches alerts that reach EAS before CMAS. Shared deduplication set.</p>
         <span class="freq">poll: 2 min</span>
       </div>
       <div class="src-card">
-        <div class="src-label">NCMEC RSS · 50 states</div>
-        <h3>Missing child cross-reference</h3>
-        <p>All fifty individual state feeds polled in parallel. New cases cross-referenced against active FEMA vehicle targets — Discord fires only when a matching vehicle is in the system.</p>
+        <div class="src-label">NWS Alerts API</div>
+        <h3>WEA bypass coverage</h3>
+        <p>Catches WEA-distributed AMBER alerts that bypass the public FEMA CMAS feed — e.g. Georgia alerts that reach phones but not the federal public endpoint.</p>
+        <span class="freq">poll: 2 min</span>
+      </div>
+      <div class="src-card">
+        <div class="src-label">NamUs · DOJ</div>
+        <h3>Federal missing persons</h3>
+        <p>DOJ national database. Actionable cases (plate or make + model) feed the same watchlist and YOLO pipeline as FEMA. Age-routed to AMBER / Silver / BOLO.</p>
         <span class="freq">poll: 30 min</span>
+      </div>
+      <div class="src-card">
+        <div class="src-label">BOLO Crawler</div>
+        <h3>LE agency feeds</h3>
+        <p>Configurable RSS and HTML sources — FBI, NCMEC, state agencies, county SOs. Local NER extraction, no API cost per post. Same adequacy gate.</p>
+        <span class="freq">poll: 15 min</span>
       </div>
     </div>
     <div class="types">
@@ -248,6 +260,7 @@ em.amber { color: var(--amber); font-style: normal; }
       <span class="type-chip type-blue">Blue Alert</span>
       <span class="type-chip type-purple">Purple Alert</span>
       <span class="type-chip type-ncmec">NCMEC</span>
+      <span class="type-chip" style="background:rgba(255,107,53,0.12);color:#ff6b35;border:1px solid rgba(255,107,53,0.25);">BOLO</span>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
     <div class="sn">2 / 9</div>
@@ -286,8 +299,8 @@ em.amber { color: var(--amber); font-style: normal; }
   <!-- ── 04 CASCADE INFERENCE ── -->
   <section id="s4" data-screen-label="04 Cascade Inference">
     <span class="tag">Cascade Inference Engine</span>
-    <h2>Plate-only ALPR is wrong 30% of the time.<br>We're wrong <em>less than 5%.</em></h2>
-    <p class="sub">Three independent signals must agree before an alert fires. The aggregation window catches OCR confusions and partial reads that single-frame systems miss entirely.</p>
+    <h2>Three independent signals.<br>A single uncertain read <em>never fires an alert.</em></h2>
+    <p class="sub">OpenALPR, YOLO vehicle classification, and a multi-frame aggregation window must all agree before anything reaches a coordinator. Plate-only systems miss the vehicle — we require both.</p>
     <div class="pipeline">
       <div class="pipe-step">
         <div class="ps-label">Signal 1</div>
@@ -330,38 +343,44 @@ em.amber { color: var(--amber); font-style: normal; }
   <!-- ── 05 FIVE ALERT TYPES ── -->
   <section id="s5" data-screen-label="05 Five Alert Types">
     <span class="tag">Alert Coverage</span>
-    <h2>Five government-issued alert categories.<br><em>All active. All real-time.</em></h2>
-    <p class="sub">Volunteers respond to existing federal and state alert systems — not self-reported incidents. Every alert is government-issued before the watchlist is updated.</p>
-    <div class="alert-grid">
+    <h2>Six alert categories.<br><em>All active. All real-time.</em></h2>
+    <p class="sub">Volunteers respond to existing federal and state alert systems — not self-reported incidents. Every FEMA-sourced alert is government-issued before the watchlist is updated.</p>
+    <div class="alert-grid" style="grid-template-columns:repeat(6,1fr);">
       <div class="alert-card ac-amber">
         <div class="ac-type">AMBER / Levi's Call</div>
         <h3>Child Abduction</h3>
         <p>Federal CAP XML. Plate and vehicle profile extracted automatically. Watchlist updated within seconds of FEMA issuance.</p>
-        <div class="ac-src">FEMA IPAWS CMAS + EAS · CAE event code</div>
+        <div class="ac-src">FEMA IPAWS CMAS + EAS · CAE</div>
       </div>
       <div class="alert-card ac-silver">
         <div class="ac-type">Silver Alert</div>
         <h3>At-Risk Senior</h3>
         <p>CEM event code with keyword classification. Same plate extraction and volunteer dispatch pipeline as AMBER.</p>
-        <div class="ac-src">FEMA IPAWS CMAS · CEM event code</div>
+        <div class="ac-src">FEMA IPAWS CMAS · CEM</div>
       </div>
       <div class="alert-card ac-blue">
         <div class="ac-type">Blue Alert</div>
         <h3>Endangered Officer</h3>
-        <p>Law enforcement officer missing or endangered. LEW event code triggers the same ALPR + YOLO pipeline and coordinator Discord channel.</p>
-        <div class="ac-src">FEMA IPAWS CMAS · LEW event code</div>
+        <p>Law enforcement officer missing or endangered. LEW event code triggers the same ALPR + YOLO pipeline.</p>
+        <div class="ac-src">FEMA IPAWS CMAS · LEW</div>
       </div>
       <div class="alert-card ac-purple">
         <div class="ac-type">Purple Alert</div>
         <h3>Developmental Disability</h3>
-        <p>Missing adult with a developmental disability. CEM event code with Purple Alert keyword match. Same response pipeline.</p>
-        <div class="ac-src">FEMA IPAWS CMAS · CEM event code</div>
+        <p>Missing adult with a developmental disability. CEM event code with Purple Alert keyword match.</p>
+        <div class="ac-src">FEMA IPAWS CMAS · CEM</div>
       </div>
       <div class="alert-card ac-ncmec">
         <div class="ac-type">NCMEC</div>
         <h3>Missing Child</h3>
-        <p>50-state RSS cross-referenced against active FEMA vehicle targets. Discord fires only when a matching vehicle is already in the system — no actionable alert without a vehicle to search for.</p>
-        <div class="ac-src">NCMEC RSS · 50-state feed · 30-min poll</div>
+        <p>50-state RSS cross-referenced against active vehicle targets. Discord fires only when a matching vehicle is in the system.</p>
+        <div class="ac-src">NCMEC RSS · 50 states · 30 min</div>
+      </div>
+      <div class="alert-card" style="border-color:rgba(255,107,53,0.2);">
+        <div class="ac-type" style="color:#ff6b35;">BOLO</div>
+        <h3>Law Enforcement BOLO</h3>
+        <p>NamUs DOJ database + configurable LE agency feeds. Age-routed: under 18 → AMBER, 65+ → Silver, adult → BOLO.</p>
+        <div class="ac-src">NamUs NIJ · BOLO Crawler · 15–30 min</div>
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
@@ -502,7 +521,7 @@ em.amber { color: var(--amber); font-style: normal; }
     <img src="mobile/assets/icon.png" class="s9-logo" alt="AA">
     <div class="s9-org">AMBER Angels · 501(c)(3) · EIN 42-2052151</div>
     <h2 class="s9-h">Technology that protects the innocent<br>without <em>surveilling them.</em></h2>
-    <div class="s9-stack">FastAPI · PostgreSQL · OpenALPR · YOLOv8 · Claude Haiku · Expo · React Native · DJI MSDK 5.17 · Next.js · Mapbox · FEMA IPAWS · NCMEC · PM2</div>
+    <div class="s9-stack">FastAPI · PostgreSQL · OpenALPR · YOLOv8 · Claude Haiku · Expo · React Native · DJI MSDK 5.17 · Next.js · Mapbox · FEMA IPAWS · NCMEC · NamUs · spaCy · PM2</div>
     <div class="s9-contact">
       <div class="s9-c-item"><div class="s9-c-label">Founder</div><div class="s9-c-val">Grant Lindberg</div></div>
       <div class="s9-c-item"><div class="s9-c-label">Email</div><div class="s9-c-val">info@amberangels.org</div></div>
