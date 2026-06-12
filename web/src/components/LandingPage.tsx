@@ -434,6 +434,8 @@ export default function LandingPage() {
         </div>
         <div className={`${s.exploreMore} ${s.fadeUp}`}>
           <span>More</span>
+          <a href="/guide" target="_blank" rel="noopener noreferrer">User Guide</a>
+          <a href="/deck/platform" target="_blank" rel="noopener noreferrer">Platform Overview</a>
           <a href="/deck/grant" target="_blank" rel="noopener noreferrer">Grant &amp; Financial Info</a>
           <a href="/deck/about" target="_blank" rel="noopener noreferrer">About the Founder</a>
           <a href="/deck/partnership" target="_blank" rel="noopener noreferrer">Partnership Capabilities</a>

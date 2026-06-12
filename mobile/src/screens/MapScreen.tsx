@@ -8,12 +8,13 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import MapView, { Callout, Marker, Polygon, PROVIDER_DEFAULT } from "react-native-maps"
+import MapView, { Callout, Marker, Polygon, Polyline, PROVIDER_DEFAULT } from "react-native-maps"
 import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
 import { useFocusEffect } from "@react-navigation/native"
 import { fetchLatestTelemetry, type DronePosition } from "../api/telemetry"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
+import { fetchPriorityZones, type PriorityZone } from "../api/coverage"
 import { loadSettings } from "../lib/settings"
 import { nearestAlert, parsePoly } from "../lib/polygon"
 import { consumePendingAlertTarget } from "../lib/alertTarget"
@@ -31,6 +32,7 @@ const ALERT_COLORS: Record<string, { fill: string; stroke: string }> = {
   purple:  { fill: "rgba(168,85,247,0.18)",  stroke: "#a855f7" },
   mipa:    { fill: "rgba(234,179,8,0.18)",   stroke: "#eab308" },
   ema:     { fill: "rgba(234,179,8,0.18)",   stroke: "#eab308" },
+  bolo:    { fill: "rgba(255,107,53,0.18)",  stroke: "#ff6b35" },
 }
 const DEFAULT_COLOR = { fill: "rgba(245,158,11,0.18)", stroke: "#f59e0b" }
 
@@ -79,8 +81,12 @@ export default function MapScreen() {
   const [showAlertPanel, setShowAlertPanel] = useState(false)
   const [myDroneId, setMyDroneId] = useState<string | null>(null)
 
+  const [priorityZones, setPriorityZones] = useState<PriorityZone[]>([])
+  const [showPriorityLayer, setShowPriorityLayer] = useState(true)
+
   const mapRef = useRef<MapView>(null)
   const seenAlertIds = useRef<Set<number>>(new Set())
+  const lastHitNotifRef = useRef(0)
 
   // Pan to any alert target queued by a notification tap
   useFocusEffect(
@@ -158,6 +164,16 @@ export default function MapScreen() {
     return () => clearInterval(id)
   }, [])
 
+  // Load priority flight zones (refreshed with alerts)
+  useEffect(() => {
+    async function loadZones() {
+      try { setPriorityZones(await fetchPriorityZones()) } catch {}
+    }
+    loadZones()
+    const id = setInterval(loadZones, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   // Poll drone telemetry
   const loadDrones = useCallback(async () => {
     try { setDrones(await fetchLatestTelemetry()) } catch {}
@@ -227,6 +243,23 @@ export default function MapScreen() {
                 </Marker>
               )}
             </React.Fragment>
+          )
+        })}
+
+        {/* Priority flight zones — rendered as road-segment polylines */}
+        {showPriorityLayer && priorityZones.map((zone, i) => {
+          if (!zone.polygon) return null
+          const coords = parsePolygonCoords(zone.polygon)
+            .filter(c => isFinite(c.latitude) && isFinite(c.longitude))
+          if (coords.length < 2) return null
+          const isHigh = zone.priority === "high"
+          return (
+            <Polyline
+              key={`pz-${i}`}
+              coordinates={coords}
+              strokeColor={isHigh ? "rgba(239,68,68,0.7)" : "rgba(245,158,11,0.5)"}
+              strokeWidth={isHigh ? 3 : 2}
+            />
           )
         })}
 

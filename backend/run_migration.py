@@ -182,6 +182,53 @@ CREATE TABLE IF NOT EXISTS vehicle_alert_priors (
 );
 CREATE INDEX IF NOT EXISTS vehicle_alert_priors_lookup_idx
     ON vehicle_alert_priors (alert_type, attribute_type, attribute_value);
+
+-- NamUs missing persons cases with vehicle data
+CREATE TABLE IF NOT EXISTS namus_cases (
+    namus_id      TEXT         PRIMARY KEY,
+    subject_name  TEXT,
+    age_now       INT,
+    state         VARCHAR(2),
+    county        TEXT,
+    city          TEXT,
+    missing_since DATE,
+    actionable    BOOLEAN      DEFAULT FALSE,
+    alert_type    VARCHAR(20),
+    vehicle_info  TEXT,
+    first_seen_at TIMESTAMPTZ  DEFAULT NOW(),
+    last_seen_at  TIMESTAMPTZ  DEFAULT NOW(),
+    resolved_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS namus_cases_state_idx      ON namus_cases (state);
+CREATE INDEX IF NOT EXISTS namus_cases_actionable_idx ON namus_cases (actionable) WHERE actionable = TRUE;
+
+-- BOLO crawler configurable sources
+CREATE TABLE IF NOT EXISTS bolo_sources (
+    id              SERIAL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    url             TEXT NOT NULL UNIQUE,
+    source_type     VARCHAR(10) NOT NULL DEFAULT 'rss',  -- 'rss' | 'html'
+    state           VARCHAR(2),                           -- NULL = national
+    css_selector    TEXT,                                 -- for source_type='html' only
+    active          BOOLEAN NOT NULL DEFAULT TRUE,
+    last_crawled_at TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bolo_sources_active_idx ON bolo_sources (active) WHERE active = TRUE;
+
+-- Seed national RSS sources (idempotent)
+INSERT INTO bolo_sources (name, url, source_type, state) VALUES
+    ('FBI Wanted - Kidnappings',      'https://www.fbi.gov/wanted/kidnap/@/rss.xml',                              'rss', NULL),
+    ('FBI Wanted - Missing Persons',  'https://www.fbi.gov/wanted/vicap/missing-persons/@/rss.xml',               'rss', NULL),
+    ('FBI Wanted - Violent Crimes',   'https://www.fbi.gov/wanted/crimes-against-children/@/rss.xml',             'rss', NULL),
+    ('NCMEC News Releases',           'https://www.missingkids.org/newsroom/pressreleases/rss',                   'rss', NULL),
+    ('GA GBI Press Releases',         'https://gbi.georgia.gov/press-releases/rss.xml',                          'rss', 'GA'),
+    ('TBI Missing Persons',           'https://www.tn.gov/tbi/news-releases.html',                               'html', 'TN'),
+    ('FL FDLE Alerts',                'https://www.fdle.state.fl.us/AMBER-Alert/AMBER-Alert-History',             'html', 'FL'),
+    ('ALEA News Releases',            'https://www.alea.gov/news',                                               'html', 'AL'),
+    ('AL SBI Missing Persons',        'https://www.alea.gov/sbi/missing-persons',                                'html', 'AL'),
+    ('AL AG Press Releases',          'https://www.alabamaag.gov/news',                                          'html', 'AL')
+ON CONFLICT (url) DO NOTHING;
 """
 
 try:

@@ -133,6 +133,17 @@ ALERT_REGISTRY: list[dict] = [
         "cta":        "Missing endangered person — check your area.",
         "priority":   7,
     },
+    {
+        "key":        "bolo",
+        "name":       "Law Enforcement BOLO",
+        "short":      "BOLO",
+        "cap_codes":  [],           # not a CAP/IPAWS type — ingested via NamUs or BOLO ingestor
+        "keywords":   [],
+        "require_kw": False,
+        "emoji":      "🔶",
+        "cta":        "Law enforcement BOLO — missing person with vehicle. Check your area.",
+        "priority":   8,
+    },
 ]
 
 # CAP event codes we care about — anything else is silently skipped

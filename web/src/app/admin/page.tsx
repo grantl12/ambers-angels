@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { getAuthState } from "@/lib/auth"
-import { apiGet, apiPost, apiDelete } from "@/lib/api-client"
+import { getAuthState, getToken } from "@/lib/auth"
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api-client"
+import { env } from "@/lib/env"
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,18 @@ type ManualVehicle = {
 }
 
 type ManualAlerts = { plates: ManualPlate[]; vehicles: ManualVehicle[] }
+
+type BoloSource = {
+  id:             number
+  name:           string
+  url:            string
+  source_type:    string
+  state:          string | null
+  css_selector:   string | null
+  active:         boolean
+  last_crawled_at: string | null
+  created_at:     string | null
+}
 
 type ActiveAlert = {
   id:             number
@@ -227,6 +240,21 @@ export default function AdminPage() {
   const [auditError,      setAuditError]      = useState<string | null>(null)
   const [auditLoaded,     setAuditLoaded]     = useState(false)
 
+  // BOLO ingestor
+  const [boloFile,      setBoloFile]      = useState<File | null>(null)
+  const [boloUploading, setBoloUploading] = useState(false)
+  const [boloResult,    setBoloResult]    = useState<{plate:string;person:string|null;case:string|null;vehicle:string|null;color:string|null;alert_type:string;headline:string|null;area:string|null} | null>(null)
+  const [boloError,     setBoloError]     = useState<string | null>(null)
+
+  // BOLO crawler sources
+  const [boloSources,       setBoloSources]       = useState<BoloSource[]>([])
+  const [boloSourcesLoaded, setBoloSourcesLoaded] = useState(false)
+  const [newSourceName,     setNewSourceName]     = useState("")
+  const [newSourceUrl,      setNewSourceUrl]      = useState("")
+  const [newSourceType,     setNewSourceType]     = useState<"rss" | "html">("rss")
+  const [newSourceState,    setNewSourceState]    = useState("")
+  const [boloSourceMsg,     setBoloSourceMsg]     = useState<string | null>(null)
+
   const loadAuditLog = useCallback(async () => {
     setAuditLoading(true)
     setAuditError(null)
@@ -288,6 +316,85 @@ export default function AdminPage() {
     }
   }
 
+  async function uploadBolo() {
+    if (!boloFile) return
+    setBoloUploading(true)
+    setBoloError(null)
+    setBoloResult(null)
+    try {
+      const form = new FormData()
+      form.append("file", boloFile)
+      const token = getToken()
+      const res = await fetch(`${env.apiBaseUrl}/admin/ingest-bolo`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail ?? `Upload failed: ${res.status}`)
+      }
+      setBoloResult(await res.json())
+      setBoloFile(null)
+      loadActiveAlerts()
+    } catch (e: unknown) {
+      setBoloError(e instanceof Error ? e.message : "Upload failed")
+    } finally {
+      setBoloUploading(false)
+    }
+  }
+
+  async function loadBoloSources() {
+    try {
+      const data = await apiGet<BoloSource[]>("/admin/bolo-sources")
+      setBoloSources(data)
+      setBoloSourcesLoaded(true)
+    } catch { /* ignore */ }
+  }
+
+  async function toggleBoloSource(id: number, active: boolean) {
+    try {
+      await apiPatch(`/admin/bolo-sources/${id}`, { active })
+      setBoloSources(prev => prev.map(s => s.id === id ? { ...s, active } : s))
+    } catch (e: unknown) {
+      setBoloSourceMsg(e instanceof Error ? e.message : "Update failed")
+    }
+  }
+
+  async function deleteBoloSource(id: number) {
+    try {
+      const token = getToken()
+      const res = await fetch(`${env.apiBaseUrl}/admin/bolo-sources/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`)
+      setBoloSources(prev => prev.filter(s => s.id !== id))
+    } catch (e: unknown) {
+      setBoloSourceMsg(e instanceof Error ? e.message : "Delete failed")
+    }
+  }
+
+  async function addBoloSource() {
+    if (!newSourceName.trim() || !newSourceUrl.trim()) return
+    setBoloSourceMsg(null)
+    try {
+      await apiPost("/admin/bolo-sources", {
+        name: newSourceName.trim(),
+        url: newSourceUrl.trim(),
+        source_type: newSourceType,
+        state: newSourceState.trim().toUpperCase() || null,
+      })
+      setNewSourceName("")
+      setNewSourceUrl("")
+      setNewSourceState("")
+      await loadBoloSources()
+      setBoloSourceMsg("Source added.")
+    } catch (e: unknown) {
+      setBoloSourceMsg(e instanceof Error ? e.message : "Add failed")
+    }
+  }
+
   useEffect(() => {
     const auth = getAuthState()
     if (!auth || auth.role !== "admin") { router.replace("/map"); return }
@@ -297,6 +404,7 @@ export default function AdminPage() {
     loadManualAlerts()
     loadActiveAlerts()
     loadHealth()
+    loadBoloSources()
     const interval = setInterval(loadHealth, 10_000)
     return () => clearInterval(interval)
   }, [router, loadPendingPilots, loadCoordRequests, loadApprovedPilots, loadManualAlerts, loadActiveAlerts, loadHealth])
@@ -749,6 +857,7 @@ export default function AdminPage() {
                   <option value="amber">AMBER</option>
                   <option value="silver">SILVER</option>
                   <option value="blue">BLUE</option>
+                  <option value="bolo">BOLO</option>
                   <option value="test">TEST</option>
                 </select>
               </div>
@@ -842,6 +951,125 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+        </section>
+
+        {/* ── BOLO Ingestor ── */}
+        <section className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-sky-400">BOLO Ingestor</h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              Upload a screenshot of a social media or law enforcement BOLO. Claude extracts the plate, vehicle, and person automatically.
+            </p>
+          </div>
+          <label htmlFor="bolo-upload"
+            className="flex items-center gap-2 cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60 hover:bg-white/10 transition-colors">
+            {boloFile ? boloFile.name : "Choose screenshot…"}
+          </label>
+          <input id="bolo-upload" type="file" accept="image/*" className="hidden"
+            onChange={(e) => { setBoloFile(e.target.files?.[0] ?? null); setBoloResult(null); setBoloError(null) }} />
+          {boloFile && (
+            <button onClick={uploadBolo} disabled={boloUploading}
+              className="w-full rounded-lg py-2.5 text-sm font-semibold bg-sky-500 text-black hover:bg-sky-400 disabled:opacity-50 transition-colors">
+              {boloUploading ? "Extracting with Claude…" : "Ingest BOLO"}
+            </button>
+          )}
+          {boloError && (
+            <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400">{boloError}</div>
+          )}
+          {boloResult && (
+            <div className="space-y-1 px-3 py-3 rounded-lg bg-white/5 border border-emerald-500/20 text-xs">
+              <div className="font-semibold text-emerald-400 mb-2">✓ Added to watchlist</div>
+              <div><span className="text-white/40">Plate </span><span className="font-mono font-bold text-white">{boloResult.plate}</span></div>
+              {boloResult.person  && <div><span className="text-white/40">Person  </span><span className="text-white">{boloResult.person}</span></div>}
+              {boloResult.vehicle && <div><span className="text-white/40">Vehicle </span><span className="text-white">{boloResult.vehicle}{boloResult.color ? ` · ${boloResult.color}` : ""}</span></div>}
+              {boloResult.area    && <div><span className="text-white/40">Area    </span><span className="text-white">{boloResult.area}</span></div>}
+              {boloResult.case    && <div><span className="text-white/40">Case    </span><span className="text-white">{boloResult.case}</span></div>}
+            </div>
+          )}
+        </section>
+
+        {/* ── BOLO Crawler Sources ── */}
+        <section className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-5 space-y-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-orange-400">BOLO Crawler Sources</h2>
+              <p className="text-xs text-white/40 mt-0.5">
+                RSS feeds and HTML pages crawled every 15 min for actionable BOLOs. Extraction runs locally — no API calls per post.
+              </p>
+            </div>
+            {!boloSourcesLoaded && (
+              <button onClick={loadBoloSources} className="text-xs text-orange-400 hover:text-orange-300">Load</button>
+            )}
+          </div>
+
+          {boloSourceMsg && (
+            <div className="text-xs px-3 py-2 rounded-lg bg-white/5 text-white/60">{boloSourceMsg}</div>
+          )}
+
+          {boloSourcesLoaded && (
+            <div className="space-y-1.5">
+              {boloSources.length === 0 && (
+                <p className="text-xs text-white/30 italic">No sources configured.</p>
+              )}
+              {boloSources.map(src => (
+                <div key={src.id}
+                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${src.active ? "bg-emerald-400" : "bg-white/20"}`} />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-white/80">{src.name}</span>
+                    {src.state && <span className="ml-1.5 text-white/30">[{src.state}]</span>}
+                    <span className="ml-1.5 text-white/25 uppercase text-[10px]">{src.source_type}</span>
+                    <div className="text-white/25 truncate">{src.url}</div>
+                    {src.last_crawled_at && (
+                      <div className="text-white/20">Last crawled: {new Date(src.last_crawled_at).toLocaleString()}</div>
+                    )}
+                  </div>
+                  <button onClick={() => toggleBoloSource(src.id, !src.active)}
+                    className={`px-2 py-1 rounded text-[10px] font-semibold border transition-colors ${
+                      src.active
+                        ? "border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                        : "border-white/10 text-white/30 hover:bg-white/5"
+                    }`}>
+                    {src.active ? "Disable" : "Enable"}
+                  </button>
+                  <button onClick={() => deleteBoloSource(src.id)}
+                    className="px-2 py-1 rounded text-[10px] font-semibold border border-red-500/20 text-red-400/60 hover:bg-red-500/10 transition-colors">
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-2 pt-1 border-t border-white/5">
+            <p className="text-xs font-semibold text-white/40">Add source</p>
+            <div className="flex gap-2">
+              <input
+                value={newSourceName} onChange={e => setNewSourceName(e.target.value)}
+                placeholder="Name (e.g. Carroll County SO)"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-orange-500/40" />
+              <select value={newSourceType} onChange={e => setNewSourceType(e.target.value as "rss" | "html")}
+                className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-2 text-xs text-white focus:outline-none">
+                <option value="rss">RSS</option>
+                <option value="html">HTML</option>
+              </select>
+              <input
+                value={newSourceState} onChange={e => setNewSourceState(e.target.value)}
+                placeholder="ST"
+                maxLength={2}
+                className="w-12 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-white text-center placeholder-white/20 focus:outline-none focus:border-orange-500/40" />
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={newSourceUrl} onChange={e => setNewSourceUrl(e.target.value)}
+                placeholder="https://…"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-orange-500/40" />
+              <button onClick={addBoloSource} disabled={!newSourceName.trim() || !newSourceUrl.trim()}
+                className="rounded-lg px-4 py-2 text-xs font-semibold bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-40 transition-colors">
+                Add
+              </button>
+            </div>
+          </div>
         </section>
 
         {/* ── Clear test data ── */}

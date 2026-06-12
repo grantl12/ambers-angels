@@ -346,6 +346,7 @@ export function MissionSidebar({ layers, onToggleLayer, onFlyTo, onFitBounds, fl
             silver:  { dot: "#94a3b8", border: "rgba(148,163,184,0.35)", bg: "rgba(148,163,184,0.06)" },
             blue:    { dot: "#3b82f6", border: "rgba(59,130,246,0.35)",  bg: "rgba(59,130,246,0.06)"  },
             matties: { dot: "#dc2626", border: "rgba(220,38,38,0.35)",   bg: "rgba(220,38,38,0.06)"   },
+            bolo:    { dot: "#ff6b35", border: "rgba(255,107,53,0.35)",  bg: "rgba(255,107,53,0.06)"  },
           }
           const s = TYPE_STYLE[alert.alertType] ?? TYPE_STYLE.amber
 

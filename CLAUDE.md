@@ -395,6 +395,18 @@ Built and shipped (2026-05-24). All three layers complete:
 
 `grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate static files that must be manually updated to mirror the main decks when content changes.
 
+### Update all decks for NamUs + BOLO ingestion sources
+
+The "Alert Ingestion" architecture slide in all decks currently lists 3 active sources (FEMA IPAWS CMAS, EAS, NWS) + NCMEC. After NamUs + email BOLO bridge are confirmed working in production, update all decks to reflect 5 ingestion sources:
+
+1. FEMA IPAWS CMAS — CAP/WEA, 5-min poll
+2. FEMA EAS — same CAP format, 2-min poll
+3. NWS Alerts API — catches WEA-distributed alerts bypassing CMAS
+4. NamUs (DOJ) — missing persons with vehicles, 30-min poll, automated
+5. Law Enforcement BOLO (email bridge / screenshot ingestor) — real-time, coordinator-forwarded or admin-uploaded
+
+Also update the `bolo` alert type into any slide that lists alert types (amber/silver/matties/blue/purple/mipa/ema). Trigger: first confirmed NamUs hit in production logs (`grep "NAMUS BOLO" pm2 logs`).
+
 ### Site content depth (from Airo audit — see AA_Site_Improvements.md items 21–25)
 
 - National AMBER Alert statistics for problem framing (#21)
