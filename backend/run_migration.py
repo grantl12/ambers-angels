@@ -224,7 +224,10 @@ INSERT INTO bolo_sources (name, url, source_type, state) VALUES
     ('NCMEC News Releases',           'https://www.missingkids.org/newsroom/pressreleases/rss',                   'rss', NULL),
     ('GA GBI Press Releases',         'https://gbi.georgia.gov/press-releases/rss.xml',                          'rss', 'GA'),
     ('TBI Missing Persons',           'https://www.tn.gov/tbi/news-releases.html',                               'html', 'TN'),
-    ('FL FDLE Alerts',                'https://www.fdle.state.fl.us/AMBER-Alert/AMBER-Alert-History',             'html', 'FL')
+    ('FL FDLE Alerts',                'https://www.fdle.state.fl.us/AMBER-Alert/AMBER-Alert-History',             'html', 'FL'),
+    ('ALEA News Releases',            'https://www.alea.gov/news',                                               'html', 'AL'),
+    ('AL SBI Missing Persons',        'https://www.alea.gov/sbi/missing-persons',                                'html', 'AL'),
+    ('AL AG Press Releases',          'https://www.alabamaag.gov/news',                                          'html', 'AL')
 ON CONFLICT (url) DO NOTHING;
 """
 
