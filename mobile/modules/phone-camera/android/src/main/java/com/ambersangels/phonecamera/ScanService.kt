@@ -303,7 +303,7 @@ class ScanService : Service() {
                 }
                 .build()
 
-            val reqBuilder = Request.Builder()
+            val req = Request.Builder()
                 .url("$apiBase/ingest/detection")
                 .post(body)
                 .apply { if (authToken.isNotBlank()) header("Authorization", "Bearer $authToken") }
