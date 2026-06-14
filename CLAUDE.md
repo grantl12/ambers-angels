@@ -77,7 +77,7 @@ Manual migration without full deploy — trigger via GitHub Actions UI:
 - **`autoIncrement` in eas.json is NOT supported with app.config.js** — never add it
 - **`--build-number` flag does not work with app.config.js** — never use it
 - Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.)
-- Current build number: **11** (iOS cb0f0b20 / Android 87a5961c) — app.config.js is source of truth
+- Current build number: **12** (iOS production submission in progress) — app.config.js is source of truth
 - EAS account: `ambersangels` (with 's') — confirmed via `eas whoami`. Slug: `ambers-angels`
 - OTA update channel: `eas update --branch preview` delivers JS-only changes to build 11
 - All mobile changes in June 2026 are OTA-compatible (no native code changed)
@@ -349,8 +349,22 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 | `FEMA_POLL_INTERVAL` | FEMA poll frequency seconds (default 300) |
 | `NCMEC_POLL_INTERVAL` | NCMEC poll frequency seconds (default 1800) |
 | `NCMEC_RECENT_DAYS` | Days back to track NCMEC cases (default 30) |
+| `BOLO_WEBHOOK_SECRET` | Shared secret for `POST /webhooks/bolo-email` — `4a53ca1e822a9a6de7eec0211754798e55cd44bcd5c63dce8df8592c74f47251` |
+| `ANTHROPIC_API_KEY` | Required for BOLO ingestor (Claude Haiku vision) and email BOLO webhook text extraction |
+| `NAMUS_POLL_INTERVAL` | NamUs poll frequency seconds (default 1800) |
+| `NAMUS_RECENT_DAYS` | Days back to search NamUs cases (default 30) |
+| `BOLO_CRAWL_INTERVAL` | BOLO crawler poll frequency seconds (default 900) |
+| `BOLO_EXPIRES_DAYS` | Days before BOLO crawler vehicle_targets expire (default 7) |
 
 ## Pending TODO
+
+### App Store / Play Store Badges on Landing Page
+
+Once iOS App Store listing is approved AND Android Play Store listing is live:
+- Add Apple App Store badge + Play Store badge to the landing page hero (below the CTA buttons)
+- Link iOS badge to the App Store listing URL
+- Link Android badge to the Play Store listing URL
+- This is the primary fix for the conversion funnel — ~270 unique visitors/day currently have no way to download the app
 
 ### Waiting on CPD Letter of Support
 
@@ -389,11 +403,26 @@ Built and shipped (2026-05-24). All three layers complete:
 - `GET /alert-areas?q=` endpoint for autocomplete
 - Mobile Settings: debounced autocomplete + inline suggestions + Nationwide toggle (PATCHes `alert_scope`)
 
-**Still needs:** seed `alert_areas` with a few manual rows so autocomplete has results before the first real alert arrives; confirm `alert_scope` is exposed on `GET /auth/me` response (`backend/routers/auth.py`).
+**Complete.** `alert_areas` self-populated to 96 rows from real FEMA data (verified 2026-06-14). `alertScope` confirmed in `GET /auth/me` response at row[10] (`backend/routers/auth.py:275`).
 
 ### Update deck print versions
 
 `grants/Handoff/amber-angels/project/Technical Deck-print.html` and `Grant Pitch Deck-print.html` are separate static files that must be manually updated to mirror the main decks when content changes.
+
+### BOLO Email Bridge — Current Setup
+
+`bolo@amberangels.org` exists as a GoDaddy alias that forwards to `info@amberangels.org`. Email is hosted on Microsoft 365 (tenant `NETORG20647314.onmicrosoft.com`, MX → `outlook.com`). Admin panel at admin.microsoft.com (redirects through GoDaddy).
+
+**Current workflow (manual — sufficient for pilot scale):**
+1. BOLO email arrives at `info@amberangels.org`
+2. Save/screenshot the image attachment
+3. Admin panel → BOLO Ingestor section → upload image → Claude Haiku extracts plate + vehicle automatically → watchlist + vehicle_targets created + Discord fires
+
+**Automated path (future, when volume justifies):**
+- `POST /webhooks/bolo-email` is built and live — accepts Mailgun multipart or JSON `{body, image_b64}`
+- Secret: see `BOLO_WEBHOOK_SECRET` in env vars table
+- Would require Power Automate flow watching `info@` inbox, filtering for forwarded BOLO emails, POSTing to the webhook
+- Not wired up yet — manual upload is the active path
 
 ### Update all decks for NamUs + BOLO ingestion sources
 
