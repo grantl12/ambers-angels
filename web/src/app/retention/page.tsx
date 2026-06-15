@@ -29,7 +29,7 @@ export default function RetentionPage() {
                   ["Drone GPS telemetry", "90 days", "Automated DELETE from telemetry_points"],
                   ["License plate detections", "1 year", "Automated DELETE from detections + detection_events"],
                   ["Alert records (Discord logs)", "3 years", "Manual review before deletion; used for audit/accountability"],
-                  ["Mission records", "3 years", "Retained for historical reporting and grant accountability"],
+                  ["Mission records", "3 years", "Retained for historical records and grant accountability"],
                   ["Pilot account data", "Duration of account + 30 days after deletion request", "Hard DELETE from pilots table"],
                   ["Watchlist entries (manual)", "Until removed by admin", "Admin-managed; FEMA-sourced entries expire automatically after 24h"],
                   ["FEMA vehicle targets", "24 hours from ingestion", "Automatic expiry via expires_at column"],
@@ -68,7 +68,7 @@ export default function RetentionPage() {
         <Section title="Detection records">
           License plate reads, confidence scores, vehicle attributes, and associated GPS
           coordinates are retained for <strong className="text-white/80">1 year</strong>. This window supports
-          law enforcement follow-up, mission review, and model accuracy evaluation. After one
+          mission review, post-mission debrief, and model accuracy evaluation. After one
           year, detection records are permanently deleted. Plates that matched active alerts are
           flagged in the alert log, which is retained separately (see Alert records).
         </Section>

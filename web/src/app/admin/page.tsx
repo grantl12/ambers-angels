@@ -958,7 +958,7 @@ export default function AdminPage() {
           <div>
             <h2 className="text-sm font-semibold text-sky-400">BOLO Ingestor</h2>
             <p className="text-xs text-white/40 mt-0.5">
-              Upload a screenshot of a social media or law enforcement BOLO. Claude extracts the plate, vehicle, and person automatically.
+              Upload a screenshot of a social media or public safety BOLO. Claude extracts the plate, vehicle, and person automatically.
             </p>
           </div>
           <label htmlFor="bolo-upload"

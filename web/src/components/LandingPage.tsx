@@ -20,11 +20,11 @@ const FAQS = [
   },
   {
     q: 'What exactly happens when an AMBER Alert fires?',
-    a: 'The moment FEMA IPAWS issues an alert, our platform automatically ingests it, extracts the suspect vehicle description (plate, make, model, color), and sends push notifications to enrolled volunteers in the affected area. Volunteers receive a sector assignment and open a mission. Every frame their phone or drone captures is scanned in real-time by our Cascade Inference engine — no manual steps required.',
+    a: 'The moment FEMA IPAWS issues an alert, our platform automatically ingests it, extracts the alert vehicle description (plate, make, model, color), and sends push notifications to enrolled volunteers in the affected area. Volunteers receive a sector assignment and open a mission. Every frame their phone or drone captures is scanned in real-time by our Cascade Inference engine — no manual steps required.',
   },
   {
     q: 'Does the app store footage of my car or my neighborhood?',
-    a: "No. Raw frames are processed the instant they arrive and deleted immediately — we never build a video archive. The only data we retain is a high-confidence detection record (plate text, GPS coordinates, timestamp, and a cropped vehicle image) for confirmed suspect vehicles. Innocent vehicles generate no stored record whatsoever.",
+    a: "No. Raw frames are processed the instant they arrive and deleted immediately — we never build a video archive. The only data we retain is a high-confidence detection record (plate text, GPS coordinates, timestamp, and a cropped vehicle image) for vehicles matching an active alert. Innocent vehicles generate no stored record whatsoever.",
   },
   {
     q: 'Is my location tracked when I\'m not on a mission?',
@@ -32,10 +32,10 @@ const FAQS = [
   },
   {
     q: 'How accurate is the vehicle identification?',
-    a: 'Plate-only systems run roughly 30% false positive rates due to misreads, partial plates, and switched plates. Our Cascade Inference engine layers OpenALPR plate reading with YOLOv8 visual make, model, color, and year-range classification. That combination drops false positives to under 5% in field testing. Every high-confidence hit also goes through human coordinator review before any information reaches law enforcement.',
+    a: 'Plate-only systems run roughly 30% false positive rates due to misreads, partial plates, and switched plates. Our Cascade Inference engine layers OpenALPR plate reading with YOLOv8 visual make, model, color, and year-range classification. That combination drops false positives to under 5% in field testing. Every high-confidence hit also goes through human coordinator review before any alert notification is dispatched.',
   },
   {
-    q: 'Who reviews detections before they reach law enforcement?',
+    q: 'Who reviews detections before an alert notification is dispatched?',
     a: "Trained coordinators. Every AI detection is flagged to a coordinator dashboard — no result is acted on until a human reviews the photo, GPS location, and confidence score and explicitly approves it. AI flags. Humans decide. That's not a disclaimer; it's how the system is architected.",
   },
   {
@@ -98,13 +98,13 @@ export default function LandingPage() {
           <div className={s.heroStat}>76%</div>
           <p className={s.heroStatDetail}>
             of abducted children who are murdered are killed within the{' '}
-            <strong>first 3 hours</strong> of the abduction. The window is closing before law enforcement can cover the ground.
+            <strong>first 3 hours</strong> of a missing child emergency. The window is closing fast.
           </p>
         </div>
         <div>
           <h1 className={s.heroHeadline}>Amber&apos;s Angels<br /><em>closes that window.</em></h1>
           <p className={s.heroBody}>
-            A community-driven AI search network. When an AMBER Alert fires, volunteers and drones fill the coverage gaps law enforcement can&apos;t — and AI identifies the vehicle before it&apos;s too late.
+            A community-driven AI search network. When an AMBER Alert fires, volunteers and drones fill the coverage gaps no fixed system can — and AI identifies the vehicle before it&apos;s too late.
           </p>
           <div className={s.heroCtas}>
             <a href="#involve" className={s.btnPrimary}>Become a Volunteer</a>
@@ -125,13 +125,13 @@ export default function LandingPage() {
           <span className={s.label}>The Problem</span>
           <div className={s.sectionHeader}>
             <h2>The gap is real — and it&apos;s geographic.</h2>
-            <p>Carroll County, GA: 503 square miles. Significant road network with no fixed LPR coverage — residential streets, rural routes, and secondary roads where a suspect vehicle can disappear in minutes.</p>
+            <p>Carroll County, GA: 503 square miles. Significant road network with no fixed LPR coverage — residential streets, rural routes, and secondary roads where a vehicle can disappear in minutes.</p>
           </div>
         </div>
         <div className={`${s.problemGrid} ${s.fadeUp}`}>
           <div>
             <div className={s.statGrid}>
-              <div className={s.statCard}><div className={s.statNum}>3 hrs</div><div className={s.statDesc}>critical window — 76% of fatal abductions occur within this timeframe</div></div>
+              <div className={s.statCard}><div className={s.statNum}>3 hrs</div><div className={s.statDesc}>critical window — 76% of fatal missing child cases occur within this timeframe</div></div>
               <div className={s.statCard}><div className={s.statNum}>503 sq mi</div><div className={s.statDesc}>Carroll County coverage area with significant fixed-camera gaps</div></div>
               <div className={s.statCard}><div className={s.statNum}>~30%</div><div className={s.statDesc}>false positive rate for plate-only vehicle detection systems</div></div>
               <div className={s.statCard}><div className={s.statNum}>&lt;5%</div><div className={s.statDesc}>false positive rate using our dual VMMC verification model</div></div>
@@ -174,7 +174,7 @@ export default function LandingPage() {
           <span className={s.label}>How It Works</span>
           <div className={s.sectionHeader}>
             <h2>Alert fires. Network activates. AI finds the vehicle.</h2>
-            <p>Every enrolled volunteer becomes a mobile sensor node. Our Cascade Inference engine identifies not just a license plate — but the specific make, model, and year range of the suspect vehicle. Even when plates are switched or missing.</p>
+            <p>Every enrolled volunteer becomes a mobile sensor node. Our Cascade Inference engine identifies not just a license plate — but the specific make, model, and year range of the vehicle in the alert. Even when plates are switched or missing.</p>
           </div>
         </div>
         <div className={`${s.flowRow} ${s.fadeUp}`}>
@@ -193,7 +193,7 @@ export default function LandingPage() {
           ))}
         </div>
         <div className={`${s.flowNote} ${s.fadeUp}`}>
-          <strong>Cascade Inference:</strong>{' '}Our proprietary model identifies make, model, and year range — so coordinators can tell law enforcement &ldquo;Blue 2018–2021 Honda CR-V, Highway 5, 14:32&rdquo; even when the plate is obscured or switched. Reducing false positives from ~30% to &lt;5%.
+          <strong>Cascade Inference:</strong>{' '}Our proprietary model identifies make, model, and year range — so coordinators can document &ldquo;Blue 2018–2021 Honda CR-V, Highway 5, 14:32&rdquo; even when the plate is obscured or switched. Reducing false positives from ~30% to &lt;5%.
         </div>
       </section>
 
@@ -262,14 +262,14 @@ export default function LandingPage() {
           <span className={s.label}>Carrollton Pilot Program</span>
           <div className={s.sectionHeader}>
             <h2>On the ground in Georgia.</h2>
-            <p>Six-month deployment in Carrollton, Georgia — a community with significant coverage gaps in its road network, active law enforcement engagement, and a veteran community ready to mobilize.</p>
+            <p>Six-month deployment in Carrollton, Georgia — a community with significant coverage gaps in its road network, active emergency management engagement, and a veteran community ready to mobilize.</p>
           </div>
         </div>
         <div className={`${s.pilotGrid} ${s.fadeUp}`}>
           <ul className={s.pilotGoals}>
             <li className={s.pilotGoal}><div className={s.goalNum}>1</div><div className={s.goalText}>Enroll and train <strong>30 ground volunteers</strong> and <strong>5 Part 107-certified drone pilots</strong></div></li>
             <li className={s.pilotGoal}><div className={s.goalNum}>2</div><div className={s.goalText}>Achieve operational readiness for <strong>live AMBER Alert response</strong></div></li>
-            <li className={s.pilotGoal}><div className={s.goalNum}>3</div><div className={s.goalText}>Demonstrate successful VMMC detection in <strong>field exercises with law enforcement observers</strong></div></li>
+            <li className={s.pilotGoal}><div className={s.goalNum}>3</div><div className={s.goalText}>Demonstrate successful VMMC detection in <strong>field exercises with emergency management observers</strong></div></li>
             <li className={s.pilotGoal}><div className={s.goalNum}>4</div><div className={s.goalText}>Publish a <strong>public transparency report</strong> on detection accuracy and privacy compliance</div></li>
           </ul>
           <div>
@@ -287,7 +287,7 @@ export default function LandingPage() {
                   <span className={s.impactVal}>{val}</span>
                 </div>
               ))}
-              <p className={s.supportNote}>Actively engaging local law enforcement. Active support from the Carrollton veteran community aligned with our SDVOSB founding.</p>
+              <p className={s.supportNote}>Actively engaging local emergency management. Active support from the Carrollton veteran community aligned with our SDVOSB founding.</p>
             </div>
           </div>
         </div>
@@ -334,7 +334,7 @@ export default function LandingPage() {
               </svg>
             </div>
             <h3>Human in the Loop</h3>
-            <p>No AI result reaches law enforcement without human coordinator review. AI flags. Humans decide.</p>
+            <p>No AI result triggers a notification without human coordinator review. AI flags. Humans decide.</p>
           </div>
           <div className={s.pillar}>
             <div className={s.pillarIcon}>
@@ -415,7 +415,7 @@ export default function LandingPage() {
         <div className={`${s.exploreGrid} ${s.fadeUp}`}>
           <a href="/deck/carrollton" target="_blank" rel="noopener noreferrer" className={s.exploreCard}>
             <span className={s.exploreTag}>Carrollton PD Pitch</span>
-            <h3>What we presented to law enforcement.</h3>
+            <h3>What we presented to emergency management.</h3>
             <p>Community deployment strategy, operational readiness timeline, and the partnership framework we brought to the Carrollton Police Department. If you want to understand where the pilot is headed, start here.</p>
             <span className={s.exploreArrow}>View deck →</span>
           </a>

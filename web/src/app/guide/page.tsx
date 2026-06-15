@@ -226,14 +226,14 @@ export default function GuidePage() {
           <H3 id="what-is">What is Amber&apos;s Angels?</H3>
           <P>
             Amber&apos;s Angels is a volunteer-driven search platform that responds to government-issued missing persons
-            alerts — AMBER Alerts, Silver Alerts, Blue Alerts, Purple Alerts, NamUs cases, and law enforcement BOLOs.
+            alerts — AMBER Alerts, Silver Alerts, Blue Alerts, Purple Alerts, NamUs cases, and public safety BOLOs.
             When an alert fires, the platform notifies volunteers in the affected area and opens a searchable camera
             feed. Volunteers use the smartphones and DJI drones they already own. No hardware purchase required.
           </P>
           <P>
             The platform ingests alerts from five sources simultaneously: FEMA IPAWS CMAS (every 5 minutes),
             FEMA IPAWS EAS (every 2 minutes), the NWS Alerts API, the NamUs DOJ federal missing persons database
-            (every 30 minutes), and a configurable BOLO crawler that polls law enforcement agency feeds every 15 minutes.
+            (every 30 minutes), and a configurable BOLO crawler that polls public safety agency feeds every 15 minutes.
           </P>
           <P>
             There are three roles: <strong className="text-white/80">Pilot</strong> (all volunteers),{" "}
@@ -524,7 +524,7 @@ export default function GuidePage() {
           <H3 id="bolo-ingestor">BOLO Screenshot Ingestor</H3>
           <RoleBadge role="admin" />
           <P>
-            The BOLO Ingestor lets you upload a screenshot of a social media BOLO or law enforcement notice.
+            The BOLO Ingestor lets you upload a screenshot of a social media BOLO or public safety notice.
             Claude Haiku vision extracts the plate, vehicle description, person name, area, and alert type
             automatically and creates a watchlist + vehicle target entry.
           </P>
@@ -543,7 +543,7 @@ export default function GuidePage() {
           <H3 id="bolo-crawler">BOLO Crawler Sources</H3>
           <RoleBadge role="admin" />
           <P>
-            The BOLO Crawler automatically polls configurable law enforcement RSS feeds and web pages every
+            The BOLO Crawler automatically polls configurable public safety RSS feeds and web pages every
             15 minutes. Extraction runs locally — no API calls per post. It uses regex, dictionary matching,
             and spaCy NER to pull plate, vehicle, and location data. Only posts with adequate vehicle data
             (plate, or make + model, or make + color + area) create alerts.

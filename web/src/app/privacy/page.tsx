@@ -37,16 +37,16 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1 text-sm">
             <li>To authenticate and manage pilot accounts.</li>
             <li>To display real-time drone positions on the mission map.</li>
-            <li>To match detected license plates against active AMBER/SILVER alert watchlists and notify mission coordinators for human review and potential escalation to responding agencies.</li>
+            <li>To match detected license plates against active AMBER/SILVER alert watchlists and notify mission coordinators for human review and potential coordination with responding agencies.</li>
             <li>To generate mission statistics and leaderboards for volunteer recognition.</li>
           </ul>
         </Section>
 
         <Section title="Data sharing">
-          Detection matches against active alerts are reported via Discord to mission coordinators.
-          We do not share raw detection logs with law enforcement directly — coordinators review
-          all matches before escalation. We may be compelled to disclose data in response to a
-          valid legal process (subpoena, court order).
+          Detection matches against active alerts are dispatched via Discord to mission coordinators.
+          We do not share raw detection logs directly — coordinators review all matches before any
+          coordination notification is dispatched. We may be compelled to disclose data in response
+          to a valid legal process (subpoena, court order).
         </Section>
 
         <Section title="Data retention">

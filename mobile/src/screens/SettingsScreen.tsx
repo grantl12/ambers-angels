@@ -612,7 +612,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           <View style={styles.coordBox}>
             <Text style={styles.coordTitle}>COORDINATOR ACCESS</Text>
             <Text style={styles.coordBody}>
-              Coordinators are law-enforcement-adjacent personnel with access to mission coordination tools. Requests are reviewed by an admin.
+              Coordinators are trained public safety volunteers with access to mission coordination tools. Requests are reviewed by an admin.
             </Text>
             {coordRequestedAt || coordDone ? (
               <View style={styles.coordSent}>

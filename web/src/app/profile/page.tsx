@@ -307,7 +307,7 @@ export default function ProfilePage() {
             <div>
               <h2 className="text-sm font-semibold text-sky-400">Request Coordinator Access</h2>
               <p className="text-xs text-white/40 mt-1 leading-relaxed">
-                Coordinators are law-enforcement-adjacent personnel with access to mission coordination tools.
+                Coordinators are trained public safety volunteers with access to mission coordination tools.
                 Requests are reviewed by an admin before access is granted.
               </p>
             </div>

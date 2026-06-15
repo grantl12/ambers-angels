@@ -23,7 +23,7 @@ type Props = {
 
 const TERMS = [
   "You are an independent volunteer, not an employee or agent of Amber's Angels.",
-  "You will observe and report only — never pursue, confront, or approach any person or vehicle.",
+  "You will observe and document only — never pursue, confront, or approach any person or vehicle.",
   "You will comply with all applicable laws, including all traffic laws, at all times.",
   "Amber's Angels makes no guarantees regarding the accuracy of ALPR data or detections.",
   "You agree to data collection as described in the Privacy Policy (amberangels.org/privacy).",
