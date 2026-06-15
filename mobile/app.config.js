@@ -2,6 +2,7 @@
 // EAS secrets needed:
 //   eas secret:create --scope project --name GOOGLE_MAPS_API_KEY --value <key>
 //   eas secret:create --scope project --name DJI_APP_KEY --value <key>
+//   eas secret:create --scope project --name GOOGLE_IOS_URL_SCHEME --value <REVERSED_CLIENT_ID from GoogleService-Info.plist>
 // For local dev, set these in mobile/.env (gitignored).
 
 module.exports = {
@@ -58,6 +59,12 @@ module.exports = {
 
         // Apple compliance
         ITSAppUsesNonExemptEncryption: false,
+
+        // Google Sign-In callback scheme — value is REVERSED_CLIENT_ID from
+        // GoogleService-Info.plist, stored as GOOGLE_IOS_URL_SCHEME EAS secret.
+        CFBundleURLTypes: process.env.GOOGLE_IOS_URL_SCHEME
+          ? [{ CFBundleURLSchemes: [process.env.GOOGLE_IOS_URL_SCHEME] }]
+          : [],
       },
     },
 
@@ -99,17 +106,6 @@ module.exports = {
 
     plugins: [
       "expo-updates",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          // Reversed iOS client ID — required so iOS can route the OAuth callback
-          // back into the app. Derived from GOOGLE_IOS_CLIENT_ID which has the form
-          // "NUMBERS-HASH.apps.googleusercontent.com".
-          iosUrlScheme: process.env.GOOGLE_IOS_CLIENT_ID
-            ? `com.googleusercontent.apps.${process.env.GOOGLE_IOS_CLIENT_ID.split(".")[0]}`
-            : "",
-        },
-      ],
       "./plugins/withPrivacyManifest",
       "./modules/dji-camera/plugin",
       "./modules/phone-camera/plugin",
