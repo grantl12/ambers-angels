@@ -5,13 +5,11 @@ import {
   Platform, ScrollView,
 } from "react-native"
 import * as AppleAuthentication from "expo-apple-authentication"
-import * as Google from "expo-auth-session/providers/google"
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin"
 import * as WebBrowser from "expo-web-browser"
 import Constants from "expo-constants"
 import { setAuth } from "../lib/auth"
 import { getApiBaseUrl } from "../api/client"
-
-WebBrowser.maybeCompleteAuthSession()
 
 type LoginView = "login" | "pending" | "forgot_email" | "forgot_code"
 type Props = {
@@ -33,21 +31,13 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
   const codeInputRef = useRef<TextInput>(null)
 
   const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string>
-  const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
-    iosClientId:     extra.googleIosClientId     ?? "",
-    androidClientId: extra.googleAndroidClientId ?? "",
-    webClientId:     extra.googleWebClientId     ?? "",
-    redirectUri:     "https://auth.expo.io/@ambersangels/ambers-angels",
-  })
 
   useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const idToken = googleResponse.authentication?.idToken
-      if (idToken) sendSSOToken("google", idToken)
-    } else if (googleResponse?.type === "error") {
-      setError("Google Sign In failed. Please try again.")
-    }
-  }, [googleResponse])
+    GoogleSignin.configure({
+      webClientId:  extra.googleWebClientId  ?? "",
+      iosClientId:  extra.googleIosClientId  ?? "",
+    })
+  }, [])
 
   useEffect(() => {
     setRegisterUrl("https://amberangels.org/api/pilot/register.html")
@@ -112,6 +102,24 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
       const code = (e as { code?: string }).code
       if (code !== "ERR_REQUEST_CANCELED") {
         setError(`Apple Sign In failed (${code ?? "unknown"}). Please try again.`)
+      }
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    try {
+      await GoogleSignin.hasPlayServices()
+      const response = await GoogleSignin.signIn()
+      const idToken = response.data?.idToken
+      if (idToken) {
+        await sendSSOToken("google", idToken)
+      } else {
+        setError("Google Sign In failed. Please try again.")
+      }
+    } catch (e: unknown) {
+      const err = e as { code?: string }
+      if (err.code !== statusCodes.SIGN_IN_CANCELLED) {
+        setError("Google Sign In failed. Please try again.")
       }
     }
   }
@@ -381,7 +389,7 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
 
           <TouchableOpacity
             style={[styles.googleBtn, loading && styles.btnDisabled]}
-            onPress={() => promptGoogleAsync()}
+            onPress={handleGoogleSignIn}
             disabled={loading}
           >
             <Text style={styles.googleBtnText}>Continue with Google</Text>

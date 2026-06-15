@@ -33,7 +33,7 @@ module.exports = {
 
     ios: {
       bundleIdentifier: "com.ambersangels.app",
-      buildNumber: "12",
+      buildNumber: "13",
       supportsTablet: false,
       usesAppleSignIn: true,
       icon: "./assets/icon.png",
@@ -99,6 +99,17 @@ module.exports = {
 
     plugins: [
       "expo-updates",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          // Reversed iOS client ID — required so iOS can route the OAuth callback
+          // back into the app. Derived from GOOGLE_IOS_CLIENT_ID which has the form
+          // "NUMBERS-HASH.apps.googleusercontent.com".
+          iosUrlScheme: process.env.GOOGLE_IOS_CLIENT_ID
+            ? `com.googleusercontent.apps.${process.env.GOOGLE_IOS_CLIENT_ID.split(".")[0]}`
+            : "",
+        },
+      ],
       "./plugins/withPrivacyManifest",
       "./modules/dji-camera/plugin",
       "./modules/phone-camera/plugin",
