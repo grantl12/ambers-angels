@@ -463,7 +463,7 @@ export default function LandingPage() {
             <span className={s.blogReadLink}>Read →</span>
           </a>
           <a href="/blog/post-1-always-on" target="_blank" rel="noopener noreferrer" className={s.blogCard}>
-            <span className={s.blogPostTag}>Post 1 of 8 · June 17</span>
+            <span className={s.blogPostTag}>Post 1 of 8 · June 16</span>
             <h3>The Problem with Always-On</h3>
             <p className={s.blogPostDate}>Grant Lindberg · June 2026</p>
             <p>Every technology that retains data creates risk. The problem isn&apos;t character — it&apos;s architecture. A system that retains data creates liability whether or not anyone ever misuses it.</p>
