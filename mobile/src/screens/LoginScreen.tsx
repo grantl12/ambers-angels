@@ -380,7 +380,7 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
           {Platform.OS === "ios" && (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
               cornerRadius={10}
               style={styles.appleBtn}
               onPress={handleAppleSignIn}
