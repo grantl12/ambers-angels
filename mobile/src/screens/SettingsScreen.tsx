@@ -320,24 +320,6 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           </View>
         )}
 
-        <Section title="Connection">
-          <Field label="API Base URL" hint="e.g. http://192.168.1.100:8000">
-            <TextInput
-              style={styles.input}
-              value={settings.apiBaseUrl}
-              onChangeText={(v) => update("apiBaseUrl", v)}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              placeholder="http://..."
-              placeholderTextColor="rgba(255,255,255,0.2)"
-            />
-          </Field>
-          <TouchableOpacity style={styles.testBtn} onPress={handleTest}>
-            <Text style={styles.testBtnText}>Test Connection</Text>
-          </TouchableOpacity>
-        </Section>
-
         <Section title="Identity">
           <Field label="Volunteer mode" hint="">
             <View style={styles.modeRow}>
