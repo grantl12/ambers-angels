@@ -7,54 +7,128 @@ jobs:
   stats:
     runs-on: ubuntu-latest
     steps:
-      - name: Pull stats from nginx logs
+      - name: Pull stats from GoAccess + nginx logs
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 157.245.125.103
           username: ambers-angels
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
-            echo "===== SITE STATS ====="
+            echo "===== SITE STATS — $(date -u '+%Y-%m-%d %H:%M UTC') ====="
 
+            # --- 1. Try goaccess JSON output for today's traffic ---
+            TODAY=$(date +%Y/%m/%d)
+            LOGFILE=/var/log/nginx/access.log
+
+            echo ""
+            echo "--- Today's traffic (goaccess JSON, sudo) ---"
+            echo "Ambers1Angels" | sudo -S goaccess "$LOGFILE" \
+              --output=/tmp/today.json \
+              --no-global-config \
+              --log-format=COMBINED \
+              --date-format=%d/%b/%Y \
+              --time-format=%H:%M:%S \
+              2>/dev/null && python3 - <<'PYEOF'
+            import json, sys
+            try:
+                d = json.load(open('/tmp/today.json'))
+                gen = d.get('general', {})
+                print(f"Unique visitors:  {gen.get('unique_visitors','?')}")
+                print(f"Total requests:   {gen.get('total_requests','?')}")
+                print(f"Valid requests:   {gen.get('valid_requests','?')}")
+                print(f"Bandwidth:        {gen.get('bandwidth','?')}")
+                print(f"Date range:       {gen.get('start_date','?')} to {gen.get('end_date','?')}")
+
+                # Top pages
+                requests = d.get('requests', {}).get('data', [])
+                print("\n--- Top pages today ---")
+                skip = ('.js', '.css', '.png', '.jpg', '.ico', '.svg', '.woff', '.map', '.json', '_next')
+                shown = 0
+                for item in requests:
+                    path = item.get('data', '')
+                    if any(path.endswith(s) or s in path for s in skip):
+                        continue
+                    hits = item.get('visitors', {}).get('count', 0)
+                    print(f"  {hits:>4} visitors  {path}")
+                    shown += 1
+                    if shown >= 15:
+                        break
+
+                # Referrers
+                refs = d.get('referring_sites', {}).get('data', [])
+                if refs:
+                    print("\n--- Top referrers ---")
+                    for r in refs[:8]:
+                        print(f"  {r.get('visitors',{}).get('count',0):>4}  {r.get('data','?')}")
+
+                # Operating systems / device rough split
+                os_data = d.get('operating_systems', {}).get('data', [])
+                if os_data:
+                    print("\n--- OS / Device split ---")
+                    for o in os_data[:6]:
+                        print(f"  {o.get('visitors',{}).get('count',0):>4}  {o.get('data','?')}")
+
+                # Hourly distribution
+                hourly = d.get('visitors', {}).get('data', [])
+                if hourly:
+                    print("\n--- Hourly visitors (UTC) ---")
+                    for h in hourly:
+                        hr = h.get('data','?')
+                        cnt = h.get('visitors',{}).get('count',0)
+                        bar = '█' * min(cnt, 40)
+                        print(f"  {hr}  {cnt:>4}  {bar}")
+            except Exception as e:
+                print(f"Parse error: {e}")
+            PYEOF
+
+            echo ""
+            echo "--- All-time summary from GoAccess HTML report ---"
             REPORT=$(curl -s -u "amber:Ambers1Angels" http://localhost/analytics/ 2>/dev/null)
-
             if [ -z "$REPORT" ]; then
-              echo "Could not fetch analytics report."
-              exit 1
-            fi
-
-            echo ""
-            echo "Pulling key numbers from GoAccess report..."
-            echo ""
-
-            echo "$REPORT" | grep -oP '"visitors":\{"count":\K[0-9]+' | head -1 | xargs -I{} echo "Unique visitors (all time): {}"
-            echo "$REPORT" | grep -oP '"requests":\{"count":\K[0-9]+' | head -1 | xargs -I{} echo "Total requests (all time):  {}"
-            echo "$REPORT" | grep -oP '"bytes":\{"count":\K[0-9]+' | head -1 | xargs -I{} echo "Bytes transferred:          {}"
-
-            echo ""
-            echo "--- Top pages (from report) ---"
-            echo "$REPORT" | grep -oP '"data":"(/[^"]*)"' | grep -v '\.(js|css|png|jpg|ico|svg|woff|map)' | head -15 | sed 's/"data":"//;s/"//'
-
-            echo ""
-            echo "--- Raw visitor count from GoAccess JSON ---"
-            echo "$REPORT" > /tmp/goaccess_report.html
-            python3 - <<'PYEOF'
+              echo "Could not fetch GoAccess HTML report."
+            else
+              echo "$REPORT" > /tmp/goaccess_report.html
+              python3 - <<'PYEOF2'
             import json, re
             html = open('/tmp/goaccess_report.html').read()
-            m = re.search(r'window\.GoAccess\s*=\s*(\{.*?\});', html, re.DOTALL)
-            if not m:
-                print('Could not find GoAccess data block')
-            else:
-                try:
-                    data = json.loads(m.group(1))
-                    gen = data.get('general', {})
-                    print(f'Unique visitors:  {gen.get("unique_visitors", "?")}')
-                    print(f'Total requests:   {gen.get("total_requests", "?")}')
-                    print(f'Valid requests:   {gen.get("valid_requests", "?")}')
-                    print(f'Bandwidth:        {gen.get("bandwidth", "?")}')
-                    print(f'Date range:       {gen.get("start_date", "?")} to {gen.get("end_date", "?")}')
-                except Exception as e:
-                    print(f'Parse error: {e}')
-                    print(html[:500])
-            PYEOF
-            rm -f /tmp/goaccess_report.html
+            # GoAccess embeds data as JSON in a script tag — try several patterns
+            patterns = [
+                r'window\.GoAccess\s*=\s*(\{.*?\})\s*;',
+                r'GoAccess\.initialize\s*\((\{.*?\})\)',
+                r'var\s+GoAccess\s*=\s*(\{.*?\})\s*;',
+                r'"general"\s*:\s*(\{[^}]+\})',
+            ]
+            found = False
+            for pat in patterns:
+                m = re.search(pat, html, re.DOTALL)
+                if m:
+                    try:
+                        raw = m.group(1)
+                        # For general-only pattern, wrap it
+                        if '"general"' not in raw[:50]:
+                            data = json.loads(raw)
+                        else:
+                            data = {'general': json.loads(raw)}
+                        gen = data.get('general', {})
+                        if gen:
+                            print(f"Unique visitors (all time): {gen.get('unique_visitors','?')}")
+                            print(f"Total requests  (all time): {gen.get('total_requests','?')}")
+                            print(f"Bandwidth:                  {gen.get('bandwidth','?')}")
+                            print(f"Date range:   {gen.get('start_date','?')} – {gen.get('end_date','?')}")
+                            found = True
+                            break
+                    except Exception:
+                        continue
+            if not found:
+                # Dump snippet to see what the report actually contains
+                print("Could not parse GoAccess data. Report snippet:")
+                # Find first script tag content
+                sm = re.search(r'<script[^>]*>(.*?)</script>', html, re.DOTALL)
+                if sm:
+                    print(sm.group(1)[:800])
+                else:
+                    print(html[:600])
+            PYEOF2
+              rm -f /tmp/goaccess_report.html
+            fi
+            rm -f /tmp/today.json
