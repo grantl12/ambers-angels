@@ -1,0 +1,60 @@
+name: Nginx Log Analysis
+
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull and analyze nginx logs
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 157.245.125.103
+          username: ambers-angels
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            DATE=$(date +"%d/%b/%Y")
+            LOG=/var/log/nginx/access.log
+
+            echo "====== DATE: $DATE ======"
+
+            echo ""
+            echo "=== TOTAL RAW REQUESTS ==="
+            sudo grep "$DATE" $LOG 2>/dev/null | wc -l
+
+            echo ""
+            echo "=== UNIQUE IPs (all) ==="
+            sudo grep "$DATE" $LOG | awk '{print $1}' | sort -u | wc -l
+
+            echo ""
+            echo "=== HUMAN REQUESTS (bots filtered) ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | wc -l
+
+            echo ""
+            echo "=== UNIQUE HUMAN IPs ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | awk '{print $1}' | sort -u | wc -l
+
+            echo ""
+            echo "=== TOP PAGES (human, no assets) ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | grep -vE '/_next/|/api/|/health|/frames/|\.ico$|\.png$|\.jpg$|\.svg$|\.woff|\.css$|\.js$|/rtmp-stat|/analytics' | sort | uniq -c | sort -rn | head 25
+
+            echo ""
+            echo "=== TOP REFERRERS ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|Googlebot|bingbot' | awk '{print $11}' | grep -v '^"-"$' | sort | uniq -c | sort -rn | head 15
+
+            echo ""
+            echo "=== TRAFFIC BY HOUR ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|Go-http|UptimeRobot|Googlebot|bingbot' | grep -oP '\d{2}/\w+/\d{4}:\d{2}' | awk -F: '{print $2":00"}' | sort | uniq -c
+
+            echo ""
+            echo "=== HTTP STATUS CODES ==="
+            sudo grep "$DATE" $LOG | awk '{print $9}' | sort | uniq -c | sort -rn
+
+            echo ""
+            echo "=== BLOG PAGE HITS ==="
+            sudo grep "$DATE" $LOG | grep -i '/blog' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
+
+            echo ""
+            echo "=== DEVICES (OS from UA) ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|Go-http' | grep -oiP '(iPhone|iPad|Android|Windows NT|Macintosh|Linux(?! .*(Android|bot)))' | sort | uniq -c | sort -rn
