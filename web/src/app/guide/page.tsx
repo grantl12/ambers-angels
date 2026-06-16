@@ -81,10 +81,35 @@ function RoleBadge({ role }: { role: "pilot" | "coordinator" | "admin" | "all" }
   )
 }
 
-function Screenshot({ label }: { label: string }) {
+function Screenshot({ label, src }: { label: string; src?: string }) {
+  if (!src) {
+    return (
+      <div className="my-6 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
+        <div className="text-xs text-white/25 font-mono">[Screenshot: {label}]</div>
+      </div>
+    )
+  }
   return (
-    <div className="my-6 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
-      <div className="text-xs text-white/25 font-mono">[Screenshot: {label}]</div>
+    <figure className="my-8 flex flex-col items-center gap-3">
+      <div className="rounded-[2rem] border-2 border-white/20 overflow-hidden shadow-2xl" style={{ maxWidth: 260 }}>
+        <img src={src} alt={label} className="block w-full" />
+      </div>
+      <figcaption className="text-xs text-white/30 font-mono text-center">{label}</figcaption>
+    </figure>
+  )
+}
+
+function PhonePair({ screens }: { screens: { src: string; label: string }[] }) {
+  return (
+    <div className="my-8 flex gap-6 justify-center flex-wrap">
+      {screens.map(({ src, label }) => (
+        <figure key={src} className="flex flex-col items-center gap-3">
+          <div className="rounded-[2rem] border-2 border-white/20 overflow-hidden shadow-2xl" style={{ maxWidth: 220 }}>
+            <img src={src} alt={label} className="block w-full" />
+          </div>
+          <figcaption className="text-xs text-white/30 font-mono text-center" style={{ maxWidth: 220 }}>{label}</figcaption>
+        </figure>
+      ))}
     </div>
   )
 }
@@ -259,7 +284,7 @@ export default function GuidePage() {
             Your account starts as <strong>pending</strong>. You won&apos;t be able to start a mission until an admin
             approves it. During the Carrollton pilot, approvals happen manually — expect same-day turnaround.
           </Note>
-          <Screenshot label="Registration form in Safari View Controller" />
+          <Screenshot src="/guide/login.png" label="Sign in screen — registration opens in Safari View Controller" />
 
           <H3 id="tos">Terms of Service</H3>
           <RoleBadge role="all" />
@@ -295,7 +320,18 @@ export default function GuidePage() {
           <Tip>
             Background scan works during your normal commute. You don&apos;t need to actively watch the phone — just mount it, start the mission, and drive. The notification will alert you if there&apos;s a match.
           </Tip>
-          <Screenshot label="Persistent scan notification with frame count and stop button" />
+          <P>
+            The first time you start a mission, iOS asks for camera and location permission directly —
+            these are the standard system prompts, not anything custom to the app:
+          </P>
+          <PhonePair screens={[
+            { src: "/guide/camera-attestation.png", label: "iOS camera permission prompt" },
+            { src: "/guide/location-attestation.png", label: "iOS location permission prompt" },
+          ]} />
+          <PhonePair screens={[
+            { src: "/guide/camera-standby.png", label: "STANDBY — no active alert" },
+            { src: "/guide/camera-live.png", label: "LIVE — on-device OCR scanning" },
+          ]} />
 
           <H3 id="active-camera">Active Camera Mode</H3>
           <RoleBadge role="pilot" />
@@ -319,7 +355,10 @@ export default function GuidePage() {
           <Note>
             Active camera mode requires a network connection and drains battery faster than background scan. Use it when you are stationary or parked near a choke point — intersections, gas stations, highway on-ramps.
           </Note>
-          <Screenshot label="Active camera view with confidence score overlay" />
+          <PhonePair screens={[
+            { src: "/guide/camera-gate.png", label: "Camera permission gate" },
+            { src: "/guide/camera-live.png", label: "Camera — active mission" },
+          ]} />
 
           <H3 id="pilot-alerts">Getting Alerts</H3>
           <RoleBadge role="pilot" />
@@ -332,6 +371,17 @@ export default function GuidePage() {
             If you enter a geographic area that is under an active alert (based on the alert polygon from the
             FEMA CAP XML), you also receive a geofence notification without needing to be actively scanning.
           </P>
+          <P>
+            Coordinators and admins can optionally monitor alerts and watchlist matches in a Discord channel in
+            real time — handy for watching a search from a laptop or a second screen. A match includes the
+            plate, confidence, source, and the evidence frame when one was captured. Discord is not required to
+            use the app — it's an internal monitoring tool for organizers, and the platform can also send
+            high-confidence alerts via SMS as an alternative or addition to push/email:
+          </P>
+          <PhonePair screens={[
+            { src: "/guide/discord-watchlist-add.png", label: "Discord — new plate added to the watchlist" },
+            { src: "/guide/discord-match-photo.png", label: "Discord — watchlist match with evidence frame" },
+          ]} />
 
           <H3 id="watch-areas">Watch Areas</H3>
           <RoleBadge role="pilot" />
@@ -346,7 +396,12 @@ export default function GuidePage() {
             <Li>Tap a suggestion to add it. You can add multiple areas.</Li>
             <Li>Toggle <strong className="text-white/80">Nationwide</strong> to receive all alerts regardless of location — useful for coordinators and high-availability volunteers</Li>
           </Ul>
-          <Screenshot label="Watch areas settings with autocomplete suggestions" />
+          <PhonePair screens={[
+            { src: "/guide/settings-top.png", label: "Settings — Identity & Capture" },
+            { src: "/guide/settings-mid.png", label: "Settings — Alert Range & Watch Areas" },
+          ]} />
+
+          <Screenshot src="/guide/settings-badges.png" label="Settings — Badges, account actions, and Delete Account" />
 
           <H3 id="request-coordinator">Requesting Coordinator Access</H3>
           <RoleBadge role="pilot" />
@@ -375,6 +430,10 @@ export default function GuidePage() {
             </a>{" "}
             or from the Map tab in the mobile app.
           </P>
+          <PhonePair screens={[
+            { src: "/guide/mission-map.png", label: "Mission Map — drones and ground volunteers online" },
+            { src: "/guide/mission-map-alert.png", label: "Mission Map — active alert detail" },
+          ]} />
 
           <H3 id="detection-feed">Detection Feed</H3>
           <RoleBadge role="coordinator" />
@@ -426,7 +485,7 @@ export default function GuidePage() {
           <Note>
             VLOS mode (default) enforces a 400-meter software radius from the drone&apos;s home position. The dispatch UI will warn you if your observation point exceeds this. BVLOS Tactical is available when an admin has recorded the FAA Part 107.39 waiver number.
           </Note>
-          <Screenshot label="Coordinator map with drone icon, alert polygon overlay, and ADS-B advisory" />
+          <Screenshot src="/guide/drone-dispatch.png" label="Dispatch screen — observation point, ADS-B airspace advisory, and operation mode" />
 
           <H3 id="mission-monitoring">Mission Monitoring</H3>
           <RoleBadge role="coordinator" />
@@ -469,7 +528,7 @@ export default function GuidePage() {
             <Li>Tap <strong className="text-white/80">Approve</strong> to activate the account — they receive a push notification and can immediately start missions</Li>
             <Li>Tap <strong className="text-white/80">Reject</strong> to decline — their account is deactivated</Li>
           </Ul>
-          <Screenshot label="Pending pilots queue with approve / reject buttons" />
+          <Screenshot src="/guide/admin-pilots.png" label="Admin panel — Registered Pilots & Pending Approval queue" />
 
           <H3 id="approving-coordinators">Approving Coordinator Requests</H3>
           <RoleBadge role="admin" />
@@ -519,7 +578,7 @@ export default function GuidePage() {
             source=&apos;manual&apos; and cannot be cancelled through the Resolve flow — only the Clear Test Data button
             or direct SQL removes them.
           </Note>
-          <Screenshot label="Inject Demo Alert form with plate, headline, area, and alert type fields" />
+          <Screenshot src="/guide/admin-health.png" label="Admin panel — System Health & Test Controls" />
 
           <H3 id="bolo-ingestor">BOLO Screenshot Ingestor</H3>
           <RoleBadge role="admin" />
@@ -600,7 +659,7 @@ export default function GuidePage() {
             Check PM2 logs: the rtmp_monitor watchdog will have fired a Discord alert if the API process restarted
             five or more times in one interval.
           </P>
-          <Screenshot label="System health panel with poll timestamps and active stream count" />
+          <Screenshot src="/guide/admin-health.png" label="System health panel — API, database, worker, and FEMA poll status" />
 
           {/* ── ALERT TYPES ─────────────────────────────────── */}
           <H2 id="alert-types">Alert Types</H2>
