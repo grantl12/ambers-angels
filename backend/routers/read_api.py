@@ -1260,8 +1260,17 @@ def clear_test_data(full_reset: bool = False):
             "DELETE FROM telemetry_points WHERE drone_id LIKE 'SIM-%' OR drone_id LIKE 'sim-%'"
         ))
 
+        # alerts is a Discord-dispatch log joined to detection_events by event_id.
+        # Once the underlying detection_event is purged (above), the alert row is
+        # orphaned dead weight — it can never resolve to a real event again, and
+        # the mobile Event Feed "Alerts" tab keeps counting it forever.
+        al = db.execute(text(
+            "DELETE FROM alerts WHERE event_id IS NULL "
+            "OR event_id NOT IN (SELECT id::text FROM detection_events) RETURNING id"
+        )).rowcount
+
         db.commit()
-        return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de, "sim_drones": sim_drones}}
+        return {"cleared": {"watchlist": wl, "vehicle_targets": vt, "detection_events": de, "sim_drones": sim_drones, "alerts": al}}
     finally:
         db.close()
 
