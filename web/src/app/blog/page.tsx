@@ -19,7 +19,7 @@ const POSTS = [
     slug: 'post-1-always-on',
     tag: 'Post 1 of 8',
     title: 'The Problem with Always-On',
-    date: 'June 17, 2026',
+    date: 'June 16, 2026',
     excerpt: 'Every technology that retains data creates risk. The problem isn\'t character — it\'s architecture.',
     live: true,
   },
