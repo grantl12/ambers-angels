@@ -82,13 +82,7 @@ function RoleBadge({ role }: { role: "pilot" | "coordinator" | "admin" | "all" }
 }
 
 function Screenshot({ label, src }: { label: string; src?: string }) {
-  if (!src) {
-    return (
-      <div className="my-6 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
-        <div className="text-xs text-white/25 font-mono">[Screenshot: {label}]</div>
-      </div>
-    )
-  }
+  if (!src) return null
   return (
     <figure className="my-8 flex flex-col items-center gap-3">
       <div className="rounded-[2rem] border-2 border-white/20 overflow-hidden shadow-2xl" style={{ maxWidth: 260 }}>
