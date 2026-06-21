@@ -940,7 +940,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                 f"Area:     {alert['area']}\n"
                 f"Issued:   {alert['sent']}\n\n"
                 f"{atype['cta']}\n\n"
-                "Sign in at: http://157.245.125.103/\n\n"
+                "Sign in at: https://amberangels.org/\n\n"
                 "— Amber's Angels\n"
                 "(You received this because this area matches your watch list. "
                 "Update notification preferences from your profile.)"

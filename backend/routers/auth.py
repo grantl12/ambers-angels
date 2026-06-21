@@ -1059,7 +1059,7 @@ def sso_complete(req: SSOCompleteRequest):
         try:
             db.execute(text(_SSO_INSERT[provider]), {
                 "username":   username,
-                "email":      email or f"{username}@sso.placeholder",
+                "email":      email or f"{username}@noemail.amberangels.org",
                 "full_name":  req.full_name,
                 "provider":   provider,
                 "sub":        sub,
