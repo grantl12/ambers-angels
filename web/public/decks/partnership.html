@@ -9,6 +9,7 @@
 [
   "Grant here. This deck isn't about what Amber's Angels does today — you've seen that. This is about what a formal partnership with Carrollton PD makes possible. Every capability I'm about to walk through is either already built and waiting for credentials, or is one sprint away once we have data access. Let's go.",
   "Here's the baseline we're operating at right now without any partnership in place. FEMA IPAWS is live — three polling sources, under five minutes from federal issuance to volunteer phones. The swarm dispatch layer is running — coordinators dispatch drones from home, pilots relinquish control remotely, waypoints upload automatically via DJI SDK. Composite ALPR plus YOLO confidence scoring. Live mission map with ADS-B airspace deconfliction. NCMEC cross-reference against active vehicle targets. This is the floor. A partnership doesn't build this — it extends it.",
+  "This is the new piece since we last met. We identified that the biggest operational gap isn't the technology — it's the time between when your department knows about a vehicle and when FEMA issues the alert. Sometimes that's hours. Sometimes the federal alert never comes. So we built a direct activation path. Your department uploads a BOLO screenshot — from CAD, dispatch, a text chain, whatever — or manually enters a plate and vehicle description. AI extracts the details automatically. The volunteer network activates immediately. Push notification, camera gate opens, phones start scanning. Two to three clicks from your end. We tested this live June 11 with a Douglas County BOLO — activation confirmed end-to-end in seconds. This works today, no partnership agreement required. Free tool for your department.",
   "Here's the architecture of a formal partnership. Two things flow in from CPD: authorized data access — NCIC hotlist credentials and CAD API access. That's it. In return, the platform sends three things back: detections flow into your real-time crime center as a live data feed, high-confidence hits route directly to CAD as calls for service, and closed missions produce evidence packages that chain-of-custody into your records system. You get an aerial ALPR and missing-persons response layer without buying a helicopter or licensing another vendor platform.",
   "The deputy chief asked about this specifically. When a HIGH_CONFIDENCE match fires against an active watchlist plate — the system today notifies coordinators via Discord and the mission map. With a CAD integration, there's a one-tap Send to Dispatch button. The backend formats a call-for-service payload and POSTs to your CAD system. A call is created, priority assigned, and nearby units notified. All we need from IT is an API key and the CAD endpoint URL. The integration wrapper is already built — it's waiting for credentials. Works with Motorola PremierOne, Tyler New World, or any CAD with a REST API.",
   "Most agencies running a Real-Time Crime Center are monitoring fixed-camera feeds, CAD events, and manual ALPR logs on a common operating picture. Genetec, Motorola Avigilon, Fusus — whatever software CPD runs, it has an API. What we've built is the aerial detection layer that feeds it. FEMA alert polygons as map overlays. Drone positions live. ALPR hit coordinates and confidence scores streaming in real time. The RTCC gets aerial eyes during an active missing-persons alert without any operator on scene. We become infrastructure, not a vendor app you log into separately.",
@@ -105,7 +106,32 @@ em.purple { color: var(--purple); font-style: normal; }
 .bl-card p { font-size:24px; color:var(--muted); line-height:1.45; flex:1; }
 .bl-card .stat { font-family:'JetBrains Mono',monospace; font-size:22px; color:var(--amber); padding-top:10px; border-top:1px solid var(--border); }
 
-/* ── 03 PARTNERSHIP LAYER ── */
+/* ── 03 BOLO ACTIVATION ── */
+#sbolo { background:var(--ink); padding:90px 96px; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+.sbolo-l h2 { font-size:56px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 20px; }
+.sbolo-l h2 em { color:var(--amber); font-style:normal; }
+.sbolo-l > p { font-size:24px; color:var(--muted); line-height:1.6; margin-bottom:28px; }
+.bolo-flow { display:flex; flex-direction:column; gap:14px; }
+.bolo-step { display:grid; grid-template-columns:48px 1fr; gap:18px; align-items:baseline; padding:18px 20px; background:var(--ink3); border:1px solid var(--border); border-radius:10px; }
+.bolo-step.highlight { border-color:rgba(245,158,11,0.4); background:linear-gradient(90deg,rgba(245,158,11,0.07),var(--ink3)); }
+.bolo-step .n { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:var(--amber); }
+.bolo-step .b h5 { font-size:24px; font-weight:700; color:#fff; margin-bottom:4px; }
+.bolo-step .b p { font-size:22px; color:var(--muted); line-height:1.4; }
+.bolo-screen { background:var(--ink3); border:1px solid rgba(245,158,11,0.3); border-radius:14px; padding:28px; display:flex; flex-direction:column; gap:20px; }
+.bolo-screen-h { font-family:'JetBrains Mono',monospace; font-size:22px; color:var(--amber); letter-spacing:1px; }
+.bolo-upload { display:flex; align-items:center; gap:14px; padding:16px 20px; background:rgba(56,189,248,0.06); border:1px dashed rgba(56,189,248,0.4); border-radius:10px; }
+.bolo-upload .icon { font-size:32px; }
+.bolo-upload .text { font-size:22px; color:var(--muted); }
+.bolo-result { background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.3); border-radius:10px; padding:18px 22px; }
+.bolo-result .result-h { font-size:20px; font-weight:700; color:var(--green); letter-spacing:1px; text-transform:uppercase; margin-bottom:12px; }
+.bolo-result .field { display:flex; gap:12px; font-size:22px; line-height:1.7; }
+.bolo-result .field .k { color:var(--dim); min-width:80px; }
+.bolo-result .field .v { color:#fff; font-weight:600; }
+.bolo-result .field .v.mono { font-family:'JetBrains Mono',monospace; letter-spacing:2px; color:#fbbf24; }
+.bolo-time { margin-top:8px; padding:16px 20px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.25); border-radius:8px; font-size:22px; color:var(--muted); line-height:1.5; }
+.bolo-time strong { color:var(--amber); }
+
+/* ── 04 PARTNERSHIP LAYER ── */
 #s3 { padding:80px 96px; display:flex; flex-direction:column; justify-content:center; }
 #s3 h2 { font-size:58px; font-weight:700; letter-spacing:-1px; line-height:1.1; margin:20px 0 14px; }
 #s3 h2 em { color:var(--amber); font-style:normal; }
@@ -380,8 +406,58 @@ em.purple { color: var(--purple); font-style: normal; }
   <div class="sn">02</div>
 </section>
 
-<!-- ── 03 PARTNERSHIP LAYER ── -->
-<section id="s3" data-screen-label="03 Partnership Layer">
+<!-- ── 03 DIRECT LEA ALERT ── -->
+<section id="sbolo" data-screen-label="03 Direct LEA Alert">
+  <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+  <div class="sbolo-l">
+    <div class="tag">Live Now</div>
+    <h2>Bypass FEMA. <em>Activate in seconds.</em></h2>
+    <p>The federal alert pipeline can take hours — or never fire. This path puts activation on your timeline. Upload a BOLO screenshot or enter details manually. The network goes live immediately.</p>
+    <div class="bolo-flow">
+      <div class="bolo-step highlight">
+        <div class="n">01</div>
+        <div class="b"><h5>Upload or Enter</h5><p>Screenshot from CAD, dispatch, text chain — or type the plate and vehicle directly. AI extracts plate, color, make, model, area.</p></div>
+      </div>
+      <div class="bolo-step">
+        <div class="n">02</div>
+        <div class="b"><h5>Network Activates</h5><p>Push notification fires to every pilot in the watch area. Camera gate opens. Phones start scanning for that plate immediately.</p></div>
+      </div>
+      <div class="bolo-step">
+        <div class="n">03</div>
+        <div class="b"><h5>Match → Alert</h5><p>On-device OCR or drone ALPR scores a match → composite confidence check → coordinator notified with GPS coordinates and evidence frame.</p></div>
+      </div>
+    </div>
+    <div class="bolo-time"><strong>Tested live · June 11, 2026:</strong> Douglas County BOLO uploaded → push fired → camera gate opened → scanning active. Seconds, not hours.</div>
+  </div>
+  <div class="bolo-screen">
+    <div class="bolo-screen-h">// ADMIN PANEL → BOLO INGESTOR</div>
+    <div class="bolo-upload">
+      <div class="icon">📎</div>
+      <div class="text">douglas_county_bolo.png uploaded</div>
+    </div>
+    <div class="bolo-result">
+      <div class="result-h">✓ Extracted &amp; Activated</div>
+      <div class="field"><span class="k">Plate</span><span class="v mono">HRK4291</span></div>
+      <div class="field"><span class="k">Vehicle</span><span class="v">2018 Gray Nissan Altima</span></div>
+      <div class="field"><span class="k">Area</span><span class="v">Douglas County, GA</span></div>
+      <div class="field"><span class="k">Source</span><span class="v">LEA BOLO (manual upload)</span></div>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <div style="flex:1;padding:14px 18px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;text-align:center;">
+        <div style="font-size:20px;color:var(--dim);margin-bottom:4px;">Push Sent</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--green);">✓ 0.8s</div>
+      </div>
+      <div style="flex:1;padding:14px 18px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;text-align:center;">
+        <div style="font-size:20px;color:var(--dim);margin-bottom:4px;">Scanning Active</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--amber);">✓ 2.1s</div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">03</div>
+</section>
+
+<!-- ── 04 PARTNERSHIP LAYER ── -->
+<section id="s3" data-screen-label="04 Partnership Layer">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="tag">The Partnership Layer</div>
   <h2>Two credentials in. <em>Three capabilities out.</em></h2>
@@ -430,11 +506,11 @@ em.purple { color: var(--purple); font-style: normal; }
       </div>
     </div>
   </div>
-  <div class="sn">03</div>
+  <div class="sn">04</div>
 </section>
 
-<!-- ── 04 CAD DISPATCH ── -->
-<section id="s4" data-screen-label="04 Direct to Dispatch">
+<!-- ── 05 CAD DISPATCH ── -->
+<section id="s4" data-screen-label="05 Direct to Dispatch">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="s4-l">
     <div class="tag">Direct to Dispatch</div>
@@ -484,11 +560,11 @@ em.purple { color: var(--purple); font-style: normal; }
       </div>
     </div>
   </div>
-  <div class="sn">04</div>
+  <div class="sn">05</div>
 </section>
 
-<!-- ── 05 RTCC ── -->
-<section id="s5" data-screen-label="05 RTCC Integration">
+<!-- ── 06 RTCC ── -->
+<section id="s5" data-screen-label="06 RTCC Integration">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="tag sky">Real-Time Crime Center Feed</div>
   <h2>Becoming the <em class="sky">aerial layer</em> for your common operating picture.</h2>
@@ -520,11 +596,11 @@ em.purple { color: var(--purple); font-style: normal; }
     </div>
   </div>
   <div class="rtcc-foot"><strong>What this looks like operationally:</strong> A missing child case opens. FEMA fires an AMBER Alert. The polygon appears on the RTCC map. Swarm drones launch. ALPR hits feed in as point events. A HIGH_CONFIDENCE match auto-creates a CAD call. Officers responding to the scene see the drone feed and the detection coordinates — all from their existing RTCC terminal. <strong>Zero new software for CPD to run.</strong></div>
-  <div class="sn">05</div>
+  <div class="sn">06</div>
 </section>
 
-<!-- ── 06 NCIC SYNC ── -->
-<section id="s6" data-screen-label="06 NCIC Hotlist Sync">
+<!-- ── 07 NCIC SYNC ── -->
+<section id="s6" data-screen-label="07 NCIC Hotlist Sync">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="s6-l">
     <div class="tag green">NCIC / GCIC Hotlist Sync</div>
@@ -558,11 +634,11 @@ em.purple { color: var(--purple); font-style: normal; }
       Watchlist entries marked <span style="font-weight:700;color:var(--green)">MOU</span> require GCIC/CJIS credentialing. The ingestion pipeline, daily sync job, and match logic are <span style="font-weight:700;color:#fff;">already implemented</span> — waiting for authorized credentials.
     </div>
   </div>
-  <div class="sn">06</div>
+  <div class="sn">07</div>
 </section>
 
-<!-- ── 07 NCMEC AGENT ── -->
-<section id="s7" data-screen-label="07 NCMEC Vehicle Agent">
+<!-- ── 08 NCMEC AGENT ── -->
+<section id="s7" data-screen-label="08 NCMEC Vehicle Agent">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="tag purple">NCMEC Vehicle Intelligence</div>
   <h2>Closing the gap between <em class="purple">NCMEC and FEMA.</em></h2>
@@ -595,11 +671,11 @@ em.purple { color: var(--purple); font-style: normal; }
     </div>
   </div>
   <div class="agent-note"><strong>Federal alert gap:</strong> AMBER Alerts require strict criteria — child under 17, credible abduction, sufficient descriptive info. Many missing child cases never qualify. This agent activates aerial search on every NCMEC case that includes a vehicle description, regardless of alert status.</div>
-  <div class="sn">07</div>
+  <div class="sn">08</div>
 </section>
 
-<!-- ── 08 SEARCH OPS ── -->
-<section id="s8" data-screen-label="08 Systematic Search">
+<!-- ── 09 SEARCH OPS ── -->
+<section id="s8" data-screen-label="09 Systematic Search">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="s8-l">
     <div class="tag">Systematic Search Operations</div>
@@ -667,11 +743,11 @@ em.purple { color: var(--purple); font-style: normal; }
       <text x="315" y="430" font-family="JetBrains Mono,monospace" font-size="20" fill="rgba(167,139,250,0.7)" text-anchor="middle">SECTOR B</text>
     </svg>
   </div>
-  <div class="sn">08</div>
+  <div class="sn">09</div>
 </section>
 
-<!-- ── 09 EVIDENCE ── -->
-<section id="s9" data-screen-label="09 Evidence Package">
+<!-- ── 10 EVIDENCE ── -->
+<section id="s9" data-screen-label="10 Evidence Package">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="tag">Evidence &amp; Chain of Custody</div>
   <h2>Closed missions become <em>defense-proof case documentation.</em></h2>
@@ -703,11 +779,11 @@ em.purple { color: var(--purple); font-style: normal; }
       </div>
     </div>
   </div>
-  <div class="sn">09</div>
+  <div class="sn">10</div>
 </section>
 
-<!-- ── 10 INFRASTRUCTURE PLAY ── -->
-<section id="s10" data-screen-label="10 Infrastructure Play">
+<!-- ── 11 INFRASTRUCTURE PLAY ── -->
+<section id="s10" data-screen-label="11 Infrastructure Play">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="tag">The Bigger Picture</div>
   <h2>Carrollton writes the playbook<br>for <em>every deployment after it.</em></h2>
@@ -735,11 +811,11 @@ em.purple { color: var(--purple); font-style: normal; }
     </div>
   </div>
   <div class="infra-foot"><strong>This is not a volunteer app that scales.</strong> It's a detection infrastructure layer that cities subscribe to — the same way they subscribe to Flock Safety or Fusus, except the aerial component is <strong>volunteer-powered and zero marginal cost per alert.</strong> Carrollton becomes the customer zero that proves the model to every grant writer, GEMA official, and agency director who asks for a reference.</div>
-  <div class="sn">10</div>
+  <div class="sn">11</div>
 </section>
 
-<!-- ── 11 ROADMAP ── -->
-<section id="s11" data-screen-label="11 Roadmap">
+<!-- ── 12 ROADMAP ── -->
+<section id="s11" data-screen-label="12 Roadmap">
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
   <div class="tag">What Gets Built When</div>
   <h2>Every step is additive. <em>Nothing built for CPD is wasted.</em></h2>
@@ -796,11 +872,11 @@ em.purple { color: var(--purple); font-style: normal; }
       </ul>
     </div>
   </div>
-  <div class="sn">11</div>
+  <div class="sn">12</div>
 </section>
 
-<!-- ── 12 SYSTEM IN ACTION ── -->
-<section id="slog" data-screen-label="12 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
+<!-- ── 13 SYSTEM IN ACTION ── -->
+<section id="slog" data-screen-label="13 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
   <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:0;">
     <span class="tag">System in Action</span>
     <h2 style="margin-top:28px;font-size:52px;font-weight:700;line-height:1.1;letter-spacing:-1.5px;margin-bottom:24px;">Real logs.<br><em style="color:var(--amber);font-style:normal;">June 7, 2026.</em></h2>
@@ -835,11 +911,11 @@ em.purple { color: var(--purple); font-style: normal; }
     </div>
   </div>
   <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-  <div class="sn">12</div>
+  <div class="sn">13</div>
 </section>
 
-<!-- ── 12 CLOSE ── -->
-<section id="s13" data-screen-label="13 Close">
+<!-- ── 14 CLOSE ── -->
+<section id="s13" data-screen-label="14 Close">
   <img src="mobile/assets/icon.png" class="s12-logo" alt="AA">
   <div class="s12-org">AMBER Angels</div>
   <h2 class="s12-h">The technology is built.<br>The volunteers are ready.<br>The alerts are live.</h2>
