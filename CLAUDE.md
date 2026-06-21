@@ -174,15 +174,44 @@ Dispatch permission: admin sets via `POST /auth/admin/pilots/{username}/permissi
 - `bvlos_autonomous` — Part 108 placeholder; same auth gate as tactical
 
 **Mission status lifecycle:**
-`pending → dispatched → uploading → executing → completed | aborted | failed`
+`pending → dispatched → uploading → executing → relook → completed | aborted | failed`
 
-Both `executing` and `active` are accepted status strings (mobile DJI SDK emits `executing`; backend treats them identically, sets `started_at`).
+Both `executing` and `active` are accepted status strings (mobile DJI SDK emits `executing`; backend treats them identically, sets `started_at`). `relook` = paused for sharper image capture on a medium-confidence match.
 
 **Mission timeout cleanup** (`mission_timeout_loop` background task, 5-min interval):
 - `pending/dispatched/uploading` > 30 min → `failed` ("Timed out waiting for drone to connect")
 - `executing/active` > 4 hours → `failed` ("Mission exceeded maximum flight duration")
 
-**Observation post dispatch** (current mode): single-waypoint mission. Drone flies to observation point (explicit lat/lng or polygon centroid) and hovers while live stream runs ALPR/YOLO. Lawnmower grid kept in codebase but not active.
+**Mission types:**
+- **Observation post** (`POST /autonomous/plan`): single-waypoint hover. Drone flies to observation point and hovers while live stream runs ALPR/YOLO.
+- **Sweep / scan-this-lot** (`POST /autonomous/plan-sweep`): lawnmower pattern over a polygon. Lower altitude (15m default), slower speed (3 m/s). Used for parking lot scans. VLOS radius enforced on all generated waypoints.
+
+**Auto-relook flow** (sweep missions):
+1. Worker detects medium-confidence match on RTMP stream
+2. `POST /autonomous/missions/{id}/relook` → mission status = `relook`
+3. Push sent to pilot's phone → app calls `pauseMission()` → drone hovers
+4. Stationary frames are sharper — worker evaluates 3-5 more frames
+5. If HIGH_CONFIDENCE → alert fires, `POST /autonomous/missions/{id}/relook-complete?confirmed=true`
+6. If timeout/low confidence → `relook-complete?confirmed=false`
+7. Either way, mission resumes automatically — no human in the loop
+
+**DJI MSDK V5 waypoint implementation** (built 2026-06-21):
+- KMZ file generation: WPML XML → ZIP → push to aircraft via `WaypointMissionManager`
+- `droneEnumValue` is dynamic — reads `ProductType` from connected aircraft
+- Safety config: `exitOnRCLost=executeLostAction`, `executeRCLostAction=goBack` (RTH on signal loss)
+- `flyToWaylineMode=safely`, RTH height = mission altitude + 20m
+- In-flight controls: `pauseMission()`, `resumeMission()`, `stopWaypointMission()`, `returnToHome()`
+- Firmware handles: battery RTH, obstacle avoidance (BRAKE mode), GEO zones, wind compensation
+- Phone disconnect does NOT stop mission — KMZ runs on the flight controller
+
+**DJI MSDK V5 supported drones** (waypoint missions):
+- Mini 4 Pro (primary target, confirmed MSDK 5.17+, requires RC-N2)
+- Mini 3 / Mini 3 Pro
+- Mavic 3 / Mavic 3 Classic / Mavic 3 Pro
+- Mavic 3 Enterprise Series
+- M30 / M30T / M300 RTK / M350 RTK / Matrice 4
+- **Air 3 is NOT supported** — DJI confirmed no SDK access. Do not add it.
+- Avata: FPV only, no waypoint missions — use RTMP manual flight path instead
 
 ### Security
 
@@ -358,6 +387,16 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 ## Pending TODO
 
+### Public Discord Join Button
+
+Currently only one Discord channel exists (`aa-test`) — internal testing only, not public-facing.
+Before adding a "Join our Discord" button anywhere (guide page, landing page, etc.), need to define
+channel structure first, e.g.:
+- A coordinator/alert-firehose channel — every alert + watchlist match fires here (high volume, opt-in for people who want to see everything)
+- A general volunteer chat channel — questions, app feedback, lower volume
+Once channels are defined and a real invite link exists, add the button to the `/guide` page near
+the Discord screenshots in "Getting Alerts" (`web/src/app/guide/page.tsx`).
+
 ### App Store / Play Store Badges on Landing Page
 
 Once iOS App Store listing is approved AND Android Play Store listing is live:
@@ -490,11 +529,25 @@ Source column added to `detection_events`, `watchlist`, `vehicle_targets`:
 ### Partnership Capabilities Deck
 
 - `web/public/decks/partnership.html` → `/deck/partnership`
-- 12 slides: baseline platform → partnership layer → CAD integration → RTCC feed → NCIC sync → NCMEC vehicle agent → polygon search → evidence packages → infrastructure play → roadmap → close
+- 14 slides: baseline platform → **direct LEA alert (BOLO)** → partnership layer → CAD integration → RTCC feed → NCIC sync → NCMEC vehicle agent → polygon search → evidence packages → infrastructure play → roadmap → system in action → close
 - Deputy Chief Dobbs and Lt. Hitchcock (Carrollton PD) are the current CPD contacts for formal partnership discussions
 - CAD integration: `POST /dispatch/cad` endpoint stub needed; requires CPD IT to provide Motorola PremierOne / Tyler New World API key + endpoint URL
 - NCIC/GCIC access requires signed MOU with CPD — ingestion pipeline is built, waiting for credentials
 - Evidence package export (`/admin/evidence/{mission_id}`) not yet built — next sprint after pilot data flows
+
+### `/guide` Page — Screenshot Work (in progress, June 15 2026)
+
+`web/src/app/guide/page.tsx` and `web/public/guide/*.png` are currently **uncommitted/unstaged** — intentionally, do not commit until this list is resolved:
+
+- 9 screenshots from the Android emulator are wired in (login, camera gate/live/standby, settings top/mid/badges, admin health/pilots). Safe to keep/ship as-is.
+- **Privacy rule for this page**: never show the real NCMEC feed (real children's names) on this public marketing page. A screenshot of it was caught and deleted (`event-feed.png`) before it shipped. If the Event Feed / Missing tab needs a screenshot, use the fictional NCMEC names from `scripts/seed_demo.py` (Emma Johnson / Marcus Williams / Sofia Rodriguga) — never real production NCMEC data.
+- Still needed: Mission Map, Camera screen states + permission flow, Notifications, Drone Dispatch screenshots — user is capturing these on iOS (Android emulator can't render the map and only shows a synthetic camera test pattern, so it can't produce a real plate-match for an E2E shot).
+- Still needed: a safe way to populate realistic "Hits" data on the Event Feed for a screenshot. **Do not** run `scripts/seed_demo.py` or `scripts/screenshot.mjs` against production directly — user vetoed this, injecting alerts outside the admin UI breaks the cancel/resolve flow. Proposed alternative (not yet approved or built): insert cosmetic rows directly into `detection_events` for the screenshot, bypassing the Discord/push pipeline, then delete them after.
+- Still needed: crop the existing Settings screenshots into smaller feature-specific images (user offered to help with this).
+
+### Mobile Event Feed — "Alerts" / "Missing" tabs don't auto-refresh
+
+`mobile/src/screens/FeedScreen.tsx`: the "All"/"Hits"/"Mine" tabs poll every 5s (`setInterval(loadDetections, 5000)`), but the "Alerts" tab (`loadHistory()` → `fetchAlertHistory()`) and "Missing" tab (`loadNcmec()`) only load once on screen mount — they only refresh via manual pull-to-refresh. This caused user confusion on June 15 2026 when a backend fix (purging orphaned `alerts` rows) was live on the server but the already-open app still showed the old count until refreshed. Consider adding the same polling interval to these two tabs so server-side fixes/changes show up without a manual pull-to-refresh.
 
 ### Longer Term / Needs Config Only
 
@@ -505,5 +558,31 @@ Source column added to `detection_events`, `watchlist`, `vehicle_targets`:
 - **LinkedIn company page** — not yet created. First social media post (Facebook personal page, June 2 2026) drove 526 unique IPs in one day. LinkedIn is the right next channel for CPD/grant/EM audience.
 - **Board governance docs** — members have not yet signed COI policy, board member agreements, or meeting minutes. Required before accepting grant money.
 - **On-device iOS ALPR** — Android ML Kit path is built. iOS equivalent uses Vision framework text recognition. Requires a separate implementation path; no Mac needed to write the Swift but you can't build/test without one.
-- **Polygon grid search (lawnmower)** — code is in `waypoint_generator.py`, not activated. Single config flag to enable. Coordinate sweep assigns sectors to multiple drones.
+- **Polygon grid search (lawnmower)** — `POST /autonomous/plan-sweep` is live. Generates lawnmower waypoints over a polygon (parking lot scan). Altitude 15m, speed 3 m/s, VLOS enforced. Auto-relook on medium-confidence matches.
 - **Evidence package PDF export** — detection timeline + GPS track + golden frames + chain-of-custody block. Not built. Required for formal law enforcement handoff.
+- **County-scoped historical BOLOs** — aspirational feature: show volunteers old BOLOs for their current county with a configurable lookback window. Constitutional concern: without time-bounding and LEA direction, this makes scanning always-on (dragnet). Keep as partnership-unlocked feature only, not speculative build. Must be volunteer-controlled in the UI (opt-in per BOLO, time slider).
+
+### Known Hardcoded Values (intentional, revisit when relevant)
+
+These are hardcoded in backend Python files. They're domain constants that should be tuned by real-world testing, not prematurely externalized. Listed here so future sessions don't waste time rediscovering them:
+
+- `backend/services/aggregation_service.py`: `RAW_DETECTION_FLOOR=55`, `SINGLE_FRAME_HIGH_CONFIDENCE=70`, `HIGH_CONFIDENCE_EVENT_MIN_SCORE=85`
+- `backend/services/event_service.py`: `ALERT_COOLDOWN_SECONDS=120`, `REOPEN_WINDOW_SECONDS=300`
+- `backend/routers/auth.py`: `JWT_EXPIRE_DAYS=30`, `RESET_CODE_EXPIRY_MINUTES=30`
+- `backend/services/autonomous_mission_service.py`: dispatch timeout 30 min, active timeout 4 hours
+- `backend/main.py`: frame upload limit 25 MB, plate length 2-10 chars
+- `backend/services/badge_service.py`: badge thresholds (60 min → hour_up, 100 det → sharp_eyes, etc.)
+- `backend/routers/read_api.py`: default map bbox hardcoded to Carrollton GA area (`33.45-33.70, -85.25 to -84.95`)
+- `backend/services/detection_agent.py:212`: `http://127.0.0.1:8000/autonomous/plan` (works because agent runs on same box as API)
+
+### Changelog
+
+**2026-06-21**
+- Partnership deck: added slide 03 "Direct LEA Alert" (BOLO activation flow, June 11 Douglas County test)
+- DJI MSDK V5 waypoint missions: KMZ generation implemented, `startWaypointMission` no longer stubbed
+- Pause/resume mission capability for auto-relook on medium-confidence matches
+- Sweep mission endpoint (`POST /autonomous/plan-sweep`): lawnmower parking lot scan
+- Dynamic `droneEnumValue` based on connected aircraft ProductType
+- Fixed: notification URL was hardcoded IP → now `https://amberangels.org`
+- Fixed: SSO placeholder email `@sso.placeholder` → `@noemail.amberangels.org`
+- Confirmed: Air 3 has no MSDK V5 support (DJI decision). Mini 4 Pro + RC-N2 is the target.
