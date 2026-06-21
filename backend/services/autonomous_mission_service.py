@@ -17,14 +17,17 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.waypoint_generator import generate_observation_point
+from services.waypoint_generator import generate_lawnmower, generate_observation_point
 
 logger = logging.getLogger(__name__)
 
 VALID_STATUSES = {
     "pending", "dispatched", "uploading", "executing", "active",
     "completed", "aborted", "failed",
+    "relook",  # paused for sharper image capture
 }
+
+VALID_MISSION_TYPES = {"observation", "sweep"}
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +105,125 @@ async def create_mission(
         "progress_pct":   0,
         "error_msg":      None,
     }
+
+
+async def create_sweep_mission(
+    db: AsyncSession,
+    alert_id: str,
+    drone_id: int,
+    polygon_geojson: dict,
+    altitude_m: float = 15.0,
+    speed_mps: float = 3.0,
+    operation_mode: str = "vlos",
+    camera_hfov_deg: float = 84.0,
+    overlap_pct: float = 0.3,
+) -> dict:
+    """
+    Create a lawnmower sweep mission over a polygon (parking lot, area search).
+    Lower altitude + slower speed than observation for plate readability.
+    """
+    waypoints = generate_lawnmower(
+        polygon_geojson,
+        altitude_m=altitude_m,
+        speed_mps=speed_mps,
+        camera_hfov_deg=camera_hfov_deg,
+        overlap_pct=overlap_pct,
+    )
+    if not waypoints:
+        return {"error": "Could not generate sweep waypoints — polygon too small or malformed."}
+
+    result = await db.execute(
+        text("""
+            INSERT INTO autonomous_missions
+                (alert_id, drone_id, status, waypoints_json,
+                 altitude_m, speed_mps, operation_mode, created_at)
+            VALUES
+                (:alert_id, :drone_id, 'pending', :waypoints_json,
+                 :altitude_m, :speed_mps, :operation_mode, NOW())
+            RETURNING id, created_at
+        """),
+        {
+            "alert_id": alert_id,
+            "drone_id": drone_id,
+            "waypoints_json": json.dumps(waypoints),
+            "altitude_m": altitude_m,
+            "speed_mps": speed_mps,
+            "operation_mode": operation_mode,
+        },
+    )
+    row = result.fetchone()
+    await db.commit()
+
+    return {
+        "id":             row[0],
+        "alert_id":       alert_id,
+        "drone_id":       drone_id,
+        "status":         "pending",
+        "mission_type":   "sweep",
+        "operation_mode": operation_mode,
+        "waypoint_count": len(waypoints),
+        "waypoints":      waypoints,
+        "altitude_m":     altitude_m,
+        "speed_mps":      speed_mps,
+        "created_at":     row[1].isoformat() if row[1] else None,
+    }
+
+
+async def request_relook(db: AsyncSession, mission_id: int, plate_text: str, confidence: float) -> dict:
+    """
+    Mark a mission as needing a relook — the drone should pause for sharper frames.
+    Called by the worker when a medium-confidence match is detected.
+    Returns the pilot's expo_push_token so the caller can send a push.
+    """
+    result = await db.execute(
+        text("""
+            UPDATE autonomous_missions
+            SET status = 'relook'
+            WHERE id = :id AND status IN ('executing', 'active')
+            RETURNING drone_id
+        """),
+        {"id": mission_id},
+    )
+    row = result.fetchone()
+    if not row:
+        return {"ok": False, "reason": "Mission not in executing state"}
+
+    drone_id = row[0]
+    pilot_row = await db.execute(
+        text("""
+            SELECT p.expo_push_token FROM pilots p
+            JOIN autonomous_drones d ON d.pilot_username = p.username
+            WHERE d.id = :drone_id AND p.expo_push_token IS NOT NULL
+        """),
+        {"drone_id": drone_id},
+    )
+    pilot = pilot_row.fetchone()
+    await db.commit()
+
+    return {
+        "ok": True,
+        "drone_id": drone_id,
+        "push_token": pilot[0] if pilot else None,
+        "plate_text": plate_text,
+        "confidence": confidence,
+    }
+
+
+async def complete_relook(db: AsyncSession, mission_id: int, confirmed: bool) -> dict:
+    """
+    End the relook pause. If confirmed, the alert has already fired — mission
+    resumes automatically. If not confirmed, mission resumes and continues scanning.
+    """
+    await db.execute(
+        text("""
+            UPDATE autonomous_missions
+            SET status = 'executing'
+            WHERE id = :id AND status = 'relook'
+        """),
+        {"id": mission_id},
+    )
+    await db.commit()
+    return {"ok": True, "confirmed": confirmed, "action": "resume"}
 
 
 # ---------------------------------------------------------------------------

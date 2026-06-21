@@ -33,12 +33,15 @@ from routers.auth import get_current_pilot, require_admin
 from services.audit import write_audit_async
 from services.autonomous_mission_service import (
     VALID_OPERATION_MODES,
+    complete_relook,
     create_mission,
+    create_sweep_mission,
     get_mission,
     list_missions,
+    request_relook,
     update_mission_status,
 )
-from services.waypoint_generator import check_vlos_radius, generate_observation_point
+from services.waypoint_generator import check_vlos_radius, generate_lawnmower, generate_observation_point
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["autonomous"])
@@ -75,6 +78,21 @@ class UpdateStatusRequest(BaseModel):
     error_msg: Optional[str] = None
     obs_acknowledged: Optional[bool] = None
     bvlos_certificate: Optional[str] = None
+
+
+class PlanSweepRequest(BaseModel):
+    alert_id: str
+    drone_id: int
+    polygon_geojson: dict
+    altitude_m: float = 15.0
+    speed_mps: float = 3.0
+    operation_mode: str = "vlos"
+    overlap_pct: float = 0.3
+
+
+class RelookRequest(BaseModel):
+    plate_text: str
+    confidence: float
 
 
 class UpdateDroneAuthRequest(BaseModel):
@@ -243,6 +261,109 @@ async def plan_mission(
     ))
 
     return mission
+
+
+@router.post("/autonomous/plan-sweep")
+async def plan_sweep_mission(
+    req: PlanSweepRequest,
+    payload: dict = Depends(get_current_pilot),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Plan a lawnmower sweep mission over a polygon (parking lot scan).
+    Lower altitude (15m default) and slower speed (3 m/s) for plate readability.
+    VLOS radius enforced against all generated waypoints.
+    """
+    if req.operation_mode not in VALID_OPERATION_MODES:
+        raise HTTPException(status_code=422, detail=f"Invalid operation_mode '{req.operation_mode}'.")
+
+    await _check_dispatch_permission(payload, db)
+    drone = await _fetch_drone(db, req.drone_id)
+
+    if req.operation_mode in ("bvlos_tactical", "bvlos_autonomous"):
+        if not drone["bvlos_authorized"]:
+            raise HTTPException(status_code=403, detail="Drone not authorized for BVLOS.")
+
+    if req.operation_mode == "vlos":
+        home_lat = drone.get("home_lat")
+        home_lng = drone.get("home_lng")
+        if home_lat is None or home_lng is None:
+            raise HTTPException(status_code=422, detail="Drone home position not set — send heartbeat first.")
+
+        test_waypoints = generate_lawnmower(
+            req.polygon_geojson,
+            altitude_m=req.altitude_m,
+            speed_mps=req.speed_mps,
+            camera_hfov_deg=drone.get("camera_hfov_deg") or 84.0,
+            overlap_pct=req.overlap_pct,
+        )
+        if not test_waypoints:
+            raise HTTPException(status_code=422, detail="Could not generate sweep path — polygon too small or malformed.")
+
+        within, dist = check_vlos_radius(
+            test_waypoints, home_lat, home_lng,
+            radius_m=float(drone["vlos_radius_m"]),
+        )
+        if not within:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Sweep extends {dist:.0f} m from home, exceeding {drone['vlos_radius_m']} m VLOS limit.",
+            )
+
+    mission = await create_sweep_mission(
+        db,
+        alert_id=req.alert_id,
+        drone_id=req.drone_id,
+        polygon_geojson=req.polygon_geojson,
+        altitude_m=req.altitude_m,
+        speed_mps=req.speed_mps,
+        operation_mode=req.operation_mode,
+        camera_hfov_deg=drone.get("camera_hfov_deg") or 84.0,
+        overlap_pct=req.overlap_pct,
+    )
+
+    if mission.get("error"):
+        raise HTTPException(status_code=422, detail=mission["error"])
+
+    asyncio.create_task(write_audit_async(
+        database.AsyncSessionLocal,
+        username=payload.get("sub", "unknown"),
+        action="sweep_mission_dispatched",
+        details={"mission_id": mission["id"], "drone_id": req.drone_id, "waypoint_count": mission["waypoint_count"]},
+    ))
+
+    return mission
+
+
+@router.post("/autonomous/missions/{mission_id}/relook")
+async def relook_endpoint(
+    mission_id: int,
+    req: RelookRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Called by the worker when a medium-confidence plate match is detected
+    on a drone's RTMP stream. Triggers the drone to pause for sharper frames.
+
+    Auth: internal API key (same as /detections/).
+    """
+    result = await request_relook(db, mission_id, req.plate_text, req.confidence)
+    if not result.get("ok"):
+        raise HTTPException(status_code=409, detail=result.get("reason", "Relook not possible"))
+    return result
+
+
+@router.post("/autonomous/missions/{mission_id}/relook-complete")
+async def relook_complete_endpoint(
+    mission_id: int,
+    confirmed: bool = False,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Called by the worker after the relook evaluation is done.
+    If confirmed=true, the alert already fired. Either way, mission resumes.
+    """
+    return await complete_relook(db, mission_id, confirmed)
 
 
 @router.get("/autonomous/missions")
