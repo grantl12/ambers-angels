@@ -20,6 +20,7 @@ import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager
 import dji.v5.manager.datacenter.MediaDataCenter
 import dji.v5.manager.interfaces.ICameraStreamManager
 import dji.v5.manager.interfaces.SDKManagerCallback
+import dji.sdk.keyvalue.value.product.ProductType
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -70,6 +71,9 @@ class DJICameraImpl(private val context: ReactApplicationContext) : IDJICamera {
                     promise.reject("REGISTER_FAILED", error?.description() ?: "DJI SDK registration failed")
                 }
                 override fun onProductConnect(productId: Int) {
+                    try {
+                        detectedProductType = ProductType.find(productId) ?: ProductType.UNKNOWN
+                    } catch (_: Throwable) { /* ignore */ }
                     sendEvent(EVENT_CONNECTION_CHANGED, Arguments.createMap().apply {
                         putBoolean("connected", true); putInt("productId", productId)
                     })
@@ -240,7 +244,25 @@ class DJICameraImpl(private val context: ReactApplicationContext) : IDJICamera {
         )
     }
 
+    @Volatile private var detectedProductType: ProductType = ProductType.UNKNOWN
+
+    private fun getDroneEnumValue(): Int {
+        return when (detectedProductType) {
+            ProductType.DJI_MINI_3_PRO               -> 89
+            ProductType.DJI_MINI_3                   -> 89
+            ProductType.DJI_MINI_4_PRO               -> 91
+            ProductType.DJI_MAVIC_3_ENTERPRISE_SERIES -> 60
+            ProductType.DJI_MAVIC_3                  -> 77
+            ProductType.M30_SERIES                   -> 67
+            ProductType.M300_RTK                     -> 60
+            ProductType.M350_RTK                     -> 89
+            ProductType.DJI_MATRICE_4_SERIES         -> 91
+            else -> 91
+        }
+    }
+
     private fun buildWpmlXml(waypoints: JSONArray, altitudeM: Double, speedMps: Double, finishAction: String): String {
+        val droneEnum = getDroneEnumValue()
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         sb.append("<kml xmlns=\"http://www.opengis.net/kml/2.2\" xmlns:wpml=\"http://www.dji.com/wpmz/1.0.2\">\n")
@@ -256,7 +278,7 @@ class DJICameraImpl(private val context: ReactApplicationContext) : IDJICamera {
         sb.append("  <wpml:globalTransitionalSpeed>${speedMps.coerceIn(1.0, 15.0)}</wpml:globalTransitionalSpeed>\n")
         sb.append("  <wpml:globalRTHHeight>${(altitudeM + 20).coerceIn(30.0, 500.0)}</wpml:globalRTHHeight>\n")
         sb.append("  <wpml:droneInfo>\n")
-        sb.append("    <wpml:droneEnumValue>67</wpml:droneEnumValue>\n") // Mini 4 Pro
+        sb.append("    <wpml:droneEnumValue>$droneEnum</wpml:droneEnumValue>\n")
         sb.append("    <wpml:droneSubEnumValue>0</wpml:droneSubEnumValue>\n")
         sb.append("  </wpml:droneInfo>\n")
         sb.append("</wpml:missionConfig>\n")
