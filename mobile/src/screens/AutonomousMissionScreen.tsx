@@ -27,6 +27,8 @@ import { useFocusEffect } from '@react-navigation/native'
 import {
   startWaypointMission,
   stopWaypointMission,
+  pauseMission,
+  resumeMission,
   onMissionStateChanged,
   getDroneLocation,
   returnToHome,
@@ -215,6 +217,30 @@ export default function AutonomousMissionScreen() {
       setActionPending(false)
     }
   }, [token, active])
+
+  const handlePause = useCallback(async () => {
+    if (!active) return
+    setActionPending(true)
+    try {
+      await pauseMission()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Pause failed.')
+    } finally {
+      setActionPending(false)
+    }
+  }, [active])
+
+  const handleResume = useCallback(async () => {
+    if (!active) return
+    setActionPending(true)
+    try {
+      await resumeMission()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Resume failed.')
+    } finally {
+      setActionPending(false)
+    }
+  }, [active])
 
   // -------------------------------------------------------------------------
   // Mission state events
@@ -414,11 +440,29 @@ export default function AutonomousMissionScreen() {
             <View style={styles.actionRow}>
               {active.state === 'executing' && (
                 <TouchableOpacity
+                  style={[styles.pauseBtn, actionPending && styles.btnDisabled]}
+                  onPress={handlePause}
+                  disabled={actionPending}
+                >
+                  <Text style={styles.pauseBtnText}>Pause</Text>
+                </TouchableOpacity>
+              )}
+              {active.state === 'interrupted' && (
+                <TouchableOpacity
+                  style={[styles.resumeBtn, actionPending && styles.btnDisabled]}
+                  onPress={handleResume}
+                  disabled={actionPending}
+                >
+                  <Text style={styles.resumeBtnText}>Resume</Text>
+                </TouchableOpacity>
+              )}
+              {(active.state === 'executing' || active.state === 'interrupted') && (
+                <TouchableOpacity
                   style={[styles.rthBtn, actionPending && styles.btnDisabled]}
                   onPress={handleRTH}
                   disabled={actionPending}
                 >
-                  <Text style={styles.rthBtnText}>Return to Home</Text>
+                  <Text style={styles.rthBtnText}>RTH</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -770,6 +814,34 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  pauseBtn: {
+    flex: 1,
+    backgroundColor: '#713f12',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#a16207',
+  },
+  pauseBtnText: {
+    color: '#fde047',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  resumeBtn: {
+    flex: 1,
+    backgroundColor: '#14532d',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#166534',
+  },
+  resumeBtnText: {
+    color: '#86efac',
+    fontWeight: '700',
+    fontSize: 14,
   },
   rthBtn: {
     flex: 1,

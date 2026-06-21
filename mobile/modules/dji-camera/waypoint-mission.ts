@@ -7,6 +7,8 @@
  * The Kotlin implementation (DJICameraModule.kt) adds:
  *   startWaypointMission(waypointsJson, optionsJson) → Promise<void>
  *   stopWaypointMission()                            → Promise<void>
+ *   pauseMission()                                   → Promise<void>
+ *   resumeMission()                                  → Promise<void>
  *   getMissionStatus()                               → Promise<MissionStatusResult>
  *   returnToHome()                                   → Promise<void>
  *   getBatteryLevel()                                → Promise<number>
@@ -96,6 +98,23 @@ export async function startWaypointMission(
 export async function stopWaypointMission(): Promise<void> {
   assertModule()
   await DJICamera.stopWaypointMission()
+}
+
+/**
+ * Pause the executing mission — drone hovers at current position.
+ * Use resumeMission() to continue from the pause point.
+ */
+export async function pauseMission(): Promise<void> {
+  assertModule()
+  await DJICamera.pauseMission()
+}
+
+/**
+ * Resume a paused mission from where it stopped.
+ */
+export async function resumeMission(): Promise<void> {
+  assertModule()
+  await DJICamera.resumeMission()
 }
 
 /**
