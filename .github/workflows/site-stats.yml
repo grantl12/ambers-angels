@@ -16,7 +16,7 @@ jobs:
           script: |
             echo "===== SITE STATS ====="
 
-            REPORT=$(curl -s -u "amber:Ambers1Angels" http://localhost/analytics/ 2>/dev/null)
+            REPORT=$(curl -s -u "${{ secrets.ANALYTICS_CREDS }}" http://localhost/analytics/ 2>/dev/null)
 
             if [ -z "$REPORT" ]; then
               echo "Could not fetch analytics report."

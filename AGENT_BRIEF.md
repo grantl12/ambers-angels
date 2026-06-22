@@ -62,13 +62,14 @@ Evaluate for **edge inference** — running plate recognition or vehicle classif
 ## Server Access
 
 ```
-plink -pw 'Ambers1Angels' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:25:c3:27:96:9f:ef:34:2d:6b' root@157.245.125.103 'COMMAND'
+plink -pw '$SSH_PW' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:25:c3:27:96:9f:ef:34:2d:6b' root@157.245.125.103 'COMMAND'
 ```
 
+- Credentials: see `server_credentials.md` in Claude memory — never hardcode
 - App root: `/home/ambers-angels/proj_dir/ambers-angels/`
 - PM2 user: `ambers-angels` — prefix PM2 commands with `su -l ambers-angels -c '...'`
 - PM2 binary: `/home/ambers-angels/.local/bin/pm2`
-- DB: `postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels`
+- DB: connection string in server `.env` (`DATABASE_URL`)
 - Deploy: `git push origin main` → GitHub Actions CI/CD (`.github/workflows/deploy.yml`)
 
 ## Env Var Needed

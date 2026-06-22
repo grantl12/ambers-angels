@@ -68,7 +68,7 @@ jobs:
 
             # Use psql to insert watchlist + vehicle_targets entries
             psql_cmd = ["psql", "-h", "127.0.0.1", "-U", "postgres", "ambersangels"]
-            env_with_pw = {**os.environ, "PGPASSWORD": "Ambers1Angels"}
+            env_with_pw = {**os.environ, "PGPASSWORD": "${{ secrets.POSTGRES_PASSWORD }}"}
 
             FEMA_ID = f"manual-test-{PLATE}"
             sql = textwrap.dedent(f"""

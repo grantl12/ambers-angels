@@ -5,20 +5,40 @@ Simulates a live Amber's Angels dashboard scenario for demo / media capture.
 Run this ON THE SERVER via plink so it can reach the local DB and API.
 
 Usage:
-    python3 backend/scripts/sim_dashboard.py [--clean]
+    python3 backend/scripts/sim_dashboard.py [--clean] [--center LAT,LNG]
+        [--plate PLATE] [--frame FILENAME] [--color COLOR] [--vtype TYPE]
 
-    --clean   Remove all sim data and exit (drone + telemetry + detections)
+    --clean          Remove all sim data and exit (drone + telemetry + detections)
+    --center LAT,LNG Recenter the whole scenario (translation only — shapes/
+                      relative motion are preserved) on top of a real-world
+                      location, e.g. your phone's GPS coords, so the drone hit
+                      and golden frame land near you for a screenshot.
+    --plate PLATE     Plate both ANGEL-2 (drone) and HAWK (ground volunteer)
+                       detect — use a plate you already have an active
+                       watchlist entry for (e.g. one you just OCR-tested) so
+                       the "hit" is real, not invented. Default: YVJ024.
+    --frame FILENAME  Filename of an existing real golden frame in GOLDEN_DIR
+                       to reuse as evidence for the drone hit, instead of a
+                       synthetic placeholder. Default: the most recent file
+                       in GOLDEN_DIR.
+    --color / --vtype Optional cosmetic vehicle_color / vehicle_type tags —
+                       only set these if you actually know the vehicle; leave
+                       blank to avoid inventing data that wasn't observed.
 
-Scenario (Carrollton, GA):
+One plate is used for both hits — two volunteers spotting the same target
+vehicle is the realistic scenario; a single AMBER alert has one target, not
+two independent plates.
+
+Scenario (Carrollton, GA — translate with --center to your location):
     ANGEL-1   Drone 1 — heartbeat only, pilot standing by at home
     ANGEL-2   Drone 2 — DEPLOYED, active mission (executing), will generate drone hit
     ANGEL-3   Drone 3 — VLOS independent, flying on own initiative, NOT coordinator-dispatched
     HAWK      Ground volunteer car, driving east on Bankhead Hwy
     RANGER    Ground volunteer car, slow-moving near target zone
     --- T+20s ---
-    ANGEL-2 detects a watchlist plate (drone hit)
+    ANGEL-2 detects the watchlist plate (drone hit, real golden frame attached)
     --- T+35s ---
-    HAWK detects a watchlist plate (car / phone-camera hit)
+    HAWK detects the same watchlist plate (car / phone-camera hit)
     --- T+50s ---
     CAD dispatch future-capability display
 """
@@ -39,9 +59,17 @@ import requests
 # ---------------------------------------------------------------------------
 
 DB_URL    = os.getenv("DATABASE_URL",
-    "postgresql://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels")
+    "postgresql://postgres@127.0.0.1:5432/ambersangels")
 API_BASE  = os.getenv("API_BASE", "http://127.0.0.1:8000")
 INT_KEY   = os.getenv("INTERNAL_API_KEY", "")
+FRAMES_ROOT = os.getenv(
+    "FRAMES_ROOT",
+    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates",
+)
+GOLDEN_DIR = os.getenv(
+    "GOLDEN_DIR",
+    "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
+)
 
 # Carrollton, GA bounding box center
 CENTER_LAT =  33.5799
@@ -64,6 +92,73 @@ def offset(lat, lng, d_lat_m, d_lng_m):
         lat  + d_lat_m  / 111_320,
         lng  + d_lng_m  / (111_320 * math.cos(math.radians(lat))),
     )
+
+
+def recenter(new_lat, new_lng):
+    """
+    Translate the whole scenario (drone homes, volunteer routes) by a fixed
+    delta so it lands on top of `new_lat, new_lng` instead of Carrollton
+    downtown. Pure translation — preserves shapes and relative motion, but
+    routes no longer literally trace real streets unless you happen to be on
+    the same kind of grid.
+    """
+    global CENTER_LAT, CENTER_LNG, ANGEL1_HOME, ANGEL2_CENTER, ANGEL3_START
+    global HAWK_ROUTE, RANGER_ROUTE
+
+    dlat = new_lat - CENTER_LAT
+    dlng = new_lng - CENTER_LNG
+
+    CENTER_LAT, CENTER_LNG = new_lat, new_lng
+    ANGEL1_HOME   = (ANGEL1_HOME[0]   + dlat, ANGEL1_HOME[1]   + dlng)
+    ANGEL2_CENTER = (ANGEL2_CENTER[0] + dlat, ANGEL2_CENTER[1] + dlng)
+    ANGEL3_START  = (ANGEL3_START[0]  + dlat, ANGEL3_START[1]  + dlng)
+    HAWK_ROUTE    = [(lat + dlat, lng + dlng) for lat, lng in HAWK_ROUTE]
+    RANGER_ROUTE  = [(lat + dlat, lng + dlng) for lat, lng in RANGER_ROUTE]
+
+
+def find_latest_real_frame():
+    """Most recently modified JPEG in GOLDEN_DIR — used as the default
+    evidence frame so the demo shows a real capture, not a fabricated one."""
+    if not os.path.isdir(GOLDEN_DIR):
+        return None
+    candidates = [
+        os.path.join(GOLDEN_DIR, f) for f in os.listdir(GOLDEN_DIR)
+        if f.lower().endswith(".jpg")
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=os.path.getmtime)
+
+
+def copy_real_frame(src_path, dst_path):
+    """Copy an existing real golden frame to the sim drone's FRAMES_ROOT
+    directory so it gets picked up as evidence the same way the worker
+    pipeline would pre-copy an RTMP frame."""
+    import shutil
+    os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+    shutil.copy2(src_path, dst_path)
+
+
+def make_golden_frame(path, plate, color, vtype):
+    """Fallback only — draws a synthetic 'evidence frame' JPEG when no real
+    golden frame is available. Not a real photo."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGB", (640, 360), (38, 42, 48))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([40, 140, 600, 280], fill=(70, 76, 84), outline=(20, 22, 26), width=4)
+    draw.ellipse([90, 250, 170, 310], fill=(15, 15, 15))
+    draw.ellipse([470, 250, 550, 310], fill=(15, 15, 15))
+    draw.rectangle([250, 175, 410, 220], fill=(245, 220, 80), outline=(0, 0, 0), width=3)
+    try:
+        font = ImageFont.truetype("DejaVuSansMono-Bold.ttf", 28)
+    except Exception:
+        font = ImageFont.load_default()
+    draw.text((265, 182), plate, fill=(10, 10, 10), font=font)
+    draw.text((20, 20), f"{(color or '').upper()} {(vtype or '').upper()} — SIM EVIDENCE FRAME",
+               fill=(200, 200, 200))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.save(path, "JPEG", quality=85)
 
 
 def bearing(a_lat, a_lng, b_lat, b_lng):
@@ -178,7 +273,7 @@ def orbit_point(center_lat, center_lng, radius_m, step_idx, total_steps=30):
 # DB helpers
 # ---------------------------------------------------------------------------
 
-def clean(conn):
+def clean(conn, plate=None):
     banner("Cleaning previous sim data")
     with conn.cursor() as cur:
         # Telemetry points written by sim
@@ -205,13 +300,32 @@ def clean(conn):
         )
         step(f"autonomous_drones removed: {cur.rowcount}")
 
-        # Watchlist entry created by sim
+        # Watchlist entry created by sim — only ever touches source='demo' rows,
+        # so a real fema/manual-sourced alert for the same plate is never deleted.
+        plates = [plate] if plate else ["GHX4821", "TYP6633", "YVJ024"]
         cur.execute(
-            "DELETE FROM watchlist WHERE source = 'demo' AND plate_text IN ('GHX4821', 'TYP6633')"
+            "DELETE FROM watchlist WHERE source = 'demo' AND plate_text = ANY(%s)",
+            (plates,),
         )
         step(f"watchlist entries removed: {cur.rowcount}")
 
     conn.commit()
+
+    # Synthetic golden frame written to disk by make_golden_frame()
+    sim_frame_dir = os.path.join(FRAMES_ROOT, "SIM-ANGEL-2")
+    sim_frame_path = os.path.join(sim_frame_dir, "sim_golden_frame.jpg")
+    if os.path.isfile(sim_frame_path):
+        os.remove(sim_frame_path)
+        step("sim_golden_frame.jpg removed from FRAMES_ROOT")
+    golden_dir = os.getenv(
+        "GOLDEN_DIR",
+        "/home/ambers-angels/proj_dir/ambers-angels/backend/test_plates/golden_frames",
+    )
+    golden_copy = os.path.join(golden_dir, "sim_golden_frame.jpg")
+    if os.path.isfile(golden_copy):
+        os.remove(golden_copy)
+        step("sim_golden_frame.jpg removed from GOLDEN_DIR")
+
     step("Done.", ok=True)
 
 
@@ -247,24 +361,24 @@ def register_drone(conn, drone_id_str, pilot_username, home_lat, home_lng):
     return row["id"]
 
 
-def create_sim_alert(conn):
-    """Inject a minimal watchlist vehicle so the detection pipeline has something to match."""
+def create_sim_alert(conn, plate, color, vtype):
+    """
+    Make sure the target plate has an active watchlist entry. If it's already
+    on the watchlist (e.g. a real alert you injected from an OCR test),
+    ON CONFLICT DO NOTHING leaves that real row alone — plate_text is the
+    table's primary key, so this never creates a duplicate active entry.
+    """
     with conn.cursor() as cur:
-        # Two plates — one for drone hit, one for car hit
-        for plate, color, vtype in [
-            ("GHX4821", "silver", "sedan"),
-            ("TYP6633", "black",  "suv"),
-        ]:
-            cur.execute("""
-                INSERT INTO watchlist (plate_text, description, alert_type, source,
-                                       vehicle_color, vehicle_type, active)
-                VALUES (%s, %s, 'amber', 'demo', %s, %s, TRUE)
-                ON CONFLICT DO NOTHING
-            """, (
-                plate,
-                f"SIM — {color} {vtype} — dashboard demo vehicle",
-                color, vtype,
-            ))
+        cur.execute("""
+            INSERT INTO watchlist (plate_text, description, alert_type, source,
+                                   vehicle_color, vehicle_type, active)
+            VALUES (%s, %s, 'amber', 'demo', %s, %s, TRUE)
+            ON CONFLICT DO NOTHING
+        """, (
+            plate,
+            f"SIM — dashboard demo vehicle ({plate})",
+            color, vtype,
+        ))
     conn.commit()
 
 
@@ -291,7 +405,8 @@ def create_mission(conn, drone_db_id):
     return row["id"]
 
 
-def post_detection(drone_id, lat, lng, plate, confidence, color, vtype, source_label):
+def post_detection(drone_id, lat, lng, plate, confidence, color, vtype, source_label,
+                    best_frame_id=None):
     payload = {
         "drone_id":     drone_id,
         "plate_text":   plate,
@@ -302,6 +417,8 @@ def post_detection(drone_id, lat, lng, plate, confidence, color, vtype, source_l
         "vehicle_type":  vtype,
         "detected_at":  ts_now().isoformat(),
     }
+    if best_frame_id:
+        payload["best_frame_id"] = best_frame_id
     try:
         r = requests.post(f"{API_BASE}/detections/", json=payload, headers=hdr(), timeout=5)
         if r.ok:
@@ -320,17 +437,19 @@ def post_detection(drone_id, lat, lng, plate, confidence, color, vtype, source_l
 # Main simulation
 # ---------------------------------------------------------------------------
 
-def run(conn):
+def run(conn, plate, color, vtype, frame_path):
     banner("Amber's Angels — Dashboard Demo Simulation")
-    print(f"  Location : Carrollton, GA  ({CENTER_LAT:.4f}, {CENTER_LNG:.4f})")
+    print(f"  Location : ({CENTER_LAT:.5f}, {CENTER_LNG:.5f})")
     print(f"  API      : {API_BASE}")
     print(f"  DB       : {DB_URL.split('@')[1] if '@' in DB_URL else DB_URL}")
+    print(f"  Plate    : {plate}  (shared by ANGEL-2 drone hit and HAWK car hit)")
+    print(f"  Frame    : {frame_path or '(none found — falling back to synthetic)'}")
 
     # -- Setup -----------------------------------------------------------------
     banner("Setting up scenario assets")
 
-    create_sim_alert(conn)
-    step("Watchlist: 2 sim vehicles seeded (GHX4821 silver sedan, TYP6633 black SUV)")
+    create_sim_alert(conn, plate, color, vtype)
+    step(f"Watchlist: {plate} confirmed active (reused if it already existed)")
 
     drone1_id = register_drone(conn, "SIM-ANGEL-1", "sim-pilot-alpha", *ANGEL1_HOME)
     drone2_id = register_drone(conn, "SIM-ANGEL-2", "sim-pilot-bravo", *ANGEL2_CENTER)
@@ -423,13 +542,25 @@ def run(conn):
                 print()
                 banner("🔴  DETECTION HIT — DRONE SOURCE")
                 print(f"  Asset    : ANGEL-2 (deployed, coordinator-dispatched)")
-                print(f"  Plate    : GHX4821")
-                print(f"  Vehicle  : Silver sedan")
+                print(f"  Plate    : {plate}")
+                if color or vtype:
+                    print(f"  Vehicle  : {color} {vtype}".strip())
                 print(f"  Position : {a2_lat:.5f}, {a2_lng:.6f}")
                 print(f"  Confidence : 94.2%")
+                frame_name = "sim_golden_frame.jpg"
+                dst = os.path.join(FRAMES_ROOT, "SIM-ANGEL-2", frame_name)
+                try:
+                    if frame_path and os.path.isfile(frame_path):
+                        copy_real_frame(frame_path, dst)
+                    else:
+                        make_golden_frame(dst, plate, color, vtype)
+                except Exception as exc:
+                    print(f"  [warn] golden frame setup failed: {exc}")
+                    frame_name = None
                 hit = post_detection(
                     "SIM-ANGEL-2", a2_lat, a2_lng,
-                    "GHX4821", 94.2, "silver", "sedan", "drone",
+                    plate, 94.2, color, vtype, "drone",
+                    best_frame_id=frame_name,
                 )
                 print(f"  Watchlist match : {'YES ⚠' if hit else 'no (check INTERNAL_API_KEY)'}")
                 drone_hit_fired = True
@@ -439,13 +570,14 @@ def run(conn):
                 print()
                 banner("🔴  DETECTION HIT — VOLUNTEER CAR SOURCE")
                 print(f"  Asset    : HAWK (ground volunteer, phone camera)")
-                print(f"  Plate    : TYP6633")
-                print(f"  Vehicle  : Black SUV")
+                print(f"  Plate    : {plate}  (same target — second volunteer corroborates)")
+                if color or vtype:
+                    print(f"  Vehicle  : {color} {vtype}".strip())
                 print(f"  Position : {hawk_lat:.5f}, {hawk_lng:.6f}")
                 print(f"  Confidence : 88.7%")
                 hit = post_detection(
                     "SIM-HAWK", hawk_lat, hawk_lng,
-                    "TYP6633", 88.7, "black", "suv", "phone",
+                    plate, 88.7, color, vtype, "phone",
                 )
                 print(f"  Watchlist match : {'YES ⚠' if hit else 'no (check INTERNAL_API_KEY)'}")
                 car_hit_fired = True
@@ -459,8 +591,8 @@ def run(conn):
   │  CAD DISPATCH EVENT                                             │
   │                                                                 │
   │  Alert     : AMBER Alert — GA-2026-0605-001                     │
-  │  Detection : GHX4821 (94.2% confidence)                        │
-  │  Asset     : ANGEL-2 drone @ 33.5812, -85.0731                 │
+  │  Detection : {plate} (94.2% confidence)
+  │  Asset     : ANGEL-2 drone @ {a2_lat:.4f}, {a2_lng:.4f}
   │                                                                 │
   │  ┌── Dispatch Action ──────────────────────────────────────┐    │
   │  │  POST /dispatch/cad                                     │    │
@@ -476,7 +608,10 @@ def run(conn):
   │  ⚠  This capability requires a signed MOU with CPD and        │
   │     Motorola PremierOne / Tyler New World API credentials.     │
   └─────────────────────────────────────────────────────────────────┘
-""".format(ts=datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")))
+""".format(
+                    ts=datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    plate=plate, a2_lat=a2_lat, a2_lng=a2_lng,
+                ))
                 cad_shown = True
 
             time.sleep(FRAME_DELAY)
@@ -507,14 +642,37 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Amber's Angels dashboard simulation")
     parser.add_argument("--clean", action="store_true",
                         help="Remove all sim data and exit")
+    parser.add_argument("--center", type=str, default=None,
+                        help="Recenter scenario on LAT,LNG (e.g. your phone's GPS)")
+    parser.add_argument("--plate", type=str, default="YVJ024",
+                        help="Plate shared by both hits — use one you already have an active alert for")
+    parser.add_argument("--frame", type=str, default=None,
+                        help="Filename (in GOLDEN_DIR) or full path of a real frame to reuse as evidence")
+    parser.add_argument("--color", type=str, default="",
+                        help="Cosmetic vehicle_color — leave blank unless you actually observed it")
+    parser.add_argument("--vtype", type=str, default="",
+                        help="Cosmetic vehicle_type — leave blank unless you actually observed it")
     args = parser.parse_args()
+
+    if args.center:
+        try:
+            lat_s, lng_s = args.center.split(",")
+            recenter(float(lat_s.strip()), float(lng_s.strip()))
+        except ValueError:
+            print(f"  [error] --center must be LAT,LNG, got: {args.center!r}")
+            sys.exit(1)
 
     conn = db_conn()
     try:
         if args.clean:
-            clean(conn)
+            clean(conn, args.plate)
         else:
-            clean(conn)   # always start fresh
-            run(conn)
+            clean(conn, args.plate)   # always start fresh
+            frame_path = args.frame
+            if frame_path and not os.path.isabs(frame_path) and not os.path.isfile(frame_path):
+                frame_path = os.path.join(GOLDEN_DIR, frame_path)
+            if not frame_path:
+                frame_path = find_latest_real_frame()
+            run(conn, args.plate, args.color or None, args.vtype or None, frame_path)
     finally:
         conn.close()

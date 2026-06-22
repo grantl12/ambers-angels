@@ -7,10 +7,13 @@ Usage:
   python3 /tmp/seed_demo.py cleanup
 """
 
+import os
 import sys
 import psycopg2
 
-CONN = "host=127.0.0.1 dbname=ambersangels user=postgres password=Ambers1Angels"
+CONN = "host=127.0.0.1 dbname=ambersangels user=postgres password={}".format(
+    os.environ.get("DB_PASSWORD", "")
+)
 
 PLATE = "GDL2847"
 

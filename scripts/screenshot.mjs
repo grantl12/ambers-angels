@@ -29,15 +29,15 @@ const ROOT  = join(__dir, "..")
 
 const API          = "https://amberangels.org/api"
 const APP          = "https://amberangels.org"
-const JWT_SECRET   = "6fd3d6ee34525198873092d44b300f99312d0aeefb664f7395c1517f0e9cd084"
-const INTERNAL_KEY = "5b04c449b4ad744983c122e09d03c7904fbb29618db73168b8184028cb34bb99"
+const JWT_SECRET   = process.env.JWT_SECRET   || ""
+const INTERNAL_KEY = process.env.INTERNAL_KEY || ""
 const OUT_DIR      = join(ROOT, "web/public/decks/assets/screens")
 
 // plink path — Windows
 const PLINK  = "C:\\Program Files\\PuTTY\\plink.exe"
 const SERVER = "root@157.245.125.103"
 const HOST_KEY = "ssh-ed25519 255 66:68:d4:a3:02:92:82:25:c3:27:96:9f:ef:34:2d:6b"
-const SSH_PW   = "Ambers1Angels"
+const SSH_PW   = process.env.SSH_PASSWORD || ""
 
 const PLATE = "GDL2847"   // demo AMBER plate
 

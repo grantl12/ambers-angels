@@ -21,17 +21,16 @@ Do not add frame upload to `ScanService.kt` or any background/passive scanning p
 **The deploy key is broken. Always use plink. Never prompt the user for the password.**
 
 ```
-plink -pw 'Ambers1Angels' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:25:c3:27:96:9f:ef:34:2d:6b' root@157.245.125.103 'COMMAND'
+plink -pw '$SSH_PW' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:25:c3:27:96:9f:ef:34:2d:6b' root@157.245.125.103 'COMMAND'
 ```
 
 - Server: `root@157.245.125.103`
-- SSH password: `Ambers1Angels` — use directly in every plink call, never ask the user
+- **Credentials are in Claude memory** (`server_credentials.md`) — read at session start, never ask the user, never commit to repo
 - plink binary: `/c/Program Files/PuTTY/plink` (Windows host)
 - PM2 user: `ambers-angels` — always prefix PM2 commands with `su -l ambers-angels -c '...'`
 - PM2 binary: `/home/ambers-angels/.local/bin/pm2`
 - App root: `/home/ambers-angels/proj_dir/ambers-angels/`
-- DB: `postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels`
-  - psql: `psql -h 127.0.0.1 -U postgres ambersangels`
+- DB: connection string in server `.env` (`DATABASE_URL`). For psql: `psql -h 127.0.0.1 -U postgres ambersangels`
 - Use `DEBIAN_FRONTEND=noninteractive` to suppress interactive prompts
 
 ## PM2 Processes
@@ -363,7 +362,7 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 | Var | Purpose |
 |---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels` |
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:$DB_PW@127.0.0.1:5432/ambersangels` (see `server_credentials.md` in Claude memory) |
 | `JWT_SECRET` | 64-char hex secret for HS256 JWT signing |
 | `ALERT_WEBHOOK_URL` | Discord webhook URL for alert notifications |
 | `INTERNAL_API_KEY` | Shared secret for worker → `/detections/` calls (`X-Internal-Key` header) |
@@ -378,7 +377,7 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 | `FEMA_POLL_INTERVAL` | FEMA poll frequency seconds (default 300) |
 | `NCMEC_POLL_INTERVAL` | NCMEC poll frequency seconds (default 1800) |
 | `NCMEC_RECENT_DAYS` | Days back to track NCMEC cases (default 30) |
-| `BOLO_WEBHOOK_SECRET` | Shared secret for `POST /webhooks/bolo-email` — `4a53ca1e822a9a6de7eec0211754798e55cd44bcd5c63dce8df8592c74f47251` |
+| `BOLO_WEBHOOK_SECRET` | Shared secret for `POST /webhooks/bolo-email` (see `server_credentials.md` in Claude memory) |
 | `ANTHROPIC_API_KEY` | Required for BOLO ingestor (Claude Haiku vision) and email BOLO webhook text extraction |
 | `NAMUS_POLL_INTERVAL` | NamUs poll frequency seconds (default 1800) |
 | `NAMUS_RECENT_DAYS` | Days back to search NamUs cases (default 30) |
@@ -486,7 +485,7 @@ Also update the `bolo` alert type into any slide that lists alert types (amber/s
 ### Analytics
 
 - GoAccess installed on server, daily report at `https://amberangels.org/analytics/`
-- Login: username `amber`, password `Ambers1Angels`
+- Login: username `amber`, password in `server_credentials.md` (Claude memory)
 - Regenerated daily by cron job at `/etc/cron.daily/goaccess-report`
 - Log-based (not session-based) — use for daily unique IPs, top pages, referrers, hourly patterns
 - To pull fresh stats on demand: SSH and run the nginx log grep commands (faster than waiting for daily regen)

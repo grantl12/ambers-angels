@@ -1,4 +1,5 @@
 import asyncio
+import os
 from datetime import datetime
 from services.detection_pipeline import DetectionPipeline
 from services.aggregation_service import AggregationService
@@ -10,7 +11,7 @@ from event_repository import EventRepository
 async def run_live_test():
     # 1. Setup real Repository
     # Format: postgresql://username:password@localhost/dbname
-    DATABASE_URL = "postgresql://ambers-angels:Ambers1Angels@localhost/ambers_angels"
+    DATABASE_URL = os.getenv("DATABASE_URL", "").replace("+asyncpg", "")
     repo = EventRepository(DATABASE_URL)
     
     # 2. Setup Services
