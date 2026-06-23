@@ -71,6 +71,18 @@
   transition: opacity 0.15s;
 }
 .navCta:hover { opacity: 0.85; }
+.navBeta {
+  color: var(--amber) !important; font-weight: 700 !important;
+  position: relative;
+}
+.navBeta::after {
+  content: "NEW";
+  position: absolute; top: -8px; right: -22px;
+  font-size: 8px; font-weight: 800; letter-spacing: 0.5px;
+  color: #000; background: var(--amber);
+  padding: 1px 4px; border-radius: 3px;
+  line-height: 1.3;
+}
 
 /* ── SECTION LABEL ── */
 .label {
@@ -407,7 +419,7 @@
 .involve .label { color: var(--ink); background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.12); }
 .involve h2 { font-size: 44px; font-weight: 700; color: var(--ink); margin-bottom: 14px; letter-spacing: -0.5px; }
 .involveLead { font-size: 17px; color: rgba(12,10,5,0.6); max-width: 520px; margin-bottom: 48px; line-height: 1.65; }
-.involveGrid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 960px; }
+.involveGrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; max-width: 1200px; }
 .involveCard {
   background: var(--ink); border: 1px solid rgba(255,255,255,0.06);
   border-radius: 10px; padding: 32px 28px;
@@ -415,6 +427,16 @@
   transition: border-color 0.2s, transform 0.2s;
 }
 .involveCard:hover { border-color: rgba(245,158,11,0.25); transform: translateY(-3px); }
+.involveCardHighlight { border-color: var(--amber) !important; position: relative; }
+.involveCardHighlight::before {
+  content: "NEW"; position: absolute; top: -10px; left: 20px;
+  font-family: var(--sg); font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  color: var(--ink); background: var(--amber);
+  padding: 2px 8px; border-radius: 4px;
+}
+.involveCardHighlight a {
+  border-color: var(--amber) !important; color: var(--amber) !important;
+}
 .involveCard h3 { font-size: 18px; font-weight: 700; color: var(--amber); margin-bottom: 10px; }
 .involveCard p { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px; flex: 1; }
 .involveCard a {
@@ -610,6 +632,7 @@
   .hero { padding: 72px 32px 64px; gap: 40px; }
   .section { padding: 72px 32px; }
   .involve { padding: 72px 32px; }
+  .involveGrid { grid-template-columns: repeat(2,1fr); }
   .footer { padding: 28px 32px; }
 }
 
@@ -633,7 +656,7 @@
 
   .privacyGrid { grid-template-columns: 1fr 1fr; }
 
-  .involveGrid { grid-template-columns: 1fr; max-width: 460px; }
+  .involveGrid { grid-template-columns: 1fr 1fr; max-width: 560px; }
   .exploreGrid { grid-template-columns: 1fr; }
   .blogGrid { grid-template-columns: 1fr; }
   .blogHeader { flex-direction: column; gap: 16px; }
@@ -666,6 +689,7 @@
 
   .involve { padding: 56px 20px; }
   .involve h2 { font-size: 32px; }
+  .involveGrid { grid-template-columns: 1fr; max-width: 400px; }
 
   .footer { padding: 24px 20px; }
   /* table col visibility moved to patch block 04 below */

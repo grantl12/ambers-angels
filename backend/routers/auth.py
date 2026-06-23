@@ -14,6 +14,7 @@ The first pilot to register is auto-approved as admin so there's always
 at least one account that can approve others.
 """
 
+import json
 import logging
 import os
 import random
@@ -184,7 +185,7 @@ def register(req: RegisterRequest):
             VALUES
                 (:username, :email, :password_hash, :full_name, :phone, :city,
                  :radius, :drones, :part107, :cert_number,
-                 :watch_areas, :notif_prefs, :status, :role, :approved_at)
+                 :watch_areas, CAST(:notif_prefs AS jsonb), :status, :role, :approved_at)
         """), {
             "username":      username,
             "email":         req.email.strip().lower(),
@@ -197,7 +198,7 @@ def register(req: RegisterRequest):
             "part107":       req.part107,
             "cert_number":   req.cert_number,
             "watch_areas":   req.watch_areas or [],
-            "notif_prefs":   req.notification_prefs or ["push", "email"],
+            "notif_prefs":   json.dumps(req.notification_prefs or ["push", "email"]),
             "status":        pilot_status,
             "role":          pilot_role,
             "approved_at":   datetime.now(timezone.utc),
@@ -436,7 +437,7 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
                 part107              = COALESCE(:part107, part107),
                 cert_number          = COALESCE(:cert_number, cert_number),
                 watch_areas          = COALESCE(:watch_areas, watch_areas),
-                notification_prefs   = COALESCE(:notif_prefs, notification_prefs)
+                notification_prefs   = COALESCE(CAST(:notif_prefs AS jsonb), notification_prefs)
             WHERE username = :u
         """), {
             "u":            payload["sub"],
@@ -448,7 +449,7 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
             "part107":      req.part107,
             "cert_number":  req.cert_number,
             "watch_areas":  req.watch_areas,
-            "notif_prefs":  req.notification_prefs,
+            "notif_prefs":  json.dumps(req.notification_prefs) if req.notification_prefs is not None else None,
         })
         db.commit()
         return {"status": "updated"}
