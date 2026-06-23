@@ -73,7 +73,7 @@ export default function BetaPage() {
 
             <div className="space-y-4 flex-1">
               <Step n={1}>
-                <span>Install <strong className="text-white/80">TestFlight</strong> from the App Store — it&apos;s Apple&apos;s
+                <span>Install <strong className="text-white/80">TestFlight</strong>{" "}from the App Store — it&apos;s Apple&apos;s
                 official beta testing app (free, made by Apple).</span>
               </Step>
               <Step n={2}>
@@ -122,7 +122,7 @@ export default function BetaPage() {
               </p>
               <p className="text-[15px] text-white/60 leading-relaxed">
                 Want to be notified when it&apos;s ready? Drop us a line at{" "}
-                <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">info@amberangels.org</a> and
+                <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">info@amberangels.org</a>{" "}and
                 we&apos;ll let you know as soon as it goes live.
               </p>
             </div>
