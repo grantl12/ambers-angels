@@ -59,7 +59,7 @@ from services.vehicle_classifier import classify as classify_vehicles
 from services.plate_recognizer import recognize_async as pr_recognize
 from services.frame_preprocessor import apply_clahe, enhance_alpr_results
 from routers.read_api import router as read_router, detection_purge_loop, telemetry_purge_loop
-from routers.auth import router as auth_router, get_current_pilot, require_admin
+from routers.auth import router as auth_router, get_current_pilot, require_admin, require_bolo_creator
 from routers.alerts import router as alerts_router
 from routers.autonomous import router as autonomous_router
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
@@ -255,7 +255,7 @@ class InjectAlertRequest(_BaseModel):
 @app.post("/admin/inject-alert")
 async def inject_alert(
     req: InjectAlertRequest,
-    payload: dict = Depends(require_admin),
+    payload: dict = Depends(require_bolo_creator),
 ):
     """
     Admin: manually inject a watchlist entry for an alert that wasn't caught
@@ -369,7 +369,7 @@ async def inject_alert(
 @app.post("/admin/ingest-bolo")
 async def ingest_bolo(
     file: UploadFile = File(...),
-    _payload: dict = Depends(require_admin),
+    _payload: dict = Depends(require_bolo_creator),
 ):
     """
     Admin: upload a screenshot of a social-media or law-enforcement BOLO.

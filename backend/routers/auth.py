@@ -19,8 +19,10 @@ import logging
 import os
 import random
 import smtplib
+import threading
 import time
 import httpx
+import requests as _requests
 
 logger = logging.getLogger(__name__)
 from email.mime.text import MIMEText
@@ -63,6 +65,44 @@ def _send_email(to: str, subject: str, body: str) -> None:
             s.send_message(msg)
     except Exception as e:
         logger.warning("Email send failed: %s", e)
+
+# ---------------------------------------------------------------------------
+# Discord notification for coordinator requests
+# ---------------------------------------------------------------------------
+
+def _notify_coordinator_request(username: str, full_name: str | None, city: str | None, reason: str | None) -> None:
+    webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+    if not webhook_url:
+        return
+    def _send():
+        try:
+            name_line = f"**{full_name}** (`{username}`)" if full_name else f"`{username}`"
+            fields = [
+                {"name": "Pilot", "value": name_line, "inline": True},
+            ]
+            if city:
+                fields.append({"name": "City", "value": city, "inline": True})
+            if reason:
+                fields.append({"name": "Reason", "value": reason, "inline": False})
+            fields.append({
+                "name": "Action",
+                "value": "Approve or deny at [Admin Panel](https://amberangels.org/admin)",
+                "inline": False,
+            })
+            _requests.post(webhook_url, json={
+                "username": "Amber's Angels — Backend",
+                "embeds": [{
+                    "title": "📋 Coordinator Access Requested",
+                    "color": 0xF59E0B,
+                    "fields": fields,
+                    "footer": {"text": "ambers-angels-api"},
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }],
+            }, timeout=5)
+        except Exception:
+            pass
+    threading.Thread(target=_send, daemon=True).start()
+
 
 # ---------------------------------------------------------------------------
 # Config
@@ -152,6 +192,26 @@ def require_coordinator(payload: dict = Depends(get_current_pilot)):
     if payload.get("role") not in ("admin", "coordinator"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Coordinator access required")
     return payload
+
+
+def require_bolo_creator(payload: dict = Depends(get_current_pilot)):
+    """Admin always passes. Coordinators need can_create_bolo flag."""
+    role = payload.get("role")
+    if role == "admin":
+        return payload
+    if role != "coordinator":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="BOLO creation requires coordinator or admin access")
+    db = database.SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT COALESCE(can_create_bolo, FALSE) FROM pilots WHERE username = :u"),
+            {"u": payload["sub"]},
+        ).fetchone()
+        if not row or not row[0]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="BOLO creation not enabled for your account — contact an admin")
+        return payload
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +384,8 @@ def list_pilots(payload: dict = Depends(require_admin)):
     try:
         rows = db.execute(text("""
             SELECT username, full_name, email, city, role, status, created_at, approved_at,
-                   COALESCE(can_dispatch_drones, FALSE)
+                   COALESCE(can_dispatch_drones, FALSE),
+                   COALESCE(can_create_bolo, FALSE)
             FROM pilots
             WHERE status = 'approved'
             ORDER BY approved_at DESC
@@ -340,6 +401,7 @@ def list_pilots(payload: dict = Depends(require_admin)):
                 "createdAt":         r[6].isoformat() if r[6] else None,
                 "approvedAt":        r[7].isoformat() if r[7] else None,
                 "canDispatchDrones": r[8],
+                "canCreateBolo":     r[9],
             }
             for r in rows
         ]
@@ -545,22 +607,31 @@ def set_role(username: str, req: SetRoleRequest, _: dict = Depends(require_admin
 
 class SetPermissionsRequest(BaseModel):
     can_dispatch_drones: Optional[bool] = None
+    can_create_bolo:     Optional[bool] = None
 
 @router.post("/admin/pilots/{username}/permissions")
 def set_permissions(username: str, req: SetPermissionsRequest, _: dict = Depends(require_admin)):
     """Admin-only: toggle individual permission flags for a pilot."""
-    if req.can_dispatch_drones is None:
+    if req.can_dispatch_drones is None and req.can_create_bolo is None:
         raise HTTPException(status_code=400, detail="No permission flags provided")
     db = database.SessionLocal()
     try:
+        sets = []
+        params: dict = {"u": username.strip().lower()}
+        if req.can_dispatch_drones is not None:
+            sets.append("can_dispatch_drones = :dispatch")
+            params["dispatch"] = req.can_dispatch_drones
+        if req.can_create_bolo is not None:
+            sets.append("can_create_bolo = :bolo")
+            params["bolo"] = req.can_create_bolo
         result = db.execute(
-            text("UPDATE pilots SET can_dispatch_drones = :flag WHERE username = :u RETURNING username"),
-            {"flag": req.can_dispatch_drones, "u": username.strip().lower()},
+            text(f"UPDATE pilots SET {', '.join(sets)} WHERE username = :u RETURNING username"),
+            params,
         ).fetchone()
         db.commit()
         if not result:
             raise HTTPException(status_code=404, detail="Pilot not found")
-        return {"username": username, "can_dispatch_drones": req.can_dispatch_drones}
+        return {"username": username, "can_dispatch_drones": req.can_dispatch_drones, "can_create_bolo": req.can_create_bolo}
     finally:
         db.close()
 
@@ -574,7 +645,7 @@ def request_coordinator(req: CoordinatorRequestBody, payload: dict = Depends(get
     db = database.SessionLocal()
     try:
         row = db.execute(
-            text("SELECT role, status FROM pilots WHERE username = :u"),
+            text("SELECT role, status, full_name, city FROM pilots WHERE username = :u"),
             {"u": payload["sub"]},
         ).fetchone()
         if not row:
@@ -588,6 +659,7 @@ def request_coordinator(req: CoordinatorRequestBody, payload: dict = Depends(get
             {"now": datetime.now(timezone.utc), "reason": req.reason, "u": payload["sub"]},
         )
         db.commit()
+        _notify_coordinator_request(payload["sub"], row[2], row[3], req.reason)
         return {"status": "requested"}
     finally:
         db.close()

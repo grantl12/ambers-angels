@@ -25,7 +25,7 @@ import database
 
 logger = logging.getLogger(__name__)
 from services.badge_service import compute_all_badges
-from routers.auth import get_current_pilot, require_admin, require_coordinator
+from routers.auth import get_current_pilot, require_admin, require_coordinator, require_bolo_creator
 from services.coverage_service import compute_priority_zones, compute_coverage_map
 from services.audit import write_audit_sync
 
@@ -1024,7 +1024,7 @@ class ManualAlertRequest(BaseModel):
     is_demo:      bool = False
 
 
-@router.post("/admin/manual-alert", dependencies=[Depends(require_admin)])
+@router.post("/admin/manual-alert", dependencies=[Depends(require_bolo_creator)])
 def create_manual_alert(req: ManualAlertRequest):
     import subprocess, os
     db = database.SessionLocal()

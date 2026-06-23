@@ -235,6 +235,9 @@ ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS mission_type TEXT DEFAU
 ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS water_body_id TEXT;
 ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS water_body_name TEXT;
 
+-- Coordinator BOLO creation permission (like can_dispatch_drones)
+ALTER TABLE pilots ADD COLUMN IF NOT EXISTS can_create_bolo BOOLEAN DEFAULT FALSE;
+
 -- Water bodies cache (populated on-demand from Overpass API)
 CREATE TABLE IF NOT EXISTS water_bodies (
     id              TEXT PRIMARY KEY,

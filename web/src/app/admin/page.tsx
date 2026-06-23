@@ -36,6 +36,7 @@ type ApprovedPilot = {
   role:              string
   approvedAt:        string | null
   canDispatchDrones: boolean
+  canCreateBolo:     boolean
 }
 
 type ManualPlate = {
@@ -460,6 +461,17 @@ export default function AdminPage() {
     }
   }
 
+  async function setBoloPermission(username: string, canBolo: boolean) {
+    try {
+      await apiPost(`/auth/admin/pilots/${username}/permissions`, { can_create_bolo: canBolo })
+      setApprovedPilots((prev) =>
+        prev.map((p) => p.username === username ? { ...p, canCreateBolo: canBolo } : p)
+      )
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Permission update failed.")
+    }
+  }
+
   async function submitAlert(e: React.FormEvent) {
     e.preventDefault()
     if (!form.plate && !form.color && !form.body_type && !form.make) {
@@ -791,15 +803,26 @@ export default function AdminPage() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {(pilot.role === "coordinator" || pilot.role === "admin") && (
-                      <label className="flex items-center gap-1.5 cursor-pointer" title="Allow this coordinator to dispatch autonomous drone missions">
-                        <input
-                          type="checkbox"
-                          checked={!!pilot.canDispatchDrones}
-                          onChange={(e) => setDispatchPermission(pilot.username, e.target.checked)}
-                          className="accent-amber-500 w-3.5 h-3.5"
-                        />
-                        <span className="text-xs text-white/40">Dispatch drones</span>
-                      </label>
+                      <>
+                        <label className="flex items-center gap-1.5 cursor-pointer" title="Allow this coordinator to dispatch autonomous drone missions">
+                          <input
+                            type="checkbox"
+                            checked={!!pilot.canDispatchDrones}
+                            onChange={(e) => setDispatchPermission(pilot.username, e.target.checked)}
+                            className="accent-amber-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs text-white/40">Dispatch</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer" title="Allow this coordinator to create BOLO alerts and inject watchlist entries">
+                          <input
+                            type="checkbox"
+                            checked={!!pilot.canCreateBolo}
+                            onChange={(e) => setBoloPermission(pilot.username, e.target.checked)}
+                            className="accent-sky-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs text-white/40">BOLO</span>
+                        </label>
+                      </>
                     )}
                     {settingRole === pilot.username ? (
                       <span className="text-xs text-white/40">Saving…</span>
