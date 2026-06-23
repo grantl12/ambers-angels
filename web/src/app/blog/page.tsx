@@ -3,8 +3,62 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: "Writing — Amber's Angels",
-  description: "The Coverage Gap: a weekly series on event-triggered public safety AI, privacy by architecture, and the future of missing persons response.",
+  description: "The Coverage Gap: a weekly series on event-triggered public safety AI, privacy by architecture, and the future of missing persons response. Plus: what we shipped this week.",
 }
+
+const WHATS_NEW: { week: string; items: string[] }[] = [
+  {
+    week: 'June 23, 2026',
+    items: [
+      'Purple Alert water search — automated shoreline drone missions for missing persons with autism/developmental disabilities. Queries OpenStreetMap for nearby water bodies, generates perimeter flight plans, dispatches volunteer drones.',
+      'Coordinator BOLO permission gate — new `can_create_bolo` flag. Admins always pass; coordinators need the flag set. Prevents watchlist abuse by untrusted accounts.',
+      'Discord notification when someone requests coordinator access — fires embed with name, city, reason, and admin panel link.',
+      'Published technical whitepaper AA-2026-001: Automated Water Search for Purple Alert Response. Available at /papers.',
+      'Volunteer scenarios deck — added Lt. Rivera (water search) and Keisha (BOLO activation) coordinator stories.',
+      '/beta page restored with TestFlight link + real app screenshots replacing placeholder SVGs.',
+    ],
+  },
+  {
+    week: 'June 21, 2026',
+    items: [
+      'DJI MSDK V5 waypoint missions — KMZ generation, push to aircraft, pause/resume for auto-relook on medium-confidence matches.',
+      'Sweep mission endpoint — lawnmower parking lot scan at 15m altitude, 3 m/s, VLOS enforced on all waypoints.',
+      'Dynamic droneEnumValue — reads ProductType from connected aircraft instead of hardcoding.',
+      'Partnership deck — added Direct LEA Alert slide showing BOLO activation flow from the June 11 Douglas County test.',
+      'Fixed hardcoded server IP in push notifications → now uses https://amberangels.org.',
+    ],
+  },
+  {
+    week: 'June 15, 2026',
+    items: [
+      'iOS build 14 submitted to App Store. Google Sign-In switched to native module.',
+      'Removed all "report criminal activity" language across app and web (App Store guideline 2.1).',
+      '/guide page — user guide with screenshots for all three roles (volunteer, pilot, coordinator).',
+      'Credential rotation — all server passwords rotated after repo exposure.',
+      'Android production build fix — ScanService.kt compilation error resolved.',
+    ],
+  },
+  {
+    week: 'June 11, 2026',
+    items: [
+      'NamUs poller — automated ingestion from the DOJ National Missing and Unidentified Persons System. 30-min poll, vehicle extraction, cross-reference with FEMA alerts.',
+      'BOLO ingestor — upload a screenshot, Claude Haiku extracts plate + vehicle + person automatically. Watchlist + vehicle_targets created.',
+      'BOLO crawler — configurable RSS/HTML sources (FBI, GBI, state agencies). Local NER extraction, no API calls per post.',
+      'The Coverage Gap blog series launched — 8-post weekly series on event-triggered public safety AI.',
+      'Platform overview deck added. Plate-free vehicle-only detection path for switched/obscured plates.',
+    ],
+  },
+  {
+    week: 'June 7, 2026',
+    items: [
+      'End-to-end test verified: 47s alert-to-hit (phone), 4s stream-to-hit (drone), 99% peak confidence, sub-meter GPS.',
+      'Claude Haiku detection agent for PROBABLE events — asks the pilot to reposition when confidence is medium.',
+      'PM2 crash-loop watchdog — rtmp_monitor checks pm2 jlist every 60s, Discord alert on 5+ restarts.',
+      'RTMP pipeline rewrite — rtmp_monitor.py replaces nginx exec_push for frame extraction.',
+      'Golden frame pre-copy for RTMP path — frame_url alignment fix so Discord embeds show the right image.',
+    ],
+  },
+]
 
 const POSTS = [
   {
@@ -237,6 +291,82 @@ export default function BlogIndexPage() {
           return <div key={i}>{content}</div>
         })}
       </main>
+
+      {/* What's New */}
+      <section style={{ maxWidth: '900px', padding: '0 48px 96px' }}>
+        <div style={{
+          borderTop: '1px solid rgba(255,255,255,0.07)',
+          paddingTop: '56px',
+        }}>
+          <p style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: '#22c55e',
+            marginBottom: '16px',
+          }}>
+            What&apos;s New
+          </p>
+          <h2 style={{
+            fontSize: '32px',
+            fontWeight: 700,
+            lineHeight: 1.15,
+            letterSpacing: '-0.3px',
+            color: '#fff',
+            marginBottom: '12px',
+          }}>
+            What we shipped.
+          </h2>
+          <p style={{
+            fontSize: '15px',
+            color: 'rgba(255,255,255,0.4)',
+            lineHeight: 1.65,
+            maxWidth: '560px',
+            marginBottom: '40px',
+          }}>
+            Features, fixes, and infrastructure changes — pulled from the commit log, grouped by week. No fixed release cycle. We ship when it&apos;s ready.
+          </p>
+
+          {WHATS_NEW.map((release, ri) => (
+            <div key={ri} style={{
+              marginBottom: '36px',
+              borderBottom: ri < WHATS_NEW.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+              paddingBottom: '36px',
+            }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#22c55e',
+                marginBottom: '16px',
+                fontFamily: "'JetBrains Mono', monospace",
+                letterSpacing: '0.03em',
+              }}>
+                {release.week}
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {release.items.map((item, ii) => (
+                  <li key={ii} style={{
+                    fontSize: '13.5px',
+                    color: 'rgba(255,255,255,0.55)',
+                    lineHeight: 1.65,
+                    padding: '6px 0',
+                    paddingLeft: '16px',
+                    position: 'relative',
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: 0,
+                      color: 'rgba(255,255,255,0.15)',
+                    }}>—</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Footer */}
       <footer style={{
