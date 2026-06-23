@@ -93,13 +93,15 @@ section{
 </style>
 <script type="application/json" id="speaker-notes">
 [
-"Four ways to help. One network. Maria has a phone mount. James has a Mavic 3. DeShawn drives for Uber Eats. Gilberto is a Part 107 pilot with a BVLOS waiver — but today he can't leave the house. Every one of them contributes a different kind of coverage. The app fits all four without ever asking them to be the same kind of volunteer.",
+"One network. Every role matters. Ground volunteers scan plates on their daily routes. Drone pilots cover parking lots and perimeters from the air. Coordinators — the human judgment layer — make the calls that turn raw data into action. The platform fits all of them without ever asking them to be the same kind of volunteer.",
 "Maria has a phone mount on her car dashboard and a gap before her afternoon shift. She opens AA, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs in the background, uploading frames every ten seconds. She covers six miles of surface streets and scans three hundred and forty plates without ever opening AA again. This is the default volunteer mode. No special hardware, no certification, no extra time. Just the drive she was already taking.",
 "James is a Part 107 pilot with a Mavic 3 and an afternoon free. He flies to the reported last-known location, launches, and begins a lawnmower search pattern over a large parking complex. He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server. This is the heavyweight mode — the volunteer who shows up with FAA-certified hardware and time to fly. One drone covers a parking complex faster than a dozen cars could.",
 "DeShawn is an Uber Eats driver who covers thirty miles of delivery routes every weekday. During an active AMBER Alert in his zone, he mounts his phone, opens AA, taps START MISSION, and goes back to picking up orders. The app runs silently in the background — no interaction required. By the end of his shift he's scanned nearly two thousand plates across neighborhoods no fixed camera ever sees. The system flags a partial plate match at seven forty-three PM; coordinators cross-reference it and notify local officers. DeShawn doesn't know any of that. He just delivered dinner.",
 "Gilberto has his Part 107, a Mavic 3, and a BVLOS waiver on file — but today he can't leave. He's home with the kids. He opens the Autonomous Missions screen, powers on the drone in his backyard, and taps Join Swarm. The app sends a heartbeat every thirty seconds with his drone's home position. Two miles away, the coordinator sees an amber icon appear on the mission map: Mavic Three — Gilberto — online. When the next alert fires within range, his drone is dispatched automatically.",
+"Lt. Rivera is a police lieutenant and volunteer coordinator on the platform. A Purple Alert fires for a missing adult with autism — nonverbal, drawn to water. He knows the statistics: 49 percent of individuals with autism who wander are drawn to water. Drowning is the leading cause of death. He opens the Dispatch screen, taps Water Search, and the system pulls three lakes within five kilometers from OpenStreetMap. He selects Hobbs Lake, reviews the perimeter, and dispatches a drone to trace the shoreline at fifteen meters. Four minutes later he's watching the live feed. There's no automated detection here — no ALPR, no YOLO. Rivera is the sensor. He spots movement near the north bank, pauses the drone, and radios GPS coordinates to the ground unit. Twelve minutes from alert to eyes on target. The system gave him a camera platform. He made the call.",
+"Keisha is a volunteer coordinator — retired dispatcher, now in emergency management. A partner agency sends her a BOLO: vehicle involved in a child endangerment case, not yet meeting AMBER Alert criteria. No federal WEA will fire for this. Without the platform, it's a radio call and a prayer. She opens the admin panel, uploads the BOLO screenshot. The system extracts the plate and vehicle description automatically. Watchlist activates. Discord fires. Volunteers already driving their routes start scanning for the vehicle immediately — twelve minutes ahead of when a federal alert might have reached the public. This is the gap the platform closes: between 'not enough for a federal alert' and 'too late.' Only verified coordinators can activate this. The coordinator is the filter between the machine and law enforcement.",
 "Behind every volunteer story is the system logging every second. June 7 end-to-end test — real output, not a demo mode. A phone volunteer like Maria or DeShawn: FEMA alert in, push sent, mission opened, plate YVJ024 confirmed in 47 seconds. A drone volunteer like Gilberto, relinquishing from home: DJI Avata streaming, first fuzzy read correctly dismissed, confirmed match in under four seconds from stream start. Both hit 99% peak confidence on the same plate. 193 alerted events in one session. They didn't have to be on the same road, in the same city, or even know each other. They just had to have the app.",
-"Every mode is enough. Together they cover what fixed cameras can't. Maria's eighteen minutes. James's parking complex. DeShawn's two thousand plates. Gilberto's standby drone. None of them is the system. All of them are."
+"Every role is enough. Together they cover what no system can alone. Maria's eighteen minutes. James's parking complex. DeShawn's two thousand plates. Gilberto's standby drone. Rivera's lake search. Keisha's BOLO activation. Volunteers provide coverage. Coordinators provide judgment. The platform connects both."
 ]
 </script>
 </head>
@@ -108,11 +110,11 @@ section{
 <deck-stage>
 
   <!-- 01 TITLE -->
-  <section id="s1" data-screen-label="01 Four Ways">
+  <section id="s1" data-screen-label="01 Scenarios">
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="cover-eyebrow">Volunteer Stories</div>
-    <h1 class="cover-h">Four ways to help.<br><em>One network.</em></h1>
-    <p class="cover-sub">Maria has a phone mount. James has a Mavic 3. DeShawn drives for Uber Eats. Gilberto has a BVLOS waiver but can't leave the house today. <strong>The app fits all four.</strong></p>
+    <div class="cover-eyebrow">Volunteer Scenarios</div>
+    <h1 class="cover-h">One network.<br><em>Every role matters.</em></h1>
+    <p class="cover-sub">Ground volunteers scan plates on their daily routes. Drone pilots cover parking lots and perimeters. Coordinators make the calls that turn data into action. <strong>The platform fits all of them.</strong></p>
     <div class="persona-row">
       <div class="persona-mini">
         <span class="glyph">🚗</span>
@@ -127,19 +129,19 @@ section{
         <span class="quote">Mavic 3, manual lawnmower over a parking complex. Visual range, the whole time.</span>
       </div>
       <div class="persona-mini">
-        <span class="glyph">🚗</span>
-        <span class="name">DeShawn</span>
-        <span class="mode">gig driver · background scan</span>
-        <span class="quote">Thirty miles. Nearly two thousand plates. He didn't know about the flag.</span>
+        <span class="glyph">📋</span>
+        <span class="name">Lt. Rivera</span>
+        <span class="mode">coordinator · Purple Alert</span>
+        <span class="quote">Missing adult with autism. Three lakes in range. Drone tracing the shoreline in four minutes.</span>
       </div>
       <div class="persona-mini">
-        <span class="glyph">🚁</span>
-        <span class="name">Gilberto</span>
-        <span class="mode">BVLOS waiver · home swarm</span>
-        <span class="quote">Couldn't leave the house. Powered up the drone in the backyard. Tapped Join Swarm.</span>
+        <span class="glyph">📋</span>
+        <span class="name">Keisha</span>
+        <span class="mode">coordinator · BOLO activation</span>
+        <span class="quote">Screenshot in. Plate extracted. Network activated. Twelve minutes ahead of the federal system.</span>
       </div>
     </div>
-    <div class="sn">01 / 07</div>
+    <div class="sn">01 / 09</div>
   </section>
 
   <!-- 02 MARIA -->
@@ -165,7 +167,7 @@ section{
         <div class="caption">Android Foreground Service · <span class="a">persistent notification visible</span> · screen can lock</div>
       </div>
     </div>
-    <div class="sn">02 / 07</div>
+    <div class="sn">02 / 09</div>
   </section>
 
   <!-- 03 JAMES -->
@@ -191,7 +193,7 @@ section{
         </div>
       </div>
     </div>
-    <div class="sn">03 / 07</div>
+    <div class="sn">03 / 09</div>
   </section>
 
   <!-- 04 DESHAWN -->
@@ -218,7 +220,7 @@ section{
         <div class="caption">Tap once · drive your route · <span class="a">notification lives at the top of the tray</span></div>
       </div>
     </div>
-    <div class="sn">04 / 07</div>
+    <div class="sn">04 / 09</div>
   </section>
 
   <!-- 05 GILBERTO -->
@@ -245,12 +247,66 @@ section{
         </div>
       </div>
     </div>
-    <div class="sn">05 / 07</div>
+    <div class="sn">05 / 09</div>
   </section>
 
-  <!-- 06 CLOSING -->
+  <!-- 06 LT. RIVERA — COORDINATOR, PURPLE ALERT WATER SEARCH -->
+  <section id="s6" data-screen-label="06 Lt. Rivera">
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="persona">
+      <div class="body">
+        <span class="tag"><span class="ic">📋</span>Coordinator · Purple Alert · Water Search</span>
+        <h2>Lt. Rivera<br><em>searches the lake.</em></h2>
+        <div class="story">
+          <p>Rivera is a <strong>police lieutenant and volunteer coordinator</strong> on the platform. A Purple Alert fires for a missing adult with autism — nonverbal, drawn to water. He knows the statistics: <em>49% of individuals with autism who wander are drawn to water.</em></p>
+          <p>He opens the Dispatch screen and taps <strong>Water Search</strong>. The system pulls three lakes within five kilometers from OpenStreetMap. He selects Hobbs Lake, reviews the perimeter on the map, and <strong>dispatches a drone to trace the shoreline</strong> at 15 meters altitude.</p>
+          <p>Four minutes later he's watching the live feed. There's <em>no automated detection here</em> — this is visual search. Rivera is the sensor. He spots movement near the north bank, <strong>pauses the drone, radios GPS coordinates</strong> to the ground unit. Twelve minutes from alert to eyes on target.</p>
+        </div>
+        <div class="stat-strip">
+          <div class="stat"><span class="v">3</span><span class="l">lakes in range</span></div>
+          <div class="stat"><span class="v">4 min</span><span class="l">alert to airborne</span></div>
+          <div class="stat"><span class="v">Visual</span><span class="l">coordinator search</span></div>
+          <div class="stat"><span class="v">12 min</span><span class="l">to eyes on target</span></div>
+        </div>
+      </div>
+      <div class="persona-image">
+        <img src="graphics/05-mission-map.svg" alt="Mission map · water search perimeter">
+        <div class="caption">Perimeter flight · 15m AGL · 3 m/s · <span class="a">coordinator watches live feed</span></div>
+      </div>
+    </div>
+    <div class="sn">06 / 09</div>
+  </section>
+
+  <!-- 07 KEISHA — COORDINATOR, BOLO ACTIVATION -->
+  <section id="s7a" data-screen-label="07 Keisha">
+    <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
+    <div class="persona right-image">
+      <div class="persona-image">
+        <img src="../guide/discord-watchlist-add.png" alt="Discord watchlist alert · BOLO activation">
+        <div class="caption">BOLO ingested · plate on watchlist · <span class="a">network activated in under 60 seconds</span></div>
+      </div>
+      <div class="body">
+        <span class="tag"><span class="ic">📋</span>Coordinator · BOLO Activation</span>
+        <h2>Keisha<br><em>closes the gap.</em></h2>
+        <div class="story">
+          <p>Keisha is a <strong>volunteer coordinator</strong> — retired dispatcher, now emergency management. A partner agency sends her a BOLO: <em>vehicle involved in a child endangerment case, not yet meeting AMBER Alert criteria.</em> No federal WEA will fire for this. Without the platform, it's a radio call and a prayer.</p>
+          <p>She opens the admin panel and <strong>uploads the BOLO screenshot</strong>. The system extracts the plate and vehicle description automatically. Watchlist activates. Discord fires. Volunteers already driving their routes <em>start scanning for the vehicle immediately</em> — twelve minutes ahead of when a federal alert might have reached the public.</p>
+          <p style="font-size:22px;color:var(--dim);font-style:italic;border-left:3px solid var(--amber);padding-left:14px;">The gap between "not enough for a federal alert" and "too late" is where coordinators operate.</p>
+        </div>
+        <div class="stat-strip">
+          <div class="stat"><span class="v">&lt; 60 s</span><span class="l">screenshot to active</span></div>
+          <div class="stat"><span class="v">Auto</span><span class="l">plate extraction</span></div>
+          <div class="stat"><span class="v">12 min</span><span class="l">ahead of WEA</span></div>
+          <div class="stat"><span class="v">Verified</span><span class="l">coordinator only</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="sn">07 / 09</div>
+  </section>
+
+  <!-- 08 CLOSING -->
   <!-- ── 06 SYSTEM IN ACTION ── -->
-  <section id="slog" data-screen-label="06 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
+  <section id="slog" data-screen-label="08 System in Action" style="display:flex;gap:64px;padding:80px 96px;align-items:center;position:relative;background:var(--ink);">
     <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:0;">
       <span class="tag">System in Action</span>
       <h2 style="margin-top:28px;font-size:52px;font-weight:700;line-height:1.1;letter-spacing:-1.5px;margin-bottom:24px;">Real logs.<br><em style="color:var(--amber);font-style:normal;">June 7, 2026.</em></h2>
@@ -285,15 +341,15 @@ section{
       </div>
     </div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="sn">06 / 07</div>
+    <div class="sn">08 / 09</div>
   </section>
 
-  <section id="s7" data-screen-label="07 Every Mode">
+  <section id="s9" data-screen-label="09 Every Role">
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="cover-eyebrow" style="position:relative;z-index:1;">All four · together</div>
-    <h1 class="close-h">Every mode is enough.<br><em>Together they cover what fixed cameras can't.</em></h1>
-    <p class="close-sub">None of them is the system. <strong>All of them are.</strong></p>
-    <div class="close-grid">
+    <div class="cover-eyebrow" style="position:relative;z-index:1;">Every role · together</div>
+    <h1 class="close-h">Every role is enough.<br><em>Together they cover what no system can alone.</em></h1>
+    <p class="close-sub">Volunteers provide coverage. Coordinators provide judgment. <strong>The platform connects both.</strong></p>
+    <div class="close-grid" style="grid-template-columns:repeat(3,1fr);">
       <div class="close-card">
         <span class="glyph">🚗</span>
         <span class="name">Maria</span>
@@ -318,12 +374,24 @@ section{
         <span class="contrib">standby · auto-dispatch</span>
         <span class="mode">BVLOS · home swarm</span>
       </div>
+      <div class="close-card" style="border-color:rgba(245,158,11,0.25);">
+        <span class="glyph">📋</span>
+        <span class="name">Lt. Rivera</span>
+        <span class="contrib">3 lakes · 12 min to target</span>
+        <span class="mode">coordinator · Purple Alert water search</span>
+      </div>
+      <div class="close-card" style="border-color:rgba(245,158,11,0.25);">
+        <span class="glyph">📋</span>
+        <span class="name">Keisha</span>
+        <span class="contrib">BOLO → active in 60 s</span>
+        <span class="mode">coordinator · closes the WEA gap</span>
+      </div>
     </div>
     <div class="close-foot">
-      <span class="num">4</span>
-      <span class="lbl">volunteer modes &middot; <strong>none of them requires the others.</strong> Every one of them fills a coverage gap fixed cameras can't reach.</span>
+      <span class="num">3</span>
+      <span class="lbl">roles &middot; volunteers, pilots, coordinators &middot; <strong>none of them requires the others.</strong> Every one of them fills a gap the system can't fill alone.</span>
     </div>
-    <div class="sn">07 / 07</div>
+    <div class="sn">09 / 09</div>
   </section>
 
 </deck-stage>
