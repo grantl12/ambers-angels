@@ -255,6 +255,18 @@
   max-width: 880px;
 }
 .diagramFrame img { width: 100%; height: auto; display: block; }
+.phoneFrame {
+  display: flex;
+  justify-content: center;
+  max-width: 880px;
+}
+.phoneFrame img {
+  max-height: 560px;
+  width: auto;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 32px rgba(0,0,0,.5);
+}
 .diagramCaption { margin-top: 12px; font-size: 13px; color: var(--text-dim); }
 
 /* ── ALERTS TABLE ── */

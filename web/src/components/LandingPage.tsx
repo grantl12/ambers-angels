@@ -5,11 +5,10 @@ import s from '@/app/landing.module.css'
 import LiveTerminal from './LiveTerminal'
 
 const TABS = [
-  { key: 'scan',    label: 'Phone Scanning',    svg: '04-phone-background-mode.svg',  caption: 'Scan-while-you-drive: a persistent foreground service keeps frame uploads running even when you navigate to Maps or Uber (Android). iOS: keep app foregrounded.' },
-  { key: 'drone',   label: 'DJI Drone Mode',    svg: '07-dji-connection.svg',         caption: '4-step DJI setup flow: power on → GPS lock → select Drone mode → Start Mission. GPS telemetry auto-attached to every uploaded frame.' },
-  { key: 'map',     label: 'Mission Map',        svg: '05-mission-map.svg',            caption: 'Coordinator dashboard: live volunteer positions, active alert polygons (FEMA feed, refreshed every 60s), out-of-range warnings, and tap-to-detail on every asset.' },
-  { key: 'angles',  label: 'Camera Positioning', svg: '01-drone-camera-angles.svg',   caption: 'Pilot positioning guide: operate from road shoulder or adjacent field — never over active lanes. 30–45° camera angle, ≤200 ft AGL, visual line of sight at all times (FAA Part 107).' },
-  { key: 'mission', label: 'Start a Mission',    svg: '03-start-mission.svg',         caption: '5-step in-app onboarding: volunteer mode → device identity → capture interval → save settings → go live. Settings persist across restarts.' },
+  { key: 'scan',    label: 'Phone Scanning',    img: '/guide/camera-live.png',          caption: 'Scan-while-you-drive: on-device OCR reads plates in real-time. A persistent foreground service keeps scanning running even when you switch apps (Android). iOS: keep app foregrounded.' },
+  { key: 'map',     label: 'Mission Map',        img: '/guide/mission-map-alert.png',    caption: 'Coordinator dashboard: live volunteer positions, active alert polygons (FEMA feed, refreshed every 60s), and tap-to-detail on every asset.' },
+  { key: 'drone',   label: 'Drone Dispatch',     img: '/guide/drone-dispatch.png',       caption: 'Coordinators set an observation point, select altitude and speed, and check nearby airspace — then dispatch with one tap. VLOS radius enforced automatically.' },
+  { key: 'hit',     label: 'Detection Hit',      img: '/guide/discord-match-photo.png',  caption: 'When a plate matches an active alert, Discord fires instantly with confidence score, GPS coordinates, and a golden frame — ready for coordinator review.' },
 ]
 
 
@@ -221,8 +220,8 @@ export default function LandingPage() {
         </div>
         {TABS.map(t => (
           <div key={t.key} className={activeTab === t.key ? s.panelActive : s.panel}>
-            <div className={s.diagramFrame} style={t.key === 'mission' ? { maxWidth: 560 } : undefined}>
-              <img src={`/graphics/${t.svg}`} alt={`${t.label} diagram`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+            <div className={s.phoneFrame}>
+              <img src={t.img} alt={`${t.label} screenshot`} />
             </div>
             <p className={s.diagramCaption}>{t.caption}</p>
           </div>
@@ -387,8 +386,8 @@ export default function LandingPage() {
         <div className={s.involveGrid}>
           <div className={`${s.involveCard} ${s.involveCardHighlight}`}>
             <h3>Beta Tester</h3>
-            <p>Create an account now and help us harden the platform before the next alert fires. App downloads available soon on iOS and Android. No special equipment needed.</p>
-            <a href="/pilot/register">Create an Account →</a>
+            <p>Install the app now and help us harden the platform before the next alert fires. iOS available via TestFlight, Android coming soon. No special equipment needed.</p>
+            <a href="/beta">Join the Beta →</a>
           </div>
           <div className={s.involveCard}>
             <h3>Volunteer — Ground</h3>
