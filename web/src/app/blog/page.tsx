@@ -29,7 +29,7 @@ const POSTS = [
     title: 'Different Questions',
     date: 'June 23, 2026',
     excerpt: 'Flock Safety and Amber\'s Angels are better together than either is alone. Fixed infrastructure covers the intersections. Mobile volunteers cover everything between them.',
-    live: false,
+    live: true,
   },
   {
     slug: 'post-3-when-plates-disappear',
