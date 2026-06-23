@@ -39,7 +39,7 @@ export default function BetaPage() {
           <ul className="space-y-3">
             {[
               "Install the app on your phone and create an account",
-              "Drive your normal routes with the app running — your phone scans license plates in the background",
+              "When an alert fires in your area, drive your normal routes with the app running — your phone scans license plates in the background using on-device OCR",
               "Report bugs, crashes, or anything that feels off",
               "Help us validate the scan pipeline works across different phones, lighting, and road conditions",
             ].map((item, i) => (
