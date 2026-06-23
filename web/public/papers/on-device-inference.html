@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>On-Device Inference: Privacy by Architecture, Not Policy — Amber's Angels</title>
+<meta name="description" content="How architectural separation of on-device OCR from server-side frame analysis creates a privacy guarantee that cannot be silently revoked — and why that matters for volunteer recruitment in public safety.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8DE; padding:2px 6px; border-radius:3px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.timeline { margin:40px 0; }
+.timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
+.timeline-row:last-child { border-bottom:none; }
+.timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
+.timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
+.comparison-table { width:100%; border-collapse:collapse; margin:40px 0; font-size:10.5pt; }
+.comparison-table th { background:var(--navy); color:#FAFAF8; font-family:'Playfair Display',serif; font-weight:700; padding:14px 16px; text-align:left; font-size:10pt; letter-spacing:0.03em; }
+.comparison-table td { padding:12px 16px; border-bottom:1px solid var(--rule); line-height:1.5; vertical-align:top; }
+.comparison-table tr:last-child td { border-bottom:none; }
+.comparison-table .col-label { font-weight:600; color:var(--navy); white-space:nowrap; }
+.comparison-table .yes { color:#16a34a; font-weight:600; }
+.comparison-table .no { color:#dc2626; font-weight:600; }
+.comparison-table .na { color:var(--muted); font-style:italic; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } .comparison-table { font-size:9.5pt; } .comparison-table td, .comparison-table th { padding:10px 10px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">&larr; amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper &middot; AA-2026-002</p>
+    <p class="paper-date">June 23, 2026</p>
+    <h1>On-Device Inference: Privacy by Architecture, Not&nbsp;Policy</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director &mdash; <a href="https://amberangels.org">Amber&rsquo;s Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>Amber&rsquo;s Angels asks private citizens to mount their phones on dashboards and scan license plates during active missing persons alerts. That is an extraordinary ask. For it to work, volunteers must trust&thinsp;&mdash;&thinsp;and be able to verify&thinsp;&mdash;&thinsp;that their phones are not uploading video of every car they pass. This paper describes the architectural separation between the app&rsquo;s two camera paths: a background passive scan that runs optical character recognition entirely on the phone and transmits only plate text, and an active pilot camera mode that intentionally uploads raw frames for evidence. The privacy guarantee of the background path is enforced by code structure, not by policy. There is no server endpoint that accepts frames from the background scanner, no configuration toggle that enables frame upload, and no over-the-air update that can change this without shipping a new native binary through app store review. When the architecture makes the wrong thing impossible, the policy becomes redundant.</p>
+  </div>
+
+  <h2>The Two Paths</h2>
+
+  <p>The Amber&rsquo;s Angels mobile app contains two fundamentally different camera modes. They look similar to the user&thinsp;&mdash;&thinsp;both involve a phone camera pointed at license plates&thinsp;&mdash;&thinsp;but they have completely different privacy properties, different authentication requirements, and different data flows. Conflating them is the single most common misunderstanding about the platform, and the one most likely to kill volunteer recruitment.</p>
+
+  <h3>Path 1: Background Passive Scan</h3>
+
+  <p>The default volunteer experience. A volunteer mounts their phone on the dashboard, taps <strong>Start Mission</strong>, and drives. The phone captures a 640&times;480 JPEG from the rear camera at a configurable interval (default 1.5 seconds), passes each frame to Google ML Kit&rsquo;s text recognition engine running <em>on the phone&rsquo;s own processor</em>, extracts any text that matches the heuristic signature of a U.S. license plate (4&ndash;8 alphanumeric characters, at least one letter, at least one digit, not a common road word), and&thinsp;&mdash;&thinsp;if a candidate plate is found&thinsp;&mdash;&thinsp;sends a minimal payload to the server:</p>
+
+  <ul style="margin-bottom:20px; padding-left:24px; list-style:disc;">
+    <li><code>plate_text</code> &mdash; the recognized characters (e.g., <code>ABC1234</code>)</li>
+    <li><code>plate_confidence</code> &mdash; ML Kit&rsquo;s confidence score</li>
+    <li><code>lat</code>, <code>lng</code> &mdash; GPS coordinates</li>
+    <li><code>drone_id</code> &mdash; a volunteer-chosen device identifier</li>
+  </ul>
+
+  <p>That is it. No image data. No pixel buffer. No thumbnail. No compressed frame. The raw camera capture is used as input to the on-device OCR model, and then it is discarded. The JPEG never touches a network socket. The endpoint that receives this data, <code>POST /ingest/detection</code>, does not accept a file upload field&thinsp;&mdash;&thinsp;there is no <code>file</code> parameter in its API contract. Even if a malicious client tried to attach an image, the server would ignore it.</p>
+
+  <p>On Android, this runs as a foreground service with its own persistent notification. The volunteer can switch to Uber, Google Maps, or any other app&thinsp;&mdash;&thinsp;scanning continues in the background. The user sees a running count of plates read, and if a plate matches the active watchlist, the phone fires a high-priority notification with vibration. The entire pipeline from camera capture to OCR to plate candidate filtering to server POST runs in Kotlin native code, independent of the React Native UI layer.</p>
+
+  <h3>Path 2: Active Pilot Camera</h3>
+
+  <p>An explicit, opt-in action for pilots on active search missions. The volunteer taps <strong>Start Mission</strong>, the app confirms there is at least one active FEMA alert, and the camera begins posting raw JPEG frames directly to <code>POST /ingest/frame</code> at the configured interval. The server receives the full image, runs OpenALPR, applies CLAHE image enhancement if the first pass finds nothing, runs perspective deskew, classifies vehicles with YOLOv8, and feeds results into the aggregation pipeline. High-confidence frames are persisted as &ldquo;golden frames&rdquo;&thinsp;&mdash;&thinsp;evidence that can be included in law enforcement handoff packages.</p>
+
+  <p>This path requires a pilot JWT. Unauthenticated requests are rejected with HTTP 401. Frame size is capped at 25 MB. Only JPEG, PNG, and WebP content types are accepted. The pilot chose to be here&thinsp;&mdash;&thinsp;they tapped a button, the app checked for an active alert, and the camera activated. This is not passive scanning; it is evidence collection during an active search, and frame upload is both expected and required for the chain of custody to hold.</p>
+
+  <div class="pullquote">
+    <p>&ldquo;The question is not whether we have a privacy policy. Every company has a privacy policy. The question is whether the architecture makes it physically impossible to violate the policy without shipping a new app binary.&rdquo;</p>
+  </div>
+
+  <h2>Why Architecture Beats Policy</h2>
+
+  <p>Every surveillance technology company has a privacy policy. Flock Safety has one. Motorola Solutions has one. Axon has one. The policies say reassuring things: data is encrypted, access is role-based, retention periods are limited, images are not shared with unauthorized parties.</p>
+
+  <p>Then the policies change.</p>
+
+  <p>In 2023, Flock Safety updated its law enforcement contracts to allow longer data retention periods&thinsp;&mdash;&thinsp;from 30 days to 120 days and beyond&thinsp;&mdash;&thinsp;while the cameras on the poles continued capturing every vehicle that passed.<sup>1</sup> The <em>technology</em> never changed. The cameras captured exactly the same data before and after the policy update. Only the rules about what happened to that data after capture changed. A policy-based privacy guarantee means the guarantee lasts exactly as long as the current board of directors wants it to last.</p>
+
+  <p>Amber&rsquo;s Angels cannot afford that model. We are asking private citizens&thinsp;&mdash;&thinsp;not law enforcement officers, not paid contractors, private volunteers&thinsp;&mdash;&thinsp;to turn their personal phones into license plate readers. The difference between &ldquo;community search tool&rdquo; and &ldquo;mass surveillance network&rdquo; is not branding. It is whether the phone in the volunteer&rsquo;s dashboard cradle is uploading video of every car in their neighborhood.</p>
+
+  <p>An architectural guarantee is different in kind from a policy guarantee. It is not a promise about what we <em>choose</em> to do with data. It is a statement about what the system is <em>physically capable of doing</em>.</p>
+
+  <h3>What Would It Take to Break This Guarantee?</h3>
+
+  <p>To add frame upload to the background scan path, a developer would need to:</p>
+
+  <ul style="margin-bottom:20px; padding-left:24px; list-style:disc;">
+    <li>Modify <code>ScanService.kt</code> to transmit the JPEG byte array instead of (or in addition to) the OCR result</li>
+    <li>Either add a file upload field to <code>POST /ingest/detection</code> on the server, or redirect the scan service to call <code>POST /ingest/frame</code> instead</li>
+    <li>Compile a new Android native binary containing the modified Kotlin code</li>
+    <li>Submit that binary to Google Play review (and Apple App Store review, once the iOS implementation exists)</li>
+    <li>Wait for store approval and distribution</li>
+  </ul>
+
+  <p>This is not a toggle. It is not a server-side configuration change. It is not an over-the-air JavaScript update. The scan service is native Kotlin compiled into the Android APK. Changing its behavior requires a full native build, store submission, and review. That process takes days and produces a reviewable, diffable, auditable artifact.</p>
+
+  <p>Compare this to a policy change, which requires an email to a legal department and an updated PDF on a website.</p>
+
+  <h2>Technical Implementation</h2>
+
+  <h3>The On-Device OCR Pipeline</h3>
+
+  <p>The background scan service (<code>ScanService.kt</code>) is an Android foreground service using the Camera2 API. It opens the rear-facing camera, configures an <code>ImageReader</code> at 640&times;480 resolution with JPEG output, and captures a still frame on a repeating interval.</p>
+
+  <p>When a frame arrives, the service decodes the JPEG into a <code>Bitmap</code>, wraps it in an ML Kit <code>InputImage</code>, and passes it to Google&rsquo;s on-device text recognizer. ML Kit processes the image entirely on the phone&rsquo;s CPU/GPU&thinsp;&mdash;&thinsp;no network call is made, no data leaves the device during recognition. The recognizer returns a <code>VisionText</code> object containing every text block it found in the image, each with a bounding box and a confidence score.</p>
+
+  <p>The service then applies a plate candidate filter. Not every text string in a camera frame is a license plate. Road signs say <em>STOP</em> and <em>EXIT</em>. Bumper stickers say <em>FORD</em> and <em>HONDA</em>. The filter enforces several heuristics:</p>
+
+  <ul style="margin-bottom:20px; padding-left:24px; list-style:disc;">
+    <li>Length between 4 and 8 characters (after stripping non-alphanumeric characters)</li>
+    <li>Must contain at least one digit (rejects pure-alpha strings like bumper text)</li>
+    <li>Pure-alpha strings longer than 4 characters are rejected (catches brand names)</li>
+    <li>Explicitly blocked common words: STOP, SLOW, EXIT, LANE, ONLY, TURN, KEEP, RIGHT, LEFT, FORD, JEEP, HONDA, TOYOTA, CHEVY, DODGE</li>
+    <li>ML Kit confidence must be at least 55%</li>
+  </ul>
+
+  <p>If any candidates survive the filter, the highest-confidence match is posted to <code>POST /ingest/detection</code> as form data&thinsp;&mdash;&thinsp;not multipart, not a file upload, just key-value pairs. The server normalizes the plate text, checks it against the active watchlist, feeds it into the aggregation pipeline, and returns a <code>watchlist_hit</code> boolean. If the plate matches, the phone fires a heads-up notification.</p>
+
+  <h3>The Server-Side Endpoint</h3>
+
+  <p><code>POST /ingest/detection</code> accepts the following form fields:</p>
+
+  <table class="comparison-table" style="margin:24px 0 32px;">
+    <tr><th style="width:35%;">Field</th><th>Type</th><th>Notes</th></tr>
+    <tr><td class="col-label">drone_id</td><td>string, required</td><td>Volunteer-chosen device ID</td></tr>
+    <tr><td class="col-label">plate_text</td><td>string, required</td><td>Recognized characters</td></tr>
+    <tr><td class="col-label">plate_confidence</td><td>float, default 0.70</td><td>ML Kit confidence (0&ndash;1 scale)</td></tr>
+    <tr><td class="col-label">lat, lng</td><td>float, optional</td><td>GPS coordinates</td></tr>
+    <tr><td class="col-label">altitude, heading, speed</td><td>float, optional</td><td>GPS metadata</td></tr>
+    <tr><td class="col-label">pilot_id</td><td>string, optional</td><td>Authenticated pilot username</td></tr>
+    <tr><td class="col-label">source</td><td>string, default <code>phone_mlkit</code></td><td>Detection source tag</td></tr>
+  </table>
+
+  <p>There is no <code>file</code> field. No <code>image</code> field. No <code>frame</code> field. The endpoint uses FastAPI&rsquo;s <code>Form(...)</code> parameter type, not <code>UploadFile</code>. Even at the HTTP protocol level, it is not a multipart upload&thinsp;&mdash;&thinsp;it is a standard URL-encoded form POST. The server is architecturally incapable of receiving an image through this endpoint.</p>
+
+  <p>Authentication is also different. <code>POST /ingest/detection</code> uses an <code>_optional_pilot</code> dependency&thinsp;&mdash;&thinsp;it accepts a JWT if one is present but does not require it. This allows the Android background scan service to operate even when the user has not logged in. By contrast, <code>POST /ingest/frame</code> requires a valid pilot JWT via the <code>get_current_pilot</code> dependency. Unauthenticated frame uploads are rejected.</p>
+
+  <p>The <code>frame_id</code> field in the aggregation pipeline is explicitly set to <code>None</code> for on-device detections. This means no <code>frame_url</code> is stored in the detection event record, no golden frame file is created, and no frame thumbnail can appear in a Discord alert or evidence package. When a detection from the background scanner triggers a watchlist match, the Discord notification reads: <em>&ldquo;Detection source: On-device OCR &mdash; no frame transmitted.&rdquo;</em> That message is not a workaround for a missing feature. It is the system working exactly as designed.</p>
+
+  <h2>What Leaves the Phone</h2>
+
+  <table class="comparison-table">
+    <tr>
+      <th style="width:35%;">Data Element</th>
+      <th style="width:30%;">Background Scan</th>
+      <th style="width:35%;">Active Pilot Camera</th>
+    </tr>
+    <tr>
+      <td class="col-label">Raw camera frame</td>
+      <td class="no">Never transmitted</td>
+      <td class="yes">Uploaded as JPEG</td>
+    </tr>
+    <tr>
+      <td class="col-label">Plate text (characters)</td>
+      <td class="yes">Transmitted</td>
+      <td class="yes">Extracted server-side</td>
+    </tr>
+    <tr>
+      <td class="col-label">OCR confidence score</td>
+      <td class="yes">Transmitted</td>
+      <td class="na">Server computes its own</td>
+    </tr>
+    <tr>
+      <td class="col-label">GPS coordinates</td>
+      <td class="yes">Transmitted</td>
+      <td class="yes">Transmitted</td>
+    </tr>
+    <tr>
+      <td class="col-label">Vehicle color / type / make</td>
+      <td class="no">Not available (no YOLO)</td>
+      <td class="yes">Classified server-side</td>
+    </tr>
+    <tr>
+      <td class="col-label">Golden frame (evidence)</td>
+      <td class="no">No frame exists</td>
+      <td class="yes">Stored on server</td>
+    </tr>
+    <tr>
+      <td class="col-label">Authentication required</td>
+      <td class="na">Optional (works without login)</td>
+      <td class="yes">Pilot JWT required</td>
+    </tr>
+    <tr>
+      <td class="col-label">Runs in background</td>
+      <td class="yes">Android foreground service</td>
+      <td class="no">Requires app in foreground (iOS)</td>
+    </tr>
+    <tr>
+      <td class="col-label">Server endpoint</td>
+      <td><code>/ingest/detection</code></td>
+      <td><code>/ingest/frame</code></td>
+    </tr>
+  </table>
+
+  <p>The separation is total. The two paths share the same aggregation pipeline on the server&thinsp;&mdash;&thinsp;both feed into the same <code>AggregationService</code> with the same 5-second correlation window, the same watchlist lookup, the same confidence thresholds&thinsp;&mdash;&thinsp;but they arrive through different endpoints, with different authentication, different payloads, and fundamentally different privacy properties.</p>
+
+  <h2>The Volunteer Trust Problem</h2>
+
+  <p>I have had the same conversation dozens of times since we started recruiting volunteers in Carrollton, Georgia. It goes like this:</p>
+
+  <p><em>&ldquo;So you want me to put an app on my phone that reads license plates? Who sees the video?&rdquo;</em></p>
+
+  <p>The answer has to be <strong>nobody</strong>, and the person asking has to believe it. Not because I said so. Not because the privacy policy says so. Because the app is built in a way that makes it true regardless of what any future executive, board member, or acquirer might want.</p>
+
+  <p>This is not a theoretical concern. The history of surveillance technology is a history of mission creep. Red-light cameras were deployed to reduce intersection fatalities; cities started using them as revenue generators.<sup>2</sup> License plate reader networks were built for stolen vehicle recovery; police departments started querying them for immigration enforcement.<sup>3</sup> Ring doorbells were sold as home security devices; Amazon gave footage access to police departments without warrants.<sup>4</sup></p>
+
+  <p>In every case, the technology was the same before and after the mission expanded. Only the policy changed. The hardware and software were always <em>capable</em> of the expanded use&thinsp;&mdash;&thinsp;someone just decided to use the capability.</p>
+
+  <p>Amber&rsquo;s Angels cannot be that. If a volunteer&rsquo;s neighbor sees the app running and asks &ldquo;is your phone recording me?&rdquo;, the answer needs to be verifiable. The phone is reading license plates and sending <em>text</em>&thinsp;&mdash;&thinsp;a string of characters. It is not recording video. It is not uploading photos. And no server-side change can make it start, because the code that decides what to transmit runs on the phone itself, compiled into the app binary, subject to app store review.</p>
+
+  <div class="pullquote">
+    <p>&ldquo;The question every volunteer asks is not &lsquo;what does your privacy policy say?&rsquo; It is &lsquo;is my phone recording my neighbors?&rsquo; Architecture lets me answer that question with a fact, not a promise.&rdquo;</p>
+  </div>
+
+  <h2>The Flock Comparison</h2>
+
+  <p>Flock Safety, the dominant ALPR provider in the U.S. law enforcement market, deploys fixed cameras on poles that capture an image of every vehicle that passes. Those images&thinsp;&mdash;&thinsp;including the full vehicle, surrounding context, and sometimes occupants&thinsp;&mdash;&thinsp;are stored on Flock&rsquo;s cloud servers. Access policies govern who can query the data, for how long it is retained, and what purposes are permissible.</p>
+
+  <p>Amber&rsquo;s Angels&rsquo; background scan path is architecturally incapable of producing that data. There is no image to store, no context to capture, no occupant to photograph. The data that reaches the server is <code>ABC1234, 0.87, 33.5795, -85.0766</code>. That is a plate number, a confidence score, and a GPS point. It is less data than a toll booth transponder generates.</p>
+
+  <p>This is not a criticism of Flock&rsquo;s engineering. Fixed-camera ALPR requires image capture&thinsp;&mdash;&thinsp;the camera is unattended, and human review of captured images is part of the evidence workflow. The architectures serve different operational models. But the privacy properties are categorically different, and that distinction matters when the operator is a private citizen driving their own car through their own neighborhood.</p>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num purple">0</span>
+      <span class="label">frames uploaded in background scan mode</span>
+      <span class="cite">By architecture, not policy</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">640&times;480</span>
+      <span class="label">on-device capture resolution (JPEG, 70% quality)</span>
+      <span class="cite">Sufficient for OCR, discarded after</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num navy">55%</span>
+      <span class="label">minimum ML Kit confidence to transmit a plate</span>
+      <span class="cite">Below threshold = discarded silently</span>
+    </div>
+  </div>
+
+  <h2>What Happens on a Match</h2>
+
+  <p>When the background scanner reads a plate that appears on the active watchlist, the following occurs:</p>
+
+  <div class="flow-block">
+    <div class="flow-label">On-Device Watchlist Hit Flow</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>On-device OCR.</strong> ML Kit recognizes plate text from the camera frame. The frame is processed locally and never stored or transmitted.</li>
+        <li><strong>Plate candidate filter.</strong> The recognized text passes through the plate heuristic filter (length, character mix, common-word blocklist). Non-plate text is discarded.</li>
+        <li><strong>Server POST.</strong> The plate text, confidence, and GPS coordinates are sent to <code>POST /ingest/detection</code> as form-encoded key-value pairs. No image data.</li>
+        <li><strong>Watchlist lookup.</strong> The server normalizes the plate and checks it against the active watchlist. If the confidence exceeds 55% (after normalization to a 0&ndash;100 scale), the check proceeds.</li>
+        <li><strong>Aggregation.</strong> The detection enters the same 5-second aggregation window used by all detection sources. Multiple readings of the same plate within 5 seconds are correlated into a single snapshot with a composite confidence score.</li>
+        <li><strong>Alert dispatch.</strong> If the aggregated confidence exceeds the high-confidence threshold (85%), a Discord alert fires with the plate, confidence, GPS, and detection source. The Discord message explicitly states: <em>&ldquo;Detection source: On-device OCR &mdash; no frame transmitted.&rdquo;</em> No image is attached because no image exists on the server.</li>
+        <li><strong>Volunteer notification.</strong> The phone receives the <code>watchlist_hit: true</code> response and fires a high-priority local notification with vibration, alerting the volunteer that they have driven past a vehicle matching an active alert.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p>The entire flow produces a detection event record with <code>frame_id = None</code> and <code>frame_url = None</code>. There is no evidence image. There is a plate reading, a location, a timestamp, and a confidence score. That is sufficient to direct law enforcement to the area. It is not sufficient for a positive identification or an arrest&thinsp;&mdash;&thinsp;nor should it be. The volunteer is a tipster, not a forensic analyst.</p>
+
+  <h2>The Active Camera Path: When Frames Are Needed</h2>
+
+  <p>The active pilot camera mode exists because some operational scenarios <em>require</em> raw imagery. When a coordinator dispatches a drone to an observation point, or when a pilot is on an active search mission with a visual confirmation objective, the system needs high-resolution frames that can be run through server-side ALPR with CLAHE enhancement, perspective correction, and vehicle classification. These frames become part of the evidence chain&thinsp;&mdash;&thinsp;they are persisted as golden frames and can be included in law enforcement handoff packages.</p>
+
+  <p>This is an explicit, informed action. The pilot:</p>
+
+  <ul style="margin-bottom:20px; padding-left:24px; list-style:disc;">
+    <li>Has registered an account and authenticated with a JWT</li>
+    <li>Has navigated to the Camera screen and tapped <strong>Start Mission</strong></li>
+    <li>Has been shown that at least one active FEMA alert exists (the camera gate)</li>
+    <li>Sees a live HUD showing &ldquo;LIVE&rdquo; status, frame count, and capture interval</li>
+    <li>Can stop at any time by tapping <strong>Stop Mission</strong></li>
+  </ul>
+
+  <p>The frame upload path runs server-side ALPR (OpenALPR), applies adaptive histogram equalization (CLAHE) for low-contrast frames, performs perspective deskew to correct for camera angle, and classifies the vehicle with YOLOv8-nano (color, body type, make/model). If a plate match exceeds the high-confidence threshold, the best frame is saved to the golden frame directory and a Discord alert fires <em>with</em> a frame thumbnail&thinsp;&mdash;&thinsp;because in this path, the frame exists and is evidence.</p>
+
+  <p>The privacy tradeoff is explicit and understood. The volunteer is not casually driving through their neighborhood. They are on a mission, in a mode they deliberately entered, uploading frames to a server operated by the nonprofit they volunteered for, in service of an active government-issued missing persons alert. Frame upload is the feature, not a side effect.</p>
+
+  <h2>Limitations and Future Work</h2>
+
+  <h3>iOS On-Device Scanning</h3>
+
+  <p>The current on-device OCR implementation is Android-only. Android&rsquo;s foreground service model allows the scan to continue when the user switches to another app&thinsp;&mdash;&thinsp;a critical capability for volunteers who need navigation running simultaneously. iOS does not provide an equivalent background execution model for continuous camera capture. The iOS app currently falls back to the active camera path (foreground only, frame upload to server).</p>
+
+  <p>An iOS equivalent using Apple&rsquo;s Vision framework text recognition is architecturally straightforward but has not been built. It would require a Swift native module, a build on macOS (no cross-compilation path exists), and a different background execution strategy, likely using iOS background task scheduling with shorter capture bursts rather than continuous streaming. The privacy properties would be identical&thinsp;&mdash;&thinsp;Vision framework runs on-device, no frames would be transmitted&thinsp;&mdash;&thinsp;but the scanning cadence would be less frequent than the Android implementation.</p>
+
+  <h3>On-Device Model Improvements</h3>
+
+  <p>ML Kit&rsquo;s general-purpose text recognizer is not specialized for license plates. It handles well-lit, well-framed plates adequately, but struggles with motion blur, low contrast, partial occlusion, and non-standard plate formats. A purpose-built on-device plate recognition model&thinsp;&mdash;&thinsp;smaller, faster, and tuned for the specific visual characteristics of U.S. license plates&thinsp;&mdash;&thinsp;would improve both accuracy and battery efficiency.</p>
+
+  <p>The constraint is training data. Building a plate-specific model requires a large corpus of plate images captured under real driving conditions, with ground truth labels. Amber&rsquo;s Angels is accumulating this data through the active camera path (where frames are uploaded with server-side ALPR providing labels), but the volume is not yet sufficient for model training. The on-device model improvement is a future sprint gated by data availability, not by architectural feasibility.</p>
+
+  <h3>Vehicle-Only Classification on Device</h3>
+
+  <p>The background scan path currently transmits only plate text. It does not perform vehicle classification (color, body type, make/model) because YOLO runs server-side and no frame is uploaded. A future enhancement could run a lightweight vehicle classification model on-device alongside ML Kit, transmitting vehicle attributes as additional form fields without transmitting any image data. This would enable profile-only matching (matching FEMA alerts that describe a vehicle but provide no plate number) from the background scan path, expanding coverage without compromising the no-frame-upload guarantee.</p>
+
+  <h3>Consent-Gated Frame Upload</h3>
+
+  <p>There may be future scenarios where a volunteer using the background scan path encounters a high-confidence watchlist match and a coordinator wants a visual confirmation. The correct design is an explicit, per-detection consent prompt: the phone notifies the volunteer of the match, asks &ldquo;Would you like to capture and upload a photo for confirmation?&rdquo;, and only transmits a frame if the volunteer taps yes. This preserves the architectural guarantee (the scan service never uploads frames autonomously) while allowing volunteers to opt into evidence collection on a case-by-case basis. This feature is not built. If it is built, it will require clear disclosure in the app&rsquo;s privacy notice and a reviewable consent flow.</p>
+
+  <h2>Conclusion</h2>
+
+  <p>The distinction between policy-based and architecture-based privacy is not academic. It is the difference between a promise and a constraint. Promises are broken by board votes, acquisition agreements, and quarterly revenue targets. Constraints are broken by code changes that go through version control, code review, native compilation, and app store submission.</p>
+
+  <p>Amber&rsquo;s Angels chose the constraint. The background scan service runs on-device OCR, transmits text, and discards the frame. No server endpoint accepts frames from this path. No configuration enables frame upload. No over-the-air update can change this. The only way to add frame upload to the background scanner is to write new native code, compile it, submit it to Google and Apple, and wait for review&thinsp;&mdash;&thinsp;producing an auditable, public, reviewable change in the process.</p>
+
+  <p>When a volunteer asks &ldquo;is my phone recording my neighbors?&rdquo;, I do not answer with a privacy policy. I answer with an architecture. The phone reads plates and sends text. The frame never leaves the phone. That is how the code works, and code does not lie.</p>
+
+  <div class="cta">
+    <p>Amber&rsquo;s Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>Guariglia, M. &ldquo;Flock&rsquo;s Mass Surveillance is Invasive and Inaccurate.&rdquo; Electronic Frontier Foundation, 2024. <a href="https://www.eff.org/deeplinks/2024/04/flocks-mass-surveillance-invasive-and-inaccurate">eff.org/deeplinks/2024/04/flocks-mass-surveillance-invasive-and-inaccurate</a></li>
+    <li>Kaste, M. &ldquo;As More Cities Ban Red-Light Cameras, Some Insist the Devices Save Lives.&rdquo; NPR, 2019. <a href="https://www.npr.org/2019/06/07/730505910/">npr.org</a></li>
+    <li>American Civil Liberties Union. &ldquo;You Are Being Tracked: How License Plate Readers Are Being Used to Record Americans&rsquo; Movements.&rdquo; ACLU, 2013. <a href="https://www.aclu.org/issues/privacy-technology/location-tracking/you-are-being-tracked">aclu.org</a></li>
+    <li>Haskins, C. &ldquo;Amazon&rsquo;s Ring Is the Largest Civilian Surveillance Network the US Has Ever Seen.&rdquo; Vice, 2021. <a href="https://www.vice.com/en/article/amazons-ring-is-the-largest-civilian-surveillance-network-the-us-has-ever-seen/">vice.com</a></li>
+    <li>Google ML Kit. &ldquo;Recognize text in images with ML Kit on Android.&rdquo; <a href="https://developers.google.com/ml-kit/vision/text-recognition/v2/android">developers.google.com/ml-kit</a></li>
+    <li>Apple Developer. &ldquo;Recognizing Text in Images.&rdquo; Vision Framework. <a href="https://developer.apple.com/documentation/vision/recognizing-text-in-images">developer.apple.com/documentation/vision</a></li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber&rsquo;s Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-002 &middot; Published June 23, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>

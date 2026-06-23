@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detection Pipeline Performance: Sub-Minute Alert-to-Hit — Amber's Angels</title>
+<meta name="description" content="Measured performance of the Amber's Angels detection pipeline from a live end-to-end test: 47-second alert-to-hit, 99% peak confidence, sub-meter GPS, and the multi-source scoring architecture that makes it possible.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8DD; padding:2px 6px; border-radius:3px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.timeline { margin:40px 0; }
+.timeline-row { display:grid; grid-template-columns:100px 1fr; gap:0; border-bottom:1px solid var(--rule); }
+.timeline-row:last-child { border-bottom:none; }
+.timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
+.timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+table.data-table { width:100%; border-collapse:collapse; margin:28px 0; font-size:10pt; }
+table.data-table th { background:var(--navy); color:#FAFAF8; font-weight:600; text-align:left; padding:10px 14px; font-size:8.5pt; letter-spacing:0.08em; text-transform:uppercase; }
+table.data-table td { padding:10px 14px; border-bottom:1px solid var(--rule); }
+table.data-table tr:last-child td { border-bottom:none; }
+table.data-table .mono { font-family:'JetBrains Mono',monospace; font-size:9pt; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } .timeline-row { grid-template-columns:80px 1fr; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">&larr; amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper &middot; AA-2026-005</p>
+    <p class="paper-date">June 23, 2026</p>
+    <h1>Detection Pipeline Performance: Sub-Minute Alert-to-Hit</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director &mdash; <a href="https://amberangels.org">Amber's Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>On June 7, 2026, Amber's Angels conducted a full end-to-end test of its detection pipeline in Carrollton, Georgia. A demo AMBER Alert was injected into the platform. A volunteer with an iPhone began scanning license plates on a public road. Forty-seven seconds later, the system had matched the target plate at 99% confidence, attached a golden frame photograph, and dispatched an alert to Discord with sub-meter GPS coordinates. This paper describes the architecture that produced those numbers&thinsp;&mdash;&thinsp;the multi-source scoring cascade, the five-second aggregation window, the composite confidence model, and the alert dispatch chain&thinsp;&mdash;&thinsp;and places them in the context of traditional ALPR response times.</p>
+  </div>
+
+  <h2>Test Methodology</h2>
+
+  <p>The test was conducted on June 7, 2026, at approximately 14:15 UTC in Carrollton, Georgia (33.6271&deg;N, 85.0929&deg;W). The objective was to validate the complete detection pipeline from alert injection through volunteer notification, plate scanning, server-side recognition, confidence scoring, watchlist matching, and alert dispatch.</p>
+
+  <h3>Setup</h3>
+
+  <p>All four PM2 processes were running: the FastAPI backend, the Next.js frontend, the unified worker, and the RTMP monitor. The FEMA IPAWS, NWS, and NCMEC pollers were all online and actively polling. The test used the <strong>phone camera pipeline</strong>&thinsp;&mdash;&thinsp;a volunteer scanning with an iPhone, uploading JPEG frames to <code>POST /ingest/frame</code> at approximately one frame per second for server-side ALPR processing.</p>
+
+  <p>The test scenario: a demo AMBER Alert for plate <strong>YVJ024</strong> was injected via the admin panel. This created a <code>vehicle_targets</code> record (unlocking the camera gate on the mobile app), a <code>watchlist</code> entry, and fired push notifications to all volunteers with nationwide alert scope. The volunteer then opened the app, tapped Start Mission, and pointed their phone camera at the target plate on a real vehicle on a real road.</p>
+
+  <p>This was not a bench test. It was not a controlled lab. It was a phone, a road, and a license plate in daylight conditions.</p>
+
+  <h2>Results</h2>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num purple">47s</span>
+      <span class="label">alert injection to first Discord hit (phone)</span>
+      <span class="cite">June 7, 2026 E2E test</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num purple">99%</span>
+      <span class="label">peak composite confidence score</span>
+      <span class="cite">Second detection event</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num purple">&lt;1m</span>
+      <span class="label">GPS accuracy (phone, stationary)</span>
+      <span class="cite">iPhone GPS, 1 Hz telemetry</span>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num amber">23</span>
+      <span class="label">frames processed before first hit</span>
+      <span class="cite">~1 fps over 23s scanning window</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">95.15%</span>
+      <span class="label">confidence on first detection event</span>
+      <span class="cite">Raw ALPR 90.2%, boosted to 93%</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">2</span>
+      <span class="label">alerted detection events in 5 seconds</span>
+      <span class="cite">Both with golden frames saved</span>
+    </div>
+  </div>
+
+  <h3>What These Numbers Mean Operationally</h3>
+
+  <p><strong>47 seconds</strong> is the time from the moment an alert was injected to the moment a Discord notification appeared with a photograph, a plate number, a confidence score, and a GPS location. That number includes the time for the volunteer to receive the push notification, open the app, tap Start Mission, begin scanning, and process approximately 23 frames before the first match. The actual server-side processing time&thinsp;&mdash;&thinsp;from frame upload to Discord dispatch&thinsp;&mdash;&thinsp;was under two seconds.</p>
+
+  <p><strong>99% confidence</strong> is the composite score after the aggregation window applied multi-frame repetition bonuses, consistency bonuses, and vehicle corroboration scoring. The raw ALPR confidence on the best single frame was 90.2%. The system elevated it to 99% by observing the same plate across multiple frames within a five-second window and confirming internal consistency. This is not a single-frame guess&thinsp;&mdash;&thinsp;it is a multi-observation statistical judgment.</p>
+
+  <p><strong>Sub-meter GPS</strong> was achieved using the volunteer's phone GPS at 1 Hz telemetry reporting. The volunteer was stationary to slow-walking (0&ndash;0.9 m/s) at the time of detection. Five telemetry points recorded during the detection window showed a spread of less than one meter. The altitude reading (~331 m / 1,085 ft above sea level) is consistent with the known elevation of Carrollton, Georgia.</p>
+
+  <div class="pullquote">
+    <p>"These are not simulation numbers. They are from a phone, a road, and a license plate in Carrollton, Georgia on a Saturday afternoon."</p>
+  </div>
+
+  <h2>Pipeline Architecture</h2>
+
+  <p>Amber's Angels operates two distinct detection pipelines. Both feed into the same aggregation and alert dispatch chain, but they differ in how frames are captured and where ALPR processing occurs.</p>
+
+  <h3>Phone Camera Pipeline</h3>
+
+  <p>The phone camera path was used in the June 7 test. A volunteer's phone captures JPEG frames and uploads them via <code>POST /ingest/frame</code> (pilot JWT required, 25 MB frame size limit, image content-type enforced). On the server:</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Phone Camera Detection Flow</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Frame upload.</strong> The mobile app captures a JPEG and POSTs it to the server with drone_id, GPS coordinates (lat, lng, altitude, heading, speed, accuracy), and pilot authentication.</li>
+        <li><strong>CLAHE enhancement.</strong> If the initial ALPR pass returns no results or low confidence, the frame is preprocessed with Contrast Limited Adaptive Histogram Equalization (CLAHE) on the luminance channel&thinsp;&mdash;&thinsp;clip limit 2.0, 8&times;8 tile grid&thinsp;&mdash;&thinsp;and ALPR is run again on the enhanced frame.</li>
+        <li><strong>Perspective deskew.</strong> For each detected plate, OpenALPR returns four corner coordinates. If the plate was captured at an angle, those corners describe a trapezoid. The system applies a perspective transform to warp the plate region into a flat rectangle (400&times;85 px, scaled 3&times;), applies a second CLAHE pass (clip limit 3.0, 4&times;4 grid), and re-runs ALPR on the deskewed crop. If the deskewed confidence exceeds the original, it replaces the result.</li>
+        <li><strong>Vehicle classification.</strong> YOLOv8-nano identifies vehicles in the frame by COCO class (car, truck, motorcycle, bus) with bounding box coordinates and detection confidence. Dominant color is extracted from the upper 60% of the bounding box using k-means clustering in HSV color space (k=3) against eleven named color centroids. A second-stage classifier (CDC/MobileNetV3) runs on the cropped bounding box for fine-grained make/model/generation identification.</li>
+        <li><strong>Plate Recognizer cloud API.</strong> Called only when the ALPR confidence on the best plate exceeds the single-frame high-confidence threshold of 70%. Returns independent make, model, color, and body type information. This preserves the free-tier quota of 2,500 lookups per month by avoiding calls on low-confidence frames.</li>
+        <li><strong>Aggregation and scoring.</strong> The detection is fed into the AggregationService (described below) for composite scoring within a five-second window.</li>
+        <li><strong>Event persistence and alert dispatch.</strong> The EventService persists the detection event and, if the composite score meets the HIGH_CONFIDENCE threshold and the plate matches the active watchlist, dispatches alerts to Discord (with the golden frame attached), optional Twilio SMS, and Expo push notifications to coordinators.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>Drone RTMP Pipeline</h3>
+
+  <p>The drone path is architecturally different. A DJI drone streams video via RTMP to an nginx server configured with <code>exec_push</code>. ffmpeg extracts JPEG frames and writes them to <code>test_plates/&lt;drone_id&gt;/</code>. The unified worker process picks up new frames, runs the same OpenALPR + YOLOv8-nano + Plate Recognizer cascade, and POSTs detections to <code>POST /detections/</code> with an internal API key.</p>
+
+  <p>The key difference: the drone has no onboard GPS accessible to the worker. The backend falls back to the pilot's most recent phone telemetry (within the last 10 minutes) for location data. This means drone detection locations reflect the operator's position, not the drone's position&thinsp;&mdash;&thinsp;an acceptable approximation when the drone is operating within visual line of sight (400 m default VLOS radius).</p>
+
+  <p>Models are loaded once at worker startup and shared across all drone streams. Adding a second or third simultaneous drone costs zero additional RAM. Frames are deleted after processing to prevent accumulation.</p>
+
+  <h2>Confidence Scoring</h2>
+
+  <p>A single ALPR read on a single frame is unreliable. License plates are dirty, angled, partially occluded, motion-blurred, or shot through windshields. A system that acts on single-frame confidence will either fire too many false alerts (threshold too low) or miss real matches (threshold too high). The Amber's Angels pipeline addresses this with a <strong>composite scoring model</strong> that fuses multiple signals across a time window.</p>
+
+  <h3>Detection Floor and Aggregation Window</h3>
+
+  <p>Individual detections below <strong>55% raw ALPR confidence</strong> are discarded immediately. Plates shorter than 5 characters or longer than 10 are rejected. These filters eliminate the noise that OCR engines produce on road signs, bumper stickers, and other non-plate text before any scoring begins.</p>
+
+  <p>Detections that pass the floor are grouped into an <strong>ActiveDetectionGroup</strong> by drone ID and normalized plate text within a <strong>five-second aggregation window</strong>. Plate normalization strips non-alphanumeric characters and uppercases. Plates are matched across frames using a fuzzy comparator that accounts for common OCR confusions: O/0, I/1, B/8, S/5, Z/2, G/6. Two plates match if they have the same length and differ by at most one character (including substitutions within the confusion set).</p>
+
+  <p>This five-second window is the core of the system's reliability. A single frame might read "YVJ024" at 90% confidence. Another frame half a second later might read the same plate at 85%. A third might read "YVJ0Z4" at 78%. The aggregation window collects all three, recognizes them as the same plate (the Z/2 confusion is in the known set), and builds a composite score from the group.</p>
+
+  <h3>Composite Score Formula</h3>
+
+  <p>The composite confidence score combines five signal categories:</p>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Weight / Value</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Peak confidence</strong></td>
+        <td class="mono">50% weight</td>
+        <td>The highest raw ALPR confidence in the group anchors the score.</td>
+      </tr>
+      <tr>
+        <td><strong>Mean confidence</strong></td>
+        <td class="mono">30% weight</td>
+        <td>The average across all readings in the group. Penalizes groups where one frame was good but the rest were poor.</td>
+      </tr>
+      <tr>
+        <td><strong>Median confidence</strong></td>
+        <td class="mono">10% weight</td>
+        <td>Robust central tendency&thinsp;&mdash;&thinsp;resistant to single outlier reads.</td>
+      </tr>
+      <tr>
+        <td><strong>Repetition bonus</strong></td>
+        <td class="mono">+5 (2 reads) / +10 (3+)</td>
+        <td>Rewards consistency. Seeing the same plate across multiple frames is strong evidence.</td>
+      </tr>
+      <tr>
+        <td><strong>Consistency bonus</strong></td>
+        <td class="mono">+5 (if ratio &ge; 75%)</td>
+        <td>Fires when the dominant plate hypothesis accounts for at least 75% of all readings in the group.</td>
+      </tr>
+      <tr>
+        <td><strong>Vehicle corroboration</strong></td>
+        <td class="mono">0&ndash;8 pts</td>
+        <td>YOLO color agreement (+2), body type agreement (+2), CDC generational match (+4), plus a YOLO confidence signal (&plusmn;3).</td>
+      </tr>
+      <tr>
+        <td><strong>Bayesian prior</strong></td>
+        <td class="mono">log&#8322; scale &times; 4</td>
+        <td>Geometric mean of prior weights across active alert profiles. A minivan during an AMBER Alert (prior&thinsp;=&thinsp;3.67) adds ~7 points; a motorcycle (prior&thinsp;=&thinsp;0.5) subtracts 4.</td>
+      </tr>
+      <tr>
+        <td><strong>Quality penalty</strong></td>
+        <td class="mono">&minus;5 per persistent flag (max &minus;15)</td>
+        <td>Penalizes groups where every frame has the same quality issue: motion blur, skew, low size, partial plate, compression artifacts, or far distance.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The final composite is clamped to a maximum of 99.0. In the June 7 test, the second detection event reached this ceiling: raw ALPR at 85.2% was boosted to 93% by the phone-side processing, then the aggregation window applied repetition and consistency bonuses across frames to reach the 99% cap.</p>
+
+  <h3>Classification Thresholds</h3>
+
+  <p>The composite score determines the event's classification and whether an alert fires:</p>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Classification</th>
+        <th>Score Threshold</th>
+        <th>Min Support</th>
+        <th>Alert?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>HIGH_CONFIDENCE</strong></td>
+        <td class="mono">&ge; 85</td>
+        <td class="mono">&ge; 3 readings</td>
+        <td>Yes&thinsp;&mdash;&thinsp;Discord + SMS + push</td>
+      </tr>
+      <tr>
+        <td><strong>PROBABLE</strong></td>
+        <td class="mono">&ge; 75</td>
+        <td class="mono">&ge; 2 readings</td>
+        <td>Yes&thinsp;&mdash;&thinsp;Discord + push</td>
+      </tr>
+      <tr>
+        <td><strong>WEAK</strong></td>
+        <td class="mono">&lt; 75</td>
+        <td class="mono">any</td>
+        <td>No&thinsp;&mdash;&thinsp;persisted for review only</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Both PROBABLE and HIGH_CONFIDENCE classifications require a <strong>minimum support count</strong>&thinsp;&mdash;&thinsp;the plate must be seen across multiple frames, not just once. A single 90% read does not trigger an alert. Three 90% reads within five seconds do. This is a deliberate trade-off: the system will not fire on a single frame, even a very good one, because the cost of a false positive in a missing persons context is not zero.</p>
+
+  <h2>Alert Dispatch Chain</h2>
+
+  <p>When a detection event meets the alert threshold, the EventService verifies two conditions before dispatching:</p>
+
+  <p><strong>Watchlist match.</strong> The detected plate must match an active entry in the watchlist table. The match uses fuzzy comparison: same length, at most one character difference. This catches OCR-level noise (reading "YVJ0Z4" against watchlist entry "YVJ024") without producing cross-plate false positives.</p>
+
+  <p><strong>Cooldown check.</strong> If the same plate on the same drone was already alerted, a <strong>120-second cooldown</strong> suppresses duplicate alerts. A volunteer scanning the same parked car for two minutes should produce one alert, not thirty. A <strong>five-minute reopen window</strong> allows a detection to reopen a recently-closed event rather than creating a duplicate&thinsp;&mdash;&thinsp;if the same plate is seen again within five minutes, it updates the existing event rather than spawning a new one.</p>
+
+  <p>On passing both checks, the dispatch chain fires in parallel:</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Alert Dispatch Chain</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Discord webhook.</strong> A structured embed is posted to the alert channel with: plate text, drone/device ID, confidence percentage, alert type (AMBER, Silver, Purple, etc.), source program, alert description, GPS coordinates with a Google Maps link, and a vehicle profile comparison block showing YOLO-detected color and body type versus the watchlist profile. If a golden frame exists, it is attached as an image embed. If the detection came from on-device OCR (no frame uploaded), the embed notes this explicitly.</li>
+        <li><strong>Vehicle profile mismatch routing.</strong> If the detected vehicle's color or body type contradicts the watchlist profile, a mismatch penalty is applied (up to &minus;12 points for color, &minus;8 for body type). If the penalized confidence drops below 60%, the alert is routed to a separate mismatch channel for triage rather than the primary alert channel.</li>
+        <li><strong>Twilio SMS.</strong> If the composite confidence meets the SMS threshold (default 90%) and Twilio credentials are configured, a text message is sent to all opted-in coordinators and admins with the plate, confidence, drone ID, and a Google Maps link.</li>
+        <li><strong>Expo push notification.</strong> A high-priority push notification is sent to all approved coordinators and admins with a registered push token. The notification title includes the alert type and plate; the body includes the confidence and GPS coordinates.</li>
+        <li><strong>Database logging.</strong> The detection event status is updated to ALERTED, and the golden frame URL is persisted for future reference and evidence chain-of-custody.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>Test Timeline</h2>
+
+  <p>The complete sequence of events from the June 7 test, as recorded in API server logs and the PostgreSQL database:</p>
+
+  <div class="timeline">
+    <div class="timeline-row">
+      <span class="timeline-time">14:13:25</span>
+      <span class="timeline-event"><strong>API restarted.</strong> FEMA IPAWS, NCMEC, and EAS pollers confirmed online.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">14:15:57</span>
+      <span class="timeline-event"><strong>Demo AMBER Alert injected.</strong> Plate YVJ024, Carroll County GA. Vehicle target record created (camera gate unlocked). Named mission auto-created: "AMBER Alert &ndash; Carrollton GA." Push notification sent to all nationwide pilots.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">~14:16:00</span>
+      <span class="timeline-event"><strong>Volunteer activated.</strong> App opened, Start Mission tapped. Active mission title displayed in camera HUD.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">~14:16:20</span>
+      <span class="timeline-event"><strong>Scanning began.</strong> Phone camera uploading ~1 frame/sec to <code>POST /ingest/frame</code>. Server-side ALPR + YOLO running on each frame.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">14:16:43</span>
+      <span class="timeline-event"><strong>First watchlist hit.</strong> YVJ024 detected at raw ALPR 90.2%, boosted to 93%. Alert triggered. Discord dispatch with frame attached. Detection event created at 95.15% composite confidence, status=alerted.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">14:16:47</span>
+      <span class="timeline-event"><strong>Second watchlist hit.</strong> YVJ024 at raw ALPR 85.2%, boosted to 93%. Alert triggered. Detection event created at <strong>99% composite confidence</strong>, status=alerted. Two golden frames saved to evidence directory.</span>
+    </div>
+  </div>
+
+  <p>Total elapsed time from alert injection (14:15:57) to first Discord hit (14:16:43): <strong>46 seconds</strong>. Of that, approximately 20 seconds was human latency (opening the app, tapping Start Mission, walking to the vehicle). The remaining 23 seconds was frame processing&thinsp;&mdash;&thinsp;23 frames at ~1 fps before the first successful match.</p>
+
+  <h2>Comparison with Traditional ALPR Response</h2>
+
+  <p>Traditional ALPR systems operate in two modes: fixed-installation readers (toll plazas, highway overpasses, parking structures) and mobile readers (patrol car roof-mounted cameras). Both are <em>passive observation</em> systems. They read plates that happen to pass by. They do not respond to alerts.</p>
+
+  <p>The response time for a traditional ALPR-generated alert depends entirely on whether the target vehicle happens to pass an instrumented point. In a city like Carrollton, Georgia (population ~27,000), there are no fixed ALPR installations on public roads. A patrol car with a mobile reader covers its patrol route and nothing else. The probability of a single patrol car encountering a specific vehicle on a specific route within the first hour is low. Within the first minute, it is effectively zero.</p>
+
+  <p>Amber's Angels inverts this model. Instead of waiting for the target to come to the sensor, the platform pushes the alert to a network of volunteer sensors who are already on the roads. The detection is <em>active</em>&thinsp;&mdash;&thinsp;the volunteer is scanning deliberately, not incidentally. The 47-second performance is not a lucky pass by a fixed reader. It is the result of a directed scan by a notified volunteer who knew what to look for.</p>
+
+  <p>The distinction matters for coverage. A city with three patrol cars running mobile ALPR covers three routes. A city with fifty volunteers running the Amber's Angels app covers fifty routes. The marginal cost of adding the fifty-first volunteer is zero infrastructure.</p>
+
+  <h2>The Vehicle Profile Cascade</h2>
+
+  <p>Plate recognition alone does not tell you whether you found the right vehicle. A plate can be stolen, swapped, or misread. The detection pipeline addresses this with a three-stage vehicle identification cascade that runs on every frame:</p>
+
+  <p><strong>Stage 1: YOLOv8-nano.</strong> Detects vehicles by COCO class (car, truck, motorcycle, bus) with bounding box coordinates and confidence score. Dominant color is extracted from the upper 60% of the bounding box&thinsp;&mdash;&thinsp;avoiding wheels and plates&thinsp;&mdash;&thinsp;using k-means clustering in HSV color space against eleven named color centroids (red, orange, yellow, green, blue, purple, white, silver, gray, black, plus a second red centroid for the hue wraparound). Saturation-weighted Euclidean distance determines the closest named color.</p>
+
+  <p><strong>Stage 2: CDC (ChaDongCha) MobileNetV3.</strong> A fine-grained generational classifier runs on the YOLO bounding box crop. This identifies not just "Toyota Camry" but "Toyota Camry XV70"&thinsp;&mdash;&thinsp;the specific generation. When the watchlist says the target vehicle is a Toyota and the CDC classifier identifies a Toyota Camry XV70, the system awards a <strong>+4 point</strong> corroboration bonus. This is a stronger signal than color or body type alone, because generational identification is specific enough to be discriminative.</p>
+
+  <p><strong>Stage 3: Plate Recognizer cloud API.</strong> Called only when single-frame ALPR confidence exceeds 70%, to preserve the free-tier quota of 2,500 lookups per month. Returns an independent make, model, color, and body type assessment. These attributes enrich the detection but do not gate the alert&thinsp;&mdash;&thinsp;if Plate Recognizer is unavailable, the pipeline continues with YOLO and CDC data alone.</p>
+
+  <p>The cascade is intentionally layered: YOLO is fast and local, CDC is local but more specific, and Plate Recognizer is a cloud call reserved for high-confidence frames. If any layer fails or is unavailable, the pipeline degrades gracefully rather than blocking.</p>
+
+  <h2>On-Device vs. Server-Side Processing</h2>
+
+  <p>The June 7 test used the server-side ALPR path (phone uploads raw JPEG frames). Amber's Angels also operates a second, privacy-preserving path for background scanning: Android's ML Kit text recognition runs <strong>entirely on-device</strong>. No frames leave the volunteer's phone. Only plate text, confidence, and GPS coordinates are transmitted to the server via <code>POST /ingest/detection</code>.</p>
+
+  <p>The on-device path is the default volunteer experience. It trades the server-side pipeline's multi-model cascade (CLAHE, deskew, YOLO, CDC, Plate Recognizer) for a guarantee that raw images never leave the volunteer's phone. This is a non-negotiable privacy property: volunteers are private citizens scanning public roads, and the system must respect that. The phone camera pipeline (server-side ALPR) is an explicit opt-in action&thinsp;&mdash;&thinsp;the volunteer taps Start Mission, understands that frames are being uploaded, and is actively participating in a directed search.</p>
+
+  <p>Both paths feed into the same AggregationService and EventService. Both can trigger watchlist hit alerts. The difference is in the richness of the data: server-side processing produces vehicle color, body type, make/model, and a golden frame for evidence. On-device processing produces a plate and a confidence score. For the purpose of locating a missing person's vehicle, both are sufficient. For the purpose of building an evidence package for law enforcement, the server-side path is superior.</p>
+
+  <h2>Limitations</h2>
+
+  <p><strong>Single test, single location.</strong> The June 7 numbers come from one test in one city under favorable conditions (daylight, stationary vehicle, cooperative plate angle). Real-world performance will vary with plate condition, speed, lighting, weather, camera quality, and network latency. These numbers should be treated as a validated baseline, not a guarantee.</p>
+
+  <p><strong>Phone camera frame rate.</strong> The test achieved approximately 1 frame per second. This is limited by the upload bandwidth and server processing time per frame. Higher frame rates would reduce time-to-first-hit but increase server load and bandwidth consumption. The current rate is a deliberate balance.</p>
+
+  <p><strong>Controlled target.</strong> The test plate (YVJ024) was known and stationary. A real alert involves a moving vehicle that may pass a volunteer's position for only a few seconds. The 23-frame window to first hit suggests that the system needs approximately 20 seconds of continuous observation to produce a match. A vehicle passing at 35 mph provides perhaps 3&ndash;5 seconds of readable plate angle. Multi-volunteer coverage at chokepoints (intersections, parking lot exits) partially addresses this.</p>
+
+  <p><strong>YOLO color accuracy.</strong> The HSV k-means approach for vehicle color classification is adequate but not precise. Dark blue and black are frequently confused. Red and orange are sometimes conflated. Color accuracy is an enrichment signal, not a gating criterion&thinsp;&mdash;&thinsp;the system does not suppress an alert because YOLO called the car "gray" when the watchlist says "silver." It applies a mismatch penalty and routes to triage.</p>
+
+  <p><strong>Network dependency.</strong> The phone camera pipeline requires a cellular data connection for frame upload. In rural areas or dead zones, frames will queue or fail. The on-device ML Kit path continues scanning offline and transmits only the lightweight detection result (plate text + confidence + GPS) when connectivity resumes.</p>
+
+  <h2>Conclusion</h2>
+
+  <p>Forty-seven seconds from alert to hit. That number was not produced by a fixed installation at a toll plaza or a patrol car that happened to be in the right place. It was produced by a volunteer with a phone who was notified, responded, and scanned&thinsp;&mdash;&thinsp;all within a minute.</p>
+
+  <p>The architecture behind that number is not a single clever algorithm. It is a pipeline: noise filtering at the detection floor, multi-frame grouping within a five-second window, composite scoring that rewards consistency and punishes ambiguity, vehicle profile corroboration that catches misreads before they become false alerts, and a dispatch chain that puts a photograph, a GPS pin, and a confidence score in front of a coordinator within seconds of a match.</p>
+
+  <p>These are early numbers from a platform that has not yet operated during a real alert. They will be refined by real-world deployment. But they establish a baseline: a volunteer network running this pipeline can produce a high-confidence, GPS-located, photographically-documented detection in under a minute. For a parent, a caregiver, or a detective working a missing persons case, that minute matters.</p>
+
+  <div class="cta">
+    <p>Amber's Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>Amber's Angels E2E Test Log, June 7, 2026. Internal test documentation, Carrollton, GA.</li>
+    <li>OpenALPR. "Automatic License Plate Recognition." <a href="https://github.com/openalpr/openalpr">github.com/openalpr/openalpr</a></li>
+    <li>Ultralytics. "YOLOv8 — State-of-the-Art Object Detection." <a href="https://docs.ultralytics.com/">docs.ultralytics.com</a></li>
+    <li>Plate Recognizer. "Snapshot API Documentation." <a href="https://docs.platerecognizer.com/">docs.platerecognizer.com</a></li>
+    <li>Pizer, S. M. et al. "Adaptive Histogram Equalization and Its Variations." <em>Computer Vision, Graphics, and Image Processing</em>, 39(3), 1987.</li>
+    <li>FEMA. "Integrated Public Alert and Warning System (IPAWS)." <a href="https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system">fema.gov/ipaws</a></li>
+    <li>IACP. "Automated License Plate Readers: Policy and Operational Guidance." International Association of Chiefs of Police, 2024. <a href="https://www.theiacp.org/">theiacp.org</a></li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber's Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-005 &middot; Published June 23, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>

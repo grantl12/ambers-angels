@@ -8,6 +8,22 @@ export const metadata: Metadata = {
 
 const PAPERS = [
   {
+    id: 'AA-2026-005',
+    slug: 'detection-pipeline-performance',
+    title: 'Detection Pipeline Performance: Sub-Minute Alert-to-Hit',
+    date: 'June 23, 2026',
+    abstract: 'Actual performance numbers from a live system test — 47 seconds alert-to-hit, 99% peak confidence, sub-meter GPS — and the pipeline architecture that makes them possible.',
+    tags: ['Performance', 'Detection', 'ALPR', 'E2E Test'],
+  },
+  {
+    id: 'AA-2026-002',
+    slug: 'on-device-inference',
+    title: 'On-Device Inference: Privacy by Architecture, Not Policy',
+    date: 'June 23, 2026',
+    abstract: 'How architectural separation of on-device OCR from server-side frame analysis creates a privacy guarantee that cannot be silently revoked — and why that matters for volunteer recruitment.',
+    tags: ['Privacy', 'On-Device', 'ML Kit', 'Architecture'],
+  },
+  {
     id: 'AA-2026-001',
     slug: 'purple-alert-water-search',
     title: 'Automated Water Search for Purple Alert Response',
