@@ -33,12 +33,15 @@ export type Drone = {
   last_seen_at: string | null
 }
 
+export type MissionType = 'observation' | 'sweep' | 'water_search'
+
 export type Mission = {
   id: number
   alert_id: string
   drone_id: number
   status: string
   operation_mode: OperationMode
+  mission_type?: MissionType
   observation_lat: number | null
   observation_lng: number | null
   waypoints: WaypointMissionPoint[]
@@ -46,6 +49,19 @@ export type Mission = {
   speed_mps: number
   created_at: string
   progress_pct: number
+  water_body_id?: string
+  water_body_name?: string
+}
+
+export type WaterBody = {
+  id: string
+  name: string | null
+  water_type: string
+  centroid_lat: number
+  centroid_lng: number
+  area_sqm: number | null
+  distance_km: number
+  polygon_geojson: object
 }
 
 // ---------------------------------------------------------------------------
@@ -205,4 +221,45 @@ export async function updateMissionStatus(
     },
   )
   await parseResponse<unknown>(res)
+}
+
+// ---------------------------------------------------------------------------
+// Water search (Purple Alert)
+// ---------------------------------------------------------------------------
+
+export async function fetchNearbyWaterBodies(
+  token: string,
+  lat: number,
+  lng: number,
+  radiusKm: number = 5.0,
+): Promise<WaterBody[]> {
+  const res = await fetch(
+    `${apiBase()}/autonomous/water-bodies?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`,
+    { headers: authHeaders(token) },
+  )
+  return parseResponse<WaterBody[]>(res)
+}
+
+export type WaterSearchDispatchRequest = {
+  alert_id: string
+  drone_id: number
+  water_body_id: string
+  water_body_name: string | null
+  polygon_geojson: object
+  buffer_m?: number
+  altitude_m?: number
+  speed_mps?: number
+  operation_mode: OperationMode
+}
+
+export async function dispatchWaterSearchMission(
+  token: string,
+  req: WaterSearchDispatchRequest,
+): Promise<{ id: number }> {
+  const res = await fetch(`${apiBase()}/autonomous/plan-water-search`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(req),
+  })
+  return parseResponse<{ id: number }>(res)
 }

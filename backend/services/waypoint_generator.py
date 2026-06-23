@@ -97,6 +97,81 @@ def generate_lawnmower(
     return waypoints
 
 
+# ---------------------------------------------------------------------------
+# Public API — Water Perimeter (shoreline search)
+# ---------------------------------------------------------------------------
+
+def generate_water_perimeter(
+    polygon_geojson: dict,
+    buffer_m: float = 20.0,
+    altitude_m: float = 15.0,
+    speed_mps: float = 3.0,
+    max_waypoints: int = 98,
+) -> list[dict]:
+    """
+    Generate waypoints tracing the shoreline of a water body polygon at a
+    safe buffer distance from shore.
+
+    The buffer keeps the drone clear of overhanging trees and obstacles.
+    At 15m altitude with an 84° HFOV camera, the drone covers the water
+    surface and immediate shoreline.
+
+    Returns a closed loop of waypoints (last connects back to first).
+    Returns [] if the polygon is too small or malformed.
+    """
+    coords = _extract_exterior_coords(polygon_geojson)
+    if len(coords) < 3:
+        return []
+
+    lat0, lng0 = _centroid_latlon(coords)
+    pts_m = _project_to_metric(coords, lat0, lng0)
+
+    # Close the ring if not already closed
+    if not np.allclose(pts_m[0], pts_m[-1], atol=0.1):
+        pts_m = np.vstack([pts_m, pts_m[0:1]])
+
+    offset_pts = _offset_polygon_outward(pts_m, buffer_m)
+    if len(offset_pts) < 3:
+        return []
+
+    # Remove the closing point before simplification
+    open_pts = offset_pts[:-1] if np.allclose(offset_pts[0], offset_pts[-1], atol=0.1) else offset_pts
+
+    simplified = _simplify_douglas_peucker(open_pts, tolerance_m=3.0)
+    while len(simplified) > max_waypoints and simplified is not None:
+        # Increase tolerance until we fit within DJI waypoint limit
+        tolerance = 3.0 * (len(simplified) / max_waypoints)
+        simplified = _simplify_douglas_peucker(open_pts, tolerance_m=tolerance)
+
+    if len(simplified) < 3:
+        return []
+
+    # Close the loop
+    simplified = np.vstack([simplified, simplified[0:1]])
+
+    waypoints = []
+    for i, (x, y) in enumerate(simplified):
+        lat, lng = _unproject_from_metric(x, y, lat0, lng0)
+        if i == 0:
+            hdg = 0.0
+        else:
+            prev = waypoints[-1]
+            hdg = _heading_deg(prev["lat"], prev["lng"], lat, lng)
+        waypoints.append({
+            "lat": round(lat, 8),
+            "lng": round(lng, 8),
+            "altitude_m": altitude_m,
+            "heading_deg": round(hdg, 1),
+            "speed_mps": speed_mps,
+        })
+
+    # Fix first waypoint heading
+    if len(waypoints) >= 2:
+        waypoints[0]["heading_deg"] = waypoints[1]["heading_deg"]
+
+    return waypoints
+
+
 def estimate_mission_duration_minutes(
     waypoints: list[dict],
     speed_mps: float = 8.0,
@@ -338,3 +413,108 @@ def _build_waypoints(
         waypoints[0]["heading_deg"] = waypoints[1]["heading_deg"]
 
     return waypoints
+
+
+# ---------------------------------------------------------------------------
+# Water perimeter helpers
+# ---------------------------------------------------------------------------
+
+def _offset_polygon_outward(pts_m: np.ndarray, buffer_m: float) -> np.ndarray:
+    """
+    Offset a polygon outward by buffer_m metres using edge-normal method.
+    Falls back to simple radial offset from centroid if offset self-intersects.
+    """
+    n = len(pts_m) - 1  # exclude closing point
+    if n < 3:
+        return pts_m
+
+    # Compute outward normals for each edge
+    normals = []
+    for i in range(n):
+        dx = pts_m[(i + 1) % n][0] - pts_m[i][0]
+        dy = pts_m[(i + 1) % n][1] - pts_m[i][1]
+        length = math.sqrt(dx * dx + dy * dy)
+        if length < 1e-9:
+            normals.append((0.0, 0.0))
+            continue
+        # Outward normal (assuming CCW winding)
+        nx, ny = dy / length, -dx / length
+        normals.append((nx, ny))
+
+    # Check winding order — if CW, flip normals
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += pts_m[i][0] * pts_m[j][1]
+        area -= pts_m[j][0] * pts_m[i][1]
+    if area > 0:  # CW winding
+        normals = [(-nx, -ny) for nx, ny in normals]
+
+    # Offset each edge and find intersections of consecutive offset edges
+    offset_pts = []
+    for i in range(n):
+        prev = (i - 1) % n
+        p1 = pts_m[prev] + np.array(normals[prev]) * buffer_m
+        p2 = pts_m[i] + np.array(normals[prev]) * buffer_m
+        p3 = pts_m[i] + np.array(normals[i]) * buffer_m
+        p4 = pts_m[(i + 1) % n] + np.array(normals[i]) * buffer_m
+
+        intersection = _line_line_intersect(p1, p2, p3, p4)
+        if intersection is not None:
+            offset_pts.append(intersection)
+        else:
+            offset_pts.append(pts_m[i] + np.array(normals[i]) * buffer_m)
+
+    if len(offset_pts) < 3:
+        return pts_m
+
+    result = np.array(offset_pts, dtype=float)
+    result = np.vstack([result, result[0:1]])
+    return result
+
+
+def _line_line_intersect(
+    p1: np.ndarray, p2: np.ndarray,
+    p3: np.ndarray, p4: np.ndarray,
+) -> np.ndarray | None:
+    """Find intersection point of line (p1-p2) and line (p3-p4)."""
+    d1 = p2 - p1
+    d2 = p4 - p3
+    cross = d1[0] * d2[1] - d1[1] * d2[0]
+    if abs(cross) < 1e-10:
+        return None
+    t = ((p3[0] - p1[0]) * d2[1] - (p3[1] - p1[1]) * d2[0]) / cross
+    return p1 + t * d1
+
+
+def _simplify_douglas_peucker(
+    pts: np.ndarray,
+    tolerance_m: float,
+) -> np.ndarray:
+    """Douglas-Peucker polyline simplification."""
+    if len(pts) <= 2:
+        return pts
+
+    d_max = 0.0
+    idx = 0
+    p1 = pts[0]
+    p2 = pts[-1]
+    line_vec = p2 - p1
+    line_len = np.linalg.norm(line_vec)
+
+    for i in range(1, len(pts) - 1):
+        if line_len < 1e-10:
+            d = np.linalg.norm(pts[i] - p1)
+        else:
+            d = abs(line_vec[1] * (pts[i][0] - p1[0])
+                    - line_vec[0] * (pts[i][1] - p1[1])) / line_len
+        if d > d_max:
+            d_max = d
+            idx = i
+
+    if d_max > tolerance_m:
+        left = _simplify_douglas_peucker(pts[:idx + 1], tolerance_m)
+        right = _simplify_douglas_peucker(pts[idx:], tolerance_m)
+        return np.vstack([left[:-1], right])
+    else:
+        return np.array([pts[0], pts[-1]])

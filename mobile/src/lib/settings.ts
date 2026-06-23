@@ -20,7 +20,7 @@ export const DEFAULTS: AppSettings = {
   apiBaseUrl: "https://amberangels.org/api",
   droneId: "phone-1",
   pilotId: "",
-  captureIntervalSec: 5,
+  captureIntervalSec: 3,
   alertRangeMiles: 25,
   notifOutsidePolygon: true,
   volunteerMode: "phone",

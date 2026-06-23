@@ -55,7 +55,9 @@ const HEARTBEAT_INTERVAL_MS = 30_000
 
 type ActiveMission = {
   id: number
-  state: MissionState
+  state: MissionState | 'ready_for_control'
+  missionType?: string
+  waterBodyName?: string
   progressPct: number
   waypointIndex?: number
   totalWaypoints?: number
@@ -263,16 +265,26 @@ export default function AutonomousMissionScreen() {
         )
 
         if (state === 'finished') {
-          try {
-            await updateMissionStatus(jwt, missionId, 'completed', 100)
-          } catch {
-            // best-effort
-          }
-          setActive(null)
-          unsubRef.current?.()
-          unsubRef.current = null
-          // Refresh pending list.
-          loadMissions(jwt)
+          setActive((prev) => {
+            if (prev?.missionType === 'water_search') {
+              // Water search: transition to ready_for_control instead of completing
+              updateMissionStatus(jwt, missionId, 'ready_for_control', 100).catch(() => {})
+              return { ...prev, state: 'ready_for_control', progressPct: 100 }
+            }
+            // Standard mission: complete immediately
+            updateMissionStatus(jwt, missionId, 'completed', 100).catch(() => {})
+            return null
+          })
+
+          // For non-water-search, clean up subscription and refresh
+          setActive((prev) => {
+            if (prev === null) {
+              unsubRef.current?.()
+              unsubRef.current = null
+              loadMissions(jwt)
+            }
+            return prev
+          })
         }
       })
     },
@@ -313,14 +325,14 @@ export default function AutonomousMissionScreen() {
       }
       try {
         await updateMissionStatus(token, mission.id, 'uploading', undefined, extras)
-        setActive({ id: mission.id, state: 'uploading', progressPct: 0 })
+        setActive({ id: mission.id, state: 'uploading', progressPct: 0, missionType: mission.mission_type, waterBodyName: mission.water_body_name })
 
         await startWaypointMission(mission.waypoints, {
           altitudeM: mission.altitude_m,
           speedMps: mission.speed_mps,
         })
 
-        setActive({ id: mission.id, state: 'executing', progressPct: 0 })
+        setActive({ id: mission.id, state: 'executing', progressPct: 0, missionType: mission.mission_type, waterBodyName: mission.water_body_name })
         await updateMissionStatus(token, mission.id, 'executing')
         subscribeToMission(mission.id, token)
 
@@ -364,6 +376,22 @@ export default function AutonomousMissionScreen() {
     }
   }, [token, active, loadMissions])
 
+  const handleCompleteWaterSearch = useCallback(async () => {
+    if (!token || !active) return
+    setActionPending(true)
+    try {
+      await updateMissionStatus(token, active.id, 'completed', 100)
+      setActive(null)
+      unsubRef.current?.()
+      unsubRef.current = null
+      loadMissions(token)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Complete failed.')
+    } finally {
+      setActionPending(false)
+    }
+  }, [token, active, loadMissions])
+
   // -------------------------------------------------------------------------
   // Render helpers
   // -------------------------------------------------------------------------
@@ -387,7 +415,13 @@ export default function AutonomousMissionScreen() {
           ]}>
             {OPERATION_MODE_LABELS[item.operation_mode] ?? item.operation_mode}
           </Text>
+          {item.mission_type === 'water_search' && (
+            <Text style={styles.waterSearchBadge}>WATER SEARCH</Text>
+          )}
         </View>
+        {item.water_body_name && (
+          <Text style={styles.waterBodyLabel}>{item.water_body_name}</Text>
+        )}
 
         <View style={styles.cardMeta}>
           <MetaItem label="Altitude" value={`${item.altitude_m} m AGL`} />
@@ -421,12 +455,17 @@ export default function AutonomousMissionScreen() {
               />
             </View>
             <Text style={styles.progressLabel}>
-              {active.state === 'uploading'
+              {active.state === 'ready_for_control'
+                ? `Perimeter complete — hovering at ${active.waterBodyName || 'water body'}`
+                : active.state === 'uploading'
                 ? 'Uploading waypoints…'
                 : active.totalWaypoints != null && active.totalWaypoints > 0
                   ? `Waypoint ${(active.waypointIndex ?? 0) + 1} of ${active.totalWaypoints} · ${active.progressPct}%`
                   : `${active.progressPct}% — ${active.state}`}
             </Text>
+            {active.state === 'ready_for_control' && (
+              <Text style={styles.readyForControlHint}>Coordinator has live camera view for visual search.</Text>
+            )}
             {batteryPct !== null && (
               <Text style={[
                 styles.batteryLabel,
@@ -438,6 +477,15 @@ export default function AutonomousMissionScreen() {
               </Text>
             )}
             <View style={styles.actionRow}>
+              {active.state === 'ready_for_control' && (
+                <TouchableOpacity
+                  style={[styles.completeBtn, actionPending && styles.btnDisabled]}
+                  onPress={handleCompleteWaterSearch}
+                  disabled={actionPending}
+                >
+                  <Text style={styles.completeBtnText}>Complete Mission</Text>
+                </TouchableOpacity>
+              )}
               {active.state === 'executing' && (
                 <TouchableOpacity
                   style={[styles.pauseBtn, actionPending && styles.btnDisabled]}
@@ -456,7 +504,7 @@ export default function AutonomousMissionScreen() {
                   <Text style={styles.resumeBtnText}>Resume</Text>
                 </TouchableOpacity>
               )}
-              {(active.state === 'executing' || active.state === 'interrupted') && (
+              {(active.state === 'executing' || active.state === 'interrupted' || active.state === 'ready_for_control') && (
                 <TouchableOpacity
                   style={[styles.rthBtn, actionPending && styles.btnDisabled]}
                   onPress={handleRTH}
@@ -905,6 +953,45 @@ const styles = StyleSheet.create({
     marginTop: 60,
     fontSize: 15,
   },
+  // Water search
+  waterSearchBadge: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: '#a78bfa',
+    backgroundColor: 'rgba(167,139,250,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.35)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  waterBodyLabel: {
+    fontSize: 12,
+    color: '#c4b5fd',
+    marginBottom: 6,
+  },
+  readyForControlHint: {
+    fontSize: 11,
+    color: '#a78bfa',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  completeBtn: {
+    flex: 1,
+    backgroundColor: '#a78bfa',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  completeBtnText: {
+    color: '#050a0f',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
   // Acknowledgment modal
   modalOverlay: {
     flex: 1,

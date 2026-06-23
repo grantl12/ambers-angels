@@ -27,10 +27,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   fetchAllDrones,
   dispatchMission,
+  dispatchWaterSearchMission,
+  fetchNearbyWaterBodies,
   isDroneOnline,
   OPERATION_MODE_LABELS,
   type Drone,
   type OperationMode,
+  type WaterBody,
 } from '../api/autonomous'
 import { fetchFemaAlerts, type FemaAlert } from '../api/fema'
 import { fetchAirTraffic, type Aircraft } from '../api/airspace'
@@ -55,6 +58,12 @@ export default function CoordinatorDispatchScreen() {
   const [speed,     setSpeed]     = useState('8')
   const [dispatching,     setDispatching]     = useState(false)
   const [successId,       setSuccessId]       = useState<number | null>(null)
+
+  // Water search (Purple Alert)
+  const [dispatchMode,    setDispatchMode]    = useState<'observation' | 'water_search'>('observation')
+  const [waterBodies,     setWaterBodies]     = useState<WaterBody[]>([])
+  const [loadingWater,    setLoadingWater]    = useState(false)
+  const [selectedWater,   setSelectedWater]   = useState<WaterBody | null>(null)
 
   // Map picker + airspace advisory
   const [showMapPicker,   setShowMapPicker]   = useState(false)
@@ -138,42 +147,82 @@ export default function CoordinatorDispatchScreen() {
     setMode('vlos')
     setSuccessId(null)
     setAircraftNearby([])
+    setDispatchMode('observation')
+    setWaterBodies([])
+    setSelectedWater(null)
   }
 
   function pickAlert(id: string) {
     setAlertId(id)
+    setSelectedWater(null)
     const a = alerts.find((a) => String(a.id) === id)
     if (a?.centroidLat != null && a?.centroidLng != null) {
       setObsLat(a.centroidLat.toFixed(5))
       setObsLng(a.centroidLng.toFixed(5))
     }
+
+    // Fetch water bodies for purple alerts
+    if (a?.alertType === 'purple' && a.centroidLat != null && a.centroidLng != null && token) {
+      setDispatchMode('water_search')
+      setAltitude('15')
+      setSpeed('3')
+      setLoadingWater(true)
+      fetchNearbyWaterBodies(token, a.centroidLat, a.centroidLng)
+        .then(setWaterBodies)
+        .catch(() => setWaterBodies([]))
+        .finally(() => setLoadingWater(false))
+    } else {
+      setDispatchMode('observation')
+      setWaterBodies([])
+      setAltitude('60')
+      setSpeed('8')
+    }
   }
 
   async function handleDispatch() {
     if (!token || !selected || !alertId) return
-    const lat = parseFloat(obsLat)
-    const lng = parseFloat(obsLng)
     const alt = parseFloat(altitude)
     const spd = parseFloat(speed)
-    if (isNaN(lat) || isNaN(lng)) {
-      Alert.alert('Missing location', 'Enter a valid latitude and longitude for the observation post.')
-      return
-    }
+
     if (mode === 'bvlos_tactical' && !selected.bvlos_authorized) {
       Alert.alert('Not authorized', 'This drone does not have a BVLOS waiver on file. An admin must set authorization before BVLOS dispatch.')
       return
     }
+
     setDispatching(true)
     try {
-      const res = await dispatchMission(token, {
-        alert_id:       alertId,
-        drone_id:       selected.id,
-        obs_lat:        lat,
-        obs_lng:        lng,
-        altitude_m:     isNaN(alt) ? 60 : alt,
-        speed_mps:      isNaN(spd) ? 8  : spd,
-        operation_mode: mode,
-      })
+      let res: { id: number }
+
+      if (dispatchMode === 'water_search' && selectedWater) {
+        res = await dispatchWaterSearchMission(token, {
+          alert_id:        alertId,
+          drone_id:        selected.id,
+          water_body_id:   selectedWater.id,
+          water_body_name: selectedWater.name,
+          polygon_geojson: selectedWater.polygon_geojson,
+          altitude_m:      isNaN(alt) ? 15 : alt,
+          speed_mps:       isNaN(spd) ? 3  : spd,
+          operation_mode:  mode,
+        })
+      } else {
+        const lat = parseFloat(obsLat)
+        const lng = parseFloat(obsLng)
+        if (isNaN(lat) || isNaN(lng)) {
+          Alert.alert('Missing location', 'Enter a valid latitude and longitude for the observation post.')
+          setDispatching(false)
+          return
+        }
+        res = await dispatchMission(token, {
+          alert_id:       alertId,
+          drone_id:       selected.id,
+          obs_lat:        lat,
+          obs_lng:        lng,
+          altitude_m:     isNaN(alt) ? 60 : alt,
+          speed_mps:      isNaN(spd) ? 8  : spd,
+          operation_mode: mode,
+        })
+      }
+
       setSuccessId(res.id)
       setSelected(null)
     } catch (e: unknown) {
@@ -302,7 +351,71 @@ export default function CoordinatorDispatchScreen() {
               </View>
             )}
 
-            {/* Observation point */}
+            {/* Water search mode toggle (purple alerts only) */}
+            {waterBodies.length > 0 && (
+              <>
+                <Text style={styles.fieldLabel}>Dispatch Mode</Text>
+                <View style={styles.modeRow}>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, dispatchMode === 'observation' && styles.modeBtnActive]}
+                    onPress={() => { setDispatchMode('observation'); setSelectedWater(null); setAltitude('60'); setSpeed('8') }}
+                  >
+                    <Text style={[styles.modeBtnText, dispatchMode === 'observation' && styles.modeBtnTextActive]}>
+                      Observation
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, dispatchMode === 'water_search' && styles.waterModeBtnActive]}
+                    onPress={() => { setDispatchMode('water_search'); setAltitude('15'); setSpeed('3') }}
+                  >
+                    <Text style={[styles.modeBtnText, dispatchMode === 'water_search' && styles.waterModeBtnTextActive]}>
+                      Water Search
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Water body list (water search mode) */}
+            {dispatchMode === 'water_search' && (
+              <>
+                <Text style={styles.fieldLabel}>Nearby Water Bodies</Text>
+                {loadingWater ? (
+                  <ActivityIndicator color="#a78bfa" size="small" style={{ marginVertical: 12 }} />
+                ) : waterBodies.length === 0 ? (
+                  <Text style={styles.fieldHint}>No water bodies found within 5 km of alert centroid.</Text>
+                ) : (
+                  <View style={styles.alertList}>
+                    {waterBodies.map((wb) => {
+                      const isSel = selectedWater?.id === wb.id
+                      const distMi = (wb.distance_km * 0.621371).toFixed(1)
+                      const areaAcres = wb.area_sqm ? (wb.area_sqm / 4047).toFixed(1) : null
+                      return (
+                        <TouchableOpacity
+                          key={wb.id}
+                          style={[styles.waterBodyCard, isSel && styles.waterBodyCardSelected]}
+                          onPress={() => setSelectedWater(isSel ? null : wb)}
+                        >
+                          <View style={styles.waterBodyHeader}>
+                            <Text style={[styles.waterBodyName, isSel && styles.waterBodyNameSelected]}>
+                              {wb.name || `Unnamed ${wb.water_type}`}
+                            </Text>
+                            <Text style={styles.waterBodyDist}>{distMi} mi</Text>
+                          </View>
+                          <Text style={styles.waterBodyMeta}>
+                            {wb.water_type}{areaAcres ? ` · ${areaAcres} acres` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    })}
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* Observation point (observation mode only) */}
+            {dispatchMode === 'observation' && (
+            <>
             <Text style={styles.fieldLabel}>Observation Post</Text>
             <Text style={styles.fieldHint}>Auto-filled from alert centroid. Override by entering coordinates.</Text>
             <View style={styles.coordRow}>
@@ -349,6 +462,8 @@ export default function CoordinatorDispatchScreen() {
             >
               <Text style={styles.mapPickBtnText}>📍 Place on Map</Text>
             </TouchableOpacity>
+            </>
+            )}
 
             {/* Airspace advisory */}
             {loadingAirspace && (
@@ -424,19 +539,28 @@ export default function CoordinatorDispatchScreen() {
             </View>
 
             {/* Dispatch button */}
-            <TouchableOpacity
-              style={[
-                styles.dispatchBtn,
-                (!alertId || !obsLat || !obsLng || dispatching) && styles.dispatchBtnDisabled,
-              ]}
-              onPress={handleDispatch}
-              disabled={!alertId || !obsLat || !obsLng || dispatching}
-            >
-              {dispatching
-                ? <ActivityIndicator color="#050a0f" size="small" />
-                : <Text style={styles.dispatchBtnText}>Dispatch Mission</Text>
-              }
-            </TouchableOpacity>
+            {(() => {
+              const canDispatch = dispatchMode === 'water_search'
+                ? !!(alertId && selectedWater && !dispatching)
+                : !!(alertId && obsLat && obsLng && !dispatching)
+              return (
+                <TouchableOpacity
+                  style={[
+                    dispatchMode === 'water_search' ? styles.waterDispatchBtn : styles.dispatchBtn,
+                    !canDispatch && styles.dispatchBtnDisabled,
+                  ]}
+                  onPress={handleDispatch}
+                  disabled={!canDispatch}
+                >
+                  {dispatching
+                    ? <ActivityIndicator color="#050a0f" size="small" />
+                    : <Text style={styles.dispatchBtnText}>
+                        {dispatchMode === 'water_search' ? 'Dispatch Water Search' : 'Dispatch Mission'}
+                      </Text>
+                  }
+                </TouchableOpacity>
+              )
+            })()}
 
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelected(null)}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -654,6 +778,28 @@ const styles = StyleSheet.create({
 
   cancelBtn: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
   cancelBtnText: { fontSize: 13, color: 'rgba(255,255,255,0.3)' },
+
+  // Water search
+  waterModeBtnActive:     { borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)' },
+  waterModeBtnTextActive: { color: '#a78bfa' },
+  waterBodyCard: {
+    borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: 'rgba(167,139,250,0.04)',
+  },
+  waterBodyCardSelected: {
+    borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.12)',
+  },
+  waterBodyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  waterBodyName:   { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.6)', flex: 1 },
+  waterBodyNameSelected: { color: '#e2e8f0' },
+  waterBodyDist:   { fontSize: 11, fontWeight: '600', color: '#a78bfa' },
+  waterBodyMeta:   { fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2, textTransform: 'capitalize' },
+  waterDispatchBtn: {
+    marginTop: 16,
+    backgroundColor: '#a78bfa', borderRadius: 10,
+    paddingVertical: 13, alignItems: 'center',
+  },
 
   // Map picker button
   mapPickBtn: {

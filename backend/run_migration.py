@@ -229,6 +229,25 @@ INSERT INTO bolo_sources (name, url, source_type, state) VALUES
     ('AL SBI Missing Persons',        'https://www.alea.gov/sbi/missing-persons',                                'html', 'AL'),
     ('AL AG Press Releases',          'https://www.alabamaag.gov/news',                                          'html', 'AL')
 ON CONFLICT (url) DO NOTHING;
+
+-- Water search: mission_type column (defaults preserve existing missions)
+ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS mission_type TEXT DEFAULT 'observation';
+ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS water_body_id TEXT;
+ALTER TABLE autonomous_missions ADD COLUMN IF NOT EXISTS water_body_name TEXT;
+
+-- Water bodies cache (populated on-demand from Overpass API)
+CREATE TABLE IF NOT EXISTS water_bodies (
+    id              TEXT PRIMARY KEY,
+    name            TEXT,
+    water_type      TEXT,
+    centroid_lat    DOUBLE PRECISION NOT NULL,
+    centroid_lng    DOUBLE PRECISION NOT NULL,
+    area_sqm        DOUBLE PRECISION,
+    polygon_json    JSONB NOT NULL,
+    fetched_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS water_bodies_centroid_idx
+    ON water_bodies (centroid_lat, centroid_lng);
 """
 
 try:

@@ -101,12 +101,46 @@ def _iter_pending() -> list[tuple[str, str]]:
 # Frame processing
 # ---------------------------------------------------------------------------
 
+_water_search_cache: dict[str, tuple[bool, float]] = {}
+_WATER_SEARCH_CACHE_TTL = 30.0
+
+
+def _is_water_search_active(drone_id: str) -> bool:
+    """Check if the drone's active mission is water_search. Cached 30s."""
+    now = time.time()
+    cached = _water_search_cache.get(drone_id)
+    if cached and now - cached[1] < _WATER_SEARCH_CACHE_TTL:
+        return cached[0]
+    try:
+        resp = requests.get(
+            os.getenv("API_BASE", "http://127.0.0.1:8000") + "/autonomous/missions",
+            params={"status": "executing", "limit": "10"},
+            headers={"X-Internal-Key": INTERNAL_API_KEY} if INTERNAL_API_KEY else {},
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            missions = resp.json()
+            is_ws = any(
+                m.get("mission_type") == "water_search"
+                and str(m.get("drone_id")) == drone_id
+                for m in missions
+            )
+            _water_search_cache[drone_id] = (is_ws, now)
+            return is_ws
+    except Exception:
+        pass
+    return False
+
+
 def process_frame(frame_path: str, drone_id: str) -> bool:
     """
     OpenALPR + YOLO + Plate Recognizer cascade.
     Sends one POST to the API per plate found.
     Returns True if API was reachable.
     """
+    if _is_water_search_active(drone_id):
+        return True
+
     # 1. Broad classification (YOLO) + Fine-grained (CDC)
     # The classifier now handles the cascade internally.
     yolo_vehicles = classify_vehicles(frame_path)

@@ -17,17 +17,18 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.waypoint_generator import generate_lawnmower, generate_observation_point
+from services.waypoint_generator import generate_lawnmower, generate_observation_point, generate_water_perimeter
 
 logger = logging.getLogger(__name__)
 
 VALID_STATUSES = {
     "pending", "dispatched", "uploading", "executing", "active",
     "completed", "aborted", "failed",
-    "relook",  # paused for sharper image capture
+    "relook",            # paused for sharper image capture
+    "ready_for_control", # water_search: drone arrived, awaiting manual takeover
 }
 
-VALID_MISSION_TYPES = {"observation", "sweep"}
+VALID_MISSION_TYPES = {"observation", "sweep", "water_search"}
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +170,77 @@ async def create_sweep_mission(
     }
 
 
+async def create_water_search_mission(
+    db: AsyncSession,
+    alert_id: str,
+    drone_id: int,
+    water_body_id: str,
+    water_body_name: Optional[str],
+    polygon_geojson: dict,
+    buffer_m: float = 20.0,
+    altitude_m: float = 15.0,
+    speed_mps: float = 3.0,
+    operation_mode: str = "vlos",
+) -> dict:
+    """
+    Create a water body perimeter search mission.
+
+    The drone traces the shoreline at buffer_m offset, then hovers when
+    the perimeter is complete (ready_for_control). No ALPR/YOLO — visual
+    search only via live camera feed.
+    """
+    waypoints = generate_water_perimeter(
+        polygon_geojson,
+        buffer_m=buffer_m,
+        altitude_m=altitude_m,
+        speed_mps=speed_mps,
+    )
+    if not waypoints:
+        return {"error": "Could not generate perimeter waypoints — water body polygon too small or malformed."}
+
+    result = await db.execute(
+        text("""
+            INSERT INTO autonomous_missions
+                (alert_id, drone_id, status, mission_type, waypoints_json,
+                 altitude_m, speed_mps, operation_mode,
+                 water_body_id, water_body_name, created_at)
+            VALUES
+                (:alert_id, :drone_id, 'pending', 'water_search', :waypoints_json,
+                 :altitude_m, :speed_mps, :operation_mode,
+                 :water_body_id, :water_body_name, NOW())
+            RETURNING id, created_at
+        """),
+        {
+            "alert_id": alert_id,
+            "drone_id": drone_id,
+            "waypoints_json": json.dumps(waypoints),
+            "altitude_m": altitude_m,
+            "speed_mps": speed_mps,
+            "operation_mode": operation_mode,
+            "water_body_id": water_body_id,
+            "water_body_name": water_body_name,
+        },
+    )
+    row = result.fetchone()
+    await db.commit()
+
+    return {
+        "id":              row[0],
+        "alert_id":        alert_id,
+        "drone_id":        drone_id,
+        "status":          "pending",
+        "mission_type":    "water_search",
+        "operation_mode":  operation_mode,
+        "water_body_id":   water_body_id,
+        "water_body_name": water_body_name,
+        "waypoint_count":  len(waypoints),
+        "waypoints":       waypoints,
+        "altitude_m":      altitude_m,
+        "speed_mps":       speed_mps,
+        "created_at":      row[1].isoformat() if row[1] else None,
+    }
+
+
 async def request_relook(db: AsyncSession, mission_id: int, plate_text: str, confidence: float) -> dict:
     """
     Mark a mission as needing a relook — the drone should pause for sharper frames.
@@ -260,7 +332,10 @@ async def list_missions(
                    progress_pct, error_msg,
                    COALESCE(operation_mode, 'vlos') AS operation_mode,
                    (waypoints_json::jsonb -> 0 ->> 'lat')::double precision  AS obs_lat,
-                   (waypoints_json::jsonb -> 0 ->> 'lng')::double precision  AS obs_lng
+                   (waypoints_json::jsonb -> 0 ->> 'lng')::double precision  AS obs_lng,
+                   COALESCE(mission_type, 'observation') AS mission_type,
+                   water_body_id,
+                   water_body_name
             FROM autonomous_missions
             {where}
             ORDER BY created_at DESC
@@ -288,6 +363,9 @@ async def list_missions(
             "operation_mode":  r[12],
             "observation_lat": r[13],
             "observation_lng": r[14],
+            "mission_type":    r[15],
+            "water_body_id":   r[16],
+            "water_body_name": r[17],
         })
     return missions
 
@@ -354,7 +432,10 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
                    altitude_m, speed_mps,
                    created_at, dispatched_at, started_at, completed_at,
                    progress_pct, error_msg,
-                   COALESCE(operation_mode, 'vlos') AS operation_mode
+                   COALESCE(operation_mode, 'vlos') AS operation_mode,
+                   COALESCE(mission_type, 'observation') AS mission_type,
+                   water_body_id,
+                   water_body_name
             FROM autonomous_missions
             WHERE id = :mission_id
         """),
@@ -383,6 +464,9 @@ async def get_mission(db: AsyncSession, mission_id: int) -> Optional[dict]:
         "progress_pct":    r[11],
         "error_msg":       r[12],
         "operation_mode":  r[13],
+        "mission_type":    r[14],
+        "water_body_id":   r[15],
+        "water_body_name": r[16],
     }
 
 
@@ -417,12 +501,12 @@ async def expire_stale_missions(session_factory) -> int:
                         END,
                         completed_at = NOW()
                     WHERE status IN ('pending', 'dispatched', 'uploading',
-                                     'executing', 'active')
+                                     'executing', 'active', 'ready_for_control')
                       AND (
                             (status IN ('pending', 'dispatched', 'uploading')
                              AND created_at < NOW() - INTERVAL '30 minutes')
                           OR
-                            (status IN ('executing', 'active')
+                            (status IN ('executing', 'active', 'ready_for_control')
                              AND started_at < NOW() - INTERVAL '4 hours')
                       )
                     RETURNING id, error_msg

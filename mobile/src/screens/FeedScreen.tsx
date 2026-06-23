@@ -248,11 +248,18 @@ export default function FeedScreen() {
     return () => clearInterval(id)
   }, [loadDetections])
 
-  // History + NCMEC — load once on mount, refresh on pull
+  // History + NCMEC — auto-refresh every 5s, same as the detection feed
   useEffect(() => {
     loadHistory()
+    const id = setInterval(loadHistory, 5000)
+    return () => clearInterval(id)
+  }, [loadHistory])
+
+  useEffect(() => {
     loadNcmec()
-  }, [loadHistory, loadNcmec])
+    const id = setInterval(loadNcmec, 5000)
+    return () => clearInterval(id)
+  }, [loadNcmec])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)

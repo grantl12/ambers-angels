@@ -80,6 +80,7 @@ export default function CameraScreen() {
   const lastNotifRef = useRef(0)
   const lastHitNotifRef = useRef(0)
   const mountedRef = useRef(true)
+  const scanAuthTokenRef = useRef<string | undefined>(undefined)
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
@@ -121,6 +122,137 @@ export default function CameraScreen() {
     return () => sub?.remove()
   }, [locPermission])
 
+  // Starts (or restarts) the frame-capture timers for the current volunteer
+  // mode/interval. Pulled out of startMission so a live settings change
+  // (e.g. captureIntervalSec) can tear down and recreate just these timers
+  // without restarting telemetry/GPS/mission state.
+  const startCaptureLoops = useCallback((currentSettings: AppSettings, scanAuthToken: string | undefined) => {
+    // Phone camera frame capture
+    if (currentSettings.volunteerMode === "phone" || currentSettings.volunteerMode === "both") {
+      if (Platform.OS === "android") {
+        // Android: start a native Foreground Service so scanning survives backgrounding.
+        // The user can switch to Uber/Maps and frames keep uploading.
+        startBackgroundScan({
+          apiBase:    currentSettings.apiBaseUrl,
+          droneId:    currentSettings.droneId,
+          pilotId:    currentSettings.pilotId || undefined,
+          intervalMs: currentSettings.captureIntervalSec * 1000,
+          authToken:  scanAuthToken,
+        }).catch(() => setError("Could not start background scan"))
+
+        // Poll the native side for frame count to keep the HUD updated
+        bgFrameTimerRef.current = setInterval(async () => {
+          const n = await getScanFrameCount().catch(() => 0)
+          setFrameCount(n)
+        }, 2000)
+      } else {
+        // iOS: app must stay foregrounded — use expo-camera JS loop
+        captureTimerRef.current = setInterval(async () => {
+          if (!cameraRef.current) return
+          try {
+            // skipProcessing must stay false on iOS — it skips EXIF orientation
+            // correction, so a plate framed normally (phone upright) uploads
+            // rotated ~90° and OpenALPR reads zero plates off it.
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 })
+            if (!photo) return
+            const loc = locationRef.current
+            const result = await postFrame({
+              uri:      photo.uri,
+              droneId:  currentSettings.droneId,
+              pilotId:  currentSettings.pilotId || undefined,
+              source:   "phone_gps",
+              lat:      loc?.coords.latitude,
+              lng:      loc?.coords.longitude,
+              altitude: loc?.coords.altitude ?? undefined,
+              heading:  loc?.coords.heading ?? undefined,
+              speed:    loc?.coords.speed ?? undefined,
+              accuracy: loc?.coords.accuracy ?? undefined,
+            })
+            setFrameCount((n) => n + 1)
+            setError(null)
+            if (result.watchlist_hit) {
+              const now = Date.now()
+              if (now - lastHitNotifRef.current > 60_000) {
+                lastHitNotifRef.current = now
+                const plate = result.outcomes?.[0]?.plate ?? "unknown"
+                // Admins/coordinators already receive a server push — skip local
+                // notification so they don't get the same alert twice.
+                const auth2 = await getAuthState()
+                const isCoordOrAdmin = auth2?.role === "admin" || auth2?.role === "coordinator"
+                if (!isCoordOrAdmin) {
+                  Notifications.scheduleNotificationAsync({
+                    content: {
+                      title: "🚨 WATCHLIST MATCH",
+                      body: `Plate ${plate} matches an active alert`,
+                      sound: true,
+                      priority: Notifications.AndroidNotificationPriority.MAX,
+                    },
+                    trigger: null,
+                  })
+                }
+              }
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "unknown"
+            // Swallow camera lifecycle errors — these fire when the component
+            // unmounts mid-capture and are not actionable by the user.
+            if (!mountedRef.current || msg.toLowerCase().includes("unmount") || msg.toLowerCase().includes("not running")) return
+            setError(msg.includes("expired") || msg.includes("authorized")
+              ? msg
+              : `Frame upload failed — ${msg}`)
+          }
+        }, currentSettings.captureIntervalSec * 1000)
+      }
+    }
+
+    // DJI drone frame capture loop (volunteerMode: "drone" or "both")
+    if (currentSettings.volunteerMode === "drone" || currentSettings.volunteerMode === "both") {
+      djiCaptureTimerRef.current = setInterval(async () => {
+        try {
+          const b64 = await captureDJIFrame(90)
+          if (!b64) return  // no frame yet / not connected
+
+          // Prefer drone GPS over phone GPS for DJI frames
+          const [djiLoc, djiHeading] = await Promise.all([getDroneLocation(), getDroneHeading()])
+          const phoneLoc = locationRef.current
+
+          await postFrame({
+            // Encode base64 as a data URI so the same multipart upload path works
+            uri:      `data:image/jpeg;base64,${b64}`,
+            droneId:  currentSettings.droneId,
+            pilotId:  currentSettings.pilotId || undefined,
+            source:   "dji_sdk",
+            lat:      djiLoc?.lat      ?? phoneLoc?.coords.latitude,
+            lng:      djiLoc?.lng      ?? phoneLoc?.coords.longitude,
+            altitude: djiLoc?.altitude ?? phoneLoc?.coords.altitude ?? undefined,
+            heading:  djiHeading       ?? phoneLoc?.coords.heading  ?? undefined,
+          })
+          setFrameCount((n) => n + 1)
+          setError(null)
+        } catch {
+          // Non-fatal — DJI frames are best-effort
+        }
+      }, currentSettings.captureIntervalSec * 1000)
+    }
+  }, [])
+
+  // Restart only the capture timers (not telemetry/GPS/mission state) when
+  // the interval or volunteer mode changes while a mission is already
+  // active — otherwise a mid-mission settings change is silently ignored
+  // because the running setInterval closures still hold the old value.
+  useEffect(() => {
+    if (!active || !settings) return
+    if (captureTimerRef.current)    clearInterval(captureTimerRef.current)
+    if (djiCaptureTimerRef.current) clearInterval(djiCaptureTimerRef.current)
+    if (bgFrameTimerRef.current)    clearInterval(bgFrameTimerRef.current)
+    captureTimerRef.current    = null
+    djiCaptureTimerRef.current = null
+    bgFrameTimerRef.current    = null
+    if (Platform.OS === "android") stopBackgroundScan().catch(() => {})
+    startCaptureLoops(settings, scanAuthTokenRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.captureIntervalSec, settings?.volunteerMode])
+
   const stopMission = useCallback(() => {
     if (captureTimerRef.current)    clearInterval(captureTimerRef.current)
     if (djiCaptureTimerRef.current) clearInterval(djiCaptureTimerRef.current)
@@ -147,6 +279,7 @@ export default function CameraScreen() {
 
     const auth = await getAuthState()
     const scanAuthToken: string | undefined = auth?.token ?? undefined
+    scanAuthTokenRef.current = scanAuthToken
 
     // Block scanning until there is a confirmed active FEMA/AMBER alert.
     // On network error, warn but allow — can't verify doesn't mean there isn't one.
@@ -231,111 +364,8 @@ export default function CameraScreen() {
       }
     }, 1000)
 
-    // Phone camera frame capture
-    if (settings.volunteerMode === "phone" || settings.volunteerMode === "both") {
-      if (Platform.OS === "android") {
-        // Android: start a native Foreground Service so scanning survives backgrounding.
-        // The user can switch to Uber/Maps and frames keep uploading.
-        startBackgroundScan({
-          apiBase:    settings.apiBaseUrl,
-          droneId:    settings.droneId,
-          pilotId:    settings.pilotId || undefined,
-          intervalMs: settings.captureIntervalSec * 1000,
-          authToken:  scanAuthToken,
-        }).catch(() => setError("Could not start background scan"))
-
-        // Poll the native side for frame count to keep the HUD updated
-        bgFrameTimerRef.current = setInterval(async () => {
-          const n = await getScanFrameCount().catch(() => 0)
-          setFrameCount(n)
-        }, 2000)
-      } else {
-        // iOS: app must stay foregrounded — use expo-camera JS loop
-        captureTimerRef.current = setInterval(async () => {
-          if (!cameraRef.current) return
-          try {
-            const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: true })
-            if (!photo) return
-            const loc = locationRef.current
-            const result = await postFrame({
-              uri:      photo.uri,
-              droneId:  settings.droneId,
-              pilotId:  settings.pilotId || undefined,
-              source:   "phone_gps",
-              lat:      loc?.coords.latitude,
-              lng:      loc?.coords.longitude,
-              altitude: loc?.coords.altitude ?? undefined,
-              heading:  loc?.coords.heading ?? undefined,
-              speed:    loc?.coords.speed ?? undefined,
-              accuracy: loc?.coords.accuracy ?? undefined,
-            })
-            setFrameCount((n) => n + 1)
-            setError(null)
-            if (result.watchlist_hit) {
-              const now = Date.now()
-              if (now - lastHitNotifRef.current > 60_000) {
-                lastHitNotifRef.current = now
-                const plate = result.outcomes?.[0]?.plate ?? "unknown"
-                // Admins/coordinators already receive a server push — skip local
-                // notification so they don't get the same alert twice.
-                const auth2 = await getAuthState()
-                const isCoordOrAdmin = auth2?.role === "admin" || auth2?.role === "coordinator"
-                if (!isCoordOrAdmin) {
-                  Notifications.scheduleNotificationAsync({
-                    content: {
-                      title: "🚨 WATCHLIST MATCH",
-                      body: `Plate ${plate} matches an active alert`,
-                      sound: true,
-                      priority: Notifications.AndroidNotificationPriority.MAX,
-                    },
-                    trigger: null,
-                  })
-                }
-              }
-            }
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : "unknown"
-            // Swallow camera lifecycle errors — these fire when the component
-            // unmounts mid-capture and are not actionable by the user.
-            if (!mountedRef.current || msg.toLowerCase().includes("unmount") || msg.toLowerCase().includes("not running")) return
-            setError(msg.includes("expired") || msg.includes("authorized")
-              ? msg
-              : `Frame upload failed — ${msg}`)
-          }
-        }, settings.captureIntervalSec * 1000)
-      }
-    }
-
-    // DJI drone frame capture loop (volunteerMode: "drone" or "both")
-    if (settings.volunteerMode === "drone" || settings.volunteerMode === "both") {
-      djiCaptureTimerRef.current = setInterval(async () => {
-        try {
-          const b64 = await captureDJIFrame(90)
-          if (!b64) return  // no frame yet / not connected
-
-          // Prefer drone GPS over phone GPS for DJI frames
-          const [djiLoc, djiHeading] = await Promise.all([getDroneLocation(), getDroneHeading()])
-          const phoneLoc = locationRef.current
-
-          await postFrame({
-            // Encode base64 as a data URI so the same multipart upload path works
-            uri:      `data:image/jpeg;base64,${b64}`,
-            droneId:  settings.droneId,
-            pilotId:  settings.pilotId || undefined,
-            source:   "dji_sdk",
-            lat:      djiLoc?.lat      ?? phoneLoc?.coords.latitude,
-            lng:      djiLoc?.lng      ?? phoneLoc?.coords.longitude,
-            altitude: djiLoc?.altitude ?? phoneLoc?.coords.altitude ?? undefined,
-            heading:  djiHeading       ?? phoneLoc?.coords.heading  ?? undefined,
-          })
-          setFrameCount((n) => n + 1)
-          setError(null)
-        } catch {
-          // Non-fatal — DJI frames are best-effort
-        }
-      }, settings.captureIntervalSec * 1000)
-    }
-  }, [settings])
+    startCaptureLoops(settings, scanAuthToken)
+  }, [settings, startCaptureLoops])
 
   // Clean up on unmount
   useEffect(() => () => stopMission(), [stopMission])

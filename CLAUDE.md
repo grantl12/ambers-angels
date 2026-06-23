@@ -396,13 +396,37 @@ channel structure first, e.g.:
 Once channels are defined and a real invite link exists, add the button to the `/guide` page near
 the Discord screenshots in "Getting Alerts" (`web/src/app/guide/page.tsx`).
 
+### `/beta` Page — Placeholder Links
+
+`web/src/app/beta/page.tsx` is live but both install buttons have `href="#"` placeholders. Need real URLs:
+
+- **iOS TestFlight public link**: go to App Store Connect → TestFlight → build 14 → enable Public Link → copy URL → replace `href="#"` on the iOS card
+- **Android internal testing opt-in link**: go to Google Play Console → Testing → Internal testing → create release (upload AAB manually, see below) → Testers tab → copy opt-in link → replace `href="#"` on the Android card
+- Once both links are live, the `/beta` page is the interim conversion funnel fix (~300 unique visitors/day)
+
+### Google Play Internal Testing Track — Manual Upload Required
+
+Google org policy (`iam.disableServiceAccountKeyCreation`) blocks creating a service account JSON key, so `eas submit --platform android` won't work. Manual path:
+
+1. Download AAB from EAS artifact URL (June 15 production build)
+2. Google Play Console → Testing → Internal testing → Create new release → upload AAB
+3. Testers tab → create email list or copy opt-in link
+4. That link goes on the `/beta` page (see above)
+
+If org policy is later relaxed, create key and save as `mobile/google-service-account.json` to re-enable automated `eas submit`.
+
+### Android Package Name Registration
+
+Google requires `com.ambersangels.app` package name registration before September 2026. Hard deadline — must complete before then.
+
 ### App Store / Play Store Badges on Landing Page
 
 Once iOS App Store listing is approved AND Android Play Store listing is live:
 - Add Apple App Store badge + Play Store badge to the landing page hero (below the CTA buttons)
 - Link iOS badge to the App Store listing URL
 - Link Android badge to the Play Store listing URL
-- This is the primary fix for the conversion funnel — ~270 unique visitors/day currently have no way to download the app
+- Remove or convert the `/beta` page — once stores are live, testers page becomes redundant; either redirect `/beta` → store links or repurpose as a "Get the App" page
+- This is the primary fix for the conversion funnel — ~300 unique visitors/day currently have no way to download the app
 
 ### Waiting on CPD Letter of Support
 
