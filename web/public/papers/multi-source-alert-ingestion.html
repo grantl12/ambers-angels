@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Source Alert Ingestion: Closing the Pre-Federal Gap — Amber's Angels</title>
+<meta name="description" content="How Amber's Angels ingests missing person alerts from five federal and law enforcement sources to activate volunteer search networks before the federal alert pipeline fires.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8DE; padding:2px 6px; border-radius:3px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.timeline { margin:40px 0; }
+.timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
+.timeline-row:last-child { border-bottom:none; }
+.timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
+.timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
+.source-table { width:100%; border-collapse:collapse; margin:32px 0; font-size:10pt; line-height:1.5; }
+.source-table th { background:var(--navy); color:var(--cream); padding:10px 14px; text-align:left; font-family:'Playfair Display',serif; font-weight:700; font-size:9pt; letter-spacing:0.08em; text-transform:uppercase; }
+.source-table td { padding:10px 14px; border-bottom:1px solid var(--rule); vertical-align:top; }
+.source-table tr:last-child td { border-bottom:none; }
+.source-table .mono { font-family:'JetBrains Mono',monospace; font-size:8.5pt; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } .source-table { font-size:9pt; } .source-table td, .source-table th { padding:8px 10px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">&larr; amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper &middot; AA-2026-006</p>
+    <p class="paper-date">June 21, 2026</p>
+    <h1>Multi-Source Alert Ingestion: Closing the Pre-Federal Gap</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director &mdash; <a href="https://amberangels.org">Amber's Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>The federal alert pipeline for missing persons&thinsp;&mdash;&thinsp;from detective on scene to FEMA IPAWS distribution&thinsp;&mdash;&thinsp;takes 30 minutes to three hours. During that window, a volunteer search network has no signal to act on. This paper describes Amber's Angels' multi-source alert ingestion architecture: six ingestion paths that monitor FEMA IPAWS (both CMAS and EAS endpoints), the NWS Alerts API, NCMEC's 50-state RSS feeds, the NamUs missing persons database, and law enforcement BOLOs&thinsp;&mdash;&thinsp;plus a direct injection endpoint that lets a detective on scene bypass the federal pipeline entirely and activate the volunteer network in seconds.</p>
+  </div>
+
+  <h2>The Pre-Federal Gap</h2>
+
+  <p>A child is abducted from a parking lot at 2:14 PM. The detective arrives on scene at 2:31 PM, interviews the family, confirms the criteria for an AMBER Alert, and submits the request to the state coordinator. The state reviews the request, confirms it meets DOJ guidelines, and submits to FEMA's Integrated Public Alert and Warning System (IPAWS). FEMA distributes via the Commercial Mobile Alert System (CMAS), the Emergency Alert System (EAS), and Wireless Emergency Alerts (WEA).</p>
+
+  <p>The public receives the alert on their phones. It is now <strong>4:47 PM</strong>. Two hours and thirty-three minutes have elapsed.</p>
+
+  <p>This gap is not a failure of the federal system. The federal system is designed for public notification&thinsp;&mdash;&thinsp;it is not designed to activate a search network. The approval process exists because false AMBER Alerts erode public trust. The review is justified. The delay is real.</p>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num purple">30&ndash;180</span>
+      <span class="label">minutes from detective on scene to public AMBER Alert</span>
+      <span class="cite">DOJ AMBER Alert Best Practices, 2024</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">74%</span>
+      <span class="label">of abducted children who are murdered are killed within 3 hours</span>
+      <span class="cite">NISMART-2, DOJ OJJDP</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num navy">6</span>
+      <span class="label">independent alert sources ingested by Amber's Angels</span>
+    </div>
+  </div>
+
+  <p>The pre-federal gap is the time between when law enforcement has the information and when the public has the information. During that window, every volunteer with a dash camera, every drone operator in the coverage area, every person who would have looked twice at a silver Honda Accord is unaware that a child is missing. They are driving past the suspect vehicle without knowing it.</p>
+
+  <p>Amber's Angels exists in that gap. Not as a replacement for the federal system, but as a parallel activation channel. The detective on scene has the plate number, the vehicle description, and the last known location. The platform lets her push that information directly to volunteers in the area while the federal pipeline processes the request through its approval chain.</p>
+
+  <div class="pullquote">
+    <p>"The federal alert system tells the public. We activate a search network. Those are different jobs, and they should run in parallel, not in series."</p>
+  </div>
+
+  <h2>Source Architecture</h2>
+
+  <p>The platform monitors six distinct alert sources. Each runs as an independent asyncio background task inside the FastAPI process, with its own polling interval, parser, and deduplication state. All sources converge on the same downstream pipeline: watchlist insertion, vehicle target creation, Discord notification, and Expo push to volunteers in the affected area.</p>
+
+  <table class="source-table">
+    <thead>
+      <tr>
+        <th>Source</th>
+        <th>Type</th>
+        <th>Interval</th>
+        <th>Coverage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>FEMA IPAWS CMAS</strong></td>
+        <td>CAP XML</td>
+        <td class="mono">5 min</td>
+        <td>All IPAWS-distributed alerts (CAE, CEM, LEW)</td>
+      </tr>
+      <tr>
+        <td><strong>FEMA IPAWS EAS</strong></td>
+        <td>CAP XML</td>
+        <td class="mono">2 min</td>
+        <td>Emergency Alert System&thinsp;&mdash;&thinsp;same CAP format, different endpoint</td>
+      </tr>
+      <tr>
+        <td><strong>NWS Alerts API</strong></td>
+        <td>GeoJSON</td>
+        <td class="mono">2 min</td>
+        <td>WEA-distributed alerts that bypass FEMA CMAS public feed</td>
+      </tr>
+      <tr>
+        <td><strong>NCMEC RSS</strong></td>
+        <td>RSS XML</td>
+        <td class="mono">30 min</td>
+        <td>All 50 US states&thinsp;&mdash;&thinsp;missing children with vehicle data</td>
+      </tr>
+      <tr>
+        <td><strong>NamUs (DOJ)</strong></td>
+        <td>REST API</td>
+        <td class="mono">30 min</td>
+        <td>DOJ missing persons with associated vehicles</td>
+      </tr>
+      <tr>
+        <td><strong>BOLO Crawler</strong></td>
+        <td>RSS / HTML</td>
+        <td class="mono">15 min</td>
+        <td>Configurable law enforcement BOLO feeds</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>In addition to the automated pollers, two manual ingestion paths allow law enforcement to inject alerts directly: a BOLO screenshot ingestor that uses vision-based extraction to read plate and vehicle data from a photograph, and a direct injection API that creates watchlist entries immediately.</p>
+
+  <h2>FEMA IPAWS: CMAS and EAS</h2>
+
+  <p>The primary federal source is FEMA's IPAWS public feed, accessed at <code>apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/</code>. We poll two separate endpoints: CMAS (Commercial Mobile Alert System) and EAS (Emergency Alert System). Both return the same CAP 1.2 XML format, but they carry different alert populations. An alert that appears on CMAS may not appear on EAS, and vice versa.</p>
+
+  <p>The CMAS endpoint is polled every <strong>300 seconds</strong> (5 minutes) with a configurable lookback window (default: 60 minutes). The EAS endpoint is polled every <strong>120 seconds</strong> (2 minutes). Both use the same XML parser.</p>
+
+  <h3>CAP XML Parsing and Event Code Filtering</h3>
+
+  <p>Each CAP alert contains event codes that classify the type of emergency. The system monitors three IPAWS event code categories:</p>
+
+  <p><strong>CAE</strong> (Child Abduction Emergency)&thinsp;&mdash;&thinsp;always classified as an AMBER Alert. No keyword check is needed; every CAE is a child abduction by definition.</p>
+
+  <p><strong>CEM</strong> (Civil Emergency Message)&thinsp;&mdash;&thinsp;a catch-all category that carries Silver Alerts, Mattie's Calls, Purple Alerts, Missing Indigenous Person Alerts (MIPA), Endangered Missing Alerts (EMA), and other state-specific programs. Classification requires keyword matching against the alert headline and description.</p>
+
+  <p><strong>LEW</strong> (Law Enforcement Warning)&thinsp;&mdash;&thinsp;Blue Alerts for missing or endangered law enforcement officers.</p>
+
+  <p>Alerts that do not carry one of these event codes are silently discarded. Weather emergencies, HAZMAT incidents, and other non-missing-person alerts never enter the pipeline.</p>
+
+  <h3>Plate and Vehicle Extraction</h3>
+
+  <p>FEMA alert text is unstructured. There is no dedicated plate field in the CAP standard&thinsp;&mdash;&thinsp;plates appear embedded in the free-text description alongside vehicle make, model, color, and suspect information. The system uses a three-tier regex extraction pipeline:</p>
+
+  <p>First, it looks for explicitly labeled plates: patterns like <code>plate: ABC1234</code>, <code>license plate: XY5678</code>, or <code>plate #DEF9012</code>. Second, it matches general plate patterns&thinsp;&mdash;&thinsp;1 to 3 leading letters followed by 1 to 4 digits, with optional trailing alphanumerics, constrained to 4&ndash;8 characters. All candidates are deduplicated and uppercased.</p>
+
+  <p>Vehicle profile extraction runs in parallel. The parser identifies color from a ranked dictionary of 20 terms (longest match first, so "dark blue" matches before "blue"), body type from a mapping of 17 vehicle terms to YOLO classification categories, and make from a list of 31 manufacturer names including common abbreviations. This extracted profile enables the YOLO vehicle classification pipeline to match vehicles by visual attributes even when no plate is readable.</p>
+
+  <h2>Alert Classification</h2>
+
+  <p>The system maintains an <code>ALERT_REGISTRY</code>&thinsp;&mdash;&thinsp;a priority-ordered list of eight alert program definitions. Each entry specifies the program name, the CAP event codes it matches, a set of classification keywords, and whether keywords are required for a match. Classification is priority-ordered; the first matching entry wins.</p>
+
+  <table class="source-table">
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Key</th>
+        <th>Program</th>
+        <th>CAP Code</th>
+        <th>Keywords Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="mono">1</td>
+        <td class="mono">amber</td>
+        <td>Amber Alert</td>
+        <td class="mono">CAE</td>
+        <td>No&thinsp;&mdash;&thinsp;all CAE events are AMBER</td>
+      </tr>
+      <tr>
+        <td class="mono">2</td>
+        <td class="mono">matties</td>
+        <td>Mattie's Call</td>
+        <td class="mono">CEM</td>
+        <td>Yes: "mattie", "mattie's call"</td>
+      </tr>
+      <tr>
+        <td class="mono">3</td>
+        <td class="mono">silver</td>
+        <td>Silver Alert</td>
+        <td class="mono">CEM</td>
+        <td>Yes: "silver alert", "elderly", "alzheimer", "dementia"</td>
+      </tr>
+      <tr>
+        <td class="mono">4</td>
+        <td class="mono">blue</td>
+        <td>Blue Alert</td>
+        <td class="mono">LEW, CEM</td>
+        <td>Yes: "blue alert", "officer missing"</td>
+      </tr>
+      <tr>
+        <td class="mono">5</td>
+        <td class="mono">purple</td>
+        <td>Purple Alert</td>
+        <td class="mono">CEM</td>
+        <td>Yes: "purple alert", "developmental disabilit", "autism"</td>
+      </tr>
+      <tr>
+        <td class="mono">6</td>
+        <td class="mono">mipa</td>
+        <td>Missing Indigenous Person</td>
+        <td class="mono">CEM</td>
+        <td>Yes: "indigenous", "mipa", "native"</td>
+      </tr>
+      <tr>
+        <td class="mono">7</td>
+        <td class="mono">ema</td>
+        <td>Endangered Missing Alert</td>
+        <td class="mono">CEM</td>
+        <td>Yes: "endangered missing", "mepa", "ema alert"</td>
+      </tr>
+      <tr>
+        <td class="mono">8</td>
+        <td class="mono">bolo</td>
+        <td>Law Enforcement BOLO</td>
+        <td class="mono">&mdash;</td>
+        <td>Not CAP-sourced; ingested via NamUs / BOLO bridge</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>This classification determines the downstream behavior: which emoji appears in Discord notifications, how the alert is labeled on the mobile app camera gate, and which volunteer notification template is used. The keyword approach is deliberately conservative&thinsp;&mdash;&thinsp;if a CEM alert doesn't match any specific program's keywords, it is discarded rather than classified incorrectly. A false positive classification is worse than a missed classification, because it corrupts the volunteer's mental model of what they are looking for.</p>
+
+  <h2>NWS Alerts API</h2>
+
+  <p>The National Weather Service Alerts API at <code>api.weather.gov/alerts/active</code> is not an obvious source for missing person alerts. But it catches a critical gap: <strong>some states push AMBER Alerts through the WEA/IPAWS distribution chain without publishing them to the FEMA CMAS public feed</strong>. Georgia is the most notable example&thinsp;&mdash;&thinsp;Georgia AMBER Alerts routinely appear on NWS before they appear on FEMA CMAS, and sometimes never appear on CMAS at all.</p>
+
+  <p>The NWS API returns GeoJSON, not CAP XML. The parser maps NWS event names to registry keys&thinsp;&mdash;&thinsp;currently, "Child Abduction Emergency" maps to the <code>amber</code> registry entry. Cancellations (<code>messageType=Cancel</code>) propagate through the same deactivation pipeline as FEMA CAP cancellations.</p>
+
+  <p>The NWS poller runs on the same 2-minute cycle as the EAS poller. Deduplication is shared across all three federal sources via a common <code>_seen_identifiers</code> set, so an alert that appears on both FEMA CMAS and NWS is only processed once.</p>
+
+  <h2>NCMEC: 50-State RSS Coverage</h2>
+
+  <p>The National Center for Missing &amp; Exploited Children publishes an RSS feed per US state at <code>missingkids.org</code>. The system polls all 50 state feeds every <strong>30 minutes</strong>, staggered with a 0.5-second delay between states to avoid overloading the NCMEC server (approximately 25 seconds for a full cycle across all states).</p>
+
+  <p>Each RSS item contains a structured description with the child's name, current age, date missing, and city. The parser extracts these fields via regex, then applies a recency filter&thinsp;&mdash;&thinsp;cases older than 30 days (configurable via <code>NCMEC_RECENT_DAYS</code>) are excluded.</p>
+
+  <h3>Vehicle Extraction from NCMEC Descriptions</h3>
+
+  <p>Most NCMEC RSS descriptions are minimal: a name, an age, a date. But some contain vehicle information embedded in natural language&thinsp;&mdash;&thinsp;"may be in a silver Honda Civic" or "last seen in a black pickup truck, GA tag ABC1234." The system uses two regex patterns to extract this data: a vehicle-mention pattern that captures phrases following contextual prefixes ("may be in," "last seen in," "traveling in"), and a plate pattern that matches state-prefixed plate numbers.</p>
+
+  <p>Extracted vehicle descriptions and plates are persisted in the <code>ncmec_cases</code> table via <code>COALESCE</code> upserts&thinsp;&mdash;&thinsp;existing vehicle data is preserved across re-polls, so a case that gains vehicle information in a later RSS update retains its data.</p>
+
+  <h3>Cross-Reference Notification Logic</h3>
+
+  <p>NCMEC cases generate Discord notifications only under specific conditions. A new case fires a notification <strong>only when there is an active FEMA vehicle target in the same state</strong>. If Georgia has an active AMBER Alert with a vehicle target, and a new NCMEC case appears in Georgia, the system posts a cross-reference notification with the child's photo link. If there is no active vehicle target in the state, the case is persisted silently.</p>
+
+  <p>This is a deliberate design choice. Volunteers cannot act on a missing-person case without a vehicle to search for. Notifying them about a case with no vehicle description creates noise without actionability.</p>
+
+  <p>Resolution detection works by diffing. The system tracks which case GUIDs appeared in the most recent poll for each state. When a GUID disappears from the feed, the case is marked as resolved in the database. Resolved cases always fire a "possibly resolved" Discord notification&thinsp;&mdash;&thinsp;this is not conditional on vehicle targets, because a resolution is always good news.</p>
+
+  <h2>NamUs: DOJ Missing Persons Database</h2>
+
+  <p>The National Missing and Unidentified Persons System (NamUs), operated by the DOJ's National Institute of Justice, maintains a searchable database of missing persons across the United States. Unlike FEMA and NCMEC, NamUs exposes a structured REST API with no authentication required for public search.</p>
+
+  <p>The poller searches for cases modified within the last 30 days (configurable via <code>NAMUS_RECENT_DAYS</code>), paginating through results in batches of 50. For each new case, the system fetches the full detail object&thinsp;&mdash;&thinsp;the search results sometimes omit nested arrays like vehicles&thinsp;&mdash;&thinsp;and extracts structured vehicle data: make, model, year, color, plate number, and plate state.</p>
+
+  <h3>Actionability Gate</h3>
+
+  <p>Not every missing person case has a vehicle associated with it. The system applies an actionability gate: a case is actionable when at least one vehicle has a non-empty plate, <em>or</em> both make and model are populated. Cases that fail this gate are still persisted in the <code>namus_cases</code> table for tracking, but they do not generate watchlist entries, vehicle targets, or notifications. Volunteers need something to look for.</p>
+
+  <p>Actionable cases trigger the full pipeline: the plate goes on the watchlist, a <code>vehicle_targets</code> row is created for YOLO visual matching, a Discord embed posts with case details and a link to the NamUs case page, and push notifications fire to volunteers whose watch areas overlap the case location.</p>
+
+  <p>Alert type classification for NamUs cases is age-based: under 18 maps to <code>amber</code>, 65 and over maps to <code>silver</code>, and all others map to <code>bolo</code>. This is a simplification&thinsp;&mdash;&thinsp;NamUs does not carry the same program metadata as FEMA CAP&thinsp;&mdash;&thinsp;but it ensures the downstream notification pipeline uses appropriate language and urgency levels.</p>
+
+  <h2>Law Enforcement BOLO Bridge</h2>
+
+  <p>The four sources above are all automated: they poll public APIs on fixed intervals and require no human intervention. The BOLO bridge is different. It is the path for alerts that exist only in law enforcement systems&thinsp;&mdash;&thinsp;Be On the Lookout bulletins sent via email, posted on social media, or pinned to precinct bulletin boards. These are the alerts that fill the pre-federal gap because they are created by the detective on scene, minutes after the incident, before the federal pipeline has even started.</p>
+
+  <h3>Screenshot Ingestor</h3>
+
+  <p>Law enforcement BOLOs are frequently distributed as images&thinsp;&mdash;&thinsp;a formatted bulletin with a suspect photo, vehicle description, plate number, and case details baked into a JPEG or PNG. The BOLO ingestor accepts these screenshots via the admin panel and uses Claude Haiku vision to extract structured data: plate text, vehicle make, model, year, color, body type, person name, case number, area, and a headline summary.</p>
+
+  <p>The extraction prompt is constrained to return a flat JSON object with fixed keys. The vision model reads the image, identifies the relevant fields, and returns structured data that the system can insert directly into the watchlist and vehicle targets pipeline. This is the only path in the system that uses an LLM API call per ingestion&thinsp;&mdash;&thinsp;all other sources use regex, keyword matching, and structured API responses.</p>
+
+  <h3>BOLO Crawler</h3>
+
+  <p>For law enforcement agencies that publish BOLOs to RSS feeds or web pages, the BOLO crawler provides automated ingestion. Sources are configured in a <code>bolo_sources</code> database table&thinsp;&mdash;&thinsp;admins can add, disable, or reconfigure sources without a code deploy. Each source specifies a URL, a type (<code>rss</code> or <code>html</code>), an optional state scope, and for HTML sources, a CSS selector to target the relevant content elements.</p>
+
+  <p>The crawler polls all active sources every <strong>15 minutes</strong> (configurable via <code>BOLO_CRAWL_INTERVAL</code>). Text extraction from fetched content is performed entirely on-device using a local NER pipeline: regex patterns for plates, years, and case numbers; dictionary matching for vehicle makes, colors, and body types; and spaCy named-entity recognition for person names and locations (when available).</p>
+
+  <p>The actionability gate is wider than NamUs: a BOLO is actionable if it has a plate, <em>or</em> make and model, <em>or</em> make, color, and area. The third condition allows vehicle-profile-only BOLOs to create vehicle targets for YOLO matching even when no plate is present.</p>
+
+  <p>Crawler vehicle targets expire after <strong>7 days</strong> by default (configurable via <code>BOLO_EXPIRES_DAYS</code>), reflecting the typically shorter shelf life of local BOLOs compared to federal alerts.</p>
+
+  <h3>Email Bridge</h3>
+
+  <p>The email path exists for agencies that distribute BOLOs only via email. <code>bolo@amberangels.org</code> is configured as an alias that forwards to the organization's primary inbox. In the current pilot-scale workflow, a coordinator saves the BOLO image and uploads it through the admin panel's screenshot ingestor. An automated webhook endpoint (<code>POST /webhooks/bolo-email</code>) is built and deployed for future use when volume justifies wiring it to a mail automation flow.</p>
+
+  <h2>Direct Injection: The Detective on Scene</h2>
+
+  <p>All of the above sources have latency. The fastest&thinsp;&mdash;&thinsp;the 2-minute EAS/NWS poll&thinsp;&mdash;&thinsp;still requires that the alert exist in a federal system before the platform can ingest it. Direct injection eliminates that requirement entirely.</p>
+
+  <p><code>POST /admin/inject-alert</code> accepts a plate number, headline, area description, alert type, and optional vehicle profile, and creates a watchlist entry and vehicle target <em>immediately</em>. Discord fires. Push notifications go to volunteers. The mobile app's camera gate opens. The volunteer network is active.</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Direct Injection Pipeline</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Detective arrives on scene.</strong> Plate, vehicle description, and last known location confirmed within minutes.</li>
+        <li><strong>Authorized user opens admin panel.</strong> Enters plate, headline, area, alert type, and vehicle profile. Submits.</li>
+        <li><strong>Watchlist entry created.</strong> Plate added to active watchlist with source metadata. Vehicle target inserted with 24-hour expiry.</li>
+        <li><strong>Active mission auto-created.</strong> If no mission is currently active, the system creates one so the mobile camera gate and web dashboard stay synchronized.</li>
+        <li><strong>Notifications fire.</strong> Discord posts the alert with plate and vehicle details. Expo push notifications sent to volunteers whose watch areas match the alert area.</li>
+        <li><strong>Volunteers activate.</strong> Mobile app camera gate opens. Background phone scanning and drone ALPR begin matching against the new plate.</li>
+        <li><strong>Federal pipeline catches up.</strong> When the FEMA alert eventually fires (30&ndash;180 minutes later), the system deduplicates&thinsp;&mdash;&thinsp;the plate is already on the watchlist.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p>The endpoint requires coordinator or admin authorization&thinsp;&mdash;&thinsp;specifically, the <code>can_create_bolo</code> permission flag, which is set by an admin per user. This is a deliberate access control: the power to activate a volunteer search network on a plate number must be restricted to vetted individuals. A false injection is not just a nuisance; it directs volunteers to surveil an innocent person's vehicle.</p>
+
+  <h2>Deduplication and Cancellation</h2>
+
+  <p>With six sources polling the same alert ecosystem at different intervals, deduplication is critical. A single AMBER Alert might appear on FEMA CMAS, FEMA EAS, and NWS simultaneously. Without deduplication, volunteers would receive three Discord notifications and three push alerts for the same event.</p>
+
+  <h3>The <code>processed_alerts</code> Table</h3>
+
+  <p>Deduplication is DB-backed. Every processed alert identifier is written to the <code>processed_alerts</code> table with a timestamp. On startup, the FEMA connector loads all identifiers from the last 7 days into an in-memory <code>_seen_identifiers</code> set. The EAS and NWS pollers share this same set, so an alert ingested by any one of the three federal sources is immediately visible to the other two.</p>
+
+  <p>The BOLO crawler uses the same table with namespaced identifiers (<code>bolo-crawler-{sha256[:12]}</code>), and the NamUs poller maintains its own in-memory set loaded from the <code>namus_cases</code> table on startup. All dedup state survives PM2 restarts&thinsp;&mdash;&thinsp;this was a hard-won design decision after an early incident where a PM2 restart caused the system to re-notify on every active alert.</p>
+
+  <h3>CAP Cancellation Pipeline</h3>
+
+  <p>When a missing person is found, the issuing authority sends a CAP message with <code>msgType=Cancel</code> and a <code>references</code> field listing the original alert identifiers. The system processes cancellations through a three-step pipeline:</p>
+
+  <p><strong>Vehicle targets expired.</strong> All <code>vehicle_targets</code> rows whose <code>fema_identifier</code> matches a referenced alert have their <code>expires_at</code> set to now. The mobile camera gate closes&thinsp;&mdash;&thinsp;<code>GET /fema/alerts</code> reads from <code>vehicle_targets</code>, and expired rows are excluded.</p>
+
+  <p><strong>Watchlist deactivated.</strong> Watchlist entries whose description contains the referenced identifier are marked <code>active = FALSE</code> with a <code>removed_at</code> timestamp. Volunteer phone scanning stops matching against the cancelled plate.</p>
+
+  <p><strong>Autonomous missions aborted.</strong> Any active autonomous drone missions tied to the cancelled alert are set to <code>aborted</code> with a completion timestamp. Drones return to home.</p>
+
+  <p>Discord fires a stand-down notification listing the deactivated plates. Push notifications go to affected volunteers. The system processes active alerts before cancellations within the same poll cycle to avoid race conditions&thinsp;&mdash;&thinsp;the alert list is sorted with <code>msg_type="alert"</code> entries first.</p>
+
+  <h2>Operational Timeline</h2>
+
+  <p>Consider the full timeline of a child abduction with the multi-source ingestion system active. The critical insight is that the volunteer network is already searching <em>before</em> any federal alert fires.</p>
+
+  <div class="timeline">
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:00</span>
+      <span class="timeline-event"><strong>Abduction occurs.</strong> Witness calls 911.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:08</span>
+      <span class="timeline-event"><strong>Detective arrives on scene.</strong> Interviews witness. Plate, vehicle description, and direction of travel confirmed.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:12</span>
+      <span class="timeline-event"><strong>Direct injection.</strong> Detective (or authorized coordinator) opens admin panel, enters plate and vehicle profile. Watchlist, vehicle target, Discord, and push notifications fire instantly.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:14</span>
+      <span class="timeline-event"><strong>Volunteer network activates.</strong> Phones in the coverage area begin background ALPR scanning. Drone operators receive push alerts. Camera gates open on mobile apps.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:25</span>
+      <span class="timeline-event"><strong>Detective submits AMBER Alert request</strong> to state coordinator for federal IPAWS distribution.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:47</span>
+      <span class="timeline-event"><strong>First volunteer hit.</strong> On-device ML Kit OCR on a phone camera matches the plate at an intersection 4.2 miles from the abduction site. GPS coordinates posted to Discord and detection feed.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:15</span>
+      <span class="timeline-event"><strong>State reviews and approves</strong> the AMBER Alert request. Submits to FEMA IPAWS.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:45</span>
+      <span class="timeline-event"><strong>FEMA IPAWS distributes.</strong> WEA alert hits phones statewide. CMAS endpoint updated.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:47</span>
+      <span class="timeline-event"><strong>System ingests the FEMA alert.</strong> Plate is already on the watchlist (dedup prevents re-notification). Vehicle target is already active. No duplicate action taken.</span>
+    </div>
+  </div>
+
+  <p>Thirty-five minutes from detective on scene to first volunteer hit. The federal alert was still 93 minutes away. The gap was closed not by making the federal system faster, but by creating a parallel channel that doesn't wait for it.</p>
+
+  <h2>Watch-Area Targeting</h2>
+
+  <p>Notifications are not broadcast to all volunteers. Each pilot configures watch areas in the mobile app&thinsp;&mdash;&thinsp;geographic areas they are willing to respond to. When an alert fires, the system queries for approved pilots whose watch areas match the alert's area description (case-insensitive substring match) or who have set their scope to "nationwide." Admins always receive all notifications.</p>
+
+  <p>The <code>alert_areas</code> table self-seeds from live FEMA and NWS area tokens on every active alert. When a volunteer types a location in the watch-area settings, they see autocomplete suggestions drawn from areas that have actually appeared in real alerts&thinsp;&mdash;&thinsp;not a static list of US counties. This ensures that the area tokens volunteers select will actually match future alerts from the same sources.</p>
+
+  <h2>Limitations and Future Work</h2>
+
+  <p><strong>CAD integration.</strong> The most impactful path to closing the pre-federal gap further is direct integration with Computer-Aided Dispatch systems. When a 911 call is classified as a child abduction, the CAD system could push directly to the platform without manual injection. This requires signed MOUs with law enforcement agencies and API access to their dispatch systems (Motorola PremierOne, Tyler New World, etc.). We are in active partnership discussions with the Carrollton Police Department toward this integration.</p>
+
+  <p><strong>NCIC/GCIC access.</strong> The FBI's National Crime Information Center and Georgia Crime Information Center maintain real-time wanted vehicle databases. Ingestion from these sources would provide the most comprehensive plate watchlist, but access requires a signed MOU with a law enforcement agency and strict data handling compliance. The ingestion pipeline is built; we are waiting for credentialed access.</p>
+
+  <p><strong>NCMEC vehicle extraction depth.</strong> Most NCMEC RSS descriptions are minimal and do not contain vehicle information. The full NCMEC poster pages sometimes include vehicle details that the RSS feed omits. A future enhancement would fetch the poster HTML and apply deeper extraction&thinsp;&mdash;&thinsp;potentially using an LLM&thinsp;&mdash;&thinsp;to recover vehicle data that the RSS-level regex misses.</p>
+
+  <p><strong>Real-time dispatch feeds.</strong> Some jurisdictions publish law enforcement dispatch feeds (audio or CAD-to-web). Monitoring these feeds for missing-person keywords could create yet another ingestion path with near-zero latency. This is architecturally feasible but raises legal and policy questions about automated ingestion of dispatch communications.</p>
+
+  <p><strong>International alert systems.</strong> The current architecture is US-only. Canada (AMBER Alert via Alert Ready), the UK (Child Rescue Alert), and the EU (116 000 network) all have their own alert mechanisms. Extending the ingestion layer to these systems is an engineering task, not a design challenge&thinsp;&mdash;&thinsp;the downstream pipeline (watchlist, detection, notification) is location-agnostic.</p>
+
+  <h2>Conclusion</h2>
+
+  <p>The federal alert pipeline is not broken. It does what it was designed to do: notify the public. But notifying the public and activating a search network are different operations, and they should not be serialized. The detective on scene has the information at T+8 minutes. The public receives it at T+105 minutes. Everything that happens in that 97-minute gap is invisible to the volunteer who would have looked twice at the silver Honda Accord in the next lane.</p>
+
+  <p>Multi-source ingestion does not replace the federal system. It wraps around it. Six automated pollers ensure that no federal alert is missed regardless of which distribution channel it appears on. Direct injection ensures that the system can activate <em>before</em> any federal alert exists. And the deduplication layer ensures that when the federal alert finally fires, the system recognizes it as old news and does not double-notify.</p>
+
+  <p>The pre-federal gap is a policy reality that technology cannot eliminate. But it is also a search window that technology can fill. Every minute a volunteer is scanning is a minute the suspect vehicle might be found. The goal is not to replace the approval process. The goal is to make sure that while the approval process runs, someone is already looking.</p>
+
+  <div class="cta">
+    <p>Amber's Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>U.S. Department of Justice. "AMBER Alert Best Practices: Second Edition." Office of Juvenile Justice and Delinquency Prevention. <a href="https://amberalert.ojp.gov/amber-alert-best-practices-guide">amberalert.ojp.gov</a></li>
+    <li>NISMART-2. "National Incidence Studies of Missing, Abducted, Runaway, and Thrownaway Children." DOJ OJJDP. <a href="https://ojjdp.ojp.gov/library/publications/national-incidence-studies-missing-abducted-runaway-and-thrownaway-children">ojjdp.ojp.gov</a></li>
+    <li>FEMA. "Integrated Public Alert and Warning System (IPAWS) — Open Platform for Emergency Networks." <a href="https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system">fema.gov/ipaws</a></li>
+    <li>OASIS. "Common Alerting Protocol Version 1.2." OASIS Standard. <a href="https://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2.html">docs.oasis-open.org</a></li>
+    <li>National Weather Service. "NWS Alerts API Documentation." <a href="https://www.weather.gov/documentation/services-web-api#/default/alerts_active">weather.gov</a></li>
+    <li>National Center for Missing &amp; Exploited Children. "NCMEC RSS Feed." <a href="https://www.missingkids.org">missingkids.org</a></li>
+    <li>National Institute of Justice. "NamUs — National Missing and Unidentified Persons System." <a href="https://namus.nij.ojp.gov">namus.nij.ojp.gov</a></li>
+    <li>Griffin, T., and Miller, M. K. "Child Abduction, AMBER Alert, and Crime Control Theater." Criminal Justice Review, 33(2), 159-176. 2008.</li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber's Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-006 &middot; Published June 21, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coverage Gap Analysis: Fixed Infrastructure vs Mobile Volunteer Networks — Amber's Angels</title>
+<meta name="description" content="Why fixed ALPR infrastructure and mobile volunteer networks are complementary, not competitive — and how event-triggered mobile scanning fills the coverage gap in rural and suburban communities.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#F0EBE1; padding:2px 5px; border-radius:3px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.comparison-table { width:100%; border-collapse:collapse; margin:40px 0; font-size:10.5pt; }
+.comparison-table th { background:var(--navy); color:#FAFAF8; padding:12px 16px; text-align:left; font-weight:600; font-size:9.5pt; letter-spacing:0.05em; }
+.comparison-table td { padding:12px 16px; border-bottom:1px solid var(--rule); line-height:1.5; }
+.comparison-table tr:last-child td { border-bottom:none; }
+.comparison-table .dim { color:var(--muted); font-size:9.5pt; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } .comparison-table { font-size:9.5pt; } .comparison-table th, .comparison-table td { padding:8px 10px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">&larr; amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper &middot; AA-2026-007</p>
+    <p class="paper-date">June 23, 2026</p>
+    <h1>Coverage Gap Analysis: Fixed Infrastructure vs Mobile Volunteer Networks</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director &mdash; <a href="https://amberangels.org">Amber&rsquo;s Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>Fixed ALPR infrastructure&thinsp;&mdash;&thinsp;Flock Safety cameras, Motorola readers, toll-road systems&thinsp;&mdash;&thinsp;monitors intersections. Mobile volunteer networks monitor roads. These are fundamentally different coverage geometries solving the same problem from opposite ends. This paper analyzes the structural gap between point-based fixed infrastructure and network-based mobile scanning, presents the coverage computation model Amber&rsquo;s Angels uses to quantify that gap, and argues that the two approaches are complementary rather than competitive. A jurisdiction with both has full coverage. A jurisdiction with only one has blind spots&thinsp;&mdash;&thinsp;and the communities with the biggest blind spots are the ones least able to afford fixed infrastructure.</p>
+  </div>
+
+  <h2>Point Coverage vs Network Coverage</h2>
+
+  <p>The distinction is geometric, not technological. A fixed ALPR camera reads every plate that passes a specific physical location. It answers the question: <em>did this vehicle cross this intersection?</em> The answer is binary, timestamped, and highly reliable. Flock cameras have industry-leading read rates. When a target vehicle passes a camera, the camera will almost certainly capture it.</p>
+
+  <p>But the question has a scope constraint. The camera can only answer for the point where it is mounted. A city that installs 50 Flock cameras has 50 answered points and an entire road network of unanswered space between them.</p>
+
+  <p>A mobile volunteer, by contrast, covers the road itself. A phone running on-device OCR in a moving vehicle scans every plate it passes&thinsp;&mdash;&thinsp;on every road it drives. It does not answer <em>did this plate pass this point?</em> It answers <em>is this plate on this road right now?</em> The coverage is not a set of points. It is a set of road segments, expanding in real time as the volunteer drives.</p>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num navy">50</span>
+      <span class="label">Fixed cameras = 50 monitored points</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num purple">1</span>
+      <span class="label">Volunteer driving 30 min = hundreds of scanned road segments</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">0</span>
+      <span class="label">Roads between fixed cameras covered by neither</span>
+    </div>
+  </div>
+
+  <p>This is not a criticism of fixed ALPR. Point coverage is <em>persistent</em>&thinsp;&mdash;&thinsp;the camera works 24 hours a day, seven days a week, whether or not there is an active alert. It captures vehicles the operator did not know to look for. It builds a historical record. For investigative use cases&thinsp;&mdash;&thinsp;reconstructing a vehicle&rsquo;s travel history after a crime&thinsp;&mdash;&thinsp;persistent point coverage is superior to anything a volunteer network can offer.</p>
+
+  <p>But for the use case that matters during an active AMBER, Silver, or Purple Alert&thinsp;&mdash;&thinsp;<em>find this vehicle right now</em>&thinsp;&mdash;&thinsp;the coverage geometry of fixed infrastructure has a structural weakness. The vehicle only needs to avoid the monitored intersections. If it takes a route that does not cross a camera, fixed infrastructure will never see it. The road network between cameras is dark.</p>
+
+  <h2>The Rural Gap</h2>
+
+  <p>Fixed ALPR infrastructure concentrates where tax revenue concentrates. Urban police departments install cameras on high-traffic corridors. State agencies deploy readers on interstates and toll roads. The economic model works: high vehicle volume per camera means high probability of capturing a target plate, which justifies the per-unit cost.</p>
+
+  <p>Rural and suburban communities sit on the wrong side of this equation. Lower traffic volume per potential camera location means lower capture probability per unit, which means the cost-per-detection is higher, which means the budget case is harder to make. The result is predictable: the communities with the least fixed infrastructure are the ones where missing persons searches are hardest to conduct.</p>
+
+  <div class="pullquote">
+    <p>&ldquo;The places where a missing child is hardest to find are the same places that can least afford to install the technology to find them. That is not a technology problem. That is a deployment economics problem.&rdquo;</p>
+  </div>
+
+  <p>Consider the search area for a typical AMBER Alert in a rural Georgia county. The FEMA IPAWS polygon might cover 1,500 square miles of mixed farmland, two-lane highways, residential subdivisions, and small-town centers. In that area, there might be zero fixed ALPR cameras, or a handful on the main state highway. The secondary roads&thinsp;&mdash;&thinsp;which make up the vast majority of the road network&thinsp;&mdash;&thinsp;are completely unmonitored.</p>
+
+  <p>This is not hypothetical. Carrollton, Georgia&thinsp;&mdash;&thinsp;our pilot location&thinsp;&mdash;&thinsp;is a city of roughly 28,000 people in Carroll County. Our coverage analysis system queries the DeFlock open-source dataset of Flock Safety camera locations. In the default bounding box for Carrollton (approximately 33.45&deg;N to 33.70&deg;N, 85.25&deg;W to 84.95&deg;W), the camera count is modest relative to the total road network. Every road between those cameras is a gap.</p>
+
+  <h2>Quantifying the Gap: Road Segment Coverage Scoring</h2>
+
+  <p>To move beyond intuition, we built a coverage computation system that scores every road segment in a search area by how many fixed cameras can observe it. The system has three layers: road data, camera data, and a scoring function that maps cameras to segments.</p>
+
+  <h3>Road Segment Ingestion</h3>
+
+  <p>We pull road geometry from OpenStreetMap via the Overpass API. The <code>seed_road_segments.py</code> script fetches all ways tagged with highway types relevant to vehicle travel: motorway, trunk, primary, secondary, tertiary, residential, unclassified, and living street. Three Overpass API mirrors are configured for redundancy.</p>
+
+  <p>Each OSM way is split into sub-segments of approximately 200&ndash;400 meters (the <code>MAX_SEG_M</code> constant is 400&nbsp;m; sub-segments shorter than 80&nbsp;m are discarded). This granularity matches the effective observation range of a fixed ALPR camera&thinsp;&mdash;&thinsp;if a segment is 400&nbsp;m long, a camera within range can plausibly cover it. Sub-segments are stored in the <code>road_segments</code> table with their OSM way ID, segment index, highway type, GeoJSON LineString geometry, centroid coordinates, length in meters, and a bounding box for spatial queries.</p>
+
+  <p>The bounding box for ingestion is resolved dynamically. When an alert is active, the system derives the bbox from FEMA alert polygons with 0.5&deg; of padding. When no alert is active, it defaults to the Carrollton, GA area (south&nbsp;33.45, north&nbsp;33.70, west&nbsp;-85.25, east&nbsp;-84.95).</p>
+
+  <h3>Fixed Camera Data</h3>
+
+  <p>Camera locations come from the DeFlock CDN, a community-maintained dataset of Flock Safety camera positions. The <code>scrape_flock.py</code> script fetches the DeFlock tile index, iterates over tiles that overlap the target bounding box, filters cameras within the bbox, and upserts them into the <code>flock_cameras</code> table. Each camera record includes its latitude, longitude, heading (if available from DeFlock direction tags), operating agency, and a scrape timestamp. Data is refreshed automatically when a coordinator opens the coverage map and existing data is stale (older than 24 hours) or sparse (fewer than 3 cameras in the viewport).</p>
+
+  <h3>The Scoring Function</h3>
+
+  <p>The coverage service (<code>coverage_service.py</code>) scores each road segment by counting how many fixed cameras can observe it. A camera is considered to cover a segment if two conditions are met:</p>
+
+  <p><strong>Distance check.</strong> The haversine distance from the camera to the segment&rsquo;s centroid must be within 800&nbsp;m (<code>MAX_RANGE_M</code>). This is deliberately wider than a camera&rsquo;s plate-read range (typically 50&ndash;75 feet for reliable OCR) because we are measuring <em>road corridor coverage</em>, not plate-read probability. A camera at an intersection influences the coverage status of the roads feeding into it.</p>
+
+  <p><strong>Field-of-view check.</strong> If the camera has heading data, the bearing from the camera to the segment centroid must be within &plusmn;80&deg; (<code>FOV_HALF_DEG</code>) of the camera&rsquo;s facing direction (total field: 160&deg;). Roadside cameras typically face along the road in one direction, so a wide FOV tolerance accounts for cameras mounted to capture both travel directions and prevents false negatives from minor heading misalignment in the source data. If no heading data is available, the distance check alone determines coverage.</p>
+
+  <p>The output is a list of road segments, each with a <code>coverageScore</code> (integer count of cameras that can see it). Two views are exposed via the API:</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Coverage Endpoints</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Coordinator view</strong> (<code>GET /coverage/map</code>). Returns all road segments in the area with their coverage scores. Segments are colored on the mission map from red (score 0 &mdash; no camera coverage) through yellow (sparse) to green (well covered). Camera positions and exact counts are never sent to the client&thinsp;&mdash;&thinsp;only the segment geometry and a bucketed score.</li>
+        <li><strong>Pilot view</strong> (<code>GET /coverage/priority-zones</code>). Returns only uncovered and sparse segments. Segments with coverage scores &ge;&nbsp;3 (<code>_COVERED_MIN</code>) are omitted entirely. Remaining segments are labeled &ldquo;high&rdquo; priority (score 0, no cameras at all) or &ldquo;medium&rdquo; priority (score 1&ndash;2, sparse coverage). This tells a volunteer driver: <em>these are the roads nobody is watching.</em></li>
+      </ol>
+    </div>
+  </div>
+
+  <p>The security model is deliberate. Fixed camera positions are sensitive infrastructure data. The coverage service never exposes camera coordinates or even exact camera counts to the client. Pilots see only the derived priority labels. Coordinators see integer scores. The raw camera table is never queried by the client directly.</p>
+
+  <h2>Complementary Systems</h2>
+
+  <p>The coverage gap analysis makes the complementary relationship concrete. Here is what each system does well&thinsp;&mdash;&thinsp;and does not do well.</p>
+
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th style="width:30%;">Capability</th>
+        <th style="width:35%;">Fixed ALPR</th>
+        <th style="width:35%;">Mobile Volunteer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Coverage type</strong></td>
+        <td>Point (intersections)</td>
+        <td>Network (road segments)</td>
+      </tr>
+      <tr>
+        <td><strong>Persistence</strong></td>
+        <td>24/7/365</td>
+        <td>Event-triggered only</td>
+      </tr>
+      <tr>
+        <td><strong>Historical lookup</strong></td>
+        <td>Yes (retention-dependent)</td>
+        <td>No (data exists only during alerts)</td>
+      </tr>
+      <tr>
+        <td><strong>Rural coverage</strong></td>
+        <td>Sparse to none</td>
+        <td>Scales with volunteer availability</td>
+      </tr>
+      <tr>
+        <td><strong>Marginal cost per road</strong></td>
+        <td>High (hardware + install + power + network)</td>
+        <td>Near zero (volunteer&rsquo;s existing phone)</td>
+      </tr>
+      <tr>
+        <td><strong>Read reliability</strong></td>
+        <td>Very high (controlled angle, IR illumination)</td>
+        <td>Moderate (variable angle, ambient light)</td>
+      </tr>
+      <tr>
+        <td><strong>Night performance</strong></td>
+        <td>Excellent (IR illumination)</td>
+        <td>Poor (phone camera limitation)</td>
+      </tr>
+      <tr>
+        <td><strong>Retention concerns</strong></td>
+        <td>Significant (30/90/365-day debates)</td>
+        <td>None (event-triggered = no retention)</td>
+      </tr>
+      <tr>
+        <td><strong>Civil liberties risk</strong></td>
+        <td>Always-on surveillance of all vehicles</td>
+        <td>Scans only during active government alerts</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>A jurisdiction with fixed ALPR infrastructure and an active volunteer network has <em>both</em> coverage geometries. The cameras answer whether the target vehicle passed specific intersections. The volunteers answer whether the target vehicle is on the roads between those intersections right now. One is forensic. The other is real-time. Together, they close the gap.</p>
+
+  <p>A jurisdiction with only fixed infrastructure has excellent intersection monitoring but no real-time road network search. A jurisdiction with only a volunteer network has real-time road network search during alerts but no persistent intersection monitoring between alerts. Neither alone is complete. Both together are.</p>
+
+  <h2>Event-Triggered Scanning</h2>
+
+  <p>The mobile path in Amber&rsquo;s Angels is event-triggered by design. Volunteer phones run on-device OCR (Google ML Kit text recognition on Android) in a background service (<code>ScanService.kt</code>) that activates <em>only when there is an active alert</em>. The camera gate in the mobile app (<code>CameraScreen.tsx</code>) checks <code>GET /fema/alerts</code>&thinsp;&mdash;&thinsp;which queries the <code>vehicle_targets</code> table for non-expired entries&thinsp;&mdash;&thinsp;and only enables scanning when at least one active target exists.</p>
+
+  <p>When no AMBER, Silver, Purple, or Blue Alert is active, volunteers&rsquo; phones are not scanning. No plates are read. No GPS positions are recorded. No data is generated. The system is dormant.</p>
+
+  <p>This is a deliberate architectural choice, not a limitation. Always-on scanning would produce higher coverage numbers but would transform volunteers into a distributed surveillance network operating against the general public with no specific justification. Event-triggered scanning means the system activates only when a government authority has issued a missing person alert&thinsp;&mdash;&thinsp;a public, documented, legally grounded action. The volunteer is responding to a specific, time-bounded emergency, not passively monitoring their neighbors.</p>
+
+  <div class="pullquote">
+    <p>&ldquo;We do not scan because we can. We scan because someone is missing and the government asked the public for help. When the alert ends, we stop.&rdquo;</p>
+  </div>
+
+  <h3>The Activation Sequence</h3>
+
+  <p>When a FEMA IPAWS alert is ingested (via the CMAS, EAS, or NWS endpoint), the system extracts vehicle descriptions and license plates, creates entries in the <code>watchlist</code> and <code>vehicle_targets</code> tables, and pushes notifications to volunteers whose watch areas overlap the alert polygon. From that moment, any volunteer who opens the app and starts a mission is scanning. Their phone&rsquo;s GPS track is recorded in <code>telemetry_points</code> at one-second intervals. Their on-device OCR results&thinsp;&mdash;&thinsp;plate text, confidence score, and GPS position, with no image data&thinsp;&mdash;&thinsp;are posted to <code>POST /ingest/detection</code>.</p>
+
+  <p>When the alert is resolved (either by a CAP cancellation message or a coordinator manually resolving it), the watchlist entries are deactivated, the camera gate closes, and scanning stops. The activation window is bounded by the alert lifecycle.</p>
+
+  <h2>Coverage Metrics During an Alert</h2>
+
+  <p>During an active alert, we can measure how much of the road network within the search area has been driven by at least one volunteer. The inputs are straightforward: the <code>road_segments</code> table provides the total set of road segments in the alert bounding box, and the <code>telemetry_points</code> table provides GPS tracks from active volunteers.</p>
+
+  <p>A road segment is considered &ldquo;covered&rdquo; during an alert if at least one volunteer&rsquo;s GPS track passes within proximity of its centroid during the alert window. The coverage ratio is simply:</p>
+
+  <p style="text-align:center; font-family:'JetBrains Mono',monospace; font-size:10pt; padding:16px 0;">
+    coverage = segments_visited / total_segments_in_alert_bbox
+  </p>
+
+  <p>This metric answers a question that fixed infrastructure cannot: <em>what percentage of the road network in this search area has been physically checked during this alert?</em> A coordinator looking at the mission map can see which roads have been driven (green) and which have not (red), and can use the coverage gap alert system (<code>POST /coverage/gap-alert</code>) to push notifications to additional volunteers asking them to fill specific gaps.</p>
+
+  <p>The gap alert system enforces a 30-minute cooldown per alert to prevent notification fatigue. When a coordinator identifies an area with poor volunteer coverage, they can trigger a single push notification to all active pilots. The notification contains no sensitive information&thinsp;&mdash;&thinsp;no plate numbers, no vehicle descriptions, no victim details&thinsp;&mdash;&thinsp;just a request to open the app and help with an active search.</p>
+
+  <h3>Road Segment Prioritization</h3>
+
+  <p>Not all road segments are equally important to cover. The <code>seed_road_segments.py</code> script classifies segments by OSM highway type, and the coverage service returns them sorted by importance: motorways and trunk roads first, then primary, secondary, tertiary, residential, and unclassified. This ordering reflects the probability that a fleeing vehicle is on a given road type.</p>
+
+  <p>Priority zones combine both the fixed-camera coverage score and the highway type classification. A primary highway with zero camera coverage is a higher priority than an unclassified rural lane with zero camera coverage, because the primary highway carries more traffic and is a more likely escape route. The coordinator&rsquo;s coverage map reflects this weighting.</p>
+
+  <h2>The Retention Non-Problem</h2>
+
+  <p>Fixed ALPR systems face a genuine and difficult policy question: how long should plate reads be retained? Thirty days? Ninety? A year? The ACLU, EFF, and civil liberties advocates argue for shorter retention. Law enforcement argues for longer. Both sides have legitimate points. Retained data has investigative value. Retained data is also a surveillance record of the movements of millions of innocent people.</p>
+
+  <p>Event-triggered mobile scanning sidesteps this debate entirely. Here is the data lifecycle for a volunteer detection in Amber&rsquo;s Angels:</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Detection Data Lifecycle</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Alert activates.</strong> FEMA IPAWS alert ingested. Watchlist and vehicle targets created. Volunteer scanning enabled.</li>
+        <li><strong>On-device scan.</strong> Volunteer&rsquo;s phone runs ML Kit OCR on camera frames. Raw frames never leave the device. Only extracted plate text, confidence score, and GPS position are transmitted.</li>
+        <li><strong>Non-match discard.</strong> If the scanned plate does not match any active watchlist entry, the detection is processed by the aggregation service and, if it does not reach the alert threshold, is stored as a low-priority detection event. Non-alerted detection events are purged after 30 days.</li>
+        <li><strong>Match alert.</strong> If the plate matches an active watchlist entry with sufficient confidence, a high-confidence alert fires (Discord notification, optional Twilio SMS). The detection event is stored with status <code>alerted</code> as evidence. Alerted events are retained for 365 days, then purged along with any associated golden frame files on disk.</li>
+        <li><strong>Alert resolves.</strong> The FEMA alert is cancelled or a coordinator resolves it. Watchlist entries are deactivated. Scanning stops. No new data is generated.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p>Telemetry data (volunteer GPS tracks) is purged after 90 days. Non-alerted detections are purged after 30 days. Alerted detections&thinsp;&mdash;&thinsp;actual evidence of a missing person&rsquo;s vehicle being sighted&thinsp;&mdash;&thinsp;are retained for one year. All purges run as daily background tasks.</p>
+
+  <p>There is no 30-day, 90-day, or 365-day debate for the same reason there is no always-on surveillance debate: the data only exists because a government authority issued a specific alert. The retention window starts when someone went missing and ends on a fixed schedule. There is nothing to argue about.</p>
+
+  <h2>The Economic Model</h2>
+
+  <p>The cost structures are fundamentally different. Fixed ALPR infrastructure is a capital expenditure. Each camera requires hardware ($2,000&ndash;$2,500 per unit for Flock Safety as of 2025), installation, power, network connectivity, and an annual subscription for cloud processing and data access.<sup>1</sup> Scaling from 50 cameras to 500 is a 10x budget increase.</p>
+
+  <p>Mobile volunteer scanning is an operating model built on existing consumer hardware. The volunteer already owns the phone. The phone already has a camera and a GPS. The on-device OCR runs on the phone&rsquo;s existing processor. The marginal cost of adding one more volunteer to the network is effectively zero&thinsp;&mdash;&thinsp;some server-side compute for detection aggregation and a fraction of a cent per push notification.</p>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num navy">$2,500</span>
+      <span class="label">Approximate cost per fixed ALPR camera</span>
+      <span class="cite">Flock Safety published pricing, 2025</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num purple">$0</span>
+      <span class="label">Marginal cost per additional volunteer</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">1</span>
+      <span class="label">Camera covers 1 point. 1 volunteer covers N road segments.</span>
+    </div>
+  </div>
+
+  <p>This does not mean mobile is &ldquo;better&rdquo; or &ldquo;cheaper&rdquo; in any absolute sense. Fixed infrastructure provides persistent coverage without requiring human participation. That has enormous value. A camera does not need to be motivated, recruited, or notified. It just works. The volunteer model depends on people choosing to participate, which introduces latency (response time to alert), variability (volunteer availability by time of day and day of week), and geographic clustering (volunteers concentrate where people live, not necessarily where coverage is most needed).</p>
+
+  <p>The correct framing is not &ldquo;which is cheaper?&rdquo; but &ldquo;what does each dollar buy?&rdquo; A dollar spent on fixed infrastructure buys persistent, reliable, intersection-level coverage in one location. A dollar spent on volunteer infrastructure (server costs, app development, outreach) buys potential network-level coverage across an entire region&thinsp;&mdash;&thinsp;but only during active alerts, and only to the extent that volunteers respond.</p>
+
+  <h2>Limitations</h2>
+
+  <p>The mobile volunteer model has real limitations that we do not attempt to obscure.</p>
+
+  <p><strong>Response time.</strong> Fixed cameras are always on. A volunteer must receive a notification, open the app, start a mission, and begin driving. The fastest plausible response time is several minutes. In practice, it depends on how many volunteers are in the area and how quickly they can mobilize. During our June 7, 2026 end-to-end test, the time from alert injection to first plate hit was 47 seconds&thinsp;&mdash;&thinsp;but the volunteer was already on-site and prepared. Real-world response times during unexpected alerts will be longer.</p>
+
+  <p><strong>Volunteer availability.</strong> Coverage is a function of how many people choose to participate. At 3:00 AM on a Tuesday, volunteer availability is near zero. Fixed cameras do not have this problem. The mobile model is strongest during daytime hours when volunteers are already driving for other reasons (commuting, errands, school pickup).</p>
+
+  <p><strong>Night performance.</strong> Phone cameras perform poorly in low-light conditions. On-device OCR accuracy drops significantly after dark. Fixed ALPR cameras use infrared illumination specifically designed for night plate reads. This is a hardware limitation of the mobile path that cannot be solved in software.</p>
+
+  <p><strong>Weather.</strong> Heavy rain, fog, and snow degrade phone camera performance. Fixed cameras with weatherized housings and IR illumination are less affected. Severe weather also reduces volunteer willingness to drive.</p>
+
+  <p><strong>Read reliability.</strong> A fixed ALPR camera is engineered for plate reading: controlled angle, known distance, IR illumination, high-speed shutter. A phone camera running ML Kit OCR in a moving vehicle is doing the best it can with consumer hardware at variable distances and angles. The false-negative rate is higher. We compensate with a multi-frame aggregation pipeline (5-second aggregation windows, composite confidence scoring), but the per-frame accuracy of a phone will never match a purpose-built ALPR reader.</p>
+
+  <p><strong>Geographic bias.</strong> Volunteers cluster where people live. Suburban neighborhoods will have more coverage than rural farmland. The coverage gap alert system can partially mitigate this by directing volunteers to underserved areas, but it cannot create volunteers where none exist.</p>
+
+  <h2>The Combined Coverage Model</h2>
+
+  <p>The thesis of this paper is simple. A jurisdiction that deploys both fixed ALPR and a mobile volunteer network during active alerts achieves a coverage profile that neither system can produce alone:</p>
+
+  <p><strong>Fixed cameras</strong> cover high-traffic intersections persistently. They capture vehicles 24/7 whether or not an alert is active. They provide the historical record. They are the backbone.</p>
+
+  <p><strong>Mobile volunteers</strong> cover the road network between cameras during active alerts. They fill the gaps. They scale to the search area. They cost nothing at the margin. They activate when needed and deactivate when the alert resolves.</p>
+
+  <p>The mission map in Amber&rsquo;s Angels visualizes both layers simultaneously. Fixed camera coverage (derived from the DeFlock dataset and scored per road segment) shows as a static heatmap. Volunteer telemetry trails show as real-time GPS tracks overlaid on the road network. The coordinator can see, in one view, which intersections are camera-covered, which roads have been driven by volunteers, and which roads remain dark.</p>
+
+  <p>The coverage gap ping&thinsp;&mdash;&thinsp;a coordinator pushing a notification to all active pilots when a gap is identified&thinsp;&mdash;&thinsp;is the operational bridge between the two layers. When the map shows a cluster of uncovered road segments in an area with no fixed cameras, the coordinator can recruit volunteers to fill that gap in real time. The system surfaces the problem and provides the mechanism to solve it.</p>
+
+  <p>This is not an anti-Flock paper. Flock Safety builds excellent hardware. Fixed ALPR has saved lives and will continue to save lives. But the coverage model has a structural ceiling defined by economics: you cannot install a camera on every road. Mobile volunteer networks raise that ceiling by covering the roads between the cameras, on demand, at near-zero marginal cost, only when someone is missing.</p>
+
+  <p>The real competitor is not each other. The real competitor is the dark road&thinsp;&mdash;&thinsp;the one nobody is watching when a child is in the back seat of a car driving down it.</p>
+
+  <div class="cta">
+    <p>Amber&rsquo;s Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI for missing persons response. For partnership inquiries, coverage analysis for your jurisdiction, or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>Flock Safety. &ldquo;Pricing &amp; Plans.&rdquo; <a href="https://www.flocksafety.com/products/flock-safety-flock">flocksafety.com/products</a>. Camera pricing publicly listed; typical per-unit cost $2,000&ndash;$2,500 including annual subscription.</li>
+    <li>DeFlock Project. Community-maintained ALPR camera location dataset. <a href="https://deflock.me">deflock.me</a></li>
+    <li>OpenStreetMap Contributors. Road network data via Overpass API. <a href="https://wiki.openstreetmap.org/wiki/Overpass_API">wiki.openstreetmap.org/wiki/Overpass_API</a></li>
+    <li>American Civil Liberties Union. &ldquo;You Are Being Tracked: How License Plate Readers Are Being Used to Record Americans&rsquo; Movements.&rdquo; <a href="https://www.aclu.org/issues/privacy-technology/location-tracking/you-are-being-tracked">aclu.org</a></li>
+    <li>Electronic Frontier Foundation. &ldquo;Automated License Plate Readers.&rdquo; <a href="https://www.eff.org/pages/automated-license-plate-readers-alpr">eff.org</a></li>
+    <li>National Conference of State Legislatures. &ldquo;Automated License Plate Readers: State Statutes.&rdquo; <a href="https://www.ncsl.org/technology-and-communication/automated-license-plate-readers-state-statutes">ncsl.org</a></li>
+    <li>FEMA. Integrated Public Alert and Warning System (IPAWS). <a href="https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system">fema.gov</a></li>
+    <li>Google ML Kit. &ldquo;Recognize text in images.&rdquo; <a href="https://developers.google.com/ml-kit/vision/text-recognition">developers.google.com/ml-kit</a></li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber&rsquo;s Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-007 &middot; Published June 23, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>

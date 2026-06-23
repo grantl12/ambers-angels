@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coordinator-Directed Drone Swarm: Remote Deployment for Missing Persons Search — Amber's Angels</title>
+<meta name="description" content="How volunteer drone pilots relinquish control to a coordinator-directed platform that dispatches autonomous waypoint missions for missing persons response — reducing time-to-airborne from hours to minutes.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+code { font-family:'JetBrains Mono',monospace; font-size:0.88em; background:#EDE8DE; padding:1px 5px; border-radius:3px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.timeline { margin:40px 0; }
+.timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
+.timeline-row:last-child { border-bottom:none; }
+.timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
+.timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+table.spec-table { width:100%; border-collapse:collapse; margin:32px 0; font-size:10pt; }
+table.spec-table th { background:var(--navy); color:#FAFAF8; font-family:'Playfair Display',serif; font-size:9pt; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:10px 14px; text-align:left; }
+table.spec-table td { padding:10px 14px; border-bottom:1px solid var(--rule); line-height:1.5; vertical-align:top; }
+table.spec-table tr:last-child td { border-bottom:none; }
+table.spec-table td:first-child { font-weight:600; color:var(--navy); white-space:nowrap; }
+table.spec-table td code { font-size:0.85em; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } table.spec-table { font-size:9pt; } table.spec-table td, table.spec-table th { padding:8px 10px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">&larr; amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper &middot; AA-2026-004</p>
+    <p class="paper-date">June 14, 2026</p>
+    <h1>Coordinator-Directed Drone Swarm: Remote Deployment for Missing Persons Search</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director &mdash; <a href="https://amberangels.org">Amber's Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>Volunteer drone operators represent an untapped force multiplier for missing persons response, but the traditional model&thinsp;&mdash;&thinsp;drive to a staging area, brief with an incident commander, fly manual patterns&thinsp;&mdash;&thinsp;limits participation to people who can physically deploy. This paper describes a coordinator-directed drone swarm system that inverts the model: volunteers register their drones from home, the platform maintains a heartbeat-based presence map, and when an alert fires, a remote coordinator plans and dispatches autonomous waypoint missions to drones that may be miles from the search area. The drone executes the flight plan on its onboard flight controller&thinsp;&mdash;&thinsp;streaming live video for automated license plate recognition and vehicle classification or for human visual search. The result is aerial coverage within minutes of an alert, without requiring a single volunteer to leave their house.</p>
+  </div>
+
+  <h2>The Relinquish-to-Swarm Model</h2>
+
+  <p>The core idea is simple: a volunteer with a drone, kids at home, and nowhere to go can still contribute an aerial search. The platform handles everything between "I have a drone" and "there is a camera over the search area."</p>
+
+  <p>We call this <strong>relinquish to swarm</strong>. The pilot powers on their drone at home, opens the Amber's Angels app, and the drone begins reporting its GPS position to the platform every 30 seconds. From that point, the pilot has relinquished operational control to the coordinator network. Their drone appears on the mission map&thinsp;&mdash;&thinsp;an amber icon if the heartbeat is current, grayed out if the last heartbeat is older than five minutes. The pilot does not choose where to fly, does not plan a route, and does not need to be near the search area. They have offered an asset. The coordinator decides how to use it.</p>
+
+  <p>When a FEMA AMBER Alert, Silver Alert, or law enforcement BOLO fires, a coordinator on the platform can see every available drone, its home position, its battery level, and its VLOS radius. The coordinator selects a drone, picks a target&thinsp;&mdash;&thinsp;an observation point, a parking lot, a water body&thinsp;&mdash;&thinsp;and the platform generates a waypoint mission. The mission is pushed to the pilot's phone. The pilot taps <strong>Accept &amp; Launch</strong>. The drone uploads the flight plan to its onboard flight controller and takes off autonomously.</p>
+
+  <p>The pilot's role at this point is legal presence: a Part 107 certificate holder standing near the takeoff point, monitoring battery and airspace. The coordinator's role is tactical: watching the live camera feed, adjusting the search area, dispatching additional drones if needed. The platform's role is execution: flight planning, waypoint generation, VLOS enforcement, mission lifecycle management, and timeout cleanup.</p>
+
+  <div class="pullquote">
+    <p>"Every volunteer who owns a drone is a potential search asset. The question is not whether they are willing to help&thinsp;&mdash;&thinsp;it is whether the system can turn their willingness into airborne coverage before the window closes."</p>
+  </div>
+
+  <h2>Drone Registration and Heartbeat</h2>
+
+  <p>Before a drone can participate in the swarm, the pilot registers it through the app. Registration records the drone model, serial number, camera horizontal field of view (default 84 degrees for DJI cameras), and maximum flight time. The platform creates a record in the <code>autonomous_drones</code> table linked to the pilot's account.</p>
+
+  <p>Once registered, the drone enters the presence pool via the heartbeat mechanism. The <code>AutonomousMissionScreen</code> in the mobile app sends a <code>POST /autonomous/drones/{id}/heartbeat</code> request every 30 seconds. The heartbeat payload contains the drone's current GPS position&thinsp;&mdash;&thinsp;preferring the DJI SDK's aircraft GPS when a drone is connected, falling back to the phone's device GPS via Expo Location otherwise. The server updates the drone's <code>home_lat</code>, <code>home_lng</code>, and <code>last_seen_at</code> timestamp on each heartbeat.</p>
+
+  <p>Coordinators see the drone pool on their mission map. A drone with a heartbeat within the last five minutes is considered <strong>online</strong>. Beyond five minutes, it grays out&thinsp;&mdash;&thinsp;the pilot may have closed the app, lost connectivity, or powered down the aircraft. Only online drones are dispatchable. The ownership model is strict: only the pilot registered to a drone (or an admin) can send heartbeats for it, preventing spoofed positions.</p>
+
+  <h2>Mission Planning</h2>
+
+  <p>The platform supports three mission types, each optimized for a different search scenario.</p>
+
+  <h3>Observation Post</h3>
+
+  <p>The primary dispatch mode. The coordinator selects a target location&thinsp;&mdash;&thinsp;either by tapping the map to place an explicit latitude/longitude or by supplying a polygon whose centroid is used. The drone flies to the observation point at a configurable altitude (default 60 m AGL) and speed (default 8 m/s), then hovers. While hovering, the drone's live RTMP stream is processed by the server-side detection pipeline: OpenALPR for license plate recognition and YOLOv8-nano for vehicle classification (color, body type, make/model). The observation post is a single-waypoint mission&thinsp;&mdash;&thinsp;the simplest possible flight plan, designed for intersection coverage or entry/exit monitoring.</p>
+
+  <p>Endpoint: <code>POST /autonomous/plan</code>. The request accepts <code>obs_lat</code>/<code>obs_lng</code> (preferred) or <code>polygon_geojson</code> (centroid extracted). Returns a mission with status <code>pending</code> and a single waypoint.</p>
+
+  <h3>Sweep (Lawnmower Pattern)</h3>
+
+  <p>For area coverage&thinsp;&mdash;&thinsp;parking lots, neighborhoods, commercial zones where a target vehicle might be parked. The coordinator draws a polygon on the map. The platform generates a boustrophedon (lawnmower) waypoint path that covers the polygon interior with overlapping scan lanes.</p>
+
+  <p>Lane spacing is computed from the camera's horizontal field of view, the mission altitude, and a configurable overlap percentage (default 30%). At the default sweep altitude of 15 m AGL with an 84-degree HFOV, each lane covers approximately 28 m of ground width with 8.4 m of overlap between adjacent lanes. The sweep angle is optimized across four candidates (0, 45, 90, and 135 degrees) to minimize the number of lanes&thinsp;&mdash;&thinsp;the angle whose rotated bounding box produces the smallest perpendicular extent wins.</p>
+
+  <p>Speed is set to 3 m/s by default for plate readability. The lower altitude and slower speed compared to observation post missions reflect the different objective: the sweep is looking for a stationary or slow-moving vehicle, not monitoring traffic flow.</p>
+
+  <p>Endpoint: <code>POST /autonomous/plan-sweep</code>. Requires <code>polygon_geojson</code>. Returns waypoint count and full waypoint list.</p>
+
+  <h3>Water Body Perimeter Search</h3>
+
+  <p>For Purple Alert and other scenarios where the missing person may be near water. Described in detail in AA-2026-001.<sup>1</sup> The coordinator selects a water body from a ranked list (queried from OpenStreetMap Overpass API, cached with 24-hour TTL). The platform generates a closed-loop perimeter flight plan at a configurable buffer distance from shore (default 20 m for tree clearance) and altitude (default 15 m AGL).</p>
+
+  <p>The perimeter path is computed by offsetting the water body polygon outward using edge-normal projection, then simplifying with Douglas-Peucker to fit within the DJI MSDK V5 waypoint limit of 98 per mission. Waypoints include computed headings so the drone's camera tracks along the shoreline. Speed is set to 3 m/s for visual search fidelity. This is a <em>human visual search</em>&thinsp;&mdash;&thinsp;the coordinator watches the live feed and the ALPR/YOLO pipeline is not the primary sensor.</p>
+
+  <p>Endpoint: <code>POST /autonomous/plan-water-search</code>. Requires <code>water_body_id</code> and <code>polygon_geojson</code>.</p>
+
+  <h2>Waypoint Generation and KMZ Packaging</h2>
+
+  <p>All waypoint generation happens server-side in Python. The output is a list of waypoint dictionaries, each containing latitude, longitude, altitude (meters AGL), heading (degrees, 0 = north), and speed (m/s). Coordinates are rounded to 8 decimal places&thinsp;&mdash;&thinsp;sub-millimeter precision that exceeds GPS accuracy but avoids floating-point truncation artifacts.</p>
+
+  <p>The coordinate math uses a local metric projection centered on the polygon centroid: latitude differences scale at 111,111 m/degree, longitude differences scale at 111,111 &times; cos(latitude) m/degree. This avoids the overhead of a full UTM projection while remaining accurate within the operational radius of a single drone mission (typically under 2 km).</p>
+
+  <p>On the mobile side, waypoints are serialized to JSON and passed across the React Native bridge to the DJI MSDK V5 native module. The Kotlin implementation (<code>DJICameraImpl.kt</code>) builds a WPML XML document conforming to DJI's Waypoint Mission Markup Language specification (namespace <code>http://www.dji.com/wpmz/1.0.2</code>). The XML is written into a KMZ archive (a ZIP file containing <code>wpmz/waylines.wpml</code>) and pushed to the aircraft via the <code>WaypointMissionManager</code>.</p>
+
+  <h3>WPML Configuration</h3>
+
+  <p>The generated WPML encodes critical safety and flight behavior parameters:</p>
+
+  <table class="spec-table">
+    <tr><th colspan="2">Mission Configuration (WPML)</th></tr>
+    <tr><td>flyToWaylineMode</td><td><code>safely</code> &mdash; drone ascends to mission altitude before translating to first waypoint</td></tr>
+    <tr><td>exitOnRCLost</td><td><code>executeLostAction</code> &mdash; if RC signal is lost, execute the lost action rather than continuing blind</td></tr>
+    <tr><td>executeRCLostAction</td><td><code>goBack</code> &mdash; return to home on signal loss</td></tr>
+    <tr><td>globalRTHHeight</td><td>Mission altitude + 20 m (clamped 30&ndash;500 m) &mdash; ensures obstacle clearance during RTH</td></tr>
+    <tr><td>takeOffSecurityHeight</td><td>20 m &mdash; minimum safe altitude before horizontal translation</td></tr>
+    <tr><td>executeHeightMode</td><td><code>relativeToStartPoint</code> &mdash; all altitudes referenced to takeoff elevation</td></tr>
+    <tr><td>waypointTurnMode</td><td><code>toPointAndStopWithDiscontinuityCurvature</code> &mdash; sharp stops at each waypoint for precise positioning</td></tr>
+    <tr><td>waypointHeadingMode</td><td><code>smoothTransition</code> &mdash; gradual heading changes between waypoints</td></tr>
+    <tr><td>waypointSpeed</td><td>Per-waypoint, clamped to 1&ndash;12 m/s by the DJI spec</td></tr>
+  </table>
+
+  <h3>Dynamic Aircraft Identification</h3>
+
+  <p>The WPML <code>droneEnumValue</code> field must match the connected aircraft model. The implementation reads the <code>ProductType</code> from the DJI SDK at runtime and maps it to the correct enum value&thinsp;&mdash;&thinsp;91 for Mini 4 Pro, 89 for Mini 3/Mini 3 Pro/M350 RTK, 77 for Mavic 3, 67 for M30 series, 60 for M300 RTK and Mavic 3 Enterprise. This dynamic mapping was added after testing revealed that a hardcoded enum value causes mission upload failure on mismatched aircraft.</p>
+
+  <h2>Mission Lifecycle</h2>
+
+  <p>Every mission follows a defined state machine. Status transitions are timestamp-annotated and persisted in the <code>autonomous_missions</code> table.</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Mission Status Lifecycle</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>pending.</strong> Mission created by coordinator. Waypoints generated and stored. Mission appears in the pilot's pending list on the Autonomous Mission Screen. Pilot polls for pending missions every 30 seconds.</li>
+        <li><strong>uploading.</strong> Pilot taps "Accept &amp; Launch." The app sends a pre-mission acknowledgment (including FAA waiver number for BVLOS missions), then calls <code>startWaypointMission()</code> which builds the KMZ and pushes it to the aircraft via <code>WaypointMissionManager.pushKMZFileToAircraft()</code>. Upload progress events fire to the UI.</li>
+        <li><strong>executing.</strong> KMZ uploaded successfully. <code>WaypointMissionManager.startMission()</code> called. The flight controller begins autonomous waypoint execution. The <code>started_at</code> timestamp is set. Both <code>executing</code> and <code>active</code> are accepted status strings&thinsp;&mdash;&thinsp;the mobile DJI SDK emits <code>executing</code> while the backend treats both identically.</li>
+        <li><strong>relook.</strong> (Sweep/observation missions only.) The detection pipeline identified a medium-confidence plate match on the drone's RTMP stream. The mission is paused for sharper frame capture. See <em>Auto-Relook</em> section below.</li>
+        <li><strong>ready_for_control.</strong> (Water search missions only.) The drone has completed its perimeter trace and hovers at the final waypoint. The coordinator retains live camera view for continued visual search. The pilot sees "Perimeter complete &mdash; hovering" and can tap "Complete Mission" when the coordinator is satisfied.</li>
+        <li><strong>completed.</strong> Mission finished successfully. <code>completed_at</code> timestamp set. The drone returns home (observation/sweep) or remains hovering (water search, until explicit completion).</li>
+        <li><strong>aborted.</strong> Pilot or coordinator manually cancelled the mission. The app calls <code>stopWaypointMission()</code> which halts the flight controller&thinsp;&mdash;&thinsp;the drone hovers in place. RTH can be triggered separately.</li>
+        <li><strong>failed.</strong> Mission timed out or encountered an unrecoverable error. Error message stored in <code>error_msg</code> field.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>Timeout Cleanup</h3>
+
+  <p>A background task (<code>mission_timeout_loop</code>) runs every five minutes and expires stale missions:</p>
+
+  <table class="spec-table">
+    <tr><th>Stuck Status</th><th>Timeout</th><th>Error Message</th></tr>
+    <tr><td>pending / dispatched / uploading</td><td>30 minutes</td><td>"Timed out waiting for drone to connect"</td></tr>
+    <tr><td>executing / active / ready_for_control</td><td>4 hours</td><td>"Mission exceeded maximum flight duration"</td></tr>
+  </table>
+
+  <p>These timeouts catch real failure modes: a pilot who accepted a mission but never connected their drone (30-minute timeout), or a drone that lost telemetry mid-flight and the server never received a completion status (4-hour timeout). Expired missions are set to <code>failed</code> with <code>completed_at = NOW()</code> and logged with their IDs for debugging.</p>
+
+  <h2>Auto-Relook: Handling Ambiguous Detections</h2>
+
+  <p>The detection pipeline produces a confidence score for every license plate read. Scores above the <code>HIGH_CONFIDENCE_EVENT_MIN_SCORE</code> threshold (85%) trigger an immediate alert&thinsp;&mdash;&thinsp;Discord notification, push notification, and optionally SMS. But what about a read at 78%? The plate <em>might</em> match. The camera angle was bad, or the plate was partially occluded, or the lighting washed out a character. A human would reposition for a better look. The auto-relook flow automates that repositioning.</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Auto-Relook Flow</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Medium-confidence detection.</strong> The unified worker detects a plate match between the single-frame floor (55%) and the high-confidence threshold (85%) on an active drone's RTMP stream.</li>
+        <li><strong>Relook request.</strong> The worker calls <code>POST /autonomous/missions/{id}/relook</code> with the plate text and confidence score. The backend transitions the mission to <code>relook</code> status&thinsp;&mdash;&thinsp;only if the mission is currently <code>executing</code> or <code>active</code>.</li>
+        <li><strong>Drone pauses.</strong> A push notification is sent to the pilot's phone via Expo. The app calls <code>pauseMission()</code> on the DJI SDK. The drone holds its current position in a stable hover.</li>
+        <li><strong>Sharper frames.</strong> Stationary hover produces significantly sharper video frames than in-flight capture. The worker evaluates 3&ndash;5 additional frames from the now-stable RTMP stream.</li>
+        <li><strong>Confirmation or resume.</strong> If the re-evaluation exceeds the high-confidence threshold, the alert fires normally. <code>POST /autonomous/missions/{id}/relook-complete?confirmed=true</code> is called. If the frames do not confirm, <code>confirmed=false</code> is sent. In both cases, the mission status transitions back to <code>executing</code> and the drone resumes its waypoint path automatically.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p>The relook mechanism eliminates a class of false negatives that would otherwise be lost. Without it, a medium-confidence read from a moving drone is discarded and the drone continues past the target. With it, the system pauses, looks again, and either confirms the match or resumes the search&thinsp;&mdash;&thinsp;no human intervention required.</p>
+
+  <h2>FAA Compliance: Operational Tiers</h2>
+
+  <p>The platform enforces FAA regulatory constraints at mission plan creation time, not as a post-flight audit. Three operational tiers are defined, each with progressively looser constraints and correspondingly higher authorization requirements.</p>
+
+  <table class="spec-table">
+    <tr><th>Tier</th><th>FAA Basis</th><th>Constraint</th><th>Authorization Gate</th></tr>
+    <tr><td>VLOS</td><td>14 CFR Part 107 (standard)</td><td>All waypoints must be within the drone's <code>vlos_radius_m</code> of its home position. Default radius: 400 m.</td><td>None beyond Part 107 certificate. This is the default for all missions.</td></tr>
+    <tr><td>BVLOS Tactical</td><td>14 CFR 107.39 waiver</td><td>VLOS radius is not enforced. Drone may operate beyond visual line of sight.</td><td>Admin must set <code>bvlos_authorized = true</code> on the drone record and record the FAA waiver number. The pilot must enter the waiver/certificate number in the pre-mission acknowledgment modal before launch.</td></tr>
+    <tr><td>BVLOS Autonomous</td><td>14 CFR Part 108 (forthcoming)</td><td>Same as BVLOS Tactical. Placeholder for future Part 108 full autonomous operations.</td><td>Same as BVLOS Tactical. Gate will be differentiated when Part 108 final rule is published.</td></tr>
+  </table>
+
+  <h3>VLOS Radius Enforcement</h3>
+
+  <p>For VLOS missions, the platform computes the haversine distance from the drone's home position (last heartbeat GPS) to every generated waypoint. If any waypoint exceeds the VLOS radius, the mission is rejected with a clear error message showing the distance and the limit. The coordinator is advised to either move the observation point closer or switch to <code>bvlos_tactical</code> if a waiver is on file.</p>
+
+  <p>The default 400 m radius is conservative&thinsp;&mdash;&thinsp;Part 107 does not specify a numerical VLOS distance, only that the remote PIC must maintain unaided visual contact. In practice, a Mini 4 Pro is difficult to see beyond 400 m. The radius is configurable per drone (50&ndash;10,000 m range) via <code>PATCH /autonomous/drones/{id}</code>, allowing administrators to set appropriate limits based on the aircraft size and local conditions.</p>
+
+  <h3>Pre-Mission Acknowledgment</h3>
+
+  <p>Before any mission launches, the pilot must confirm through an in-app acknowledgment modal that they will <strong>observe only</strong>&thinsp;&mdash;&thinsp;they will not pursue, confront, or approach any person or vehicle. This is not a legal waiver; it is a behavioral reminder. For BVLOS missions, the modal additionally requires the pilot to enter their FAA certificate or waiver number, which is stored with the mission record in the <code>bvlos_certificate</code> column.</p>
+
+  <h2>Safety Architecture</h2>
+
+  <p>Consumer drones have mature safety systems. The platform's job is not to replicate them but to configure them correctly and get out of the way. Safety is handled at three layers: the flight controller firmware, the WPML configuration, and the platform's lifecycle management.</p>
+
+  <h3>Flight Controller (Firmware Level)</h3>
+
+  <p><strong>Return to Home on RC loss.</strong> The WPML configuration sets <code>exitOnRCLost=executeLostAction</code> and <code>executeRCLostAction=goBack</code>. If the remote controller loses signal, the drone ascends to RTH altitude (mission altitude + 20 m) and flies home autonomously. This is firmware behavior&thinsp;&mdash;&thinsp;it works regardless of app connectivity.</p>
+
+  <p><strong>Battery RTH.</strong> DJI firmware calculates the power required to return home and triggers automatic RTH when the remaining charge is insufficient. This is independent of the platform&thinsp;&mdash;&thinsp;the drone will abandon a mission to save itself.</p>
+
+  <p><strong>Obstacle avoidance.</strong> Aircraft with vision sensors (Mini 4 Pro, Mavic 3, M30 series) operate in BRAKE mode during autonomous missions. If the obstacle avoidance system detects a collision risk, the drone brakes and hovers rather than diverting around the obstacle. This prevents unpredictable deviations from the planned flight path.</p>
+
+  <p><strong>GEO zones.</strong> DJI's geofencing system prevents flight in restricted airspace (airports, prisons, stadiums, etc.). This is enforced at the firmware level and cannot be overridden by the platform.</p>
+
+  <h3>KMZ Execution Model</h3>
+
+  <p>Once the KMZ waypoint file is uploaded to the aircraft, <strong>the flight controller executes the mission independently</strong>. If the pilot's phone disconnects, crashes, or loses cellular signal, the drone continues its waypoint path. This is by design: the mission lives on the flight controller, not on the phone. The phone is a status display, not a control link. On mission completion, the drone returns home (observation/sweep) or hovers (water search) per the <code>finishAction</code> parameter in the WPML.</p>
+
+  <h3>Platform Level</h3>
+
+  <p><strong>Timeout cleanup.</strong> Missions that stall in pre-flight statuses for 30 minutes or in active flight for 4 hours are automatically failed. This prevents zombie missions from accumulating in the pending queue.</p>
+
+  <p><strong>Abort.</strong> The pilot can tap Abort at any time. The app calls <code>stopWaypointMission()</code> via the DJI SDK, which halts the flight controller. The drone hovers in place. The pilot can then trigger Return to Home separately.</p>
+
+  <p><strong>Pause and resume.</strong> Available during execution. The drone holds position on pause and continues from the exact pause point on resume. This enables the coordinator to inspect an area more closely via the live feed without losing the mission progress.</p>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num purple">30s</span>
+      <span class="label">Heartbeat interval</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num amber">400m</span>
+      <span class="label">Default VLOS radius</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num navy">98</span>
+      <span class="label">Max waypoints per mission (DJI limit)</span>
+    </div>
+  </div>
+
+  <h2>Supported Aircraft</h2>
+
+  <p>The DJI MSDK V5 waypoint mission interface requires both SDK support and specific firmware. The following aircraft are confirmed compatible:</p>
+
+  <table class="spec-table">
+    <tr><th>Aircraft</th><th>Category</th><th>Notes</th></tr>
+    <tr><td>Mini 4 Pro</td><td>Consumer</td><td>Primary target. Confirmed MSDK 5.17+. Requires RC-N2 controller.</td></tr>
+    <tr><td>Mini 3 / Mini 3 Pro</td><td>Consumer</td><td>Supported. Lower wind resistance limits operational ceiling.</td></tr>
+    <tr><td>Mavic 3 / Mavic 3 Classic / Mavic 3 Pro</td><td>Prosumer</td><td>Larger airframe, longer flight time, better camera for plate readability.</td></tr>
+    <tr><td>Mavic 3 Enterprise Series</td><td>Enterprise</td><td>Thermal camera option (FLIR) for night water search.</td></tr>
+    <tr><td>M30 / M30T</td><td>Enterprise</td><td>M30T includes thermal payload. Weather-resistant.</td></tr>
+    <tr><td>M300 RTK / M350 RTK</td><td>Enterprise</td><td>Heavy-lift platform. Extended flight time. RTK positioning.</td></tr>
+    <tr><td>Matrice 4 Series</td><td>Enterprise</td><td>Latest enterprise platform.</td></tr>
+  </table>
+
+  <p><strong>Notable exclusions.</strong> The DJI Air 3 is <em>not supported</em>&thinsp;&mdash;&thinsp;DJI has confirmed it has no MSDK V5 access. The Avata series is FPV-only with no waypoint mission capability; Avata pilots can still participate via the manual RTMP flight path (live stream to the platform, no autonomous waypoints). The DJI MSDK V5 module is Android-only&thinsp;&mdash;&thinsp;iOS requires a separate native implementation using the DJI iOS SDK, which has not been built. iOS pilots currently fall back to the phone camera scanning mode (on-device ML Kit OCR).</p>
+
+  <h2>Operational Scenario</h2>
+
+  <p>Consider a realistic deployment. An AMBER Alert fires at 2:14 PM on a Tuesday in Carrollton, Georgia. A white 2019 Honda Civic, plate YVJ024, last seen heading west on Highway 166. The FEMA IPAWS CMAS alert is ingested by the platform within 5 minutes. Vehicle targets and watchlist entries are created. Discord fires. Push notifications go to every volunteer in the Carrollton coverage area.</p>
+
+  <div class="timeline">
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:00</span>
+      <span class="timeline-event"><strong>FEMA IPAWS ingestion.</strong> Alert processed. Plate "YVJ024" added to watchlist. Vehicle target created: white Honda Civic. Push notifications fire.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:30</span>
+      <span class="timeline-event"><strong>Coordinator dispatches.</strong> Three drones are online in the heartbeat pool. Coordinator selects Drone 1 (Mini 4 Pro, 1.2 km from Highway 166 interchange) and places an observation post over the westbound on-ramp. VLOS check passes at 380 m from home.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:00</span>
+      <span class="timeline-event"><strong>Sweep dispatched.</strong> Coordinator draws a polygon over the Walmart parking lot off Highway 166. Drone 2 (Mavic 3, 800 m away) receives a sweep mission. 24 waypoints generated. Lawnmower pattern at 15 m AGL, 3 m/s.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:30</span>
+      <span class="timeline-event"><strong>Pilot 1 accepts.</strong> Taps "Accept &amp; Launch." Pre-mission acknowledgment confirmed. KMZ uploads to Mini 4 Pro. Drone lifts off and translates to observation point at 60 m AGL.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+2:00</span>
+      <span class="timeline-event"><strong>Both drones airborne.</strong> RTMP streams active. ALPR + YOLO processing every frame. The coordinator monitors the interchange feed. The worker scans the parking lot sweep.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+4:30</span>
+      <span class="timeline-event"><strong>Medium-confidence match.</strong> Sweep drone reads "YVJ024" at 72% confidence on a white sedan in the parking lot. Auto-relook triggered. Drone pauses. Hover frames evaluated.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+5:00</span>
+      <span class="timeline-event"><strong>Confirmed.</strong> Three stable hover frames read "YVJ024" at 94%, 91%, 96%. HIGH_CONFIDENCE alert fires. Discord embed with golden frame, GPS coordinates, confidence scores. Relook completes. Sweep resumes.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+5:30</span>
+      <span class="timeline-event"><strong>Coordinates relayed.</strong> Coordinator passes GPS pin to responding officers. Total time from FEMA ingestion to eyes on target vehicle: under 6 minutes.</span>
+    </div>
+  </div>
+
+  <p>Neither pilot left their house. Neither pilot chose where to fly. The coordinator directed two drones to two locations simultaneously from a phone screen. The detection pipeline identified the vehicle. The platform handled the flight planning, the waypoint generation, the VLOS enforcement, the auto-relook pause, and the alert dispatch. The volunteers provided the hardware and the legal presence. The platform provided everything else.</p>
+
+  <h2>Limitations and Future Work</h2>
+
+  <p><strong>Single-drone missions.</strong> Each mission dispatches to one drone. Multi-drone coordination&thinsp;&mdash;&thinsp;searching multiple water bodies simultaneously, or sweeping adjacent parking lots in parallel&thinsp;&mdash;&thinsp;is currently manual (the coordinator dispatches multiple missions individually). Automated multi-drone task allocation is an engineering extension, not a design challenge: the heartbeat pool already tracks multiple drones, and the mission system already supports concurrent missions.</p>
+
+  <p><strong>Night operations.</strong> Consumer drone cameras perform poorly in low light. Thermal payloads (available on M30T, Mavic 3 Enterprise) would significantly extend operational hours. The waypoint generation system is payload-agnostic&thinsp;&mdash;&thinsp;the same flight plans work with visual, thermal, or multispectral cameras. Only the detection pipeline needs to adapt.</p>
+
+  <p><strong>iOS DJI SDK.</strong> The current DJI MSDK V5 native module is Kotlin (Android only). iOS DJI SDK requires a separate Swift implementation and a macOS build machine. The mobile app includes a <code>Platform.OS !== 'android'</code> guard that falls back to phone camera mode on iOS. This is a build-environment constraint, not an architectural one.</p>
+
+  <p><strong>Concurrent relook handling.</strong> The current relook implementation handles one relook per mission at a time. If a second medium-confidence detection occurs while a relook is in progress, the second detection is not queued. This is acceptable for current operational scale but would need a relook queue for high-density sweep missions.</p>
+
+  <p><strong>Airspace deconfliction.</strong> The mission map displays ADS-B aircraft positions (fetched via the OpenSky/ADS-B Exchange API) with closest-point-of-approach conflict detection (500 ft horizontal, 300 ft vertical within a 2-minute lookahead). This is advisory only&thinsp;&mdash;&thinsp;it does not prevent mission dispatch or trigger automatic avoidance maneuvers. Full LAANC integration for automated airspace authorization is a future capability.</p>
+
+  <p><strong>Evidence chain of custody.</strong> The platform stores golden frames (high-confidence detection images) and GPS tracks but does not yet produce a formal evidence package (PDF with timeline, frames, chain-of-custody block). This is required for law enforcement handoff and is a near-term build priority.</p>
+
+  <h2>Conclusion</h2>
+
+  <p>The fundamental constraint in volunteer drone search is not hardware. Consumer drones are capable, affordable, and widely owned. The constraint is coordination: getting the right drone to the right location at the right time, with legal compliance, mission planning, and detection processing handled transparently. A volunteer who owns a Mini 4 Pro and a Part 107 certificate has everything needed to be a search asset&thinsp;&mdash;&thinsp;except the system that tells them where to point it.</p>
+
+  <p>The relinquish-to-swarm model solves this by separating the volunteer's contribution (hardware and legal presence) from the operational decisions (where to fly, what pattern, at what altitude). The coordinator makes the tactical call. The platform makes it executable. The drone makes it airborne. The detection pipeline makes it useful.</p>
+
+  <p>When the next AMBER Alert fires, the question should not be "can we get a drone in the air?" It should be "which three drones do we deploy first?"</p>
+
+  <div class="cta">
+    <p>Amber's Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>Lindberg, G. "Automated Water Search for Purple Alert Response." Amber's Angels Technical Paper AA-2026-001, June 2026. <a href="/papers/purple-alert-water-search.html">amberangels.org/papers/purple-alert-water-search</a></li>
+    <li>Federal Aviation Administration. "Small Unmanned Aircraft Systems (Part 107)." 14 CFR Part 107. <a href="https://www.ecfr.gov/current/title-14/chapter-I/subchapter-F/part-107">ecfr.gov/current/title-14/.../part-107</a></li>
+    <li>Federal Aviation Administration. "Operations Over People and Beyond Visual Line of Sight." 14 CFR 107 Subpart D. <a href="https://www.faa.gov/uas/commercial_operators/operations_over_people">faa.gov/uas/commercial_operators/operations_over_people</a></li>
+    <li>DJI Developer. "Mobile SDK V5 Documentation: Waypoint Mission." <a href="https://developer.dji.com/doc/mobile-sdk-tutorial/en/">developer.dji.com/doc/mobile-sdk-tutorial</a></li>
+    <li>DJI Developer. "WPML (Waypoint Markup Language) Specification." <a href="https://developer.dji.com/doc/cloud-api-tutorial/en/specification/wpml.html">developer.dji.com/doc/cloud-api-tutorial/.../wpml</a></li>
+    <li>Federal Emergency Management Agency. "Integrated Public Alert and Warning System (IPAWS)." <a href="https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system">fema.gov/emergency-managers/.../ipaws</a></li>
+    <li>National Center for Missing &amp; Exploited Children. "Key Facts About Missing Children." <a href="https://www.missingkids.org/footer/media/keyfacts">missingkids.org/footer/media/keyfacts</a></li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber's Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-004 &middot; Published June 14, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>

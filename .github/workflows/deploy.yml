@@ -34,8 +34,7 @@ jobs:
 
             # Rebuild frontend
             cd web
-            find .next -delete 2>/dev/null || true
-            find node_modules -delete 2>/dev/null || true
+            rm -rf .next node_modules
             npm ci --prefer-offline
             npm run build
             cd ..

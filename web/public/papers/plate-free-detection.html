@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plate-Free Vehicle Detection: When the Plate Disappears — Amber's Angels</title>
+<meta name="description" content="How YOLO vehicle classification maintains search continuity when license plates are switched, obscured, or missing — the vehicle profile matching pipeline behind Amber's Angels.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE9E0; padding:2px 6px; border-radius:3px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.timeline { margin:40px 0; }
+.timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
+.timeline-row:last-child { border-bottom:none; }
+.timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
+.timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
+table.scoring { width:100%; border-collapse:collapse; margin:24px 0; font-size:10.5pt; }
+table.scoring th { text-align:left; font-weight:600; color:var(--navy); padding:10px 12px; border-bottom:2px solid var(--navy); }
+table.scoring td { padding:10px 12px; border-bottom:1px solid var(--rule); }
+table.scoring td:last-child { text-align:right; font-family:'JetBrains Mono',monospace; font-size:9.5pt; }
+table.scenarios { width:100%; border-collapse:collapse; margin:24px 0; font-size:10pt; }
+table.scenarios th { text-align:left; font-weight:600; color:var(--navy); padding:8px 10px; border-bottom:2px solid var(--navy); font-size:9pt; text-transform:uppercase; letter-spacing:0.05em; }
+table.scenarios td { padding:8px 10px; border-bottom:1px solid var(--rule); vertical-align:top; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">&larr; amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper &middot; AA-2026-003</p>
+    <p class="paper-date">June 12, 2026</p>
+    <h1>Plate-Free Vehicle Detection: When the Plate Disappears</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director &mdash; <a href="https://amberangels.org">Amber's Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>Traditional automated license plate recognition (ALPR) treats the plate as the sole identifier. When a suspect switches plates or a plate is obscured, dirty, or missing, conventional ALPR systems go blind&thinsp;&mdash;&thinsp;the vehicle becomes invisible. This paper describes Amber's Angels' plate-free vehicle detection pipeline: a YOLOv8-based classification system that matches vehicles against active alert profiles using body type, color, and generational make/model identification, independent of any plate read. The system maintains search continuity through two fallback paths&thinsp;&mdash;&thinsp;a mismatch channel that flags plate matches with contradictory vehicle profiles, and a vehicle-only detection path that identifies target vehicles when no plate is readable at all.</p>
+  </div>
+
+  <h2>The Single Point of Failure</h2>
+
+  <p>Every ALPR system in deployment today shares the same fundamental assumption: the license plate is the identifier. When a vehicle is listed in an alert&thinsp;&mdash;&thinsp;AMBER, Silver, BOLO&thinsp;&mdash;&thinsp;the plate number is the search key. ALPR cameras read plates, compare them to a watchlist, and fire alerts on matches. This works when the plate is genuine, visible, and readable. It fails in two distinct ways.</p>
+
+  <h3>Failure Mode 1: The Switched Plate</h3>
+
+  <p>A suspect removes the original plates and replaces them with plates stolen from another vehicle of a similar type. The original plate number is on every ALPR watchlist in the state. Every camera that reads the new plates gets a clean result&thinsp;&mdash;&thinsp;no match, no alert, the vehicle passes through. The physical vehicle is unchanged. Same color, same make, same body type. But because the identifier has been swapped, the entire ALPR infrastructure sees it as a different car.</p>
+
+  <p>The National Insurance Crime Bureau estimates that plate swapping is involved in a significant percentage of vehicle-related crimes, and the practice is well-documented in abduction and trafficking cases.<sup>1</sup> It is the simplest, cheapest countermeasure a suspect can deploy against ALPR, and it is nearly impossible to detect with plate-only systems.</p>
+
+  <h3>Failure Mode 2: No Readable Plate</h3>
+
+  <p>A plate is obscured by mud, snow, a bike rack, or an aftermarket cover. A plate is bent. A plate has fallen off. The vehicle is photographed from an angle where the plate is not visible. The image is degraded by motion blur, poor lighting, or compression artifacts. In any of these cases, ALPR returns no result. The system does not know the vehicle was there.</p>
+
+  <p>Not every missing plate is adversarial. Most are mundane. But in a missing persons case, the effect is the same: a vehicle that should trigger an alert passes through undetected.</p>
+
+  <div class="pullquote">
+    <p>"The plate is one attribute of a vehicle. When we treat it as the only attribute, we build a system with a single point of failure. The suspect only has to defeat one thing."</p>
+  </div>
+
+  <h2>Vehicle Profile Matching</h2>
+
+  <p>Amber's Angels runs YOLOv8-nano on every frame processed by the detection pipeline&thinsp;&mdash;&thinsp;both RTMP drone streams and phone camera uploads. YOLO does not read plates. It classifies vehicles. For every vehicle detected in a frame, the system extracts three independent attributes: body type, dominant color, and generational make/model. Each attribute contributes to a composite profile that can be matched against active alerts without ever reading a plate character.</p>
+
+  <h3>Body Type Classification</h3>
+
+  <p>YOLOv8-nano is trained on the COCO dataset and classifies vehicles into four body types based on COCO class IDs: <strong>car</strong> (class 2), <strong>motorcycle</strong> (class 3), <strong>bus</strong> (class 5), and <strong>truck</strong> (class 7). The classification runs on the full frame, producing bounding boxes, confidence scores, and class labels for every detected vehicle. Vehicles are sorted by bounding box area&thinsp;&mdash;&thinsp;largest first&thinsp;&mdash;&thinsp;so the primary classification targets the most prominent vehicle in each frame.</p>
+
+  <p>These four YOLO body types are coarse by design. A sedan, a coupe, and an SUV all classify as "car." A pickup truck, a minivan, and a semi-trailer all classify as "truck." The coarseness is a feature, not a limitation&thinsp;&mdash;&thinsp;body type is a filter, not an identifier. When a FEMA alert describes a "white truck," body type eliminates every sedan, motorcycle, and bus from consideration. The remaining truck population is then narrowed by color and make.</p>
+
+  <h3>Dominant Color Extraction</h3>
+
+  <p>Color is extracted from the upper 60% of each vehicle bounding box&thinsp;&mdash;&thinsp;the body panels and roof, deliberately excluding the lower region where wheels, road surface, and license plates introduce noise. The crop is converted from BGR to HSV color space, then reduced to three dominant clusters via k-means clustering. The most prevalent cluster is compared against a set of named color centroids in HSV space: red, orange, yellow, green, blue, purple, white, silver, gray, and black.</p>
+
+  <p>The distance metric is weighted: hue difference is scaled by saturation (so highly saturated colors rely more heavily on hue, while desaturated colors&thinsp;&mdash;&thinsp;white, silver, gray, black&thinsp;&mdash;&thinsp;rely more on value). This approach handles the practical reality that most vehicles on the road are white, silver, gray, or black, where hue is nearly meaningless and brightness is the distinguishing factor.</p>
+
+  <h3>Generational Make/Model (CDC Classifier)</h3>
+
+  <p>The third classification stage is a fine-grained model identification step using a MobileNetV3 classifier trained on the ChaDongCha vehicle identification dataset. The YOLO bounding box crop for each detected vehicle is passed to this second-stage model, which outputs a generational label&thinsp;&mdash;&thinsp;for example, <code>Toyota_Camry_XV70</code> or <code>Honda_Civic_FC</code>&thinsp;&mdash;&thinsp;along with a confidence score. The input is preprocessed with a 1.15x scale resize and center crop to 224x224 pixels, matching the training pipeline.</p>
+
+  <p>CDC classification is the highest-value vehicle attribute in the pipeline. Color can be wrong under artificial lighting. Body type is coarse. But a generational label narrows the population to a specific model year range of a specific make and model. When an alert says "2020 Toyota Camry" and the CDC classifier returns <code>Toyota_Camry_XV70</code> (2018&ndash;present generation), that is a strong corroboration signal independent of any plate read.</p>
+
+  <h2>Three Detection Outcomes</h2>
+
+  <p>The detection pipeline produces three distinct outcomes depending on whether ALPR can read a plate and whether the vehicle profile matches the alert. Each outcome is routed to a different notification channel with distinct styling, so coordinators can immediately distinguish confirmed hits from leads that require verification.</p>
+
+  <table class="scenarios">
+    <thead>
+      <tr>
+        <th>Scenario</th>
+        <th>Plate</th>
+        <th>Profile</th>
+        <th>Channel</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Confirmed match</strong></td>
+        <td>Readable, matches watchlist</td>
+        <td>Matches alert profile</td>
+        <td>Main coordinator channel</td>
+      </tr>
+      <tr>
+        <td><strong>Mismatch</strong></td>
+        <td>Readable, matches watchlist</td>
+        <td>Contradicts alert profile</td>
+        <td>Separate mismatch channel</td>
+      </tr>
+      <tr>
+        <td><strong>Vehicle-only</strong></td>
+        <td>No plate read</td>
+        <td>Matches vehicle target</td>
+        <td>Separate vehicle-only channel</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>The Mismatch Channel</h3>
+
+  <p>A mismatch occurs when ALPR reads a plate that matches the watchlist, but YOLO classifies the vehicle in a way that contradicts the alert profile. The alert says "blue truck." The plate matches. But YOLO sees a white sedan. This is a strong signal that the plate may have been switched&thinsp;&mdash;&thinsp;the original plates are now on a different vehicle.</p>
+
+  <p>Mismatch detections are penalized in the confidence score. A color mismatch subtracts <strong>12 points</strong> from the aggregate confidence. A body type mismatch subtracts <strong>8 points</strong>. If both mismatch, the combined 20-point penalty can drop the effective confidence below the alert threshold. When the penalized confidence falls below 60%, the alert is routed to a dedicated mismatch Discord channel with an orange embed and the title <em>"PLATE MATCH &mdash; PROFILE MISMATCH."</em></p>
+
+  <p>This routing is deliberate. A mismatch is not a false positive&thinsp;&mdash;&thinsp;it is actionable intelligence. The plate is real. The vehicle is real. They just do not belong together. That is exactly the pattern a switched plate produces. Coordinators monitoring the mismatch channel know they are looking at cases where the plate identity and the physical vehicle disagree, and can prioritize verification accordingly.</p>
+
+  <h3>The Vehicle-Only Detection Path</h3>
+
+  <p>When ALPR cannot read a plate at all&thinsp;&mdash;&thinsp;no result returned, or the detected text is shorter than five characters&thinsp;&mdash;&thinsp;the system does not discard the frame. If YOLO detected a vehicle, the pipeline checks that vehicle's color and body type against every active record in the <code>vehicle_targets</code> table. If a match is found, the frame enters the vehicle-only aggregation path.</p>
+
+  <p>The vehicle-only path has its own scoring model, independent of ALPR. It is deliberately conservative: the maximum possible score is <strong>capped at 75 points</strong> (compared to 99 for a plate-confirmed detection). This cap reflects the fundamental uncertainty of a visual-only match&thinsp;&mdash;&thinsp;a blue truck is a blue truck, but there are many blue trucks on the road. The cap prevents vehicle-only detections from ever reaching the same confidence tier as a plate-confirmed hit.</p>
+
+  <table class="scoring">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Points</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Average YOLO detection confidence (scaled)</td>
+        <td>0&ndash;50</td>
+      </tr>
+      <tr>
+        <td>Color matches target (60%+ frame agreement)</td>
+        <td>+10</td>
+      </tr>
+      <tr>
+        <td>Body type matches target (60%+ frame agreement)</td>
+        <td>+10</td>
+      </tr>
+      <tr>
+        <td>CDC make label matches target (60%+ agreement)</td>
+        <td>+5</td>
+      </tr>
+      <tr>
+        <td>Repetition bonus (2 frames: +2, 3+ frames: +5)</td>
+        <td>+2&ndash;5</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;">Hard cap</td>
+        <td style="font-weight:600;">75</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The base score is derived from YOLO detection confidence scaled to a 0&ndash;50 range. A YOLO confidence of 0.85 yields a base of 42.5 points. Color and body type bonuses are awarded only when the dominant classification across all frames in the 5-second aggregation window matches the target profile with at least 60% agreement&thinsp;&mdash;&thinsp;a threshold that tolerates one or two noisy frames without firing on inconsistent data. The CDC make bonus requires the target's make to appear as a substring of the dominant CDC generational label.</p>
+
+  <p>Vehicle-only alerts fire when the aggregate score reaches <strong>50 points or higher</strong>, subject to a 10-minute per-drone cooldown to prevent notification spam. The Discord embed is styled with a violet color and the title <em>"VEHICLE PROFILE MATCH &mdash; NO PLATE READ,"</em> with an explicit action prompt: <em>"Reposition for a plate read."</em> Frame thumbnails are attached. These are leads, not confirmations.</p>
+
+  <h2>The <code>vehicle_targets</code> Table</h2>
+
+  <p>Not every missing persons alert includes a license plate number. An AMBER Alert might describe "a white Honda Civic" without specifying a plate. A law enforcement BOLO might have only a partial vehicle description. These alerts still contain actionable vehicle profile information&thinsp;&mdash;&thinsp;color, body type, make&thinsp;&mdash;&thinsp;even without a plate.</p>
+
+  <p>Amber's Angels stores these profile-only alerts in a dedicated <code>vehicle_targets</code> table, separate from the plate-based <code>watchlist</code>. When the FEMA connector ingests a new alert, it parses the freeform CAP XML headline and description for vehicle attributes using pattern matching: 20 named colors, 17 body type tokens mapped to YOLO classes (e.g., "minivan" and "mini van" both map to <code>truck</code>, "SUV" maps to <code>car</code>), and 30 known vehicle makes. Any combination of color, body type, or make extracted from the alert text is stored as a vehicle target record.</p>
+
+  <p>Each <code>vehicle_targets</code> record carries the FEMA identifier, alert type, source program, headline, geographic area, and a 24-hour expiration window. On subsequent polls, the system uses <code>ON CONFLICT</code> upsert logic&thinsp;&mdash;&thinsp;re-polling the same FEMA alert does not create duplicate records. If the alert includes a CAP polygon, a centroid is computed; otherwise, the system falls back to a state-level centroid derived from the area description.</p>
+
+  <p>The vehicle targets cache is refreshed every two minutes from the database and held in memory for fast matching during frame processing. Every frame that enters the pipeline&thinsp;&mdash;&thinsp;whether from a drone RTMP stream or a phone camera upload&thinsp;&mdash;&thinsp;is checked against this cache. The matching logic is simple and intentionally permissive: if the target specifies a color, the detected color must match; if the target specifies a body type, the detected body type must match; if the target specifies only one attribute, only that attribute is checked. Both must be present and matching, but either can be absent from the target profile.</p>
+
+  <h2>Vehicle Corroboration in Plate-Based Detection</h2>
+
+  <p>Vehicle profile matching is not limited to the plate-free path. When ALPR successfully reads a plate and the plate matches the watchlist, the vehicle classification still runs. The YOLO color, body type, and CDC label are compared against the watchlist entry's stored vehicle profile, and the result feeds back into the aggregate confidence score as a <strong>corroboration bonus</strong> of up to 8 additional points.</p>
+
+  <table class="scoring">
+    <thead>
+      <tr>
+        <th>Corroboration Component</th>
+        <th>Points</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Consistent color across 75%+ of frames in aggregation window</td>
+        <td>+2</td>
+      </tr>
+      <tr>
+        <td>Consistent body type across 75%+ of frames</td>
+        <td>+2</td>
+      </tr>
+      <tr>
+        <td>Consistent CDC generational label across 60%+ of frames</td>
+        <td>+4</td>
+      </tr>
+      <tr>
+        <td>YOLO confidence signal (deviation from 0.5 baseline, scaled)</td>
+        <td>&plusmn;3</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The CDC generational bonus is weighted highest because it carries the most specificity. Consistent color and body type across a 5-second aggregation window (typically 3&ndash;5 frames) each add 2 points. A consistent CDC label&thinsp;&mdash;&thinsp;the same make/model/generation identified across 60% or more of frames&thinsp;&mdash;&thinsp;adds 4 points. These bonuses compound with the plate confidence, repetition bonuses, and Bayesian prior weighting to produce a final aggregate confidence score that reflects both the plate read and the physical vehicle.</p>
+
+  <p>This means a confirmed plate match on a vehicle that also matches the expected color, body type, and make will score higher than the same plate read on a vehicle that YOLO cannot classify. The vehicle profile is a second independent signal that increases conviction when it agrees&thinsp;&mdash;&thinsp;and raises a flag when it does not.</p>
+
+  <h2>Operational Scenario: The Switched Plate</h2>
+
+  <p>Consider a real-world scenario. An AMBER Alert is issued for a white Honda Civic, Georgia plate <code>ABC1234</code>. The alert is ingested from FEMA IPAWS. The plate is added to the watchlist with vehicle profile metadata: color "white," body type "car," make "Honda." A vehicle target record is also created with those same attributes.</p>
+
+  <p>Thirty minutes later, the suspect pulls into a parking lot, removes plates <code>ABC1234</code>, and replaces them with plates <code>XYZ9876</code> stolen from a white Toyota Corolla two blocks away. The suspect drives away.</p>
+
+  <div class="timeline">
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:00</span>
+      <span class="timeline-event"><strong>AMBER Alert ingested.</strong> Plate ABC1234 added to watchlist. Vehicle target created: white, car, Honda. Volunteers notified.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:30</span>
+      <span class="timeline-event"><strong>Suspect switches plates.</strong> Removes ABC1234, installs XYZ9876 from a nearby Toyota Corolla. Traditional ALPR is now blind to this vehicle.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:15</span>
+      <span class="timeline-event"><strong>Drone RTMP scan.</strong> Worker processes frame. ALPR reads XYZ9876&thinsp;&mdash;&thinsp;not on watchlist. No plate alert fires. But YOLO classifies: white car. CDC returns Honda_Civic_FC. Vehicle target match found.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:17</span>
+      <span class="timeline-event"><strong>Vehicle-only alert fires.</strong> Discord embed: "VEHICLE PROFILE MATCH &mdash; NO PLATE READ." Target: white car Honda. Detected: white car (Honda Civic FC). Confidence: 67%. Frame thumbnail attached.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:18</span>
+      <span class="timeline-event"><strong>Coordinator acts.</strong> Sees the vehicle-only alert. Requests drone reposition for a closer plate read. Second scan at closer range: ALPR reads XYZ9876 clearly. Coordinator cross-references&thinsp;&mdash;&thinsp;plate does not belong to a Honda Civic. Reports to law enforcement with GPS coordinates and frame evidence.</span>
+    </div>
+  </div>
+
+  <p>Now consider the parallel scenario. A volunteer's phone is scanning in the background using on-device ML Kit OCR. The phone reads plate <code>XYZ9876</code>. It is not on the watchlist&thinsp;&mdash;&thinsp;no hit. But the phone also scans the same intersection twenty minutes later and reads plate <code>ABC1234</code> on the stolen Toyota Corolla that now carries the original plates. The plate matches the watchlist. The alert fires. But the vehicle is wrong&thinsp;&mdash;&thinsp;it is a Toyota Corolla, not a Honda Civic.</p>
+
+  <p>In a plate-only system, this would be a clean hit: the plate matches, the alert fires, responders are dispatched. In the Amber's Angels pipeline, the mismatch detection catches it. YOLO classifies the vehicle. The watchlist entry says "white car Honda." YOLO sees a white car, but CDC returns <code>Toyota_Corolla</code>. The CDC label does not contain "Honda." The <code>any_mismatch</code> flag is set. The confidence is penalized. The alert is routed to the mismatch channel: <em>"PLATE MATCH &mdash; PROFILE MISMATCH."</em></p>
+
+  <p>The coordinator now has two signals: a vehicle-only match on a white Honda with no valid plate, and a plate match on <code>ABC1234</code> that is on the wrong car. Together, these tell a story that no plate-only system could construct. The plates were switched. The suspect vehicle is the one in the vehicle-only alert. The plate match is on the donor vehicle.</p>
+
+  <div class="pullquote">
+    <p>"A plate-only system sees two unrelated events&thinsp;&mdash;&thinsp;a miss and a hit. A vehicle-aware system sees a switched plate. The difference is the second sensor."</p>
+  </div>
+
+  <h2>How the Pipeline Connects</h2>
+
+  <div class="flow-block">
+    <div class="flow-label">Plate-Free Detection Pipeline</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Frame arrives.</strong> Either from a drone RTMP stream (worker picks up JPEG from disk) or a phone camera upload (<code>POST /ingest/frame</code>). Every frame is processed by both ALPR and YOLO, regardless of source.</li>
+        <li><strong>YOLO classification.</strong> YOLOv8-nano runs on the full frame. For each detected vehicle: bounding box extracted, body type classified (car/truck/motorcycle/bus), dominant color computed from upper 60% of bounding box in HSV space via k-means clustering.</li>
+        <li><strong>CDC cascade.</strong> The YOLO bounding box crop is passed to the MobileNetV3 fine-grained classifier (ONNX runtime). Returns a generational make/model label and confidence. Background class results are discarded.</li>
+        <li><strong>Vehicle target check.</strong> Every detected vehicle is compared against active <code>vehicle_targets</code> records (cached, 2-minute refresh). Matches fire a Discord notification with a 10-minute per-target-per-drone cooldown.</li>
+        <li><strong>ALPR runs in parallel.</strong> OpenALPR processes the same frame. If no plates are found, or results fall below the 5-character minimum, the frame enters the vehicle-only aggregation path (step 7).</li>
+        <li><strong>Plate found &mdash; watchlist check.</strong> If ALPR reads a plate, it is checked against the watchlist. If matched, vehicle classification feeds into the confidence score as corroboration (or mismatch penalty). Alert routes to main channel or mismatch channel accordingly.</li>
+        <li><strong>No plate &mdash; vehicle-only aggregation.</strong> If no plate was read but a YOLO vehicle matches an active vehicle target, the detection enters the <code>VehicleOnlyGroup</code> aggregation path. Frames are grouped in a 5-second window per drone per target. The vehicle-only scoring model runs: YOLO base (0&ndash;50) + color bonus (+10) + body type bonus (+10) + CDC bonus (+5) + repetition bonus (+2&ndash;5), capped at 75.</li>
+        <li><strong>Vehicle-only alert dispatch.</strong> If the aggregate score reaches 50 or higher, a vehicle-only alert fires to the dedicated Discord channel. Frame thumbnail and GPS coordinates are attached. The embed directs the coordinator to reposition for a plate read.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>Limitations</h2>
+
+  <h3>Color Accuracy Under Variable Lighting</h3>
+
+  <p>Color classification is the weakest link in the vehicle profile. HSV-based color extraction is sensitive to lighting conditions. A white car under amber streetlights can classify as yellow. A dark blue vehicle at dusk can classify as black. The k-means clustering mitigates some of this by finding the dominant color cluster rather than averaging across all pixels, but it cannot compensate for fundamental color shifts caused by the illuminant.</p>
+
+  <p>This is a known limitation documented in the YOLO and computer vision literature.<sup>2</sup> The current mitigation is statistical: the 5-second aggregation window collects multiple frames, and the color bonus requires 60% agreement across all frames in the window. A single mis-classified frame does not trigger a false match. A future improvement&thinsp;&mdash;&thinsp;a dedicated color classification head using illumination-normalized features&thinsp;&mdash;&thinsp;is planned but not yet implemented.</p>
+
+  <h3>Nighttime Performance</h3>
+
+  <p>Both YOLO detection confidence and color extraction degrade significantly at night. Vehicle bounding boxes are less precise when the only illumination is headlights and streetlamps. Color becomes unreliable below a saturation threshold that most nighttime frames fail to meet. Body type classification remains relatively robust because vehicle silhouettes are distinctive even in low light, but color and CDC make/model identification are effectively disabled.</p>
+
+  <p>The vehicle-only scoring model partially accounts for this: if YOLO confidence drops (e.g., from 0.85 to 0.55 in low light), the base score drops proportionally (from 42.5 to 27.5), making it harder for a vehicle-only detection to reach the 50-point alert threshold. This is conservative by design&thinsp;&mdash;&thinsp;a low-confidence vehicle classification in the dark should not fire with the same conviction as a high-confidence classification in daylight.</p>
+
+  <h3>Body Type Coarseness</h3>
+
+  <p>YOLO's four vehicle classes are coarse. An SUV and a sedan both classify as "car." A minivan and a pickup truck both classify as "truck." When a FEMA alert says "red SUV" and the system stores body type as "car," the body type match will also fire on red sedans, red coupes, and red hatchbacks. The FEMA connector's body type mapping partially addresses this&thinsp;&mdash;&thinsp;"SUV" maps to "car," "pickup" maps to "truck," "minivan" maps to "truck"&thinsp;&mdash;&thinsp;but the underlying YOLO classification does not distinguish between subtypes within a class.</p>
+
+  <p>The CDC generational classifier compensates for this gap. While YOLO cannot distinguish an SUV from a sedan, a CDC label like <code>Toyota_RAV4_XA50</code> is unambiguous&thinsp;&mdash;&thinsp;it is an SUV. When both body type and CDC are available, the combination provides more specificity than either alone.</p>
+
+  <h3>Partial Occlusion</h3>
+
+  <p>Vehicles partially occluded by other vehicles, trees, or structures may produce incomplete bounding boxes. YOLO may still detect the vehicle, but with lower confidence and a smaller crop area. The color extraction, which relies on the upper 60% of the bounding box, may include non-vehicle pixels (sky, adjacent car) if the bounding box is inaccurate. The CDC classifier, which center-crops the bounding box to 224x224, may receive a partial or off-center vehicle image, degrading its label accuracy.</p>
+
+  <p>The aggregation window mitigates this: as the vehicle moves through the frame across multiple captures, occlusion typically decreases, and subsequent frames produce better classifications. The repetition bonus rewards this&thinsp;&mdash;&thinsp;three or more consistent frames add 5 points, compensating for one or two degraded initial frames.</p>
+
+  <h3>The 75-Point Cap</h3>
+
+  <p>The hard cap on vehicle-only confidence is a deliberate design constraint, not a technical limitation. A vehicle-only match will never score above 75%, regardless of how many frames confirm the classification. This reflects the irreducible ambiguity of a visual-only match: there are many white Honda Civics on the road. A plate narrows the population to one vehicle. A color-body-make profile narrows it to thousands. The cap ensures that vehicle-only alerts are always treated as leads that require verification, never as confirmed identifications.</p>
+
+  <h2>Conclusion</h2>
+
+  <p>License plate recognition is a powerful tool when the plate is genuine and readable. It is blind when the plate is not. In missing persons cases, that blindness can be the difference between a found child and an open case.</p>
+
+  <p>Amber's Angels' vehicle profile matching does not replace ALPR. It provides a fallback that keeps the search alive when ALPR fails. YOLO body type narrows the vehicle population. Color further filters it. CDC make/model identification brings it down to a specific generation of a specific model. Together, these three attributes maintain search continuity through the two failure modes that defeat every plate-only system: the switched plate and the missing plate.</p>
+
+  <p>The mismatch channel catches the switched plate. The vehicle-only path catches the missing plate. Neither pretends to be as definitive as a plate match&thinsp;&mdash;&thinsp;the scoring model, the confidence caps, and the routing all reflect the inherent uncertainty of visual-only identification. But in a case where the alternative is no detection at all, a lead with a 67% confidence score, a frame thumbnail, and GPS coordinates is infinitely more useful than silence.</p>
+
+  <div class="cta">
+    <p>Amber's Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>National Insurance Crime Bureau. "License Plate Cloning and Fraud." <a href="https://www.nicb.org">nicb.org</a></li>
+    <li>Redmon, J. et al. "You Only Look Once: Unified, Real-Time Object Detection." <em>CVPR</em>, 2016. See also: Jocher, G. et al. "Ultralytics YOLOv8." <a href="https://github.com/ultralytics/ultralytics">github.com/ultralytics</a>, 2023.</li>
+    <li>FEMA. "Integrated Public Alert and Warning System (IPAWS)." <a href="https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system">fema.gov/ipaws</a></li>
+    <li>Du, S. et al. "Vehicle Color Classification Using Manifold Learning Methods from Urban Surveillance Video." <em>EURASIP Journal on Image and Video Processing</em>, 2014.</li>
+    <li>Howard, A. et al. "Searching for MobileNetV3." <em>ICCV</em>, 2019.</li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber's Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-003 &middot; Published June 12, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>
