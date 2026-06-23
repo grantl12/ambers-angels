@@ -86,7 +86,6 @@ export default function LandingPage() {
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#explore">Explore</a></li>
           <li><a href="#blog">Writing</a></li>
-          <li><a href="/beta" className={s.navBeta}>Beta</a></li>
         </ul>
         <a href="/login" className={s.navSignIn}>Sign In</a>
         <a href="#involve" className={s.navCta}>Get Involved →</a>
@@ -388,8 +387,8 @@ export default function LandingPage() {
         <div className={s.involveGrid}>
           <div className={`${s.involveCard} ${s.involveCardHighlight}`}>
             <h3>Beta Tester</h3>
-            <p>Install the app now and help us harden the platform before the next alert fires. Available on iOS (TestFlight) and Android (Google Play). No special equipment needed.</p>
-            <a href="/beta">Join the Beta →</a>
+            <p>Create an account now and help us harden the platform before the next alert fires. App downloads available soon on iOS and Android. No special equipment needed.</p>
+            <a href="/pilot/register">Create an Account →</a>
           </div>
           <div className={s.involveCard}>
             <h3>Volunteer — Ground</h3>
