@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automated Water Search for Purple Alert Response — Amber's Angels</title>
+<meta name="description" content="How event-triggered drone automation addresses the leading cause of death in wandering incidents involving individuals with autism and developmental disabilities.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { --navy:#0F1F35; --amber:#D97706; --cream:#FAF7F2; --text:#1C1917; --muted:#6B7280; --rule:#D4C9B8; --purple:#7C3AED; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--cream); color:var(--text); font-family:'Source Serif 4',Georgia,serif; font-size:11.5pt; line-height:1.8; }
+@media print { body { font-size:10pt; } .site-nav, .footer { display:none; } .header { break-after:avoid; } }
+.site-nav { background:var(--navy); padding:12px 32px; display:flex; align-items:center; gap:16px; }
+.site-nav a { color:rgba(250,250,248,0.55); text-decoration:none; font-size:9pt; font-family:Georgia,serif; letter-spacing:0.05em; }
+.site-nav a:hover { color:var(--amber); }
+.site-nav .sep { color:rgba(250,250,248,0.2); }
+.header { background:var(--navy); padding:56px 0 48px; border-bottom:3px solid var(--purple); }
+.header-inner { max-width:720px; margin:0 auto; padding:0 32px; }
+.paper-label { font-size:8.5pt; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.paper-date { font-size:9pt; color:rgba(250,250,248,0.35); margin-bottom:16px; }
+h1 { font-family:'Playfair Display',serif; font-size:32pt; font-weight:700; color:#FAFAF8; line-height:1.15; margin-bottom:20px; }
+.byline { font-size:10pt; color:rgba(250,250,248,0.45); }
+.byline a { color:var(--amber); text-decoration:none; }
+.main { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+.abstract { background:#F0EBE1; border-left:3px solid var(--purple); padding:24px 28px; margin-bottom:48px; }
+.abstract-label { font-size:8.5pt; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--purple); margin-bottom:8px; }
+.abstract p { font-size:11pt; line-height:1.7; margin:0; color:#3D2B1A; }
+h2 { font-family:'Playfair Display',serif; font-size:18pt; font-weight:700; color:var(--navy); margin:48px 0 16px; }
+h3 { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:var(--navy); margin:32px 0 12px; }
+p { margin-bottom:20px; }
+strong { color:var(--navy); font-weight:600; }
+em { font-style:italic; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule); margin:40px 0; border:1px solid var(--rule); }
+.stat-cell { background:var(--cream); padding:20px; text-align:center; }
+.stat-cell .num { font-family:'Playfair Display',serif; font-size:28pt; font-weight:700; line-height:1; }
+.stat-cell .num.purple { color:var(--purple); }
+.stat-cell .num.amber { color:var(--amber); }
+.stat-cell .num.navy { color:var(--navy); }
+.stat-cell .label { font-size:9pt; color:var(--muted); margin-top:6px; display:block; }
+.stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
+.pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
+.pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
+.flow-block { margin:40px 0; border:1px solid var(--rule); }
+.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.flow-content { padding:24px; }
+.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
+.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
+.flow-content ol li:last-child { border-bottom:none; }
+.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.timeline { margin:40px 0; }
+.timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
+.timeline-row:last-child { border-bottom:none; }
+.timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
+.timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
+.ref-list { margin-top:32px; }
+.ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
+.ref-list a { color:var(--amber); text-decoration:none; }
+.ref-list a:hover { text-decoration:underline; }
+.cta { background:#F3EDE3; border:1px solid var(--rule); border-left:3px solid var(--amber); padding:28px 32px; margin:48px 0 0; }
+.cta p { margin:0; font-size:11pt; }
+.cta a { color:var(--amber); font-weight:600; text-decoration:none; }
+.cta a:hover { text-decoration:underline; }
+.footer { border-top:1px solid var(--rule); padding:32px; text-align:center; font-size:9pt; color:var(--muted); }
+.footer a { color:var(--amber); text-decoration:none; }
+@media (max-width:640px) { h1 { font-size:24pt; } .stat-grid { grid-template-columns:1fr; } .pullquote { margin:40px -16px; padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="site-nav">
+  <a href="https://amberangels.org">← amberangels.org</a>
+  <span class="sep">/</span>
+  <a href="/papers">Papers</a>
+</div>
+<header class="header">
+  <div class="header-inner">
+    <p class="paper-label">Technical Paper · AA-2026-001</p>
+    <p class="paper-date">June 23, 2026</p>
+    <h1>Automated Water Search for Purple Alert Response</h1>
+    <p class="byline">Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a></p>
+  </div>
+</header>
+<main class="main">
+
+  <div class="abstract">
+    <p class="abstract-label">Abstract</p>
+    <p>Drowning is the leading cause of death in wandering incidents involving individuals with autism and developmental disabilities. Purple Alerts&thinsp;&mdash;&thinsp;missing person notifications for adults with cognitive or developmental disabilities&thinsp;&mdash;&thinsp;currently operate in five U.S. states, with several more legislating adoption. This paper describes Amber's Angels' automated water search capability: an event-triggered system that, upon ingestion of a Purple Alert, queries nearby water bodies via OpenStreetMap, generates shoreline perimeter flight plans, and dispatches volunteer drones for visual search&thinsp;&mdash;&thinsp;reducing time-to-airborne from hours to minutes.</p>
+  </div>
+
+  <h2>The Problem: Wandering, Water, and Time</h2>
+
+  <p>The data on wandering among individuals with autism and cognitive disabilities is stark. Approximately <strong>49% of children with autism</strong> engage in wandering or elopement&thinsp;&mdash;&thinsp;leaving a safe environment without supervision&thinsp;&mdash;&thinsp;at a rate nearly four times higher than neurotypical peers.<sup>1</sup> Among adults with dementia, <strong>six in ten</strong> will wander at least once; many do so repeatedly.<sup>2</sup></p>
+
+  <p>The mortality pattern in these cases is not random. It is overwhelmingly driven by water.</p>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <span class="num purple">91%</span>
+      <span class="label">of U.S. autism wandering fatalities caused by drowning (2024)</span>
+      <span class="cite">National Autism Association</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num purple">160×</span>
+      <span class="label">drowning risk vs. general pediatric population</span>
+      <span class="cite">Columbia Univ. Mailman School, 2017</span>
+    </div>
+    <div class="stat-cell">
+      <span class="num purple">52%</span>
+      <span class="label">of fatal drownings occurred in ponds</span>
+      <span class="cite">PMC, 2000–2017 study</span>
+    </div>
+  </div>
+
+  <p>Among people with dementia, the outcomes are similarly severe. Critical wandering carries a <strong>20% mortality rate</strong>, placing it among the most dangerous behavioral manifestations of dementia.<sup>3</sup> If a person with dementia is found within 24 hours, there is a 95% chance they are found alive. Beyond 24 hours, that number drops to 77%. Beyond 48 hours, only 51% survive.<sup>4</sup></p>
+
+  <p>The water attraction is not incidental. Research consistently shows that individuals with autism are <strong>drawn to water</strong>&thinsp;&mdash;&thinsp;the sensory properties of water (visual patterns, sound, temperature) are neurologically compelling for many people on the spectrum. This is not a behavioral choice that can be trained away. It is a predictable, documented pattern that search operations should exploit.</p>
+
+  <div class="pullquote">
+    <p>"If we know where they go, we should be looking there first. The data says water. Every minute we spend searching roads is a minute not spent on the shoreline."</p>
+  </div>
+
+  <h2>What Is a Purple Alert?</h2>
+
+  <p>Purple Alerts are state-level missing person notifications for adults (18+) with cognitive, intellectual, or developmental disabilities who do not meet the criteria for AMBER Alerts (children) or Silver Alerts (elderly/dementia). As of June 2026, <strong>five states have enacted Purple Alert systems</strong>: Florida, Maryland, Kansas, Mississippi, and Connecticut. Legislation is pending in Washington, Missouri, and several others.<sup>5</sup></p>
+
+  <p>Purple Alerts are distributed through FEMA's Integrated Public Alert and Warning System (IPAWS) under the CEM (Civil Emergency Message) category. Amber's Angels ingests these alerts in real time from the FEMA IPAWS CMAS endpoint, classifying them by keyword matching against the alert headline and description. Keywords that trigger Purple Alert classification include <em>purple alert</em>, <em>developmental disability</em>, <em>intellectual disability</em>, and <em>autism</em>.</p>
+
+  <p>The gap in Purple Alert coverage is significant. Only five states have the mechanism. In the remaining 45 states, a missing adult with autism who does not meet Silver Alert age criteria may receive no public notification at all&thinsp;&mdash;&thinsp;or a generic Endangered Missing Alert with no specialized response protocol.</p>
+
+  <h2>The Automated Water Search Pipeline</h2>
+
+  <p>When Amber's Angels ingests a Purple Alert, the system makes the same inference a veteran search coordinator would make: <em>check the water first</em>. The difference is speed. A coordinator can begin querying water bodies and planning a shoreline search within seconds of the alert firing.</p>
+
+  <div class="flow-block">
+    <div class="flow-label">Water Search Pipeline</div>
+    <div class="flow-content">
+      <ol>
+        <li><strong>Alert ingestion.</strong> FEMA IPAWS CEM alert arrives. Keyword classifier identifies it as a Purple Alert. Vehicle targets and watchlist entries are created. Discord and push notifications fire to volunteers in the alert area.</li>
+        <li><strong>Water body query.</strong> The coordinator opens the dispatch screen and taps <em>Water Search</em>. The system queries the OpenStreetMap Overpass API for all water bodies within a configurable radius (default 5 km) of the last known location: lakes, ponds, reservoirs, rivers, and retention basins.</li>
+        <li><strong>Caching and ranking.</strong> Results are cached in a local database table (<code>water_bodies</code>) with a 24-hour TTL. Water bodies are ranked by distance from the last known location and presented with area estimates and names.</li>
+        <li><strong>Perimeter flight plan generation.</strong> The coordinator selects a water body. The system generates a closed-loop shoreline perimeter flight plan at a configurable buffer distance (default 20 m from shore for tree clearance) and altitude (default 15 m AGL). Speed is set to 3 m/s for visual search fidelity.</li>
+        <li><strong>VLOS enforcement.</strong> All generated waypoints are checked against the dispatching drone's VLOS radius (default 400 m from home position). If any waypoint exceeds the limit, the mission is rejected unless the drone has BVLOS authorization.</li>
+        <li><strong>Drone dispatch.</strong> The mission is pushed to a volunteer's drone via the autonomous mission system. The drone uploads the KMZ waypoint file to its flight controller and executes the perimeter trace autonomously.</li>
+        <li><strong>Visual search.</strong> The coordinator watches the live RTMP feed from the drone camera. This is a <em>human visual search</em>&thinsp;&mdash;&thinsp;there is no automated person detection in this path. The coordinator is the sensor. If movement or a person is spotted, the coordinator pauses the drone and relays GPS coordinates to ground units.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>Why Visual Search, Not Automated Detection</h3>
+
+  <p>The ALPR and YOLO pipeline that powers Amber's Angels' vehicle detection is not appropriate for water search. A missing person near a shoreline is not a license plate or a vehicle body type. Person detection models exist, but their reliability in the visual conditions of a shoreline search&thinsp;&mdash;&thinsp;water reflections, vegetation, variable lighting, partially submerged subjects&thinsp;&mdash;&thinsp;is not high enough to be trusted as the primary sensor. A missed detection in this context is not a missed parking lot scan. It is a life.</p>
+
+  <p>The correct design is to put a trained human in the loop. The drone provides the vantage point, the camera provides the imagery, and the coordinator provides the judgment. The automation handles the parts that automation is good at: finding the water, planning the route, flying the pattern. The human handles the part that humans are good at: recognizing a person in a complex visual scene.</p>
+
+  <h2>Operational Scenario</h2>
+
+  <p>Consider the timeline that actually matters. A detective arrives on scene. The family reports an adult son with autism missing&thinsp;&mdash;&thinsp;nonverbal, drawn to water, last seen 40 minutes ago. The detective knows the criteria for a Purple Alert are met. She also knows the federal alert pipeline takes time: the request goes to the state, the state submits to FEMA IPAWS, IPAWS distributes via CEM. That process can take <strong>30 minutes to three hours</strong> depending on the state.</p>
+
+  <p>She does not wait. She opens Amber's Angels, injects the alert directly into the platform. The plate, vehicle description, and last known location hit the watchlist instantly. Discord fires. Push notifications go out to every volunteer in the coverage area. The network is activated before the federal system has even begun processing.</p>
+
+  <div class="timeline">
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:00</span>
+      <span class="timeline-event"><strong>Detective arrives on scene.</strong> Family reports missing adult with autism, nonverbal, drawn to water. Last seen 40 minutes ago.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+0:30</span>
+      <span class="timeline-event"><strong>Alert injected via Amber's Angels.</strong> Detective opens admin panel, enters vehicle and last known location. Watchlist activates. Discord and push notifications fire to volunteers in the area.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:00</span>
+      <span class="timeline-event"><strong>Water search initiated.</strong> Coordinator on the platform taps Water Search. System returns 3 lakes and 2 ponds within 5 km. Selects the nearest&thinsp;&mdash;&thinsp;0.8 km from last known location.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+1:30</span>
+      <span class="timeline-event"><strong>Flight plan generated.</strong> Shoreline perimeter waypoints computed at 20 m buffer, 15 m altitude. VLOS validated. Mission dispatched to nearest volunteer drone.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+3:00</span>
+      <span class="timeline-event"><strong>Drone airborne.</strong> Volunteer accepts mission from home, drone uploads KMZ, launches to first waypoint. Live RTMP feed begins.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+4:00</span>
+      <span class="timeline-event"><strong>Shoreline search active.</strong> Drone traces perimeter at 3 m/s. Coordinator watches live feed, scanning for movement.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+8:00</span>
+      <span class="timeline-event"><strong>Movement spotted.</strong> Coordinator pauses drone. Figure visible near north bank. GPS coordinates relayed to ground unit.</span>
+    </div>
+    <div class="timeline-row">
+      <span class="timeline-time">T+12:00</span>
+      <span class="timeline-event"><strong>Subject located.</strong> Ground unit reaches the shoreline. Subject is safe. Total time: 12 minutes from injection.</span>
+    </div>
+    <div class="timeline-row" style="opacity:0.5;">
+      <span class="timeline-time">T+45:00</span>
+      <span class="timeline-event"><em>FEMA IPAWS CEM alert is distributed to the public.</em> The case is already resolved.</span>
+    </div>
+  </div>
+
+  <p>Twelve minutes from injection to eyes on target. The federal alert hasn't fired yet. The volunteer network found the subject while the bureaucratic pipeline was still processing paperwork.</p>
+
+  <p>This is the gap the platform closes. Not a faster version of the same process&thinsp;&mdash;&thinsp;a fundamentally different one. The detective on scene has the information. The platform lets her act on it <em>immediately</em>, in parallel with the federal notification chain, rather than sequentially behind it. By the time FEMA fires, the case is resolved.</p>
+
+  <p>Compare this to the traditional response without the platform: a missing person report is filed, a search team is assembled, water bodies are identified from maps, and searchers are dispatched on foot or by boat. That process routinely takes <strong>hours</strong>, not minutes. In a scenario where survival probability drops from 95% to 77% after 24 hours and to 51% after 48, the difference between a twelve-minute aerial search and a two-hour ground mobilization is not an optimization. It is a category change.</p>
+
+  <h2>Technical Architecture</h2>
+
+  <h3>Water Body Discovery</h3>
+  <p>The system queries the OpenStreetMap Overpass API using a bounding box derived from the last known location and search radius. The query targets five OSM feature types: <code>natural=water</code>, <code>water=lake|pond|reservoir|basin</code>, <code>landuse=reservoir</code>, <code>waterway=riverbank</code>, and <code>natural=water</code> relations (for large multi-polygon features). Results are parsed into GeoJSON polygons, filtered to exclude features smaller than 100 m² (fountains, puddles), and cached with centroid coordinates and area estimates.</p>
+
+  <p>Three Overpass mirrors are configured for redundancy. Cache TTL is 24 hours&thinsp;&mdash;&thinsp;water bodies do not move, but seasonal changes (dry ponds, new construction) justify periodic refresh.</p>
+
+  <h3>Waypoint Generation</h3>
+  <p>The perimeter flight plan generator takes the water body polygon and computes an offset path at the specified buffer distance from shore. The buffer serves a dual purpose: obstacle clearance (overhanging trees, structures) and camera field-of-view optimization. At 15 m altitude with an 84° horizontal field of view (DJI camera spec), the drone covers both the water surface and the immediate shoreline in a single pass.</p>
+
+  <p>Waypoints are capped at 98 per mission (DJI MSDK V5 limit). For large water bodies, the polygon is simplified to fit within this constraint while preserving the perimeter shape. The flight plan is a closed loop&thinsp;&mdash;&thinsp;the last waypoint connects back to the first.</p>
+
+  <h3>Mission Execution</h3>
+  <p>The mission is packaged as a WPML XML file inside a KMZ archive and pushed to the aircraft via the DJI Waypoint Mission Manager. Safety configuration includes return-to-home on RC signal loss, RTH altitude set to mission altitude plus 20 m, and BRAKE mode for obstacle avoidance. The phone disconnecting does not stop the mission&thinsp;&mdash;&thinsp;the KMZ runs on the flight controller.</p>
+
+  <p>The coordinator can pause the drone at any time via the app. On pause, the drone holds position (hover), allowing the coordinator to inspect a specific area of the feed more carefully before resuming the perimeter trace.</p>
+
+  <h2>Limitations and Future Work</h2>
+
+  <p><strong>VLOS constraint.</strong> Under standard Part 107 rules, all waypoints must be within visual line of sight of the pilot. For large water bodies, this limits coverage to the near shore unless the drone has BVLOS authorization. The system enforces this constraint at plan creation time.</p>
+
+  <p><strong>Night operations.</strong> Many wandering incidents occur at night. Current consumer drone cameras perform poorly in low-light conditions. Thermal imaging payloads (FLIR) on enterprise drones (M30T, M350 RTK) would significantly improve night water search capability. The waypoint generation system is payload-agnostic; only the camera hardware needs to change.</p>
+
+  <p><strong>Automated person detection.</strong> While we deliberately chose visual search for the initial implementation, future versions may incorporate a thermal anomaly detector as a <em>cueing</em> system&thinsp;&mdash;&thinsp;highlighting potential hotspots for the coordinator's attention rather than making autonomous decisions. This preserves the human-in-the-loop principle while reducing the cognitive load of watching an unbroken video feed.</p>
+
+  <p><strong>Multi-drone coordination.</strong> A single drone traces one shoreline. Multiple drones could search multiple water bodies simultaneously, dramatically reducing total search time. The autonomous mission system already supports multi-drone dispatch; extending it to parallel water searches is an engineering task, not a design challenge.</p>
+
+  <h2>Conclusion</h2>
+
+  <p>The data is clear: when individuals with autism or developmental disabilities go missing, they go to water. When they go to water, they drown. The time between the alert and the search determines whether they are found alive.</p>
+
+  <p>Amber's Angels' water search capability does not replace ground teams, K-9 units, or law enforcement. It puts a camera over the most statistically dangerous location <em>within minutes</em>, while those other resources are still mobilizing. It converts public research on wandering behavior into an operational protocol that a volunteer coordinator can execute from a phone screen.</p>
+
+  <p>Every Purple Alert is a race against a clock that the public rarely sees. This system shortens the race.</p>
+
+  <div class="cta">
+    <p>Amber's Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="ref-list">
+    <li>National Autism Association. "Drowning Risk after Wandering / Elopement." <a href="https://nationalautismassociation.org/drowning-risk/">nationalautismassociation.org/drowning-risk</a></li>
+    <li>Alzheimer's Association. "Wandering." <a href="https://www.alz.org/help-support/caregiving/stages-behaviors/wandering">alz.org/help-support/caregiving/stages-behaviors/wandering</a></li>
+    <li>Rowe, M. et al. "Programs to Locate Missing and Critically Wandering Elders." <em>PMC</em>, 2013. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3551207/">PMC3551207</a></li>
+    <li>Theora Care. "Research Shows Dementia Wandering Is More Lethal Than We Thought." <a href="https://theoracare.com/research-shows-dementia-wandering-is-more-lethal-than-we-thought/">theoracare.com</a></li>
+    <li>LegalClarity. "What Does a Purple Alert Mean and How Does It Work?" <a href="https://legalclarity.org/what-does-a-purple-alert-mean-and-when-is-it-used/">legalclarity.org</a></li>
+    <li>Guan, J., Li, G. "Characteristics of Unintentional Drowning Deaths in Children with Autism Spectrum Disorder." <em>Injury Epidemiology</em>, 2017. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5721095/">PMC5721095</a></li>
+    <li>Anderson, C. et al. "Occurrence and Family Impact of Elopement in Children with Autism Spectrum Disorders." <em>Pediatrics</em>, 2012.</li>
+  </ol>
+
+</main>
+<footer class="footer">
+  <p>Amber's Angels Inc. &middot; 501(c)(3) &middot; EIN 42-2052151 &middot; Carrollton, Georgia &middot; <a href="https://amberangels.org">amberangels.org</a></p>
+  <p style="margin-top:8px;">AA-2026-001 &middot; Published June 23, 2026 &middot; <a href="mailto:info@amberangels.org">info@amberangels.org</a></p>
+</footer>
+</body>
+</html>
