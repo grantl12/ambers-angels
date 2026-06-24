@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   Share,
@@ -635,6 +636,32 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           </Text>
         </TouchableOpacity>
 
+        <Section title="Data Sources">
+          <Text style={styles.hint}>
+            This app is not affiliated with, endorsed by, or operated by any government agency.
+            Amber's Angels Inc. is an independent 501(c)(3) nonprofit (EIN 42-2052151).
+          </Text>
+          <Text style={[styles.hint, { marginTop: 6 }]}>
+            Alert data is sourced from the following official government systems:
+          </Text>
+          <TouchableOpacity onPress={() => Linking.openURL("https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system")}>
+            <Text style={styles.sourceLink}>FEMA IPAWS (fema.gov)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL("https://www.weather.gov/alerts")}>
+            <Text style={styles.sourceLink}>NWS Alerts API (weather.gov)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL("https://www.missingkids.org")}>
+            <Text style={styles.sourceLink}>NCMEC (missingkids.org)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL("https://namus.nij.ojp.gov")}>
+            <Text style={styles.sourceLink}>NamUs (namus.nij.ojp.gov)</Text>
+          </TouchableOpacity>
+          <Text style={[styles.hint, { marginTop: 4 }]}>
+            Amber's Angels does not generate, modify, or verify alert data.
+            All alert content originates from the sources listed above.
+          </Text>
+        </Section>
+
         {username && (
           <View style={styles.accountSection}>
             <View style={styles.accountRow}>
@@ -938,6 +965,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(56,189,248,0.2)",
   },
   coordSentText: { color: "#7dd3fc", fontSize: 13, lineHeight: 18 },
+  sourceLink: {
+    color: "#38bdf8",
+    fontSize: 13,
+    textDecorationLine: "underline",
+    paddingVertical: 4,
+  },
   pendingBanner: {
     backgroundColor: "rgba(251,146,60,0.1)",
     borderWidth: 1,
