@@ -13,6 +13,7 @@ import time as _time
 import urllib.parse
 import httpx
 import certifi as _certifi
+from services.vehicle_image import resolve_vehicle_image_url
 
 logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
@@ -173,6 +174,13 @@ class AlertDispatcher:
 
         if vehicle_context:
             embed["fields"].append(_vehicle_context_field(vehicle_context))
+            ref_img = resolve_vehicle_image_url(
+                color=vehicle_context.get("expected_color"),
+                body_type=vehicle_context.get("expected_type"),
+                make=vehicle_context.get("expected_make"),
+            )
+            if ref_img:
+                embed["thumbnail"] = {"url": ref_img}
             reasoning = vehicle_context.get("agent_reasoning")
             if reasoning:
                 embed["fields"].append({
@@ -262,6 +270,10 @@ class AlertDispatcher:
             ],
             "footer": {"text": ts_str},
         }
+
+        ref_img = resolve_vehicle_image_url(color=t_color, body_type=t_body, make=t_make)
+        if ref_img:
+            embed["thumbnail"] = {"url": ref_img}
 
         src      = matched_target.get("source_program")
         headline = matched_target.get("headline")

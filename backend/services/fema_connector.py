@@ -31,6 +31,7 @@ from typing import Optional
 import httpx
 import certifi as _certifi
 from sqlalchemy import text
+from services.vehicle_image import resolve_vehicle_image_url
 
 # ---------------------------------------------------------------------------
 # Config
@@ -748,12 +749,15 @@ async def _push_notify_cancelled(session_factory, alert: dict) -> None:
 # Discord notifications
 # ---------------------------------------------------------------------------
 
-async def _post_discord(webhook_url: str, content: str) -> None:
+async def _post_discord(webhook_url: str, content: str, *, embeds: list | None = None) -> None:
     if not webhook_url:
         return
     try:
+        payload: dict = {"content": content}
+        if embeds:
+            payload["embeds"] = embeds
         async with httpx.AsyncClient(verify=_certifi.where(), timeout=5.0) as client:
-            resp = await client.post(webhook_url, json={"content": content})
+            resp = await client.post(webhook_url, json=payload)
         if resp.status_code not in (200, 204):
             logger.error("Discord returned %s", resp.status_code)
     except Exception as e:
@@ -780,7 +784,13 @@ async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
         f"{vehicle_line}"
         f"📋 {alert['description'][:300]}{'...' if len(alert['description']) > 300 else ''}"
     )
-    await _post_discord(webhook_url, content)
+    img_url = resolve_vehicle_image_url(
+        color=profile.get("color"),
+        body_type=profile.get("body_type"),
+        make=profile.get("make"),
+    )
+    embeds = [{"image": {"url": img_url}}] if img_url else None
+    await _post_discord(webhook_url, content, embeds=embeds)
 
 
 async def _notify_vehicle_match(
@@ -804,7 +814,13 @@ async def _notify_vehicle_match(
         f"**Alert area:** {target.get('area', '—')}\n"
         f"⚡ Verify plates immediately — this may be your suspect vehicle."
     )
-    await _post_discord(webhook_url, content)
+    img_url = resolve_vehicle_image_url(
+        color=target.get("color"),
+        body_type=target.get("body_type"),
+        make=target.get("make"),
+    )
+    embeds = [{"image": {"url": img_url}}] if img_url else None
+    await _post_discord(webhook_url, content, embeds=embeds)
 
 
 async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -> None:
@@ -812,6 +828,7 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
     if not new_plates:
         return
     atype      = alert["alert_type"]
+    profile    = alert.get("vehicle_profile", {})
     plates_fmt = ", ".join(f"`{p}`" for p in new_plates)
     content = (
         f"{atype['emoji']} **{atype['short']} — PLATES ON WATCHLIST** {atype['emoji']}\n"
@@ -822,7 +839,13 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
         f"**Issued:** {alert['sent']}\n"
         f"⚡ {atype['cta']}"
     )
-    await _post_discord(webhook_url, content)
+    img_url = resolve_vehicle_image_url(
+        color=profile.get("color"),
+        body_type=profile.get("body_type"),
+        make=profile.get("make"),
+    )
+    embeds = [{"image": {"url": img_url}}] if img_url else None
+    await _post_discord(webhook_url, content, embeds=embeds)
 
 
 # ---------------------------------------------------------------------------
@@ -884,6 +907,12 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
 
     atype = alert["alert_type"]
     centroid = _polygon_to_centroid(alert.get("polygon"))
+    profile = alert.get("vehicle_profile", {})
+    vehicle_img = resolve_vehicle_image_url(
+        color=profile.get("color"),
+        body_type=profile.get("body_type"),
+        make=profile.get("make"),
+    )
 
     # Partition by preference
     # row: (email, full_name, expo_push_token, notification_prefs)
@@ -899,6 +928,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
             "centroidLat": centroid[0] if centroid else None,
             "centroidLng": centroid[1] if centroid else None,
             "label":       alert["area"] or atype["name"],
+            "vehicleImageUrl": vehicle_img,
         }
         messages = [
             {"to": tok, "title": push_title, "body": push_body,
