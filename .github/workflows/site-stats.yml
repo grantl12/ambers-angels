@@ -31,7 +31,7 @@ jobs:
               2>/dev/null && python3 - <<'PYEOF'
             import json, sys
             try:
-                d = json.load(open('/tmp/today.json'))
+                d = json.load(open('/tmp/today.json', encoding='utf-8', errors='replace'))
                 gen = d.get('general', {})
                 print(f"Unique visitors:  {gen.get('unique_visitors','?')}")
                 print(f"Total requests:   {gen.get('total_requests','?')}")
