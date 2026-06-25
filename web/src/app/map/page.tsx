@@ -123,6 +123,7 @@ export type LayerState = {
   swarm: boolean
   hits: boolean
   airspace: boolean
+  water: boolean
 }
 
 export default function MapPage() {
@@ -134,6 +135,7 @@ export default function MapPage() {
     swarm: true,
     hits: true,
     airspace: true,
+    water: false,
   })
 
   const [flockBbox, setFlockBbox] = useState<FlockBbox | undefined>(undefined)

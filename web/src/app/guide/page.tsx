@@ -93,6 +93,18 @@ function Screenshot({ label, src }: { label: string; src?: string }) {
   )
 }
 
+function WebScreenshot({ label, src }: { label: string; src?: string }) {
+  if (!src) return null
+  return (
+    <figure className="my-8 flex flex-col items-center gap-3">
+      <div className="rounded-xl border border-white/15 overflow-hidden shadow-2xl w-full">
+        <img src={src} alt={label} className="block w-full" />
+      </div>
+      <figcaption className="text-xs text-white/30 font-mono text-center">{label}</figcaption>
+    </figure>
+  )
+}
+
 function PhonePair({ screens }: { screens: { src: string; label: string }[] }) {
   return (
     <div className="my-8 flex gap-6 justify-center flex-wrap">
@@ -612,7 +624,7 @@ export default function GuidePage() {
             <Li>To add a new source: enter a name, the URL, select RSS or HTML, and optionally a 2-letter state code</Li>
             <Li>RSS sources work with any standard RSS or Atom feed. HTML sources scrape visible text from the page — contact the admin if a source needs a specific CSS selector.</Li>
           </Ul>
-          <Screenshot label="BOLO Crawler Sources list with last-crawled timestamps and add form" />
+          <WebScreenshot src="/guide/bolo-crawler.png" label="BOLO Crawler Sources — active feeds with last-crawled timestamps and add-source form" />
 
           <H3 id="resolving-alerts">Resolving Active Alerts</H3>
           <RoleBadge role="admin" />

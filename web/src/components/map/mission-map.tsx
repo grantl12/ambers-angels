@@ -499,6 +499,31 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           </Source>
         )}
 
+        {/* Water bodies — Mapbox streets v8 vector tiles, highlighted for Purple Alert search planning */}
+        {layers.water && (
+          <Source id="water-bodies" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+            <Layer
+              id="water-bodies-fill"
+              source-layer="water"
+              type="fill"
+              paint={{
+                "fill-color": "#0ea5e9",
+                "fill-opacity": 0.22,
+              }}
+            />
+            <Layer
+              id="water-bodies-outline"
+              source-layer="water"
+              type="line"
+              paint={{
+                "line-color": "#38bdf8",
+                "line-width": 1.5,
+                "line-opacity": 0.65,
+              }}
+            />
+          </Source>
+        )}
+
         {/* Alert search zones (vehicle_targets with polygon — FEMA + manual) */}
         {alertZonesGeoJson.features.length > 0 && (
           <Source id="alert-zones" type="geojson" data={alertZonesGeoJson}>
@@ -1468,6 +1493,7 @@ export function MissionMap({ layers, flockBbox, onMapReady }: Props) {
           Legend
         </div>
         {[
+          layers.water    && { color: "#0ea5e9",              label: "Water body" },
           layers.flock    && { color: "#ff6b35",              label: "Flock camera" },
           layers.flock    && { color: "rgba(255,107,53,0.3)", label: "DeFlock (community)" },
           layers.coverage && { color: "#ef4444", label: "Road — no cameras" },

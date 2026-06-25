@@ -156,10 +156,10 @@ export default function BetaPage() {
               Full details on our <Link href="/privacy" className="text-amber-400 hover:underline">privacy page</Link>.
             </Faq>
             <Faq q="What if I find a bug?">
-              That&apos;s exactly why you&apos;re here. On iOS, shake your phone in TestFlight to send a
-              screenshot and feedback directly to us. On Android, email{" "}
-              <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">info@amberangels.org</a> with
-              a description and we&apos;ll jump on it.
+              That&apos;s exactly why you&apos;re here. Shake your phone in TestFlight to send a
+              screenshot and feedback directly to us, or email{" "}
+              <a href="mailto:info@amberangels.org" className="text-amber-400 hover:underline">info@amberangels.org</a>{" "}
+              with a description and we&apos;ll jump on it.
             </Faq>
             <Faq q="Do I need a drone?">
               No. Most testers will use the phone scanning mode — mount your phone on the dash and
