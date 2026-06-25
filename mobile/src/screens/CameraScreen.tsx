@@ -23,6 +23,7 @@ import * as Location from "expo-location"
 import * as Notifications from "expo-notifications"
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake"
 import { postFrame } from "../api/ingest"
+import { postDetection } from "../api/detection"
 import { postTelemetry } from "../api/telemetry"
 import { setApiBaseUrl, apiGet } from "../api/client"
 import { fetchFemaAlerts, type FemaAlert } from "../api/fema"
@@ -41,6 +42,7 @@ import {
   startBackgroundScan,
   stopBackgroundScan,
   getScanFrameCount,
+  recognizePlate,
 } from "../../modules/phone-camera"
 
 // Show notifications even when the app is foregrounded
@@ -146,44 +148,46 @@ export default function CameraScreen() {
           setFrameCount(n)
         }, 2000)
       } else {
-        // iOS: app must stay foregrounded — use expo-camera JS loop
+        // iOS: on-device OCR via Vision framework — no frames leave the device.
+        // App must stay foregrounded (no background camera on iOS).
         captureTimerRef.current = setInterval(async () => {
           if (!cameraRef.current) return
           try {
-            // skipProcessing must stay false on iOS — it skips EXIF orientation
-            // correction, so a plate framed normally (phone upright) uploads
-            // rotated ~90° and OpenALPR reads zero plates off it.
             const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 })
             if (!photo) return
-            const loc = locationRef.current
-            const result = await postFrame({
-              uri:      photo.uri,
-              droneId:  currentSettings.droneId,
-              pilotId:  currentSettings.pilotId || undefined,
-              source:   "phone_gps",
-              lat:      loc?.coords.latitude,
-              lng:      loc?.coords.longitude,
-              altitude: loc?.coords.altitude ?? undefined,
-              heading:  loc?.coords.heading ?? undefined,
-              speed:    loc?.coords.speed ?? undefined,
-              accuracy: loc?.coords.accuracy ?? undefined,
-            })
+
+            const candidates = await recognizePlate(photo.uri)
             setFrameCount((n) => n + 1)
             setError(null)
+
+            if (candidates.length === 0) return
+
+            const best = candidates[0]
+            const loc = locationRef.current
+            const result = await postDetection({
+              droneId:         currentSettings.droneId,
+              plateText:       best.plate,
+              plateConfidence: best.confidence,
+              pilotId:         currentSettings.pilotId || undefined,
+              lat:             loc?.coords.latitude,
+              lng:             loc?.coords.longitude,
+              altitude:        loc?.coords.altitude ?? undefined,
+              heading:         loc?.coords.heading ?? undefined,
+              speed:           loc?.coords.speed ?? undefined,
+              accuracy:        loc?.coords.accuracy ?? undefined,
+            })
+
             if (result.watchlist_hit) {
               const now = Date.now()
               if (now - lastHitNotifRef.current > 60_000) {
                 lastHitNotifRef.current = now
-                const plate = result.outcomes?.[0]?.plate ?? "unknown"
-                // Admins/coordinators already receive a server push — skip local
-                // notification so they don't get the same alert twice.
                 const auth2 = await getAuthState()
                 const isCoordOrAdmin = auth2?.role === "admin" || auth2?.role === "coordinator"
                 if (!isCoordOrAdmin) {
                   Notifications.scheduleNotificationAsync({
                     content: {
                       title: "🚨 WATCHLIST MATCH",
-                      body: `Plate ${plate} matches an active alert`,
+                      body: `Plate ${best.plate} matches an active alert`,
                       sound: true,
                       priority: Notifications.AndroidNotificationPriority.MAX,
                     },
@@ -194,12 +198,10 @@ export default function CameraScreen() {
             }
           } catch (e) {
             const msg = e instanceof Error ? e.message : "unknown"
-            // Swallow camera lifecycle errors — these fire when the component
-            // unmounts mid-capture and are not actionable by the user.
             if (!mountedRef.current || msg.toLowerCase().includes("unmount") || msg.toLowerCase().includes("not running")) return
             setError(msg.includes("expired") || msg.includes("authorized")
               ? msg
-              : `Frame upload failed — ${msg}`)
+              : `Recognition failed — ${msg}`)
           }
         }, currentSettings.captureIntervalSec * 1000)
       }

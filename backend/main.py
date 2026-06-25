@@ -1101,6 +1101,7 @@ async def ingest_detection(
     altitude:         Optional[float] = Form(None),
     heading:          Optional[float] = Form(None),
     speed:            Optional[float] = Form(None),
+    accuracy:         Optional[float] = Form(None),
     pilot_id:         Optional[str]   = Form(None),
     source:           str             = Form("phone_mlkit"),
     _pilot: Optional[dict] = Depends(_optional_pilot),

@@ -1,8 +1,12 @@
 /**
- * phone-camera — JS bridge to the Android background scan foreground service.
+ * phone-camera — JS bridge for on-device plate recognition.
  *
- * On iOS all functions are no-ops (Apple does not allow background camera access).
- * The CameraScreen falls back to its expo-camera JS capture loop on iOS.
+ * Android: native Foreground Service with ML Kit OCR (ScanService.kt).
+ * iOS: Vision framework text recognition via recognizePlate() — called from
+ *      the CameraScreen JS capture loop since iOS has no background camera.
+ *
+ * Both platforms post only plate text + confidence + GPS to the server.
+ * No raw frames leave the device.
  */
 import { NativeModules, Platform } from 'react-native'
 
@@ -14,6 +18,11 @@ export interface ScanOptions {
   pilotId?:    string
   authToken?:  string   // JWT — required for watchlist hit detection
   intervalMs?: number   // milliseconds between captures (default 1500)
+}
+
+export interface PlateCandidate {
+  plate: string
+  confidence: number
 }
 
 /** Start background scanning. On Android this launches a foreground service. */
@@ -44,4 +53,14 @@ export async function isScanRunning(): Promise<boolean> {
 export async function getScanFrameCount(): Promise<number> {
   if (Platform.OS !== 'android' || !PhoneCamera) return 0
   return PhoneCamera.getFrameCount()
+}
+
+/**
+ * Run on-device plate recognition on a local image (iOS only).
+ * Uses Apple Vision framework VNRecognizeTextRequest.
+ * Returns plate candidates sorted by confidence descending.
+ */
+export async function recognizePlate(imageUri: string): Promise<PlateCandidate[]> {
+  if (Platform.OS !== 'ios' || !PhoneCamera?.recognizePlate) return []
+  return PhoneCamera.recognizePlate(imageUri)
 }
