@@ -83,10 +83,12 @@ export default function PrivacyPage() {
   → Only plate text + GPS sent to server
       ↓
   Match found?
-  No  → Text deleted after 30 days
-  Yes → Detection record kept up to 1 year (evidence)
+  No  → Frame discarded on phone. Text deleted after 30 days.
+  Yes → That one frame is uploaded as evidence (golden frame).
+        Detection record + frame kept up to 1 year.
 
-  ✦ No image is ever uploaded from your phone.`}
+  ✦ Only a confirmed watchlist hit frame is ever uploaded.
+    All other frames never leave your phone.`}
               </div>
             </div>
             <div className="bg-white/5 rounded-lg p-4">

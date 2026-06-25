@@ -148,8 +148,9 @@ export default function CameraScreen() {
           setFrameCount(n)
         }, 2000)
       } else {
-        // iOS: on-device OCR via Vision framework — no frames leave the device.
-        // App must stay foregrounded (no background camera on iOS).
+        // iOS: on-device OCR via Vision framework.
+        // Frames stay on-device unless a watchlist hit is confirmed — then
+        // that one frame is uploaded as evidence (golden frame).
         captureTimerRef.current = setInterval(async () => {
           if (!cameraRef.current) return
           try {
@@ -178,6 +179,20 @@ export default function CameraScreen() {
             })
 
             if (result.watchlist_hit) {
+              // Upload the evidence frame — this is the ONE frame that matched
+              postFrame({
+                uri:      photo.uri,
+                droneId:  currentSettings.droneId,
+                pilotId:  currentSettings.pilotId || undefined,
+                source:   "phone_gps",
+                lat:      loc?.coords.latitude,
+                lng:      loc?.coords.longitude,
+                altitude: loc?.coords.altitude ?? undefined,
+                heading:  loc?.coords.heading ?? undefined,
+                speed:    loc?.coords.speed ?? undefined,
+                accuracy: loc?.coords.accuracy ?? undefined,
+              }).catch(() => {})
+
               const now = Date.now()
               if (now - lastHitNotifRef.current > 60_000) {
                 lastHitNotifRef.current = now

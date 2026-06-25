@@ -270,7 +270,7 @@ class ScanService : Service() {
                     val plate   = best.text.trim().uppercase().replace(Regex("[^A-Z0-9]"), "")
                     val conf    = (best.confidence ?: 0.70f).toDouble()
                     uploadExecutor.execute {
-                        postDetection(plate, conf, lat, lng, alt, heading, speed, accuracy)
+                        postDetection(plate, conf, lat, lng, alt, heading, speed, accuracy, jpeg)
                     }
                 } else {
                     inFlight.set(false)
@@ -283,6 +283,7 @@ class ScanService : Service() {
         plateText: String, confidence: Double,
         lat: Double?, lng: Double?, alt: Double?,
         heading: Float?, speed: Float?, accuracy: Float?,
+        jpeg: ByteArray,
     ) {
         try {
             val body = FormBody.Builder()
@@ -318,6 +319,7 @@ class ScanService : Service() {
                     if (isHit) {
                         updateNotification("🚨 WATCHLIST HIT — $plateText")
                         fireHitAlert(plateText)
+                        uploadEvidenceFrame(jpeg, lat, lng, alt, heading, speed, accuracy)
                     } else {
                         updateNotification("Scanning  •  $n plates read")
                     }
@@ -327,6 +329,47 @@ class ScanService : Service() {
             // Non-fatal — retry next interval
         } finally {
             inFlight.set(false)
+        }
+    }
+
+    private fun uploadEvidenceFrame(
+        jpeg: ByteArray,
+        lat: Double?, lng: Double?, alt: Double?,
+        heading: Float?, speed: Float?, accuracy: Float?,
+    ) {
+        try {
+            val frameBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("file", "frame.jpg",
+                    jpeg.toRequestBody("image/jpeg".toMediaType()))
+                .addFormDataPart("drone_id", droneId)
+                .addFormDataPart("source", "phone_gps")
+                .apply {
+                    if (pilotId.isNotBlank()) addFormDataPart("pilot_id", pilotId)
+                    if (lat != null && lng != null) {
+                        addFormDataPart("lat", lat.toString())
+                        addFormDataPart("lng", lng.toString())
+                        alt?.let     { addFormDataPart("altitude", it.toString()) }
+                        heading?.let { addFormDataPart("heading",  it.toString()) }
+                        speed?.let   { addFormDataPart("speed",    it.toString()) }
+                        accuracy?.let{ addFormDataPart("accuracy", it.toString()) }
+                    }
+                }
+                .build()
+
+            val req = Request.Builder()
+                .url("$apiBase/ingest/frame")
+                .post(frameBody)
+                .apply { if (authToken.isNotBlank()) header("Authorization", "Bearer $authToken") }
+                .build()
+
+            http.newCall(req).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    android.util.Log.i("ScanService", "Evidence frame uploaded for watchlist hit")
+                }
+            }
+        } catch (_: IOException) {
+            // Non-fatal — evidence upload is best-effort
         }
     }
 
