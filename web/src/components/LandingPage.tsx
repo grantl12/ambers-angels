@@ -431,7 +431,7 @@ export default function LandingPage() {
           </a>
           <a href="/deck/stories" target="_blank" rel="noopener noreferrer" className={s.exploreCard}>
             <span className={s.exploreTag}>Volunteer Stories</span>
-            <h3>Four ways to help. Zero overlap.</h3>
+            <h3>Five ways to help. Zero overlap.</h3>
             <p>Maria scanned 340 plates during her lunch break. DeShawn covered two thousand on a single delivery shift — and didn&apos;t know about the flag until later. The platform fits everyone.</p>
             <span className={s.exploreArrow}>View deck →</span>
           </a>
