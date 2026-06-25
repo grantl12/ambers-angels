@@ -338,15 +338,15 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <h3>iOS On-Device Scanning</h3>
 
-  <p>The current on-device OCR implementation is Android-only. Android&rsquo;s foreground service model allows the scan to continue when the user switches to another app&thinsp;&mdash;&thinsp;a critical capability for volunteers who need navigation running simultaneously. iOS does not provide an equivalent background execution model for continuous camera capture. The iOS app currently falls back to the active camera path (foreground only, frame upload to server).</p>
+  <p>On-device OCR is implemented on both platforms. Android uses ML Kit inside a foreground service (<code>ScanService.kt</code>), allowing scanning to continue when the user switches to another app&thinsp;&mdash;&thinsp;a critical capability for gig economy drivers who need navigation or ride-share apps running simultaneously. iOS uses Apple&rsquo;s Vision framework (<code>VNRecognizeTextRequest</code>) via a Swift native module, running in the foreground camera loop. iOS does not support background camera access, so volunteers must keep the app open while scanning.</p>
 
-  <p>An iOS equivalent using Apple&rsquo;s Vision framework text recognition is architecturally straightforward but has not been built. It would require a Swift native module, a build on macOS (no cross-compilation path exists), and a different background execution strategy, likely using iOS background task scheduling with shorter capture bursts rather than continuous streaming. The privacy properties would be identical&thinsp;&mdash;&thinsp;Vision framework runs on-device, no frames would be transmitted&thinsp;&mdash;&thinsp;but the scanning cadence would be less frequent than the Android implementation.</p>
+  <p>Both platforms transmit only plate text, confidence, and GPS to the server via <code>POST /ingest/detection</code>. No frames leave the device on either platform. The privacy guarantee is identical across iOS and Android&thinsp;&mdash;&thinsp;the only difference is the background execution model.</p>
 
   <h3>On-Device Model Improvements</h3>
 
   <p>ML Kit&rsquo;s general-purpose text recognizer is not specialized for license plates. It handles well-lit, well-framed plates adequately, but struggles with motion blur, low contrast, partial occlusion, and non-standard plate formats. A purpose-built on-device plate recognition model&thinsp;&mdash;&thinsp;smaller, faster, and tuned for the specific visual characteristics of U.S. license plates&thinsp;&mdash;&thinsp;would improve both accuracy and battery efficiency.</p>
 
-  <p>The constraint is training data. Building a plate-specific model requires a large corpus of plate images captured under real driving conditions, with ground truth labels. Amber&rsquo;s Angels is accumulating this data through the active camera path (where frames are uploaded with server-side ALPR providing labels), but the volume is not yet sufficient for model training. The on-device model improvement is a future sprint gated by data availability, not by architectural feasibility.</p>
+  <p>The constraint is training data. Building a plate-specific model requires a large corpus of plate images captured under real driving conditions, with ground truth labels. Amber&rsquo;s Angels is accumulating this data through the drone RTMP path (where frames are processed server-side with ALPR providing labels), but the volume is not yet sufficient for model training. The on-device model improvement is a future sprint gated by data availability, not by architectural feasibility.</p>
 
   <h3>Vehicle-Only Classification on Device</h3>
 
@@ -360,7 +360,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>The distinction between policy-based and architecture-based privacy is not academic. It is the difference between a promise and a constraint. Promises are broken by board votes, acquisition agreements, and quarterly revenue targets. Constraints are broken by code changes that go through version control, code review, native compilation, and app store submission.</p>
 
-  <p>Amber&rsquo;s Angels chose the constraint. The background scan service runs on-device OCR, transmits text, and discards the frame. No server endpoint accepts frames from this path. No configuration enables frame upload. No over-the-air update can change this. The only way to add frame upload to the background scanner is to write new native code, compile it, submit it to Google and Apple, and wait for review&thinsp;&mdash;&thinsp;producing an auditable, public, reviewable change in the process.</p>
+  <p>Amber&rsquo;s Angels chose the constraint. On both Android and iOS, the phone scanning path runs on-device OCR, transmits text, and discards the frame. No server endpoint accepts frames from this path. No configuration enables frame upload. No over-the-air update can change this. The only way to add frame upload to the phone scanner is to write new native code, compile it, submit it to Google and Apple, and wait for review&thinsp;&mdash;&thinsp;producing an auditable, public, reviewable change in the process.</p>
 
   <p>When a volunteer asks &ldquo;is my phone recording my neighbors?&rdquo;, I do not answer with a privacy policy. I answer with an architecture. The phone reads plates and sends text. The frame never leaves the phone. That is how the code works, and code does not lie.</p>
 

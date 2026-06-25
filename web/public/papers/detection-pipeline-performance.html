@@ -373,11 +373,11 @@ table.data-table .mono { font-family:'JetBrains Mono',monospace; font-size:9pt; 
 
   <h2>On-Device vs. Server-Side Processing</h2>
 
-  <p>The June 7 test used the server-side ALPR path (phone uploads raw JPEG frames). Amber's Angels also operates a second, privacy-preserving path for background scanning: Android's ML Kit text recognition runs <strong>entirely on-device</strong>. No frames leave the volunteer's phone. Only plate text, confidence, and GPS coordinates are transmitted to the server via <code>POST /ingest/detection</code>.</p>
+  <p>The June 7 test used the server-side ALPR path (phone uploads raw JPEG frames). Since then, all phone scanning has moved to <strong>on-device OCR</strong>: ML Kit on Android, Vision framework on iOS. No frames leave the volunteer's phone. Only plate text, confidence, and GPS coordinates are transmitted to the server via <code>POST /ingest/detection</code>. Server-side ALPR processing now applies only to drone feeds (DJI RTMP and SDK paths).</p>
 
-  <p>The on-device path is the default volunteer experience. It trades the server-side pipeline's multi-model cascade (CLAHE, deskew, YOLO, CDC, Plate Recognizer) for a guarantee that raw images never leave the volunteer's phone. This is a non-negotiable privacy property: volunteers are private citizens scanning public roads, and the system must respect that. The phone camera pipeline (server-side ALPR) is an explicit opt-in action&thinsp;&mdash;&thinsp;the volunteer taps Start Mission, understands that frames are being uploaded, and is actively participating in a directed search.</p>
+  <p>The on-device path is the default and only phone scanning experience. It trades the server-side pipeline's multi-model cascade (CLAHE, deskew, YOLO, CDC, Plate Recognizer) for a guarantee that raw images never leave the volunteer's phone. This is a non-negotiable privacy property: volunteers are private citizens scanning public roads, and the system must respect that. The server-side ALPR pipeline runs only on drone video feeds, where frames are streamed to the server for inference.</p>
 
-  <p>Both paths feed into the same AggregationService and EventService. Both can trigger watchlist hit alerts. The difference is in the richness of the data: server-side processing produces vehicle color, body type, make/model, and a golden frame for evidence. On-device processing produces a plate and a confidence score. For the purpose of locating a missing person's vehicle, both are sufficient. For the purpose of building an evidence package for law enforcement, the server-side path is superior.</p>
+  <p>Both paths feed into the same AggregationService and EventService. Both can trigger watchlist hit alerts. The difference is in the richness of the data: server-side drone processing produces vehicle color, body type, make/model, and a golden frame for evidence. On-device phone processing produces a plate and a confidence score. For the purpose of locating a missing person's vehicle, both are sufficient. For the purpose of building an evidence package for law enforcement, the drone path is superior.</p>
 
   <h2>Limitations</h2>
 
@@ -389,7 +389,7 @@ table.data-table .mono { font-family:'JetBrains Mono',monospace; font-size:9pt; 
 
   <p><strong>YOLO color accuracy.</strong> The HSV k-means approach for vehicle color classification is adequate but not precise. Dark blue and black are frequently confused. Red and orange are sometimes conflated. Color accuracy is an enrichment signal, not a gating criterion&thinsp;&mdash;&thinsp;the system does not suppress an alert because YOLO called the car "gray" when the watchlist says "silver." It applies a mismatch penalty and routes to triage.</p>
 
-  <p><strong>Network dependency.</strong> The phone camera pipeline requires a cellular data connection for frame upload. In rural areas or dead zones, frames will queue or fail. The on-device ML Kit path continues scanning offline and transmits only the lightweight detection result (plate text + confidence + GPS) when connectivity resumes.</p>
+  <p><strong>Network dependency.</strong> The on-device phone scanning path transmits only lightweight detection results (plate text + confidence + GPS) and can continue scanning offline, transmitting when connectivity resumes. The drone RTMP path requires a stable data connection for video streaming.</p>
 
   <h2>Conclusion</h2>
 

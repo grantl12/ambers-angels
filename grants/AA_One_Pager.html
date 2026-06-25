@@ -67,6 +67,11 @@
     color: #fff;
     border-color: #b45309;
   }
+  .badge-veteran {
+    background: #1e3a5f;
+    color: #fff;
+    border-color: #1e3a5f;
+  }
 
   /* ── BODY GRID ── */
   .body-grid {
@@ -145,17 +150,28 @@
   .step-text { font-size: 10.5px; color: #333; line-height: 1.5; }
   .step-text strong { color: #111; }
 
-  /* ── SWARM HIGHLIGHT ── */
-  .swarm-box {
+  /* ── HIGHLIGHT BOX ── */
+  .highlight-box {
     border-left: 3px solid #b45309;
     background: #fffbf5;
     padding: 8px 12px;
     margin-bottom: 10px;
     border-radius: 0 4px 4px 0;
   }
-  .swarm-box .section-label { margin-bottom: 3px; }
-  .swarm-box p { font-size: 10.5px; color: #333; line-height: 1.55; }
-  .swarm-box p + p { margin-top: 3px; }
+  .highlight-box .section-label { margin-bottom: 3px; }
+  .highlight-box p { font-size: 10.5px; color: #333; line-height: 1.55; }
+  .highlight-box p + p { margin-top: 3px; }
+
+  /* ── FOUNDER BOX ── */
+  .founder-box {
+    border-left: 3px solid #1e3a5f;
+    background: #f5f7fa;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 0 4px 4px 0;
+  }
+  .founder-box .section-label { color: #1e3a5f; margin-bottom: 3px; }
+  .founder-box p { font-size: 10.5px; color: #333; line-height: 1.55; }
 
   /* ── PRIVACY ROW ── */
   .privacy-row {
@@ -176,7 +192,7 @@
     position: relative;
   }
   .privacy-item::before {
-    content: '✓';
+    content: '\2713';
     position: absolute;
     left: 0;
     color: #b45309;
@@ -217,13 +233,13 @@
 <div class="header">
   <div class="header-left">
     <div class="org-name">Amber's <em>Angels</em></div>
-    <div class="tagline">Volunteer-Driven AI for Missing Persons Response</div>
+    <div class="tagline">Veteran-Founded AI Platform for Missing Persons Recovery</div>
   </div>
   <div class="badges">
-    <span class="badge badge-amber">501(c)(3) Approved</span>
+    <span class="badge badge-veteran">Veteran-Founded</span>
+    <span class="badge badge-amber">501(c)(3)</span>
     <span class="badge">EIN 42-2052151</span>
-    <span class="badge">SDVOSB Founded</span>
-    <span class="badge">Carrollton, Georgia</span>
+    <span class="badge">Carrollton, GA</span>
     <span class="badge">Insured</span>
   </div>
 </div>
@@ -236,40 +252,39 @@
     <div class="section-label">The Problem</div>
     <div class="section-body">
       <strong>76% of abducted children who are murdered are killed within the first 3 hours.</strong>
-      Law enforcement responds fast — but fixed infrastructure has limits. When a suspect vehicle turns off a covered road, Flock goes dark. Plates get covered. Plates get swapped. Every residential street, rural route, and secondary road without a fixed camera is a gap. In an abduction, that gap can be fatal.
+      Law enforcement responds fast, but fixed camera infrastructure has limits. When a suspect vehicle turns off a covered road, the trail goes cold. Plates get covered. Plates get swapped. Every residential street, rural highway, and parking lot without a camera is a gap. In an abduction, that gap can be fatal.
     </div>
 
     <div class="section-label">Our Solution</div>
     <div class="section-body">
-      When a FEMA IPAWS alert fires, Amber's Angels activates a network of community volunteers — phones mounted in cars and FAA-licensed drones in the air — covering the roads between your fixed cameras in real time. Our AI identifies vehicles by plate <strong>and</strong> by make, model, color, and body type — so even when a plate is obscured or swapped, we can still surface a lead. Every detection is reviewed by a human coordinator before it reaches law enforcement.
+      When a government alert fires, Amber's Angels activates a volunteer network &mdash; phones mounted in cars scanning plates automatically, and FAA-licensed drones deployed to coverage gaps. Our AI identifies vehicles by plate <strong>and</strong> by make, model, color, and body type, so even when a plate is obscured or swapped, we can still surface a lead. Every detection is reviewed by a human coordinator before any information reaches law enforcement.
     </div>
 
-    <div class="swarm-box">
-      <div class="section-label">Join Swarm — Remote Drone Dispatch</div>
-      <p>A volunteer powers on their drone from home, taps <strong>Join Swarm</strong>, and the mission coordinator takes remote control — directing the drone to coverage gaps on the map without the volunteer ever leaving their driveway.</p>
-      <p>BVLOS waiver holders: full coordinator control, extended range. Standard Part 107: geofenced to volunteer location automatically. FAA certification is enforced in software — not the honor system.</p>
+    <div class="founder-box">
+      <div class="section-label">Veteran Leadership</div>
+      <p><strong>Grant Lindberg, SFC (E-7), U.S. Army (11.5 years)</strong> &mdash; Air Defense Artillery &rarr; Army Space &amp; Missile Defense Command &rarr; Military Intelligence (DLI Korean, Aerial Exploitation Battalion). Soldier of the Year, 11th ADA Brigade. Grant served as a collection compliance auditor in Korea, reviewing aerial intelligence against Fourth Amendment standards &mdash; the same constitutional rigor that shapes our privacy architecture. Service-disabled veteran (100% P&amp;T). Father of five daughters.</p>
     </div>
   </div>
 
   <!-- RIGHT COLUMN -->
   <div>
-    <div class="section-label">Key Numbers</div>
+    <div class="section-label">Proven — End-to-End Test Results (June 2026)</div>
     <div class="stats">
       <div class="stat-card">
-        <div class="stat-num">5-Signal</div>
-        <div class="stat-desc">cascade: plate · make · model · color · body type — vs. ~30% false positive rate for plate-only LPR</div>
+        <div class="stat-num">47 sec</div>
+        <div class="stat-desc">alert-to-detection &mdash; from FEMA alert ingestion to confirmed plate match with GPS coordinates</div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">Zero</div>
-        <div class="stat-desc">cost to law enforcement partners — no equipment, no staff, no budget ask</div>
+        <div class="stat-num">99%</div>
+        <div class="stat-desc">peak confidence score on target vehicle &mdash; 5-signal cascade: plate + make + model + color + body type</div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">503 mi²</div>
-        <div class="stat-desc">Carroll County coverage area — a fraction covered by fixed cameras</div>
+        <div class="stat-num">5 Sources</div>
+        <div class="stat-desc">FEMA IPAWS &middot; NWS &middot; NCMEC &middot; NamUs (DOJ) &middot; law enforcement BOLOs</div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">100%</div>
-        <div class="stat-desc">human coordinator review before any law enforcement notification</div>
+        <div class="stat-num">Zero Cost</div>
+        <div class="stat-desc">to law enforcement &mdash; no equipment, no staff, no budget line item, no IT integration required</div>
       </div>
     </div>
 
@@ -277,39 +292,45 @@
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <div class="step-text"><strong>FEMA issues alert</strong> — suspect vehicle profile loaded automatically into our watchlist</div>
+        <div class="step-text"><strong>Government alert fires</strong> &mdash; FEMA, NWS, NCMEC, NamUs, or law enforcement BOLO. Vehicle profile loaded into watchlist automatically.</div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <div class="step-text"><strong>Volunteers notified</strong> — phone volunteers and drone pilots deploy to assigned sectors</div>
+        <div class="step-text"><strong>Volunteers activate</strong> &mdash; push notification to phones and drone pilots in the alert area. Phone volunteers scan passively from their car &mdash; no driving changes needed.</div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <div class="step-text"><strong>AI analyzes frames</strong> — plate recognition + vehicle make / model / color classification</div>
+        <div class="step-text"><strong>AI analyzes in real time</strong> &mdash; on-device plate recognition (phones) + server-side ALPR and YOLOv8 vehicle classification (drones). Phone scanning runs entirely on-device &mdash; no images leave volunteer phones. Drone feeds are processed server-side with strict retention controls.</div>
       </div>
       <div class="step">
         <div class="step-num">4</div>
-        <div class="step-text"><strong>Coordinator reviews every hit</strong> — plate confidence, vehicle match, GPS, frame image</div>
+        <div class="step-text"><strong>Coordinator reviews every match</strong> &mdash; confidence score, vehicle description, GPS, evidence frame. No automated reports to law enforcement.</div>
       </div>
       <div class="step">
         <div class="step-num">5</div>
-        <div class="step-text"><strong>Confirmed lead delivered</strong> — GPS coordinates, plate, vehicle description, timestamp</div>
+        <div class="step-text"><strong>Confirmed lead delivered</strong> &mdash; GPS coordinates, plate, vehicle description, timestamp, and evidence frame to responding agency.</div>
       </div>
     </div>
   </div>
 
 </div>
 
+<!-- HIGHLIGHT BOX -->
+<div class="highlight-box">
+  <div class="section-label">Autonomous Drone Dispatch &mdash; Built and Tested</div>
+  <p>A volunteer powers on their drone at home, taps <strong>Join Swarm</strong>, and the mission coordinator directs the aircraft to coverage gaps on the live map. The drone flies a programmed waypoint mission autonomously &mdash; the volunteer never leaves their driveway. Lawnmower sweep patterns cover parking lots at 15m altitude. If a medium-confidence match appears mid-flight, the drone pauses automatically for sharper imaging, then resumes. <strong>FAA Part 107 certification enforced in software &mdash; BVLOS requires admin-verified waiver on file.</strong></p>
+</div>
+
 <!-- PRIVACY ROW -->
 <div class="privacy-row">
-  <div class="section-label" style="margin-bottom:6px;">Privacy by Design</div>
+  <div class="section-label" style="margin-bottom:6px;">Privacy by Design &mdash; Built by an Intelligence Collection Auditor</div>
   <div class="privacy-grid">
-    <div class="privacy-item">No video stored — frames deleted immediately after processing</div>
-    <div class="privacy-item">No surveillance database — no persistent record of innocent citizens</div>
+    <div class="privacy-item">Phone scanning runs entirely on-device &mdash; no images leave the volunteer's phone. Drone feeds processed server-side; match evidence retained up to 1 year</div>
+    <div class="privacy-item">No persistent surveillance database &mdash; non-matching frames deleted immediately, non-alerted plates purged at 30 days</div>
     <div class="privacy-item">Dormant between active government-issued alerts</div>
-    <div class="privacy-item">Watchlist populated exclusively from FEMA IPAWS official alerts</div>
-    <div class="privacy-item">Open source — architecture transparent and auditable</div>
-    <div class="privacy-item">Full privacy policy published at amberangels.org/privacy</div>
+    <div class="privacy-item">Watchlist populated only from official government sources and verified law enforcement BOLOs</div>
+    <div class="privacy-item">100% human review before any notification reaches law enforcement</div>
+    <div class="privacy-item">Full privacy policy and data retention schedule published at amberangels.org/privacy</div>
   </div>
 </div>
 
@@ -320,8 +341,8 @@
     103 Springwood Dr, Carrollton, Georgia 30117
   </div>
   <div class="footer-right">
-    info@amberangels.org &nbsp;·&nbsp; amberangels.org<br>
-    EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) Approved &nbsp;·&nbsp; DUNS 145024922
+    info@amberangels.org &nbsp;&middot;&nbsp; amberangels.org<br>
+    EIN 42-2052151 &nbsp;&middot;&nbsp; 501(c)(3) &nbsp;&middot;&nbsp; SDVOSB &nbsp;&middot;&nbsp; SAM UEI NS2YDNMAWTM8
   </div>
 </div>
 

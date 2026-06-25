@@ -353,7 +353,7 @@ em.amber { color: var(--amber); font-style: normal; }
         <div class="arch-box integ"><div class="lbl">web · next.js 14</div><h4>Coordinator dashboard</h4><p>Mapbox dark. /map · /admin · /missions · /leaderboard · /debrief.</p></div>
       </div>
     </div>
-    <div class="arch-foot"><strong>Hard constraint:</strong> there is no write path to disk for raw frames. <span class="a">Frames hold in RAM only for inference duration</span>; only structured detection metadata persists past the worker.</div>
+    <div class="arch-foot"><strong>Hard constraint:</strong> non-matching frames are held in RAM only for inference duration — <span class="a">no archive of innocent vehicles</span>. High-confidence alert matches are saved as evidence for up to one year, then automatically purged.</div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
     <div class="sn">03 / 15</div>
   </section>
@@ -651,7 +651,7 @@ em.amber { color: var(--amber); font-style: normal; }
     <div class="s13-l">
       <span class="tag">Privacy Architecture</span>
       <h2>Enforced by the topology, <em>not by policy.</em></h2>
-      <p><strong>Non-matching frames are never written to disk.</strong> They pass through RAM for inference and are deleted immediately — no accumulation of plate sightings, no non-alert vehicle data. The platform is event-triggered; between alerts, the inference pipeline is fully idle.</p>
+      <p><strong>Phone scanning runs entirely on-device</strong> — no frames leave the volunteer&rsquo;s phone. Drone feeds are processed server-side: non-matching frames pass through RAM and are deleted immediately — no accumulation of plate sightings, no non-alert vehicle data. The platform is event-triggered; between alerts, the inference pipeline is fully idle.</p>
       <p>When a HIGH_CONFIDENCE watchlist match fires, one <strong>golden evidence frame</strong> is saved — attached to the coordinator Discord alert inline so they can see exactly what the drone saw. That frame is stored with the detection record. Telemetry purges after 90 days. Detection records and golden frames purge after 1 year. The watchlist holds only plates from active government alerts, never our own sightings database.</p>
     </div>
     <div class="boundary">

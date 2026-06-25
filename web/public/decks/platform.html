@@ -271,14 +271,14 @@ em.amber { color: var(--amber); font-style: normal; }
     <div class="half">
       <span class="tag">Phone Mode</span>
       <h2>The drive you were<br>already <em>taking.</em></h2>
-      <p class="desc">Background scan runs ML Kit OCR entirely on-device. Frames never leave the volunteer's phone — only plate text and confidence score are transmitted.</p>
+      <p class="desc">Phone scanning runs OCR entirely on-device (ML Kit on Android, Vision framework on iOS). No frames leave the volunteer's phone — only plate text, confidence score, and GPS are transmitted.</p>
       <ul>
         <li>Mount your phone. Tap Start Mission. Drive normally.</li>
         <li>Works while navigation, music, or other apps are open</li>
         <li>Persistent notification with live frame count and one-tap stop</li>
         <li>No extra hardware — uses the smartphone you already own</li>
       </ul>
-      <div class="note">ScanService · ML Kit OCR · on-device · frames never leave phone</div>
+      <div class="note">ML Kit (Android) · Vision (iOS) · on-device OCR · no frames leave phone</div>
     </div>
     <div class="half">
       <span class="tag">Drone Mode</span>
@@ -489,17 +489,17 @@ em.amber { color: var(--amber); font-style: normal; }
   <section id="s8" data-screen-label="08 Privacy Model">
     <span class="tag">Privacy by Topology</span>
     <h2>Enforced by architecture.<br><em>Not by policy.</em></h2>
-    <p class="sub">The system cannot surveil — not because we've written a policy against it, but because the data path doesn't permit it. Non-matching frames are deleted on processing, never written to disk.</p>
+    <p class="sub">The system cannot surveil — not because we've written a policy against it, but because the data path doesn't permit it. Phone scanning is on-device; no images leave the phone. Drone non-matches are deleted immediately after processing. Only confirmed alert matches are saved as time-limited evidence.</p>
     <div class="priv-grid">
       <div class="priv-card">
         <div class="pc-icon">🚫</div>
         <h3>No frame archive</h3>
-        <p>Non-matching frames pass through RAM for inference and are deleted immediately. No video stored, no mass plate logging, no accumulation of innocent drivers' data. Between active alerts, the inference pipeline is completely idle.</p>
+        <p>Phone scanning never uploads images. For drone feeds, non-matching frames pass through RAM and are deleted immediately. No mass plate logging, no accumulation of innocent drivers' data. Between active alerts, the inference pipeline is completely idle.</p>
       </div>
       <div class="priv-card">
         <div class="pc-icon">🔒</div>
-        <h3>Background mode: frames never leave the phone</h3>
-        <p>ScanService runs ML Kit OCR entirely on-device. Only plate text and confidence score are transmitted — never the image. This is the default mode for most volunteers, and this guarantee is architectural, not configurable.</p>
+        <h3>Phone scanning: frames never leave the phone</h3>
+        <p>On-device OCR (ML Kit on Android, Vision on iOS) runs entirely on the volunteer's phone. Only plate text, confidence score, and GPS are transmitted — never the image. On Android, scanning continues when you switch apps. This guarantee is architectural, not configurable.</p>
       </div>
       <div class="priv-card">
         <div class="pc-icon">📋</div>

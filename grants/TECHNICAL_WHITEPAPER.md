@@ -86,7 +86,7 @@ graph TB
 | **Compute** | DigitalOcean Droplets — API + database co-hosted |
 | **TLS/HTTPS** | nginx reverse proxy with Let's Encrypt certificates |
 | **Edge Hardware** | DJI Mavic 3 (Part 107 operator required) + Android/iOS smartphones |
-| **Security** | End-to-end encryption for all detection data; raw frames deleted post-inference |
+| **Security** | End-to-end encryption for all detection data; phone frames never leave device; non-matching drone frames deleted post-inference; match evidence retained up to 1 year |
 
 ---
 
@@ -180,10 +180,11 @@ flowchart TD
 
 Privacy is not a policy layer — it is an architectural constraint:
 
-1. **Ephemeral Processing:** Video frames are held in RAM only for the duration of inference. There is no write path to disk for raw frames.
-2. **Event-Triggered:** The IPAWS poller controls platform activation. Between alerts, detection pipelines are idle.
-3. **Mission Specificity:** Volunteers opt in per-mission. There is no always-on scanning mode.
-4. **Selective Transmission:** Only events that pass the two-factor threshold (and coordinator review) generate any outbound data to law enforcement.
+1. **On-Device Phone Scanning:** Phone volunteers run on-device OCR — no camera frames ever leave the volunteer's phone. Only plate text and GPS coordinates are transmitted.
+2. **Minimal Drone Frame Retention:** Drone feeds are processed server-side. Non-matching frames are deleted immediately after inference. High-confidence match frames are saved as time-limited evidence (up to one year) for chain-of-custody purposes, then auto-purged.
+3. **Event-Triggered:** The IPAWS poller controls platform activation. Between alerts, detection pipelines are idle.
+4. **Mission Specificity:** Volunteers opt in per-mission. There is no always-on scanning mode.
+5. **Selective Transmission:** Only events that pass the two-factor threshold (and coordinator review) generate any outbound data to law enforcement.
 
 ---
 
@@ -225,7 +226,7 @@ By utilizing a distributed tech stack, Amber's Angels remains highly scalable wi
 | :--- | :--- |
 | **Unauthorized API access** | JWT authentication, role-based access control |
 | **DDoS / abuse during active alerts** | `slowapi` rate limiting + DigitalOcean network firewall |
-| **Data exfiltration** | Ephemeral frame processing; no raw video ever stored |
+| **Data exfiltration** | Phone frames never leave device; drone non-match frames deleted immediately; match evidence retained up to 1 year with access controls |
 | **Credential exposure** | Secrets managed via `.env` (never committed to source control) |
 | **Volunteer identity spoofing** | Background check + government ID verification at onboarding |
 | **False alert injection** | Alerts consumed only from FEMA IPAWS official feed |

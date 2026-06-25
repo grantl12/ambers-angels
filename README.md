@@ -2,7 +2,7 @@
 
 **A volunteer-driven public safety platform using cameras, license plate recognition, and real-time coordination to help bring missing and abducted children home.**
 
-Amber's Angels is a federally recognized 501(c)(3) nonprofit (EIN 42-2052151) that coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Either way, the app streams frames to the server for live license plate recognition and vehicle identification. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without storing raw video footage, without building searchable databases of innocent people, and without collecting any data beyond what is operationally necessary to support the search.
+Amber's Angels is a federally recognized 501(c)(3) nonprofit (EIN 42-2052151) that coordinates volunteers in response to active AMBER Alerts and other missing-persons emergencies. When an alert is issued, volunteers in the affected area join the search — whether by launching a drone or simply mounting their phone on their car's dashboard and driving the search area. Phone volunteers run on-device plate recognition — no frames leave the phone. Drone feeds are processed server-side with strict retention controls. Detections are cross-referenced against the alert's suspect vehicle profile in real time and escalated immediately to mission coordinators — without building searchable databases of innocent people and without collecting any data beyond what is operationally necessary to support the search.
 
 ---
 
@@ -41,7 +41,7 @@ Every hour a child is missing, the chances of a safe recovery decline. Amber's A
 
 Different volunteers can contribute in very different ways — and the platform is built to accommodate all of them.
 
-**Maria** has a phone mount on her car dashboard and a gap before her afternoon shift. She opens the app, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs in the background, uploading frames every ten seconds. She covers six miles of surface streets and scans 340 plates without ever opening AA again.
+**Maria** has a phone mount on her car dashboard and a gap before her afternoon shift. She opens the app, taps START MISSION, and switches to Waze. For the next eighteen minutes she drives her usual route. The app runs on-device plate recognition in the background — no frames are uploaded, only plate text and GPS are transmitted. She covers six miles of surface streets and scans 340 plates without ever opening AA again.
 
 **James** is a Part 107 pilot with a Mavic 3 and an afternoon free. He flies to the reported last-known location, launches, and begins a lawnmower search pattern over a large parking complex. He stays on-site and in visual range the whole time, flying manually while the app streams frames to the server.
 
@@ -59,7 +59,7 @@ He accepts. The app uploads the waypoint plan to the DJI SDK. The drone takes of
 
 One of the most important design decisions we made: **the platform works with any camera that can run our mobile app.** You do not need an FAA license, a $1,500 drone, or technical expertise to contribute.
 
-If you have a smartphone and a car mount, you are already equipped. Mount your phone on your dashboard, open the Amber's Angels app, tap **START MISSION**, and switch to your navigation app. The app's background service keeps the camera running and uploading frames even when AA is not the active screen — a persistent notification shows the live frame count and a one-tap Stop button. Your GPS location is transmitted alongside every frame, so coordinators can see your coverage on the mission map.
+If you have a smartphone and a car mount, you are already equipped. Mount your phone on your dashboard, open the Amber's Angels app, tap **START MISSION**, and switch to your navigation app. The app's background service runs on-device plate recognition even when AA is not the active screen — no frames are uploaded, only plate text and GPS. A persistent notification shows the live scan count and a one-tap Stop button. Your GPS location is transmitted alongside every detection, so coordinators can see your coverage on the mission map.
 
 **Volunteer modes:**
 - 🚁 **Drone pilot** — aerial coverage, best for wide search areas and terrain that's hard to access by road
@@ -273,7 +273,7 @@ Pilots see color-coded zone overlays on the mission map with a compass-direction
 
 We built privacy in from the start, not as an afterthought.
 
-- **No video archive.** Raw frames are deleted immediately after processing. Nothing is stored.
+- **No video archive.** Phone scanning runs entirely on-device — no frames leave the volunteer's phone. For drone feeds, non-matching frames are deleted immediately after processing. High-confidence match evidence is retained for up to one year, then auto-purged.
 - **Minimum data.** We collect only what is operationally necessary: GPS telemetry during missions, license plate reads, and pilot account information.
 - **Short retention windows.** Telemetry is purged after 90 days. Detection records after 1 year. See our full [Data Retention Policy](https://amberangels.org/retention).
 - **No third-party data sales.** We do not sell, rent, or share personal data with advertisers or data brokers under any circumstances.

@@ -18,7 +18,7 @@ Unlike traditional surveillance systems, Amber's Angels does not build persisten
 
 | Principle | What It Means in Practice |
 | :--- | :--- |
-| **No Video Archiving** | Raw video streams are processed in real-time. Once the inference engine analyzes a frame, it is immediately deleted from memory — never written to disk. |
+| **No Video Archiving** | Phone scanning runs entirely on-device — no frames leave the volunteer's phone. Drone feeds are processed server-side; non-matching frames are deleted immediately after processing. High-confidence match frames ("golden frames") are saved as time-limited evidence for up to one year, then auto-purged. |
 | **Event-Triggered Only** | Inference processing only activates during declared, government-issued alerts (AMBER, Silver, Mattie's Call, etc.). The platform is dormant between events. |
 | **Mission Specificity** | Volunteers explicitly opt in to each individual search mission. There is no passive background collection. |
 | **Facial Obfuscation** | Our pipeline includes automated protocols to obfuscate faces and non-suspect license plates in any data passed to downstream systems. |
@@ -33,7 +33,8 @@ Unlike traditional surveillance systems, Amber's Angels does not build persisten
 | GPS Telemetry | Mission mapping and coverage verification | 90 days | Coordinators only |
 | Detection Records | Law enforcement leads (plate + VMMC data only) | 1 year | Coordinators + LEA on active case |
 | Volunteer Identity | Background checks, accountability, and vetting | Duration of volunteer status | Admin only |
-| Raw Video Frames | Real-time inference only | **Not retained** — deleted post-inference | Processing system only (ephemeral) |
+| Raw Video Frames (phones) | On-device inference only | **Not retained** — never leaves the device | Device only (on-device OCR) |
+| Raw Video Frames (drones) | Server-side inference | Non-matches deleted immediately; high-confidence match evidence retained up to 1 year | Processing system + coordinators (evidence only) |
 | Alert Metadata | FEMA IPAWS alert source, timestamp, activation log | 2 years (compliance) | Admin only |
 
 All retention schedules are enforced at the infrastructure level through automated deletion routines — not dependent on manual processes.
@@ -46,7 +47,7 @@ It is equally important to be explicit about the boundaries of our system:
 
 - **We do not sell or share volunteer or detection data** with any commercial entity, data broker, or third party outside of active law enforcement coordination.
 - **We do not operate continuously.** Between active alerts, the platform's detection capabilities are offline.
-- **We do not create citizen movement profiles.** Without persistent storage, a searchable history of where any individual has been cannot exist.
+- **We do not create citizen movement profiles.** Detection records are event-scoped and time-limited. A searchable history of where any individual has been cannot exist.
 - **We do not share data with immigration enforcement or agencies outside the scope of the triggering missing person alert.**
 
 ---

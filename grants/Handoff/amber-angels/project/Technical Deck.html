@@ -8,7 +8,7 @@
 <script type="application/json" id="speaker-notes">
 [
 "Hey — Grant here. Fourteen slides covering the actual stack, composite confidence scoring, FEMA ingestion, the screens volunteers and coordinators use, and how the system stays privacy-safe by topology. Let's go.",
-"At a thousand-foot view: smartphones and drones become distributed sensor nodes during active alerts. FEMA IPAWS is polled every five minutes. When a qualifying alert fires — AMBER, Silver, Mattie's, Purple, Blue — the suspect plate and vehicle profile are extracted from the CAP XML and written to the watchlist. Volunteers in the area get notified, mount their phones, and drive their normal routes. Frames flow to the unified worker, which runs ALPR plus YOLO. Composite scores trigger Discord alerts to coordinators. No raw frames are stored.",
+"At a thousand-foot view: smartphones and drones become distributed sensor nodes during active alerts. FEMA IPAWS is polled every five minutes. When a qualifying alert fires — AMBER, Silver, Mattie's, Purple, Blue — the suspect plate and vehicle profile are extracted from the CAP XML and written to the watchlist. Volunteers in the area get notified, mount their phones, and drive their normal routes. Frames flow to the unified worker, which runs ALPR plus YOLO. Composite scores trigger Discord alerts to coordinators. Non-matching frames are discarded immediately; high-confidence match frames are saved as evidence for up to one year.",
 "Three tiers — edge, coordination, integrations. The edge is Expo plus React Native phones, plus an RTMP stream from drones flowing through nginx exec_push, plus phase-two DJI MSDK 5.17. The coordination tier is FastAPI on Python 3.10 with PostgreSQL, the unified worker that owns the shared frame queue, and the FEMA IPAWS poller as a background async task. The integration tier brings IPAWS in, fans Discord out, and lets coordinators view the live state through the Next.js 14 dashboard with Mapbox dark mode.",
 "This is the unified worker. RTMP video from drones, direct frames from the phone background service, and phase-two DJI MSDK all push into one shared frame queue inside a single process. That queue feeds OpenALPR for plate text and confidence, YOLOv8-nano for body type and dominant color, and Plate Recognizer cloud as an optional opt-in enrichment for high-confidence reads only. Then the AggregationService builds the composite score across a five-second window, EventService runs watchlist fuzzy match, and AlertDispatcher fires Discord with the full vehicle-corroboration verdict.",
 "This is the heart of the system — the composite confidence score. Plate-only ALPR is roughly thirty percent false positive in real-world conditions. Our score combines two independent signals. The ALPR signal is fifty percent highest-frame, thirty percent mean, ten percent median, plus repetition and consistency bonuses, minus a quality penalty for blur, skew, or partial plates. The YOLO signal adds up to seven points based on color consistency, body-type consistency, and average detection confidence across frames. Both signals must agree before we open an event.",
@@ -19,7 +19,7 @@
 "This is the start-mission flow. IPAWS-driven push lands on phones in the alert region. Volunteer sees the suspect descriptor, alert ID, and last-known direction. One tap to start. The app drops into camera capture with the foreground service running. The user can lock the phone, switch to navigation, do anything — frames keep flowing. Tap stop from the persistent notification at any time without unlocking.",
 "For drone operators we use DJI MSDK 5.17 native bindings. The four-step pair-authenticate-sync-confirm flow is in our drone module. The drone streams RTMP into nginx with exec_push handing JPEG frames to the unified worker. Same cascade pipeline as the phone — no separate code path. Pilot needs Part 107 verified on their account before flight-mode unlocks.",
 "The web dashboard is Next.js 14 plus Tailwind. Routes worth knowing: slash-map is the live mission view, slash-missions starts and ends mission scope, slash-admin is the pilot approval queue and test-alert injection, slash-leaderboard, slash-debrief for post-mission reports, and the policy routes — slash-privacy, slash-terms, slash-retention. Three roles: Pilot, Coordinator, Admin. Coordinators see bucketed Flock coverage — zero, one to three, four-plus — never raw camera positions. Admins see everything.",
-"Privacy is enforced by the topology, not by policy. Raw frames hold in RAM only for the inference duration — there is no write path to disk for raw video. The platform is event-triggered — between IPAWS alerts, the inference pipeline is idle. Volunteers opt in per-mission — there is no always-on scanning mode. Telemetry purges after ninety days, detection records after one year. The watchlist contains only plates from active government alerts, never our own database of plate sightings.",
+"Privacy is enforced by the topology, not by policy. Non-matching frames hold in RAM only for the inference duration — no write path to disk. High-confidence match frames are saved as time-limited evidence for up to one year, then auto-purged. The platform is event-triggered — between IPAWS alerts, the inference pipeline is idle. Volunteers opt in per-mission — there is no always-on scanning mode. Telemetry purges after ninety days, detection records after one year. The watchlist contains only plates from active government alerts, never our own database of plate sightings.",
 "That's the system. FastAPI plus Postgres backend, unified worker with shared frame queue, OpenALPR plus YOLOv8 with composite confidence scoring, FEMA IPAWS poller every five minutes, Expo Foreground Service mobile, DJI MSDK 5.17 phase two, Next.js 14 dashboard with role-tiered Mapbox views. Privacy by topology, not by promise. Find me at info at amberangels dot org if you want to dig into any layer."
 ]
 </script>
@@ -351,7 +351,7 @@ em.amber { color: var(--amber); font-style: normal; }
         <div class="arch-box integ"><div class="lbl">web · next.js 14</div><h4>Coordinator dashboard</h4><p>Mapbox dark. /map · /admin · /missions · /leaderboard · /debrief.</p></div>
       </div>
     </div>
-    <div class="arch-foot"><strong>Hard constraint:</strong> there is no write path to disk for raw frames. <span class="a">Frames hold in RAM only for inference duration</span>; only structured detection metadata persists past the worker.</div>
+    <div class="arch-foot"><strong>Hard constraint:</strong> non-matching frames are held in RAM only for inference duration — no write path to disk. <span class="a">High-confidence match frames are saved as evidence for up to one year</span>; only structured detection metadata and match evidence persist past the worker.</div>
     <div class="brand"><img src="mobile/assets/icon.png" alt="AA"><span>AMBER <em>Angels</em></span></div>
     <div class="sn">03 / 14</div>
   </section>
@@ -654,14 +654,14 @@ em.amber { color: var(--amber); font-style: normal; }
     <div class="s13-l">
       <span class="tag">Privacy Architecture</span>
       <h2>Enforced by the topology, <em>not by policy.</em></h2>
-      <p>There is <strong>no write path to disk for raw video frames</strong>. Frames hold in RAM only for inference duration. The platform is event-triggered — between IPAWS alerts, the inference pipeline is fully idle.</p>
+      <p><strong>Non-matching frames never touch disk</strong> — held in RAM only for inference duration. High-confidence match frames are saved as time-limited evidence for up to one year, then auto-purged. The platform is event-triggered — between IPAWS alerts, the inference pipeline is fully idle.</p>
       <p>Telemetry purges after 90 days. Detection records after 1 year. The watchlist contains only plates from active government alerts — never our own database of plate sightings.</p>
     </div>
     <div class="boundary">
       <div class="bd-row">
-        <div class="bd-from"><span class="lbl">Edge</span>raw video frame</div>
+        <div class="bd-from"><span class="lbl">Edge</span>raw video frame (non-match)</div>
         <div class="bd-arr">⨯</div>
-        <div class="bd-to deny"><span class="lbl">Cloud</span>denied · no write path</div>
+        <div class="bd-to deny"><span class="lbl">Disk</span>denied · RAM only</div>
       </div>
       <div class="bd-row">
         <div class="bd-from"><span class="lbl">Pipeline</span>face / biometric</div>

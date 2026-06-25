@@ -25,8 +25,8 @@ export default function RetentionPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {[
-                  ["On-device scan results", "Matched: 30 days (non-alerted) / 1 year (alerted). No images stored.", "Automated purge by source tag"],
-                  ["Camera frames (non-match)", "Deleted immediately after ALPR processing", "Unlinked from filesystem"],
+                  ["Phone scan results (on-device)", "Matched: 30 days (non-alerted) / 1 year (alerted). No images stored.", "Automated purge by source tag"],
+                  ["Drone frames (non-match)", "Deleted immediately after ALPR processing", "Unlinked from filesystem"],
                   ["Evidence frames (high-confidence match)", "1 year (aligned with detection record)", "Deleted with associated detection record"],
                   ["GPS telemetry", "90 days", "Automated purge from telemetry_points"],
                   ["Non-alerted detections", "30 days", "Automated purge from detection_events"],
@@ -51,14 +51,15 @@ export default function RetentionPage() {
           </div>
         </Section>
 
-        <Section title="Camera frames and evidence">
+        <Section title="Frames and evidence by platform">
           <p className="mb-2">
-            Our app has two scanning modes with different data handling:
+            Data handling differs by platform — phone volunteers and drone operators have
+            different scanning paths:
           </p>
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
-            <li><strong className="text-white/80">Background scan (on-device):</strong> license plate recognition runs entirely on the volunteer&rsquo;s phone. No camera frames or images are ever transmitted to or stored on our server. Only plate text, confidence, and GPS are sent.</li>
-            <li><strong className="text-white/80">Active camera mode:</strong> frames are uploaded to our server for analysis by OpenALPR and YOLOv8. Non-matching frames are deleted immediately after processing.</li>
-            <li><strong className="text-white/80">Evidence frames:</strong> when a frame produces a high-confidence match against an active alert, it is retained on our server as an evidence frame. Evidence frames are stored for up to <strong className="text-white/80">1 year</strong>, aligned with the associated detection record, and may be subject to legal hold. Evidence frames are never shared publicly — they are available only to authorized coordinators and, when relevant, the responding law enforcement agency.</li>
+            <li><strong className="text-white/80">Phone scanning (on-device — all volunteers on Android and iOS):</strong> license plate recognition runs entirely on the volunteer&rsquo;s phone. No camera frames or images are ever transmitted to or stored on our server. Only plate text, confidence, and GPS are sent. This applies to every phone-based volunteer who taps &ldquo;Start Mission.&rdquo;</li>
+            <li><strong className="text-white/80">Drone feeds (server-side — DJI RTMP and SDK):</strong> drone video frames are streamed to our server for analysis by OpenALPR and YOLOv8. Non-matching frames are deleted immediately after processing.</li>
+            <li><strong className="text-white/80">Evidence frames:</strong> when a drone frame produces a high-confidence match against an active alert, it is retained on our server as an evidence frame. Evidence frames are stored for up to <strong className="text-white/80">1 year</strong>, aligned with the associated detection record, and may be subject to legal hold. Evidence frames are never shared publicly — they are available only to authorized coordinators and, when relevant, the responding law enforcement agency.</li>
           </ul>
         </Section>
 

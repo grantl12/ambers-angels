@@ -76,8 +76,10 @@ strong { color:var(--navy); font-weight:600; }
   <p>Let me be precise, because I've seen vague privacy claims in this space and I don't want to make one.</p>
 
   <div class="issue-block">
-    <div class="issue-label">Innocent frames — the vast majority of all frames processed</div>
-    <div class="issue-content"><p>Held in server RAM for the duration of AI inference. Typically milliseconds. Then released. Never written to disk. No write path exists for innocent frames in the current architecture. You cannot retrieve them because they were never stored. This is an architectural constraint, not a policy.</p></div>
+    <div class="issue-label">Phone scanning — the default volunteer experience</div>
+    <div class="issue-content"><p>License plate recognition runs entirely on the volunteer's phone (ML Kit on Android, Vision framework on iOS). No images ever leave the device. Only plate text, a confidence score, and GPS coordinates are transmitted to the server. This is an architectural constraint, not a policy.</p></div>
+    <div class="issue-label">Drone frames — innocent (non-matching) frames</div>
+    <div class="issue-content"><p>Drone video feeds are processed server-side. Non-matching frames are held in RAM for the duration of AI inference — typically milliseconds — then released. No write path exists for innocent frames. You cannot retrieve them because they were never stored.</p></div>
     <div class="issue-label">High-confidence match frames — the frames that matter</div>
     <div class="issue-content"><p>Shared with law enforcement coordinators as part of the active case. Retained as detection records for one year for law enforcement case reference. A match frame is evidence. It has a name attached to it: the child we're trying to find. We keep it. We should keep it. This is the point of the system.</p></div>
     <div class="issue-label">Volunteer GPS telemetry</div>

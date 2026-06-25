@@ -23,7 +23,7 @@ const FAQS = [
   },
   {
     q: 'Does the app store footage of my car or my neighborhood?',
-    a: "No. Raw frames are processed the instant they arrive and deleted immediately — we never build a video archive. The only data we retain is a high-confidence detection record (plate text, GPS coordinates, timestamp, and a cropped vehicle image) for vehicles matching an active alert. Innocent vehicles generate no stored record whatsoever.",
+    a: "Phone scanning runs entirely on-device — no frames are ever uploaded. For drone feeds, non-matching frames are deleted immediately after processing. High-confidence matches are retained as evidence for up to one year, then automatically purged. We never build a searchable archive of innocent vehicles. The only data we retain is a detection record (plate text, GPS coordinates, timestamp, and a cropped vehicle image) for vehicles matching an active alert. Innocent vehicles generate no stored record whatsoever.",
   },
   {
     q: 'Is my location tracked when I\'m not on a mission?',
@@ -204,7 +204,7 @@ export default function LandingPage() {
           <span className={s.label}>The Platform</span>
           <div className={s.sectionHeader}>
             <h2>Built for field conditions. Zero extra hardware required.</h2>
-            <p>Volunteers use their existing smartphone. Drone pilots connect DJI hardware directly to our platform. Every frame is processed in real-time and deleted immediately — no video archive, ever.</p>
+            <p>Volunteers use their existing smartphone. Drone pilots connect DJI hardware directly to our platform. Phone scanning never uploads images. Drone footage is processed in real-time — non-matches are deleted immediately, and only confirmed alert matches are retained as time-limited evidence.</p>
           </div>
         </div>
         <div className={s.tabs}>
@@ -298,7 +298,7 @@ export default function LandingPage() {
           <span className={s.label}>Privacy First</span>
           <div className={s.sectionHeader}>
             <h2>We save lives without building a surveillance state.</h2>
-            <p>Every architectural decision begins with one question: what is the minimum data required for this mission? Raw footage is never stored. Innocent citizens are never profiled.</p>
+            <p>Every architectural decision begins with one question: what is the minimum data required for this mission? Phone scanning runs entirely on-device — no frames leave the phone. Drone footage that doesn&apos;t match is deleted immediately; confirmed matches are retained as time-limited evidence and automatically purged. Innocent citizens are never profiled.</p>
           </div>
         </div>
         <div className={`${s.privacyGrid} ${s.fadeUp}`}>
@@ -311,7 +311,7 @@ export default function LandingPage() {
               </svg>
             </div>
             <h3>No Video Archiving</h3>
-            <p>Raw footage is processed in real-time and deleted immediately. We build no searchable database of innocent citizens.</p>
+            <p>Phone scanning never uploads images. Drone footage is processed in real-time — non-matches are deleted immediately, and only confirmed alert matches are retained as time-limited evidence. We build no searchable database of innocent citizens.</p>
           </div>
           <div className={s.pillar}>
             <div className={s.pillarIcon}>
