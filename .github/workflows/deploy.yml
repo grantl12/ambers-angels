@@ -32,9 +32,12 @@ jobs:
             # racing next build and triggering "another build already running" error
             ~/.local/bin/pm2 stop ambers-angels-web || true
 
-            # Rebuild frontend — chown first in case root ever built directly
+            # Rebuild frontend — chown first in case root ever built directly.
+            # sudo uses absolute paths; relative paths don't match sudoers entries.
+            WEBDIR=/home/ambers-angels/proj_dir/ambers-angels/web
             cd web
-            sudo chown -R ambers-angels:ambers-angels .next node_modules 2>/dev/null || true
+            sudo chown -R ambers-angels:ambers-angels "$WEBDIR/.next" 2>/dev/null || true
+            sudo chown -R ambers-angels:ambers-angels "$WEBDIR/node_modules" 2>/dev/null || true
             rm -rf .next node_modules
             npm ci --prefer-offline
             npm run build
