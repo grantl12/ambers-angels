@@ -35,9 +35,12 @@ _SKIP_NAMES = {"golden_frames", "anomalies", "recovery_bot"}
 # ---------------------------------------------------------------------------
 WATCHDOG_INTERVAL  = 60   # seconds between PM2 checks
 RESTART_THRESHOLD  = 5    # restart count jump that triggers an alert
+DOWN_ALERT_DELAY   = 120  # seconds a process must be stopped/errored before alerting
 _WATCHDOG_LAST_CHECK = 0.0
-_WATCHDOG_PREV_COUNTS: dict[str, int] = {}  # process name → last seen restart count
-_WATCHDOG_ALERTED: dict[str, float]   = {}  # process name → last alert timestamp
+_WATCHDOG_PREV_COUNTS: dict[str, int]  = {}  # process name → last seen restart count
+_WATCHDOG_ALERTED: dict[str, float]    = {}  # process name → last crash-loop alert time
+_WATCHDOG_DOWN_SINCE: dict[str, float] = {}  # process name → first time seen stopped/errored
+_WATCHDOG_DOWN_ALERTED: dict[str, float] = {}  # process name → last down alert time
 
 
 def _discord_post(text: str) -> None:
@@ -86,6 +89,22 @@ def _check_pm2() -> None:
                 )
                 _WATCHDOG_ALERTED[name] = now
                 print(f"[RTMPMonitor] ⚠ crash-loop alert sent for '{name}' ({delta} restarts)", flush=True)
+
+        status = p.get("pm2_env", {}).get("status", "online")
+        if status in ("stopped", "errored", "stopping"):
+            first_seen = _WATCHDOG_DOWN_SINCE.setdefault(name, now)
+            if now - first_seen >= DOWN_ALERT_DELAY:
+                last_alerted = _WATCHDOG_DOWN_ALERTED.get(name, 0)
+                if now - last_alerted > 1800:
+                    _discord_post(
+                        f":red_circle: **PM2 process down** — `{name}` is `{status}` "
+                        f"(down for {int(now - first_seen)}s). Site may be unreachable. "
+                        f"Check logs immediately."
+                    )
+                    _WATCHDOG_DOWN_ALERTED[name] = now
+                    print(f"[RTMPMonitor] ⚠ down alert sent for '{name}' (status={status})", flush=True)
+        else:
+            _WATCHDOG_DOWN_SINCE.pop(name, None)
 
 # stream_name -> running Popen for ffmpeg
 _ffmpeg_procs: dict[str, subprocess.Popen] = {}

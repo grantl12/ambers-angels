@@ -32,8 +32,9 @@ jobs:
             # racing next build and triggering "another build already running" error
             ~/.local/bin/pm2 stop ambers-angels-web || true
 
-            # Rebuild frontend
+            # Rebuild frontend — chown first in case root ever built directly
             cd web
+            sudo chown -R ambers-angels:ambers-angels .next node_modules 2>/dev/null || true
             rm -rf .next node_modules
             npm ci --prefer-offline
             npm run build
