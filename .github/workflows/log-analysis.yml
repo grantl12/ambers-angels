@@ -14,7 +14,7 @@ jobs:
           username: ambers-angels
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
-            DATE=$(date +"%d/%b/%Y")
+            DATE=$(date -d yesterday +"%d/%b/%Y")
             LOG=/var/log/nginx/access.log
 
             echo "====== DATE: $DATE ======"
@@ -28,6 +28,10 @@ jobs:
             sudo grep "$DATE" $LOG | awk '{print $1}' | sort -u | wc -l
 
             echo ""
+            echo "=== UNIQUE IPs (filtered — no bots, no assets, no health checks) ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | grep -vE '/rtmp-stat|/_next/static|/favicon|/robots\.txt|/SDK/|\.env|wp-admin' | awk '{print $9}' | grep -v '^400$' > /tmp/status_check.tmp; sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | grep -vE '/rtmp-stat|/_next/static|/favicon|/robots\.txt|/SDK/|\.env|wp-admin' | awk '{if ($9 != "400") print $1}' | sort -u | wc -l
+
+            echo ""
             echo "=== HUMAN REQUESTS (bots filtered) ==="
             sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | wc -l
 
@@ -37,11 +41,11 @@ jobs:
 
             echo ""
             echo "=== TOP PAGES (human, no assets) ==="
-            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | grep -vE '/_next/|/api/|/health|/frames/|\.ico$|\.png$|\.jpg$|\.svg$|\.woff|\.css$|\.js$|/rtmp-stat|/analytics' | sort | uniq -c | sort -rn | head 25
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | grep -vE '/_next/|/api/|/health|/frames/|\.ico$|\.png$|\.jpg$|\.svg$|\.woff|\.css$|\.js$|/rtmp-stat|/analytics' | sort | uniq -c | sort -rn | head -25
 
             echo ""
-            echo "=== TOP REFERRERS ==="
-            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|Googlebot|bingbot' | awk '{print $11}' | grep -v '^"-"$' | sort | uniq -c | sort -rn | head 15
+            echo "=== TOP REFERRERS (external only) ==="
+            sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|Googlebot|bingbot' | awk '{print $11}' | grep -v '^"-"$' | grep -viE 'amberangels\.org|157\.245\.125\.103' | sort | uniq -c | sort -rn | head -15
 
             echo ""
             echo "=== TRAFFIC BY HOUR ==="
@@ -54,6 +58,10 @@ jobs:
             echo ""
             echo "=== BLOG PAGE HITS ==="
             sudo grep "$DATE" $LOG | grep -i '/blog' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
+
+            echo ""
+            echo "=== DECK PAGE HITS ==="
+            sudo grep "$DATE" $LOG | grep '/deck' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
 
             echo ""
             echo "=== DEVICES (OS from UA) ==="
