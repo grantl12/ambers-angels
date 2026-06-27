@@ -11,7 +11,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 157.245.125.103
-          username: root
+          username: ambers-angels
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             DATE=$(date -d yesterday +"%d/%b/%Y")
