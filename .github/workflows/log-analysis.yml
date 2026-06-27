@@ -15,54 +15,88 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             DATE=$(date -d yesterday +"%d/%b/%Y")
+            DATEISO=$(date -d yesterday +"%Y-%m-%d")
             LOG=/var/log/nginx/access.log
 
-            echo "====== DATE: $DATE ======"
+            echo "====== DATE: $DATE ($DATEISO) ======"
+
+            # Check if we can read the log directly, otherwise try rotated or via sudo
+            if [ -r "$LOG" ]; then
+              LOGCMD="cat $LOG"
+            elif [ -r "/var/log/nginx/access.log.1" ]; then
+              LOG="/var/log/nginx/access.log.1"
+              LOGCMD="cat $LOG"
+            else
+              echo "NOTE: access.log not readable, trying via adm group logs..."
+              # Try compressed rotated logs
+              for f in /var/log/nginx/access.log.*.gz; do
+                if [ -r "$f" ]; then
+                  LOGCMD="zcat $f"
+                  echo "Using rotated log: $f"
+                  break
+                fi
+              done
+              if [ -z "$LOGCMD" ]; then
+                echo "ERROR: Cannot read any nginx log file. Permission denied."
+                echo "Fix: run 'usermod -aG adm ambers-angels' as root on the server"
+                exit 1
+              fi
+            fi
+
+            DAYLOG=$($LOGCMD | grep "$DATE")
+
+            if [ -z "$DAYLOG" ]; then
+              echo "No log entries found for $DATE"
+              echo "Log file used: $LOG"
+              echo "Checking what dates ARE in the log..."
+              $LOGCMD | grep -oP '\d{2}/\w{3}/\d{4}' | sort -u | tail -5
+              exit 0
+            fi
 
             echo ""
             echo "=== TOTAL RAW REQUESTS ==="
-            grep "$DATE" $LOG 2>/dev/null | wc -l
+            echo "$DAYLOG" | wc -l
 
             echo ""
             echo "=== UNIQUE IPs (all) ==="
-            grep "$DATE" $LOG | awk '{print $1}' | sort -u | wc -l
+            echo "$DAYLOG" | awk '{print $1}' | sort -u | wc -l
 
             echo ""
             echo "=== UNIQUE IPs (filtered — no bots, no assets, no health checks) ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | grep -vE '/rtmp-stat|/_next/static|/favicon|/robots\.txt|/SDK/|\.env|wp-admin' | awk '{print $9}' | grep -v '^400$' > /tmp/status_check.tmp; sudo grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | grep -vE '/rtmp-stat|/_next/static|/favicon|/robots\.txt|/SDK/|\.env|wp-admin' | awk '{if ($9 != "400") print $1}' | sort -u | wc -l
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | grep -vE '/rtmp-stat|/_next/static|/favicon|/robots\.txt|/SDK/|\.env|wp-admin' | awk '{if ($9 != "400") print $1}' | sort -u | wc -l
 
             echo ""
             echo "=== HUMAN REQUESTS (bots filtered) ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | wc -l
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | wc -l
 
             echo ""
             echo "=== UNIQUE HUMAN IPs ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | awk '{print $1}' | sort -u | wc -l
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|datadog|GTmetrix|lighthouse|pagespeed|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot|yandex|baidu|DuckDuck|Semrush|ahrefs|mj12|dotbot' | awk '{print $1}' | sort -u | wc -l
 
             echo ""
             echo "=== TOP PAGES (human, no assets) ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | grep -vE '/_next/|/api/|/health|/frames/|\.ico$|\.png$|\.jpg$|\.svg$|\.woff|\.css$|\.js$|/rtmp-stat|/analytics' | sort | uniq -c | sort -rn | head -25
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|curl|wget|python|java|Go-http|node-fetch|okhttp|UptimeRobot|pingdom|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | grep -vE '/_next/|/api/|/health|/frames/|\.ico$|\.png$|\.jpg$|\.svg$|\.woff|\.css$|\.js$|/rtmp-stat|/analytics' | sort | uniq -c | sort -rn | head -25
 
             echo ""
             echo "=== TOP REFERRERS (external only) ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|Googlebot|bingbot' | awk '{print $11}' | grep -v '^"-"$' | grep -viE 'amberangels\.org|157\.245\.125\.103' | sort | uniq -c | sort -rn | head -15
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|Googlebot|bingbot' | awk '{print $11}' | grep -v '^"-"$' | grep -viE 'amberangels\.org|157\.245\.125\.103' | sort | uniq -c | sort -rn | head -15
 
             echo ""
             echo "=== TRAFFIC BY HOUR ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|Go-http|UptimeRobot|Googlebot|bingbot' | grep -oP '\d{2}/\w+/\d{4}:\d{2}' | awk -F: '{print $2":00"}' | sort | uniq -c
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|curl|wget|python|Go-http|UptimeRobot|Googlebot|bingbot' | grep -oP '\d{2}/\w+/\d{4}:\d{2}' | awk -F: '{print $2":00"}' | sort | uniq -c
 
             echo ""
             echo "=== HTTP STATUS CODES ==="
-            grep "$DATE" $LOG | awk '{print $9}' | sort | uniq -c | sort -rn
+            echo "$DAYLOG" | awk '{print $9}' | sort | uniq -c | sort -rn
 
             echo ""
             echo "=== BLOG PAGE HITS ==="
-            grep "$DATE" $LOG | grep -i '/blog' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
+            echo "$DAYLOG" | grep -i '/blog' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
 
             echo ""
             echo "=== DECK PAGE HITS ==="
-            grep "$DATE" $LOG | grep '/deck' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
+            echo "$DAYLOG" | grep '/deck' | grep -viE 'bot|spider|crawl|Googlebot|bingbot|Semrush|ahrefs' | awk '{print $7}' | sed 's/?.*$//' | sort | uniq -c | sort -rn
 
             echo ""
             echo "=== DEVICES (OS from UA) ==="
-            grep "$DATE" $LOG | grep -viE 'bot|spider|crawl|curl|wget|python|Go-http' | grep -oiP '(iPhone|iPad|Android|Windows NT|Macintosh|Linux(?! .*(Android|bot)))' | sort | uniq -c | sort -rn
+            echo "$DAYLOG" | grep -viE 'bot|spider|crawl|curl|wget|python|Go-http' | grep -oiP '(iPhone|iPad|Android|Windows NT|Macintosh|Linux(?! .*(Android|bot)))' | sort | uniq -c | sort -rn
