@@ -23,29 +23,31 @@ export default function PrivacyPage() {
           </p>
           <div className="space-y-3">
             <div className="bg-white/5 rounded-lg p-3">
-              <p className="text-white/80 font-medium text-sm mb-1">Android background service scan</p>
+              <p className="text-white/80 font-medium text-sm mb-1">Android phone scan</p>
               <p className="text-sm">
                 Android volunteers explicitly start scanning, and the app continues scanning
                 even when they switch to other apps. License plate recognition runs{" "}
                 <strong className="text-white/80">entirely on the device</strong> using ML Kit
-                OCR — no camera frames or images are ever transmitted. Only the recognized
-                plate text, a confidence score, and GPS coordinates are sent to our server for
-                matching. A persistent notification is shown while scanning is active; dismissing
-                it stops scanning. This path is Android-only.
+                OCR. Only the recognized plate text, a confidence score, and GPS coordinates
+                are sent to our server for each detection. If the server confirms a{" "}
+                <strong className="text-white/80">watchlist hit</strong>, one JPEG frame is
+                uploaded as evidence for law enforcement coordination. Non-matching frames
+                never leave the device. A persistent notification is shown while scanning
+                is active; dismissing it stops scanning immediately.
               </p>
             </div>
             <div className="bg-white/5 rounded-lg p-3">
-              <p className="text-white/80 font-medium text-sm mb-1">Active camera mode — &ldquo;Start Mission&rdquo; (Android and iOS)</p>
+              <p className="text-white/80 font-medium text-sm mb-1">iOS phone scan</p>
               <p className="text-sm">
-                When a volunteer taps &ldquo;Start Mission&rdquo; on the camera screen, raw
-                JPEG frames are uploaded to our server where license plate recognition and
-                vehicle classification run server-side. Non-matching frames are deleted
-                immediately after processing. High-confidence match frames are retained as
-                evidence (see{" "}
-                <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>).{" "}
-                This is an explicit pilot action — volunteers are shown what the camera mode
-                does before starting. iOS volunteers always use this path; Android volunteers
-                may use either path.
+                iOS volunteers explicitly start scanning on the camera screen. License plate
+                recognition runs{" "}
+                <strong className="text-white/80">entirely on the device</strong> using the
+                Apple Vision framework — no raw frames are transmitted during normal scanning.
+                Only plate text, a confidence score, and GPS coordinates are sent for each
+                detection. If the server confirms a{" "}
+                <strong className="text-white/80">watchlist hit</strong>, one JPEG frame is
+                uploaded as evidence. Non-matching frames never leave the device. The screen
+                must remain open — iOS does not support background scanning.
               </p>
             </div>
             <div className="bg-white/5 rounded-lg p-3">
@@ -66,8 +68,8 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
             <li><strong className="text-white/80">Account information:</strong> username, email address, phone number, city, FAA certification number (if applicable), and equipment type — provided during registration. If you sign in with Google, we receive your Google profile name and email.</li>
             <li><strong className="text-white/80">Location data:</strong> GPS coordinates, altitude, heading, and speed transmitted during active scanning missions. Location is collected only while scanning is active.</li>
-            <li><strong className="text-white/80">Android background scan results:</strong> plate text, confidence score, and GPS coordinates. No images — frames never leave the device on this path.</li>
-            <li><strong className="text-white/80">Active camera frames (Start Mission):</strong> raw JPEG frames uploaded to our server for server-side ALPR and vehicle classification. Non-matching frames are deleted immediately. High-confidence match frames are retained as evidence.</li>
+            <li><strong className="text-white/80">Phone scan detection results (Android and iOS):</strong> plate text, confidence score, and GPS coordinates sent for every detection. One JPEG frame is uploaded only when the server confirms a watchlist hit. Non-matching frames never leave the device.</li>
+            <li><strong className="text-white/80">Watchlist-hit evidence frames:</strong> one JPEG frame uploaded per confirmed watchlist match, from both Android (ScanService ML Kit path) and iOS (Vision framework path). Retained as evidence. See <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>.</li>
             <li><strong className="text-white/80">Drone video frames:</strong> frames from drone RTMP/SDK feeds are processed server-side for ALPR and vehicle classification. Non-matching frames are deleted after processing. Frames associated with high-confidence alert matches are retained as evidence (see <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>).</li>
             <li><strong className="text-white/80">Detection data:</strong> license plate text, confidence scores, vehicle attributes (color, make, body type), GPS coordinates, and timestamps.</li>
             <li><strong className="text-white/80">Device tokens:</strong> push notification tokens (via Expo) to deliver alert notifications to your device.</li>
@@ -78,7 +80,7 @@ export default function PrivacyPage() {
 
         <Section title="What we do not collect">
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
-            <li>In Android background service scan mode, we never receive, transmit, or store camera frames or images from your device. Only plate text, a confidence score, and GPS coordinates are sent.</li>
+            <li>In phone scan mode (Android and iOS), camera frames stay on your device unless a watchlist hit is confirmed. On a watchlist hit, one frame is uploaded as evidence. Non-matching frames are never transmitted.</li>
             <li>We do not record or store audio.</li>
             <li>We do not sell, rent, or share personal data with advertisers or data brokers.</li>
             <li>We do not build a persistent surveillance database of license plates. Non-alerted detections are automatically purged on a rolling schedule. Only detections that matched an active government-issued alert are retained as evidence.</li>
@@ -91,30 +93,29 @@ export default function PrivacyPage() {
           </p>
           <div className="space-y-4">
             <div className="bg-white/5 rounded-lg p-4">
-              <p className="text-white/80 font-medium text-sm mb-2">Android background service scan</p>
+              <p className="text-white/80 font-medium text-sm mb-2">Android phone scan (ML Kit)</p>
               <div className="font-mono text-xs leading-relaxed text-white/60 whitespace-pre-wrap">
 {`Camera frame
-  → On-device OCR (ML Kit) — never leaves your phone
-  → Only plate text + confidence score + GPS sent to server
+  → On-device OCR (ML Kit)
+  → Plate text + confidence + GPS sent to server
       ↓
-  Match found?
-  No  → Text record deleted after 30 days.
-  Yes → Detection record kept up to 1 year. No frame stored.
-
-  ✦ Frames never leave your device on this path.`}
+  Watchlist hit?
+  No  → Frame stays on your device. Text record purged at 30 days.
+  Yes → ONE frame uploaded as evidence.
+        Frame + detection record kept up to 1 year.`}
               </div>
             </div>
             <div className="bg-white/5 rounded-lg p-4">
-              <p className="text-white/80 font-medium text-sm mb-2">Active camera mode — Start Mission (Android and iOS)</p>
+              <p className="text-white/80 font-medium text-sm mb-2">iOS phone scan (Vision framework)</p>
               <div className="font-mono text-xs leading-relaxed text-white/60 whitespace-pre-wrap">
 {`Camera frame
-  → Uploaded to server as JPEG
-  → ALPR + YOLO vehicle classification run server-side
+  → On-device OCR (Apple Vision framework)
+  → Plate text + confidence + GPS sent to server
       ↓
-  Match found?
-  No  → Frame deleted immediately after processing.
-  Yes → Frame retained as evidence for up to 1 year.
-        Detection record kept up to 1 year.`}
+  Watchlist hit?
+  No  → Frame stays on your device. Text record purged at 30 days.
+  Yes → ONE frame uploaded as evidence.
+        Frame + detection record kept up to 1 year.`}
               </div>
             </div>
             <div className="bg-white/5 rounded-lg p-4">

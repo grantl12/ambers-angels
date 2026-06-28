@@ -2,19 +2,21 @@
 
 ## Privacy Model — On-Device Inference
 
-Three distinct scanning paths with different privacy properties — do not conflate them:
+Three distinct scanning paths. Verified against code — do not rewrite from assumptions.
 
-| Path | Platform | How it works | Frames leave device? |
+| Path | Platform | How it works | What leaves the device |
 |---|---|---|---|
-| **Android background service scan** (`ScanService.kt`) | **Android only** | User explicitly starts scanning. ML Kit OCR runs on-device. Android foreground service lets scanning continue when the user switches apps. Only `plate_text + plate_confidence + GPS` hit `POST /ingest/detection`. | **Never.** |
-| **Active pilot camera** (`CameraScreen.tsx`) | **Android + iOS** | Triggered by tapping "Start Mission". Raw JPEG posted to `POST /ingest/frame`. Server runs ALPR + YOLO. Non-matching frames deleted immediately; high-confidence frames stored as golden frames on server for evidence. | **Yes — intentionally.** |
-| **DJI drone** (RTMP / MSDK V5) | **Android** | Frames streamed via RTMP to nginx, processed by `unified_worker.py`. | **Yes — to operator-controlled server, not a third party.** |
+| **Android phone scan** (`ScanService.kt`) | Android only | User starts scanning. ML Kit OCR runs on-device. Foreground service — scanning continues when user switches apps. | `plate_text + plate_confidence + GPS` sent to `POST /ingest/detection` on every detection. JPEG frame sent to `POST /ingest/frame` **only on watchlist hit** (`if (isHit)`). Non-hit frames never leave the device. |
+| **iOS phone scan** (`CameraScreen.tsx` + `PhoneCameraModule.swift`) | iOS only | User starts scanning. Vision framework OCR runs on-device. Screen must stay open — iOS cannot continue scanning when switching apps. | `plate_text + plate_confidence + GPS` sent to `POST /ingest/detection` on every detection. JPEG frame sent to `POST /ingest/frame` **only when server returns `watchlist_hit: true`**. Non-hit frames never leave the device. |
+| **DJI drone** (RTMP / MSDK V5) | Android | Frames streamed via RTMP to nginx, processed by `unified_worker.py`. | Every frame leaves the device. |
 
-**iOS has no background service scan.** iOS pilots always use the active camera path (CameraScreen) — frames are always uploaded on iOS. Do not write copy that claims on-device-only scanning for iOS volunteers.
+**GPS telemetry** is sent continuously at ~1 Hz via `POST /telemetry` during active missions on both platforms, independent of frame capture.
 
-**All scanning is purposeful and user-initiated.** There is no passive or automatic scanning. The Android background service simply allows scanning to continue when the user switches apps — it is not triggered without user intent.
+**Server-side behavior on received frames:** Server runs OpenALPR + YOLO. Calls Plate Recognizer cloud API only when frame confidence ≥ 65%. Non-matching frames are not written to disk — processed in RAM and released. Watchlist-hit frames are saved to `GOLDEN_DIR` as evidence.
 
-The Android on-device path's no-frame-upload guarantee is non-negotiable. The active camera path is an explicit pilot action — frame upload is expected and required for evidence chain of custody.
+**All scanning is purposeful and user-initiated.** The Android foreground service allows scanning to continue across apps; iOS requires the screen to stay open. Neither runs without explicit user action.
+
+**Do not write copy claiming frames never leave the device.** On a watchlist hit, one frame is uploaded as evidence on both Android and iOS phone paths. The accurate claim is that non-matching frames never leave the device.
 
 - **Detection agent `request_edge_inference`**: sends an Expo push asking the pilot to reposition. Does NOT trigger a frame upload from `ScanService`. The pilot is already scanning on-device.
 - **DJI RTMP path**: frames streamed to operator-controlled nginx server, not to a third party.
@@ -81,7 +83,7 @@ Manual migration without full deploy — trigger via GitHub Actions UI:
 - **`autoIncrement` in eas.json is NOT supported with app.config.js** — never add it
 - **`--build-number` flag does not work with app.config.js** — never use it
 - Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.)
-- Current build number: **12** (iOS production submission in progress) — app.config.js is source of truth
+- Current build number: **16** (iOS Vision framework added in build 16) — app.config.js is source of truth
 - EAS account: `ambersangels` (with 's') — confirmed via `eas whoami`. Slug: `ambers-angels`
 - OTA update channel: `eas update --branch preview` delivers JS-only changes to build 11
 - All mobile changes in June 2026 are OTA-compatible (no native code changed)
@@ -128,8 +130,9 @@ eas submit --platform ios --profile production --latest
 ### Frame Pipeline
 
 - **Drone (RTMP)**: DJI MSDK V5 on Android → RTMP stream → nginx `exec_push` → JPEG frames saved to `test_plates/<drone_id>/` → `unified_worker.py` picks them up
-- **Phone camera (Android background scan)**: `ScanService.kt` runs ML Kit text recognition ON-DEVICE — no raw frames transmitted. Plate text + confidence POSTed to `POST /ingest/detection`. Privacy-preserving by architecture.
-- **Phone/DJI App (CameraScreen direct upload)**: `POST /ingest/frame` — pilot JWT required, 25 MB limit, image content-type enforced, runs ALPR + YOLO server-side. Used for DJI SDK path; phone background scan now uses on-device OCR.
+- **Android phone scan** (`ScanService.kt`): ML Kit OCR on-device. Plate text + confidence + GPS → `POST /ingest/detection`. JPEG → `POST /ingest/frame` only on watchlist hit. Non-hit frames never leave device.
+- **iOS phone scan** (`CameraScreen.tsx` + `PhoneCameraModule.swift`): Vision framework OCR on-device (built 16+). Plate text + confidence + GPS → `POST /ingest/detection`. JPEG → `POST /ingest/frame` only on `watchlist_hit: true` response. Non-hit frames never leave device.
+- **DJI SDK camera** (`CameraScreen.tsx` drone path): every frame → `POST /ingest/frame`. Server runs ALPR + YOLO. `POST /ingest/frame` requires pilot JWT, 25 MB limit, image content-type enforced.
 - **Worker** (`worker/unified_worker.py`): scans frame directories, runs OpenALPR + YOLOv8-nano + optional Plate Recognizer, posts to `POST /detections/` with `X-Internal-Key` header
 - **On-device result endpoint**: `POST /ingest/detection` — accepts plate_text + plate_confidence + GPS, no image. Feeds into same AggregationService pipeline. Returns `watchlist_hit` boolean.
 
@@ -585,7 +588,7 @@ Source column added to `detection_events`, `watchlist`, `vehicle_targets`:
 - **Background checks** — not implemented. Registration accepts anyone 18+ with valid FAA Part 107 cert. All public-facing copy reflects this accurately as of June 2, 2026.
 - **LinkedIn company page** — not yet created. First social media post (Facebook personal page, June 2 2026) drove 526 unique IPs in one day. LinkedIn is the right next channel for CPD/grant/EM audience.
 - **Board governance docs** — members have not yet signed COI policy, board member agreements, or meeting minutes. Required before accepting grant money.
-- **On-device iOS ALPR** — Android ML Kit path is built. iOS equivalent uses Vision framework text recognition. Requires a separate implementation path; no Mac needed to write the Swift but you can't build/test without one.
+- **On-device iOS ALPR** — Built. iOS uses Vision framework text recognition (`PhoneCameraModule.swift`), live as of build 16. Android uses ML Kit (`ScanService.kt`). Both paths do on-device inference; frames only leave on watchlist hit.
 - **Polygon grid search (lawnmower)** — `POST /autonomous/plan-sweep` is live. Generates lawnmower waypoints over a polygon (parking lot scan). Altitude 15m, speed 3 m/s, VLOS enforced. Auto-relook on medium-confidence matches.
 - **Evidence package PDF export** — detection timeline + GPS track + golden frames + chain-of-custody block. Not built. Required for formal law enforcement handoff.
 - **County-scoped historical BOLOs** — aspirational feature: show volunteers old BOLOs for their current county with a configurable lookback window. Constitutional concern: without time-bounding and LEA direction, this makes scanning always-on (dragnet). Keep as partnership-unlocked feature only, not speculative build. Must be volunteer-controlled in the UI (opt-in per BOLO, time slider).
