@@ -129,12 +129,21 @@ eas submit --platform ios --profile production --latest
 
 ### Frame Pipeline
 
-- **Drone (RTMP)**: DJI MSDK V5 on Android → RTMP stream → nginx `exec_push` → JPEG frames saved to `test_plates/<drone_id>/` → `unified_worker.py` picks them up
-- **Android phone scan** (`ScanService.kt`): ML Kit OCR on-device. Plate text + confidence + GPS → `POST /ingest/detection`. JPEG → `POST /ingest/frame` only on watchlist hit. Non-hit frames never leave device.
+- **Drone (RTMP)**: DJI MSDK V5 on Android → RTMP to nginx on port 1935 → nginx `exec_push` fires ffmpeg → JPEG frames written to `test_plates/<drone_id>/frame_NNNN.jpg` → `unified_worker.py` polls all drone subdirs, processes each frame, then deletes it. **RTMP drones have no GPS in the payload** — `/detections/` endpoint looks up the pilot's most recent telemetry for that `drone_id` in the last 10 minutes, then falls back to any active pilot's phone telemetry. This fallback is loose; the clean fix is an nginx `on_publish` hook that snapshots the pilot's location at stream start.
+- **Android phone scan** (`ScanService.kt`): ML Kit OCR on-device, ~1.5s interval, 640×480 JPEG. Plate text + confidence + GPS → `POST /ingest/detection`. JPEG → `POST /ingest/frame` only on watchlist hit. Non-hit frames never leave device.
 - **iOS phone scan** (`CameraScreen.tsx` + `PhoneCameraModule.swift`): Vision framework OCR on-device (built 16+). Plate text + confidence + GPS → `POST /ingest/detection`. JPEG → `POST /ingest/frame` only on `watchlist_hit: true` response. Non-hit frames never leave device.
 - **DJI SDK camera** (`CameraScreen.tsx` drone path): every frame → `POST /ingest/frame`. Server runs ALPR + YOLO. `POST /ingest/frame` requires pilot JWT, 25 MB limit, image content-type enforced.
-- **Worker** (`worker/unified_worker.py`): scans frame directories, runs OpenALPR + YOLOv8-nano + optional Plate Recognizer, posts to `POST /detections/` with `X-Internal-Key` header
-- **On-device result endpoint**: `POST /ingest/detection` — accepts plate_text + plate_confidence + GPS, no image. Feeds into same AggregationService pipeline. Returns `watchlist_hit` boolean.
+- **Worker** (`worker/unified_worker.py`): scans frame directories, runs OpenALPR + YOLOv8-nano, posts to `POST /detections/` with `X-Internal-Key` header
+- **On-device result endpoint**: `POST /ingest/detection` — accepts plate_text + plate_confidence + GPS, no image. Feeds into same AggregationService pipeline. **Quick direct DB watchlist lookup fires before aggregation** — returns `watchlist_hit: true` on the first matching detection, before the 5-second window can accumulate. This is the fast path that triggers immediate phone-side frame upload.
+
+**Server-side preprocessing (not cloud calls):**
+- `apply_clahe()` — OpenCV CLAHE contrast enhancement, runs in-process on the server. No network. Fires when ALPR reads < 70% confidence.
+- `enhance_alpr_results()` — OpenCV perspective deskew on the plate crop, re-runs ALPR on the warped rectangle. No network. Fires when plate corner coords are available.
+- Both functions run entirely on frames already on the server (RTMP: files in `test_plates/`; phone hit: temp file from uploaded JPEG). Nothing sends these frames anywhere.
+
+**Plate Recognizer cloud API** — the only external call in the detection pipeline. Fires when ALPR confidence ≥ 70% (`SINGLE_FRAME_HIGH_CONFIDENCE`). Sends the frame crop to Plate Recognizer for make/model/color enrichment. This is a policy decision — can be disabled by setting `SINGLE_FRAME_HIGH_CONFIDENCE` above 100 in `aggregation_service.py`.
+
+**Claude Haiku** — NOT in the detection pipeline. Only used for email BOLO webhook (`POST /webhooks/bolo-email`) to extract plate/vehicle from forwarded LE email text or images.
 
 **Auth notes (easy to break):**
 - `POST /telemetry` — requires pilot JWT. `postTelemetry()` in `mobile/src/api/telemetry.ts` must send `Authorization: Bearer {token}`. If omitted, server returns 401 silently swallowed → location never appears on map.
@@ -142,16 +151,24 @@ eas submit --platform ios --profile production --latest
 - `POST /ingest/detection` — does NOT require JWT (uses `_optional_pilot` FastAPI dependency). Android `ScanService.kt` can scan without login.
 - `POST /ingest/frame` — requires pilot JWT.
 
-**Phone scan → Discord image note:** Phone ML Kit path is on-device OCR — no frame is ever uploaded. Discord hit messages for phone scans will say "Detection source: On-device OCR — no frame transmitted." This is correct and intentional. Frame attachments only appear for drone RTMP path.
+**Phone scan confidence boost:** When source is `phone_gps` or `phone_mlkit` and the plate matches the watchlist, `/ingest/frame` overrides the plate confidence to `max(raw_alpr_confidence, 93.0)`. Phone cameras are close-range and intentional — one frame upload typically reaches HIGH_CONFIDENCE and fires Discord immediately.
+
+**Phone scan → Discord image note:** Non-hit phone scans never upload a frame. Discord hit messages for phone scans include the evidence frame (uploaded on hit). Discord messages for text-only detections (`POST /ingest/detection` path where no hit was found) will not have frame attachments.
 
 ### Confidence Scoring
 
-Detection pipeline uses composite scoring:
-- OpenALPR confidence
-- Plate Recognizer cloud API (only called when ALPR confidence ≥ threshold)
-- YOLO vehicle classification (color, body type, make/model via CDC)
-- 5-second aggregation window via `AggregationService`
-- HIGH_CONFIDENCE threshold triggers Discord alert + optional SMS (Twilio)
+Detection pipeline uses composite scoring (`aggregation_service.py`):
+- OpenALPR raw confidence (max, mean, median over 5-second window)
+- Repetition bonus: +5 pts at ≥2 hits, +10 pts at ≥3 hits in window
+- Consistency bonus: +5 pts if dominant plate ratio ≥ 75%
+- Vehicle corroboration: up to +14 pts from YOLO color match + body type match + CDC generational label match
+- Bayesian prior bonus: log2 scale — alert type × vehicle type (e.g. minivan during AMBER alert adds ~+7 pts)
+- Quality penalty: up to -15 pts if every frame in the window has blur/skew/partial flags
+- Vehicle mismatch penalty in EventService: -12 pts color mismatch, -8 pts type mismatch vs watchlist profile
+- Thresholds: PROBABLE ≥ 75 + ≥2 detections; HIGH_CONFIDENCE ≥ 85 + ≥3 detections
+- HIGH_CONFIDENCE triggers Discord alert + optional SMS (Twilio); PROBABLE also triggers Discord
+- 5-second window is a DRONE concern. Phone path has a fast-path direct watchlist DB lookup that bypasses the window for immediate `watchlist_hit` response.
+- Plate Recognizer cloud API only called when ALPR ≥ 70% — adds make/model to vehicle corroboration scoring
 
 ### Role Matrix
 
@@ -393,6 +410,35 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 | `BOLO_EXPIRES_DAYS` | Days before BOLO crawler vehicle_targets expire (default 7) |
 
 ## Pending TODO
+
+### RTMP Live View for Coordinators (Mission Map)
+
+When a pilot relinquishes control to the swarm (or is actively streaming RTMP), coordinators should be able to watch the drone feed live from the mission map.
+
+**How to implement:**
+- nginx RTMP module supports HLS output natively. Add `hls on; hls_path /tmp/hls; hls_fragment 2s;` to the RTMP application block. nginx will write `<stream_key>.m3u8` + `.ts` segments automatically.
+- Serve `/tmp/hls/` as a static location in nginx (auth-gated).
+- Mission map: when a drone_id has an active RTMP stream, show a "Live Feed" button on the drone marker. Clicking opens a panel with an `hls.js` video player loading `https://amberangels.org/hls/<drone_id>.m3u8`.
+- Auth: HLS is file-served; use a short-lived signed URL token (30-60s window) generated by the backend and passed as query param, or gate via nginx `auth_request` to the backend JWT endpoint.
+- Stream key = drone_id (what DJI MSDK V5 already sets).
+
+**RTMP location fix (do alongside live view):**
+Add nginx `on_publish` hook — fires HTTP POST to backend when stream starts. Backend endpoint: snapshot the pilot's most recent telemetry → store `{drone_id, pilot_id, lat, lng, started_at}` in a `stream_sessions` table (or Redis). `/detections/` endpoint uses this snapshot instead of the current loose 10-minute fallback. This is also what powers the live view indicator (know which drone_ids are actively streaming).
+
+### Adaptive Scanning / "Squinting" Agent (Future, Local)
+
+Current `ScanService.kt` runs OCR at a fixed ~1.5s interval at 640×480. This is inefficient — OCR runs on empty sky as much as plates. Proposed architecture:
+
+1. **Idle state**: YOLO-nano vehicle detector (~6MB TFLite/CoreML) runs at ~3fps. Cheap. Looking for vehicle bounding boxes.
+2. **Approach state**: Vehicle bbox appears → interval drops to ~0.5s, OCR triggers. As bbox area grows (vehicle getting closer), processing rate increases.
+3. **Read state**: Plate region is big enough and still → full OCR effort, perspective deskew if needed. Front plate vs back plate check (different text regions).
+4. **Depart state**: bbox shrinking → OCR rate drops back. Return to idle when bbox disappears.
+
+This is a state machine in `ScanService.kt`, not a new model. The models needed are YOLO-nano (already on server; needs on-device port) + ML Kit (already on device). The state machine logic is ~200 lines.
+
+**VMMC connection**: chadongcha-app's EfficientNet-Lite B2 training pipeline + TFLite/CoreML export is exactly the deployment path for an on-device vehicle approach classifier. Confirmed-match frames from AA alerts (active alert vehicles only) are the right training data for a "plate likely visible" classifier — not random cars. Bring this up when revisiting VMMC.
+
+**Why not now**: requires YOLO-nano on-device Android + iOS native build (separate work), plus CoreML model packaging for iOS. ML Kit limitation: designed for documents, not oblique license plates at speed. Until YOLO-nano is on-device, the state machine idea can still be partially implemented using ML Kit's detection confidence as a proxy for "plate is in focus."
 
 ### Public Discord Join Button
 
