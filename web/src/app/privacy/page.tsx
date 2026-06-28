@@ -17,21 +17,35 @@ export default function PrivacyPage() {
 
         <Section title="How scanning works — by platform">
           <p className="mb-3">
-            Our system has two scanning paths with different privacy properties, determined by
-            the platform used — not by a mode toggle. Understanding this distinction is central
-            to how we protect volunteer privacy.
+            Our system has three scanning paths with different privacy properties. Which path
+            you use depends on your platform and how you participate. Understanding this
+            distinction is central to how we protect volunteer privacy.
           </p>
           <div className="space-y-3">
             <div className="bg-white/5 rounded-lg p-3">
-              <p className="text-white/80 font-medium text-sm mb-1">Phone scanning (all volunteers on Android and iOS)</p>
+              <p className="text-white/80 font-medium text-sm mb-1">Android background service scan</p>
               <p className="text-sm">
-                When a volunteer taps &ldquo;Start Mission&rdquo; on their phone, license plate
-                recognition runs <strong className="text-white/80">entirely on the
-                device</strong> using on-device machine learning. No camera frames or images
-                ever leave the phone. Only the recognized plate text, a confidence score, and
-                GPS coordinates are transmitted to our server for matching against active
-                alerts. This no-frame-upload guarantee is a core architectural commitment that
-                applies to every phone-based volunteer.
+                Android volunteers explicitly start scanning, and the app continues scanning
+                even when they switch to other apps. License plate recognition runs{" "}
+                <strong className="text-white/80">entirely on the device</strong> using ML Kit
+                OCR — no camera frames or images are ever transmitted. Only the recognized
+                plate text, a confidence score, and GPS coordinates are sent to our server for
+                matching. A persistent notification is shown while scanning is active; dismissing
+                it stops scanning. This path is Android-only.
+              </p>
+            </div>
+            <div className="bg-white/5 rounded-lg p-3">
+              <p className="text-white/80 font-medium text-sm mb-1">Active camera mode — &ldquo;Start Mission&rdquo; (Android and iOS)</p>
+              <p className="text-sm">
+                When a volunteer taps &ldquo;Start Mission&rdquo; on the camera screen, raw
+                JPEG frames are uploaded to our server where license plate recognition and
+                vehicle classification run server-side. Non-matching frames are deleted
+                immediately after processing. High-confidence match frames are retained as
+                evidence (see{" "}
+                <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>).{" "}
+                This is an explicit pilot action — volunteers are shown what the camera mode
+                does before starting. iOS volunteers always use this path; Android volunteers
+                may use either path.
               </p>
             </div>
             <div className="bg-white/5 rounded-lg p-3">
@@ -42,7 +56,7 @@ export default function PrivacyPage() {
                 immediately after processing. High-confidence match frames are retained as
                 evidence for potential law enforcement coordination (see{" "}
                 <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>).
-                This path applies only to drone operators, not phone-based volunteers.
+                This path applies only to drone operators.
               </p>
             </div>
           </div>
@@ -52,7 +66,8 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
             <li><strong className="text-white/80">Account information:</strong> username, email address, phone number, city, FAA certification number (if applicable), and equipment type — provided during registration. If you sign in with Google, we receive your Google profile name and email.</li>
             <li><strong className="text-white/80">Location data:</strong> GPS coordinates, altitude, heading, and speed transmitted during active scanning missions. Location is collected only while scanning is active.</li>
-            <li><strong className="text-white/80">Phone scan results (on-device):</strong> plate text, confidence score, and GPS coordinates. No images — phone frames never leave the device.</li>
+            <li><strong className="text-white/80">Android background scan results:</strong> plate text, confidence score, and GPS coordinates. No images — frames never leave the device on this path.</li>
+            <li><strong className="text-white/80">Active camera frames (Start Mission):</strong> raw JPEG frames uploaded to our server for server-side ALPR and vehicle classification. Non-matching frames are deleted immediately. High-confidence match frames are retained as evidence.</li>
             <li><strong className="text-white/80">Drone video frames:</strong> frames from drone RTMP/SDK feeds are processed server-side for ALPR and vehicle classification. Non-matching frames are deleted after processing. Frames associated with high-confidence alert matches are retained as evidence (see <a href="/retention" className="text-amber-400 hover:underline">Data Retention Policy</a>).</li>
             <li><strong className="text-white/80">Detection data:</strong> license plate text, confidence scores, vehicle attributes (color, make, body type), GPS coordinates, and timestamps.</li>
             <li><strong className="text-white/80">Device tokens:</strong> push notification tokens (via Expo) to deliver alert notifications to your device.</li>
@@ -63,7 +78,7 @@ export default function PrivacyPage() {
 
         <Section title="What we do not collect">
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
-            <li>In phone scanning mode (Android and iOS), we never receive, transmit, or store camera frames or images from your device. Only plate text and GPS coordinates are sent. This applies to all phone-based volunteers.</li>
+            <li>In Android background service scan mode, we never receive, transmit, or store camera frames or images from your device. Only plate text, a confidence score, and GPS coordinates are sent.</li>
             <li>We do not record or store audio.</li>
             <li>We do not sell, rent, or share personal data with advertisers or data brokers.</li>
             <li>We do not build a persistent surveillance database of license plates. Non-alerted detections are automatically purged on a rolling schedule. Only detections that matched an active government-issued alert are retained as evidence.</li>
@@ -76,19 +91,30 @@ export default function PrivacyPage() {
           </p>
           <div className="space-y-4">
             <div className="bg-white/5 rounded-lg p-4">
-              <p className="text-white/80 font-medium text-sm mb-2">Phone volunteers (Android / iOS)</p>
+              <p className="text-white/80 font-medium text-sm mb-2">Android background service scan</p>
               <div className="font-mono text-xs leading-relaxed text-white/60 whitespace-pre-wrap">
-{`Phone camera frame
-  → Processed entirely on your phone (on-device OCR)
-  → Only plate text + GPS sent to server
+{`Camera frame
+  → On-device OCR (ML Kit) — never leaves your phone
+  → Only plate text + confidence score + GPS sent to server
       ↓
   Match found?
-  No  → Frame discarded on phone. Text deleted after 30 days.
-  Yes → That one frame is uploaded as evidence (golden frame).
-        Detection record + frame kept up to 1 year.
+  No  → Text record deleted after 30 days.
+  Yes → Detection record kept up to 1 year. No frame stored.
 
-  ✦ Only a confirmed watchlist hit frame is ever uploaded.
-    All other frames never leave your phone.`}
+  ✦ Frames never leave your device on this path.`}
+              </div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4">
+              <p className="text-white/80 font-medium text-sm mb-2">Active camera mode — Start Mission (Android and iOS)</p>
+              <div className="font-mono text-xs leading-relaxed text-white/60 whitespace-pre-wrap">
+{`Camera frame
+  → Uploaded to server as JPEG
+  → ALPR + YOLO vehicle classification run server-side
+      ↓
+  Match found?
+  No  → Frame deleted immediately after processing.
+  Yes → Frame retained as evidence for up to 1 year.
+        Detection record kept up to 1 year.`}
               </div>
             </div>
             <div className="bg-white/5 rounded-lg p-4">
@@ -165,7 +191,7 @@ export default function PrivacyPage() {
             <li><strong className="text-white/80">Access:</strong> request a copy of your personal data.</li>
             <li><strong className="text-white/80">Correction:</strong> request correction of inaccurate information.</li>
             <li><strong className="text-white/80">Deletion:</strong> delete your account directly in the app (Settings &rarr; Delete Account) or by emailing us. Deletion is completed within 30 days except where retention is required by law or for evidence preservation.</li>
-            <li><strong className="text-white/80">Opt out:</strong> you may stop scanning at any time by closing the app. Background scanning requires an active foreground notification and can be stopped from that notification.</li>
+            <li><strong className="text-white/80">Opt out:</strong> you may stop scanning at any time by closing the app. On Android, scanning continues when you switch apps — a persistent notification is shown and dismissing it stops scanning immediately.</li>
           </ul>
           <p className="mt-2 text-sm">
             For any privacy request, contact{" "}

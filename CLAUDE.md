@@ -2,14 +2,19 @@
 
 ## Privacy Model — On-Device Inference
 
-Two distinct phone paths with different privacy properties — do not conflate them:
+Three distinct scanning paths with different privacy properties — do not conflate them:
 
-| Path | How it works | Frames leave device? |
-|---|---|---|
-| **Background passive scan** (`ScanService.kt`) | ML Kit OCR runs on-device. Only `plate_text + plate_confidence + GPS` hit `POST /ingest/detection`. | **Never.** |
-| **Active pilot camera** (`CameraScreen.tsx`) | Raw JPEG posted to `POST /ingest/frame`. Server runs ALPR + YOLO. High-confidence frames stored as golden frames on server for evidence. | **Yes — intentionally.** |
+| Path | Platform | How it works | Frames leave device? |
+|---|---|---|---|
+| **Android background service scan** (`ScanService.kt`) | **Android only** | User explicitly starts scanning. ML Kit OCR runs on-device. Android foreground service lets scanning continue when the user switches apps. Only `plate_text + plate_confidence + GPS` hit `POST /ingest/detection`. | **Never.** |
+| **Active pilot camera** (`CameraScreen.tsx`) | **Android + iOS** | Triggered by tapping "Start Mission". Raw JPEG posted to `POST /ingest/frame`. Server runs ALPR + YOLO. Non-matching frames deleted immediately; high-confidence frames stored as golden frames on server for evidence. | **Yes — intentionally.** |
+| **DJI drone** (RTMP / MSDK V5) | **Android** | Frames streamed via RTMP to nginx, processed by `unified_worker.py`. | **Yes — to operator-controlled server, not a third party.** |
 
-The background scan path is the default volunteer experience and its no-frame-upload guarantee is non-negotiable. The active camera path is an explicit pilot action (they tapped Start Mission) — frame upload is expected and required for evidence chain of custody.
+**iOS has no background service scan.** iOS pilots always use the active camera path (CameraScreen) — frames are always uploaded on iOS. Do not write copy that claims on-device-only scanning for iOS volunteers.
+
+**All scanning is purposeful and user-initiated.** There is no passive or automatic scanning. The Android background service simply allows scanning to continue when the user switches apps — it is not triggered without user intent.
+
+The Android on-device path's no-frame-upload guarantee is non-negotiable. The active camera path is an explicit pilot action — frame upload is expected and required for evidence chain of custody.
 
 - **Detection agent `request_edge_inference`**: sends an Expo push asking the pilot to reposition. Does NOT trigger a frame upload from `ScanService`. The pilot is already scanning on-device.
 - **DJI RTMP path**: frames streamed to operator-controlled nginx server, not to a third party.
