@@ -425,20 +425,57 @@ When a pilot relinquishes control to the swarm (or is actively streaming RTMP), 
 **RTMP location fix (do alongside live view):**
 Add nginx `on_publish` hook — fires HTTP POST to backend when stream starts. Backend endpoint: snapshot the pilot's most recent telemetry → store `{drone_id, pilot_id, lat, lng, started_at}` in a `stream_sessions` table (or Redis). `/detections/` endpoint uses this snapshot instead of the current loose 10-minute fallback. This is also what powers the live view indicator (know which drone_ids are actively streaming).
 
-### Adaptive Scanning / "Squinting" Agent (Future, Local)
+### Capture Interval — Current State and Known Issues
 
-Current `ScanService.kt` runs OCR at a fixed ~1.5s interval at 640×480. This is inefficient — OCR runs on empty sky as much as plates. Proposed architecture:
+**How it actually works:**
+- `captureIntervalSec` defaults to **3 seconds** (`mobile/src/lib/settings.ts` line 23)
+- Correctly threaded: CameraScreen.tsx passes `intervalMs: captureIntervalSec * 1000` to `startBackgroundScan()` and uses the same value for iOS/DJI `setInterval()` timers
+- A `useEffect` at CameraScreen.tsx line 260 restarts capture loops if the setting changes mid-mission
+- ScanService.kt default is 1500ms but it's always overwritten by the intent extra on start
 
-1. **Idle state**: YOLO-nano vehicle detector (~6MB TFLite/CoreML) runs at ~3fps. Cheap. Looking for vehicle bounding boxes.
-2. **Approach state**: Vehicle bbox appears → interval drops to ~0.5s, OCR triggers. As bbox area grows (vehicle getting closer), processing rate increases.
-3. **Read state**: Plate region is big enough and still → full OCR effort, perspective deskew if needed. Front plate vs back plate check (different text regions).
-4. **Depart state**: bbox shrinking → OCR rate drops back. Return to idle when bbox disappears.
+**What's broken — server adaptive response is dead:**
+`/ingest/frame` returns `capture_interval_ms` (800ms when plates found, 1500ms when not). `FrameResult` type in `ingest.ts` includes the field. CameraScreen.tsx never reads it — timers are fixed `setInterval` calls that never adjust. The adaptive logic exists server-side and is ignored client-side.
 
-This is a state machine in `ScanService.kt`, not a new model. The models needed are YOLO-nano (already on server; needs on-device port) + ML Kit (already on device). The state machine logic is ~200 lines.
+**What should change:**
+- Camera screen should consume `capture_interval_ms` from server responses and update the active timer. Fixed user setting doesn't belong on the camera screen — the server already has better information (did it find plates? is it getting close?).
+- `captureIntervalSec` in Settings should only control the **Android background service**, where battery tradeoff is a legitimate user choice.
+- Separate the concepts: background scan interval (user-configurable) vs active camera interval (server-driven).
 
-**VMMC connection**: chadongcha-app's EfficientNet-Lite B2 training pipeline + TFLite/CoreML export is exactly the deployment path for an on-device vehicle approach classifier. Confirmed-match frames from AA alerts (active alert vehicles only) are the right training data for a "plate likely visible" classifier — not random cars. Bring this up when revisiting VMMC.
+**Plate Recognizer 70% threshold:**
+`SINGLE_FRAME_HIGH_CONFIDENCE = 70.0` in `aggregation_service.py` gates the Plate Recognizer cloud API call. This is an enrichment call (make/model/color) on reads ALPR already succeeded at — not a fallback for low-confidence reads. The wide range (70–100%) means every decent ALPR read hits the API, including non-watchlist plates. Better gate: only call Plate Recognizer when ALPR ≥ 70% **and** the plate is on the active watchlist. Cuts API calls by ~95% on typical RTMP sessions with no active alerts, preserves enrichment on the plates that matter.
 
-**Why not now**: requires YOLO-nano on-device Android + iOS native build (separate work), plus CoreML model packaging for iOS. ML Kit limitation: designed for documents, not oblique license plates at speed. Until YOLO-nano is on-device, the state machine idea can still be partially implemented using ML Kit's detection confidence as a proxy for "plate is in focus."
+### Adaptive Scanning / "Squinting" — Hierarchical Pipeline Plan
+
+Three distinct stages, each cheaper than the last when the answer is "no vehicle / no plate." The goal is to avoid running OCR on sky and asphalt.
+
+**Stage 0 — Vehicle presence** ("is there a car in this frame?")
+- YOLO-nano at ~3fps, ~6MB TFLite/CoreML
+- Output: list of vehicle bboxes + class (car/truck/SUV/van) + confidence
+- Bbox area = how close the vehicle is → drives capture rate for Stage 1
+- Color: sample HSV histogram from bbox crop (no model needed)
+- This is already done server-side in `unified_worker.py` via `classify_vehicles()`. The gap is on-device.
+
+**Stage 1 — Plate readability** ("can I see a readable plate? front or back?")
+- Input: vehicle bbox crop from Stage 0
+- Binary classifier: plate visible / not visible. Small CNN or rule-based (aspect ratio, edge density, blob count in plate region).
+- Output: `{plate_visible: bool, region: bbox, orientation: front|back}`
+- Front vs back: physical position relative to vehicle bbox, brightness (tail lights), bumper pattern
+- Training data: confirmed AA hit frames (positive), frames where OCR ran but found nothing (negative)
+- VMMC training pipeline (EfficientNet-Lite B2 → TFLite/CoreML) is the right export path
+
+**Stage 2 — OCR** ("what's the text?")
+- Only fires when Stage 1 says plate is readable
+- On-device: ML Kit (current). Server: OpenALPR + CLAHE + deskew (current).
+- Adaptive interval: `lerp(2000ms, 400ms, clamp(bbox_area_fraction * 5, 0, 1))`
+- Car at 10% of frame → 2s interval. Same car at 50% of frame → 400ms. Smooth transition.
+
+**Build phases:**
+1. **Server-side, no native code (now possible)**: Skip ALPR in `unified_worker.py` when `yolo_vehicles` is empty. Use YOLO bbox area to set `capture_interval_ms` in `/ingest/frame` response dynamically instead of hardcoded 800/1500. Client just needs to consume the response (see above).
+2. **Client adaptive interval (no new models)**: CameraScreen.tsx consumes `capture_interval_ms` from server response, dynamically adjusts `setInterval`. Already typed, just needs to be read.
+3. **On-device YOLO-nano Android**: TFLite model bundled with app, runs in ScanService before ML Kit. Gate OCR on vehicle detection. Adapt `intervalMs` based on bbox area within the service.
+4. **On-device iOS**: CoreML export, same logic in PhoneCameraModule.swift. Requires macOS build.
+
+**VMMC connection**: confirmed-match frames from AA (active alert vehicles only, plates and faces blurred) are exactly the training data for Stage 1. Players see a partially visible plate crop and label readability — maps to the existing game mechanic. Bring this up when revisiting VMMC.
 
 ### Public Discord Join Button
 
