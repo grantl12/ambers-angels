@@ -17,73 +17,35 @@ jobs:
           script: |
             echo "===== BOLO AUDIT — $(date -u) ====="
 
-            export PGPASSWORD='Ambers1Angels'
+            Q() { echo "Ambers1Angels" | sudo -S -u postgres psql -d ambersangels -t -A -c "$1" 2>/dev/null; }
 
             echo ""
             echo "=== 1. Recent BOLO entries in processed_alerts ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT identifier, processed_at
-              FROM processed_alerts
-              WHERE identifier LIKE 'bolo%'
-              ORDER BY processed_at DESC
-              LIMIT 10;
-            "
+            Q "SELECT identifier, processed_at FROM processed_alerts WHERE identifier LIKE 'bolo%' ORDER BY processed_at DESC LIMIT 10;"
 
             echo ""
             echo "=== 2. Recent BOLO watchlist entries ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT plate_text, description, alert_type, source_program,
-                     vehicle_color, vehicle_type, vehicle_make,
-                     active, added_at
-              FROM watchlist
-              WHERE source_program ILIKE '%bolo%'
-                 OR source_program ILIKE '%manual%'
-                 OR alert_type = 'bolo'
-              ORDER BY added_at DESC
-              LIMIT 10;
-            "
+            Q "SELECT plate_text, description, alert_type, source_program, vehicle_color, vehicle_type, vehicle_make, active, added_at FROM watchlist WHERE source_program ILIKE '%bolo%' OR source_program ILIKE '%manual%' OR alert_type = 'bolo' ORDER BY added_at DESC LIMIT 10;"
 
             echo ""
             echo "=== 3. Recent BOLO vehicle_targets ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT id, fema_identifier, alert_type, source_program,
-                     headline, area, color, body_type, make,
-                     expires_at, created_at
-              FROM vehicle_targets
-              WHERE source_program ILIKE '%bolo%'
-                 OR source_program ILIKE '%manual%'
-                 OR alert_type = 'bolo'
-              ORDER BY created_at DESC
-              LIMIT 10;
-            "
+            Q "SELECT id, fema_identifier, alert_type, source_program, headline, area, color, body_type, make, expires_at, created_at FROM vehicle_targets WHERE source_program ILIKE '%bolo%' OR source_program ILIKE '%manual%' OR alert_type = 'bolo' ORDER BY created_at DESC LIMIT 10;"
 
             echo ""
             echo "=== 4. All source_program values in use ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT source_program, COUNT(*) FROM watchlist GROUP BY source_program ORDER BY count DESC;
-            "
+            Q "SELECT source_program, COUNT(*) FROM watchlist GROUP BY source_program ORDER BY count DESC;"
             echo "---"
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT source_program, COUNT(*) FROM vehicle_targets GROUP BY source_program ORDER BY count DESC;
-            "
+            Q "SELECT source_program, COUNT(*) FROM vehicle_targets GROUP BY source_program ORDER BY count DESC;"
 
             echo ""
             echo "=== 5. All alert_type values in use ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT alert_type, COUNT(*) FROM watchlist GROUP BY alert_type ORDER BY count DESC;
-            "
+            Q "SELECT alert_type, COUNT(*) FROM watchlist GROUP BY alert_type ORDER BY count DESC;"
             echo "---"
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT alert_type, COUNT(*) FROM vehicle_targets GROUP BY alert_type ORDER BY count DESC;
-            "
+            Q "SELECT alert_type, COUNT(*) FROM vehicle_targets GROUP BY alert_type ORDER BY count DESC;"
 
             echo ""
             echo "=== 6. bolo_sources table ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT id, name, source_type, state, active, last_crawled_at
-              FROM bolo_sources
-              ORDER BY id;
-            " 2>&1 || echo "(table does not exist)"
+            Q "SELECT id, name, source_type, state, active, last_crawled_at FROM bolo_sources ORDER BY id;" || echo "(table does not exist)"
 
             echo ""
             echo "=== 7. PM2 logs — BOLO mentions (last 500 lines) ==="
@@ -95,23 +57,16 @@ jobs:
 
             echo ""
             echo "=== 9. Most recent manual/demo entries for context ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT plate_text, description, alert_type, source_program,
-                     vehicle_color, vehicle_type, vehicle_make,
-                     active, added_at
-              FROM watchlist
-              WHERE source_program IN ('manual','demo','Manual Inject')
-              ORDER BY added_at DESC
-              LIMIT 5;
-            "
+            Q "SELECT plate_text, description, alert_type, source_program, vehicle_color, vehicle_type, vehicle_make, active, added_at FROM watchlist WHERE source_program IN ('manual','demo','Manual Inject') ORDER BY added_at DESC LIMIT 5;"
 
             echo ""
             echo "=== 10. NamUs cases (if any) ==="
-            psql -h 127.0.0.1 -U postgres ambersangels -t -A -c "
-              SELECT namus_id, subject_name, state, actionable,
-                     alert_type, vehicle_info, first_seen_at
-              FROM namus_cases
-              WHERE actionable = true
-              ORDER BY first_seen_at DESC
-              LIMIT 5;
-            " 2>&1 || echo "(table does not exist)"
+            Q "SELECT namus_id, subject_name, state, actionable, alert_type, vehicle_info, first_seen_at FROM namus_cases WHERE actionable = true ORDER BY first_seen_at DESC LIMIT 5;" || echo "(table does not exist)"
+
+            echo ""
+            echo "=== 11. ALL watchlist entries (most recent 10) ==="
+            Q "SELECT plate_text, description, alert_type, source_program, vehicle_color, vehicle_type, vehicle_make, active, added_at FROM watchlist ORDER BY added_at DESC LIMIT 10;"
+
+            echo ""
+            echo "=== 12. ALL vehicle_targets (most recent 10) ==="
+            Q "SELECT id, fema_identifier, alert_type, source_program, headline, area, color, body_type, make, expires_at, created_at FROM vehicle_targets ORDER BY created_at DESC LIMIT 10;"
