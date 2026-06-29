@@ -234,34 +234,92 @@ def _extract_plates(text_blob: str) -> list[str]:
 # Vehicle profile extraction
 # ---------------------------------------------------------------------------
 
+# WEA/EAS/CMAS jargon → plain English.
+# Applied before any regex matching so abbreviated alert text normalizes cleanly.
+# Pattern is word-boundary anchored; replacement is lowercase to match _COLOR_WORDS etc.
+_WEA_ABBREVS: list[tuple[str, str]] = [
+    # Colors
+    (r"\bBLK\b",          "black"),
+    (r"\bWHT\b",          "white"),
+    (r"\bBLU\b",          "blue"),
+    (r"\bGRN\b",          "green"),
+    (r"\bSLV[R]?\b",      "silver"),
+    (r"\bGR[AY]{1,2}\b",  "gray"),
+    (r"\bBRN\b",          "brown"),
+    (r"\bYLW\b|\bYEL\b",  "yellow"),
+    (r"\bORNG?\b",        "orange"),
+    (r"\bGLD\b",          "gold"),
+    (r"\bMRN\b",          "maroon"),
+    (r"\bPNK\b",          "pink"),
+    (r"\bPRP\b|\bPUR\b",  "purple"),
+    (r"\bBEG\b|\bBGE\b",  "beige"),
+    (r"\bCRM\b",          "cream"),
+    (r"\bBRG\b|\bBURG\b", "maroon"),
+    (r"\bTRQ\b|\bTEAL\b", "teal"),
+    # Makes
+    (r"\bCHEV\b|\bCHVY\b",        "chevrolet"),
+    (r"\bTOYT\b|\bTYT\b",         "toyota"),
+    (r"\bHOND\b",                  "honda"),
+    (r"\bDODG\b",                  "dodge"),
+    (r"\bNISS\b",                  "nissan"),
+    (r"\bHYUN\b",                  "hyundai"),
+    (r"\bCHRY\b",                  "chrysler"),
+    (r"\bBUIK\b",                  "buick"),
+    (r"\bCADI\b|\bCDLC\b",         "cadillac"),
+    (r"\bLINC\b",                  "lincoln"),
+    (r"\bPONT\b",                  "pontiac"),
+    (r"\bMERZ\b|\bBENZ\b",         "mercedes"),
+    (r"\bVOLK\b|\bVWGN\b",         "volkswagen"),
+    (r"\bSUBR\b",                  "subaru"),
+    (r"\bMAZD\b",                  "mazda"),
+    (r"\bMITS\b",                  "mitsubishi"),
+    (r"\bVOLV\b",                  "volvo"),
+    (r"\bINFN\b|\bINFI\b",         "infiniti"),
+    (r"\bACRA\b",                  "acura"),
+    (r"\bLEXS\b|\bLEXU\b",         "lexus"),
+    (r"\bTSLA\b",                  "tesla"),
+    (r"\bSATN\b",                  "saturn"),
+    (r"\bAUDI\b",                  "audi"),
+    # Body types
+    (r"\bP/?U\b",                  "pickup"),
+    (r"\bTRK\b",                   "truck"),
+    (r"\bSED\b",                   "sedan"),
+    (r"\bCPE\b",                   "coupe"),
+    (r"\bCONV\b",                  "convertible"),
+    (r"\bHTB\b|\bHBK\b",           "hatchback"),
+    (r"\bWGN\b",                   "wagon"),
+    (r"\bMC\b|\bMCC\b|\bMTRCYCL\b", "motorcycle"),
+    (r"\bMINIVAN\b",               "minivan"),
+]
+
 # Ordered by specificity — first match wins for color and body type
 _COLOR_WORDS = [
-    "maroon", "navy", "teal", "beige", "cream", "silver", "gray", "grey",
-    "black", "white", "red", "orange", "yellow", "green", "blue", "purple",
-    "brown", "tan", "gold", "pink",
+    "maroon", "burgundy", "navy", "teal", "beige", "cream", "silver",
+    "gray", "grey", "black", "white", "red", "orange", "yellow", "green",
+    "blue", "purple", "brown", "tan", "gold", "pink",
 ]
 
 # Raw text token → YOLO body_type (car | truck | motorcycle | bus)
 _BODY_TYPE_MAP: list[tuple[str, str, str]] = [
     # (regex token, yolo_type, display_label)
-    ("minivan",      "truck",      "minivan"),
-    ("mini van",     "truck",      "minivan"),
-    ("van",          "truck",      "van"),
-    ("suv",          "car",        "SUV"),
-    ("pickup truck", "truck",      "pickup"),
-    ("pickup",       "truck",      "pickup"),
-    ("semi truck",   "truck",      "semi"),
-    ("tractor.trailer", "truck",   "tractor-trailer"),
-    ("truck",        "truck",      "truck"),
-    ("motorcycle",   "motorcycle", "motorcycle"),
-    ("motor cycle",  "motorcycle", "motorcycle"),
-    ("bus",          "bus",        "bus"),
-    ("sedan",        "car",        "sedan"),
-    ("coupe",        "car",        "coupe"),
-    ("hatchback",    "car",        "hatchback"),
-    ("convertible",  "car",        "convertible"),
-    ("wagon",        "car",        "wagon"),
-    ("jeep",         "car",        "Jeep"),
+    ("minivan",         "truck",      "minivan"),
+    ("mini van",        "truck",      "minivan"),
+    ("van",             "truck",      "van"),
+    ("suv",             "car",        "SUV"),
+    ("pickup truck",    "truck",      "pickup"),
+    ("pickup",          "truck",      "pickup"),
+    ("semi truck",      "truck",      "semi"),
+    ("tractor.trailer", "truck",      "tractor-trailer"),
+    ("truck",           "truck",      "truck"),
+    ("motorcycle",      "motorcycle", "motorcycle"),
+    ("motor cycle",     "motorcycle", "motorcycle"),
+    ("bus",             "bus",        "bus"),
+    ("sedan",           "car",        "sedan"),
+    ("coupe",           "car",        "coupe"),
+    ("hatchback",       "car",        "hatchback"),
+    ("convertible",     "car",        "convertible"),
+    ("wagon",           "car",        "wagon"),
+    ("jeep",            "car",        "Jeep"),
 ]
 
 _MAKE_WORDS = [
@@ -272,14 +330,102 @@ _MAKE_WORDS = [
     "acura", "infiniti", "tesla",
 ]
 
+# Model fragments → canonical model name (for Wikimedia photo lookup)
+_MODEL_PATTERNS: list[tuple[str, str]] = [
+    (r"\bsilverado\b|\bslvrd\b",      "Silverado"),
+    (r"\bf-?150\b|\bf150\b",          "F-150"),
+    (r"\bf-?250\b|\bf250\b",          "F-250"),
+    (r"\bcamry\b",                    "Camry"),
+    (r"\bcorolla\b",                  "Corolla"),
+    (r"\baccord\b|\baccrd\b",         "Accord"),
+    (r"\bcivic\b",                    "Civic"),
+    (r"\bcr-?v\b",                    "CR-V"),
+    (r"\baltima\b|\baltma\b",         "Altima"),
+    (r"\bsentra\b",                   "Sentra"),
+    (r"\brogue\b",                    "Rogue"),
+    (r"\bram\s*15\b|\bram\s*1500\b",  "Ram 1500"),
+    (r"\bcharger\b",                  "Charger"),
+    (r"\bchallenger\b",               "Challenger"),
+    (r"\bdurango\b",                  "Durango"),
+    (r"\btahoe\b",                    "Tahoe"),
+    (r"\bsuburban\b",                 "Suburban"),
+    (r"\bequinox\b",                  "Equinox"),
+    (r"\bmalibu\b",                   "Malibu"),
+    (r"\bimpala\b",                   "Impala"),
+    (r"\bcruze\b",                    "Cruze"),
+    (r"\btrax\b",                     "Trax"),
+    (r"\btrailblazer\b",              "Trailblazer"),
+    (r"\bsierra\b",                   "Sierra"),
+    (r"\bterrain\b",                  "Terrain"),
+    (r"\bfocus\b",                    "Focus"),
+    (r"\bfusion\b",                   "Fusion"),
+    (r"\bescape\b",                   "Escape"),
+    (r"\bexplorer\b",                 "Explorer"),
+    (r"\bexpedition\b",               "Expedition"),
+    (r"\bmustang\b",                  "Mustang"),
+    (r"\btaurus\b",                   "Taurus"),
+    (r"\bsonata\b",                   "Sonata"),
+    (r"\btucson\b",                   "Tucson"),
+    (r"\bsanta\s*fe\b",               "Santa Fe"),
+    (r"\bforte\b",                    "Forte"),
+    (r"\boptima\b",                   "Optima"),
+    (r"\bsorento\b",                  "Sorento"),
+    (r"\bsportage\b",                 "Sportage"),
+    (r"\bpathfinder\b",               "Pathfinder"),
+    (r"\bfrontier\b",                 "Frontier"),
+    (r"\btitan\b",                    "Titan"),
+    (r"\bmurano\b",                   "Murano"),
+    (r"\boutback\b",                  "Outback"),
+    (r"\bforester\b",                 "Forester"),
+    (r"\bimpreza\b",                  "Impreza"),
+    (r"\bcrossover\b|\bcx-?5\b",      "CX-5"),
+    (r"\bmazda\s*3\b|\bmazda3\b",     "Mazda3"),
+    (r"\bjetta\b",                    "Jetta"),
+    (r"\bpassat\b",                   "Passat"),
+    (r"\btiguan\b",                   "Tiguan"),
+    (r"\bc-?class\b|\bc300\b",        "C-Class"),
+    (r"\bmodel\s*[sy3x]\b",           "Model S"),
+    (r"\bcorvet\b|\bcorvette\b",      "Corvette"),
+]
+
+# 2-digit year → 4-digit (for years 95–29 covering 1995–2029)
+_YEAR_RE = re.compile(
+    r"(?<!\d)"
+    r"(?P<y4>20[0-2]\d|19[89]\d)"    # already 4-digit
+    r"|"
+    r"(?P<y2>(?:9[5-9]|0\d|1\d|2[0-9]))(?!\d)"  # 2-digit short form
+)
+
+
+def _normalize_wea_text(text: str) -> str:
+    """Expand WEA/EAS abbreviations to plain English before regex matching."""
+    for pattern, replacement in _WEA_ABBREVS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
+
+
+def _extract_year(text: str) -> str | None:
+    """Extract model year from alert text; expands 2-digit to 4-digit."""
+    for m in _YEAR_RE.finditer(text):
+        if m.group("y4"):
+            yr = int(m.group("y4"))
+        else:
+            y2 = int(m.group("y2"))
+            yr = 2000 + y2 if y2 <= 29 else 1900 + y2
+        if 1980 <= yr <= 2030:
+            return str(yr)
+    return None
+
 
 def _extract_vehicle_profile(text_blob: str) -> dict:
     """
-    Parse freeform alert text for vehicle color, body type, and make.
-    Returns a dict with keys: color, body_type, yolo_body_type, make.
+    Parse freeform alert text for vehicle color, body type, make, model, and year.
+    Handles both plain English and WEA/EAS abbreviations (BLK, CHEV, SLVRD PU, etc.).
+    Returns a dict with keys: color, body_type, yolo_body_type, make, model, year.
     Any key may be None if not found.
     """
-    tl = text_blob.lower()
+    expanded = _normalize_wea_text(text_blob)
+    tl = expanded.lower()
 
     color = None
     for word in _COLOR_WORDS:
@@ -302,7 +448,18 @@ def _extract_vehicle_profile(text_blob: str) -> dict:
             make = m.group(0).strip().title().replace(r"\B", "").replace("Vw", "VW")
             break
 
-    return {"color": color, "body_type": body_type, "yolo_body_type": yolo_body_type, "make": make}
+    model = None
+    for pattern, label in _MODEL_PATTERNS:
+        if re.search(pattern, tl):
+            model = label
+            break
+
+    year = _extract_year(text_blob)
+
+    return {
+        "color": color, "body_type": body_type, "yolo_body_type": yolo_body_type,
+        "make": make, "model": model, "year": year,
+    }
 
 
 # ---------------------------------------------------------------------------
