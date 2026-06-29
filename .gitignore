@@ -45,8 +45,9 @@ recordings/
 !grants/Handoff/**
 !mobile/app-store-screenshots/**
 
-# Claude Code local settings
+# Claude Code local settings (settings.local.json has secrets — keep ignored)
 .claude/
+!.claude/*.md
 
 # Saved browser pages (not part of the codebase)
 Amber's\ Angels\ —\ AI-Powered\ Missing\ Person\ Search.html
