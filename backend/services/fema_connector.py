@@ -109,6 +109,7 @@ ALERT_REGISTRY: list[dict] = [
         "require_kw": True,
         "emoji":      "🟣",
         "cta":        "Missing person with developmental disability — check your area.",
+        "water_check": True,
         "priority":   5,
     },
     {
@@ -789,13 +790,27 @@ async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
     fields = [
         {"name": "📍 Area", "value": alert.get("area") or "—", "inline": True},
         {"name": "📋 Source", "value": alert.get("source_program") or "—", "inline": True},
-        {"name": "🚗 Vehicle", "value": vehicle_str or "No vehicle description found", "inline": True},
-        {"name": "⚠️ Plates", "value": "None extracted — monitor manually", "inline": False},
     ]
+    if atype.get("water_check"):
+        # Purple Alert: vehicle data is secondary — lead with water advisory
+        fields.append({
+            "name": "💧 Water Advisory",
+            "value": "Persons with developmental disabilities often seek water. **Check ponds, creeks, drainage ditches, and retention basins first.**",
+            "inline": False,
+        })
+        if vehicle_str:
+            fields.append({"name": "🚗 Vehicle (if known)", "value": vehicle_str, "inline": True})
+        fields.append({"name": "⚠️ Plates", "value": "None extracted — foot search likely more effective", "inline": False})
+        embed_color = 0x9B59B6
+    else:
+        fields.append({"name": "🚗 Vehicle", "value": vehicle_str or "No vehicle description found", "inline": True})
+        fields.append({"name": "⚠️ Plates", "value": "None extracted — monitor manually", "inline": False})
+        embed_color = 0xFF8800
+
     embed: dict = {
         "title": f"{atype['emoji']} {atype['short']} — {(alert.get('source_program') or '').upper()}",
         "description": (alert.get("headline") or "") + (f"\n\n{desc[:300]}{'...' if len(desc) > 300 else ''}" if desc else ""),
-        "color": 0xFF8800,
+        "color": embed_color,
         "fields": fields,
         "footer": {"text": f"Issued: {alert.get('sent', '—')}"},
     }
@@ -879,14 +894,24 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
     else:
         fields.append({"name": "🚗 Vehicle", "value": "No vehicle data on file", "inline": True})
 
+    if atype.get("water_check"):
+        fields.append({
+            "name": "💧 Water Advisory",
+            "value": "Persons with developmental disabilities often seek water. **Check ponds, creeks, drainage ditches, and retention basins first.**",
+            "inline": False,
+        })
+
     headline = alert.get("headline") or ""
     embed: dict = {
         "title": f"{atype['emoji']} {atype['short']} — PLATES ON WATCHLIST",
         "description": headline,
-        "color": 0xFF4444,
+        "color": 0x9B59B6,  # purple
         "fields": fields,
         "footer": {"text": f"⚡ {atype['cta']}"},
     }
+    # Use alert-type color: purple for Purple Alert, red for others
+    if not atype.get("water_check"):
+        embed["color"] = 0xFF4444
     if img_url:
         embed["thumbnail"] = {"url": img_url}
 
@@ -970,7 +995,10 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     })
     if push_tokens:
         push_title = f"🚨 {atype['short']} — {alert['area'] or 'Unknown area'}"
-        push_body  = alert["headline"] or atype["cta"]
+        if atype.get("water_check"):
+            push_body = (alert["headline"] or atype["cta"]) + " — Check local water sources first."
+        else:
+            push_body = alert["headline"] or atype["cta"]
         push_data  = {
             "centroidLat": centroid[0] if centroid else None,
             "centroidLng": centroid[1] if centroid else None,
