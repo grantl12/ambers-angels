@@ -18,6 +18,7 @@ jobs:
             set -e
             cd /home/ambers-angels/proj_dir/ambers-angels
             git pull origin main
+            git restore .   # reverse any working-tree deletions so pages can't be rm-rf'd away
 
             # Ensure PM2 log rotation is installed (idempotent)
             /home/ambers-angels/.local/bin/pm2 list | grep -q pm2-logrotate \
