@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amber's Angels — Technical Notes for Dr. Cain</title>
+<style>
+  :root {
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.12);
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --border: rgba(255,255,255,0.07);
+    --text: rgba(255,255,255,0.82);
+    --muted: rgba(255,255,255,0.42);
+    --code-bg: rgba(255,255,255,0.05);
+    --green: #10b981;
+    --purple: #a78bfa;
+    --blue: #60a5fa;
+    --red: #f87171;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+    line-height: 1.7;
+    padding: 0 1rem;
+  }
+
+  /* Layout */
+  .page { max-width: 780px; margin: 0 auto; padding: 4rem 0 6rem; }
+
+  /* Header */
+  .header { margin-bottom: 4rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+  .header-tag {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 700; color: #fff; line-height: 1.25; margin-bottom: 0.75rem;
+  }
+  .header-sub { color: var(--muted); font-size: 0.95rem; }
+  .header-sub a { color: var(--amber); text-decoration: none; }
+  .header-sub a:hover { text-decoration: underline; }
+
+  /* TOC */
+  .toc {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.5rem 2rem; margin-bottom: 4rem;
+  }
+  .toc-label {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem;
+  }
+  .toc ol { padding-left: 1.25rem; }
+  .toc li { margin-bottom: 0.35rem; }
+  .toc a { color: var(--text); text-decoration: none; font-size: 0.9rem; }
+  .toc a:hover { color: var(--amber); }
+
+  /* Sections */
+  section { margin-bottom: 4rem; }
+  .section-tag {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-size: 1.5rem; font-weight: 700; color: #fff;
+    margin-bottom: 1.25rem; scroll-margin-top: 5rem;
+  }
+  h3 {
+    font-size: 1.05rem; font-weight: 600; color: rgba(255,255,255,0.9);
+    margin: 2rem 0 0.75rem;
+  }
+  p { margin-bottom: 1rem; font-size: 0.95rem; }
+
+  /* Code / pre */
+  code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.82em; background: var(--code-bg);
+    padding: 0.15em 0.45em; border-radius: 4px;
+    color: rgba(255,255,255,0.85);
+  }
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.25rem 1.5rem; overflow-x: auto;
+    margin: 1.25rem 0;
+  }
+  pre code {
+    background: none; padding: 0; font-size: 0.84rem;
+    line-height: 1.6; color: rgba(255,255,255,0.78);
+  }
+
+  /* Before / after comparison */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.25rem;
+  }
+  .compare-box.before { border-top: 3px solid var(--red); }
+  .compare-box.after  { border-top: 3px solid var(--green); }
+  .compare-label {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; margin-bottom: 0.75rem;
+  }
+  .before .compare-label { color: var(--red); }
+  .after  .compare-label { color: var(--green); }
+  .compare-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 0.3rem 0; border-bottom: 1px solid var(--border);
+    font-size: 0.84rem;
+  }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-key { color: var(--muted); }
+  .compare-val { font-family: "SF Mono","Fira Code",monospace; font-size: 0.82rem; }
+  .val-none { color: var(--red); opacity: 0.7; }
+  .val-ok   { color: var(--green); }
+
+  /* Flow steps */
+  .flow { margin: 1.5rem 0; }
+  .flow-step {
+    display: flex; gap: 1rem; padding: 0.9rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child { border-bottom: none; }
+  .step-num {
+    flex-shrink: 0; width: 1.6rem; height: 1.6rem;
+    background: var(--amber-dim); border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700; color: var(--amber); margin-top: 0.1rem;
+  }
+  .step-body { font-size: 0.9rem; }
+  .step-body strong { color: #fff; font-weight: 600; }
+
+  /* Callouts */
+  .callout {
+    border-radius: 8px; padding: 1rem 1.25rem;
+    margin: 1.5rem 0; font-size: 0.9rem;
+    display: flex; gap: 0.75rem; align-items: flex-start;
+  }
+  .callout-icon { flex-shrink: 0; font-size: 1rem; margin-top: 0.05rem; }
+  .callout.note  { background: rgba(96,165,250,0.07); border: 1px solid rgba(96,165,250,0.2); }
+  .callout.warn  { background: rgba(248,113,113,0.07); border: 1px solid rgba(248,113,113,0.2); }
+  .callout.idea  { background: rgba(167,139,250,0.07); border: 1px solid rgba(167,139,250,0.2); }
+  .callout.green { background: rgba(16,185,129,0.07);  border: 1px solid rgba(16,185,129,0.2); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th {
+    text-align: left; padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted); font-size: 0.72rem;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  td { padding: 0.6rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  tr:last-child td { border-bottom: none; }
+
+  /* Purple alert highlight */
+  .purple-section {
+    background: rgba(167,139,250,0.06); border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 10px; padding: 1.75rem 2rem; margin: 1.5rem 0;
+  }
+  .purple-section h3 { margin-top: 0; color: var(--purple); }
+
+  /* Footer */
+  footer {
+    margin-top: 5rem; padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    font-size: 0.8rem; color: var(--muted);
+  }
+  footer a { color: var(--amber); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-tag">Technical Notes — Amber's Angels</div>
+    <h1>For Dr. Cain:<br>Pipeline Architecture &amp; Design Decisions</h1>
+    <p class="header-sub">
+      Prepared June 2026 &middot; Grant Lindberg &middot;
+      <a href="mailto:grant.m.lindberg@googlemail.com">grant.m.lindberg@googlemail.com</a><br>
+      Live system: <a href="https://amberangels.org" target="_blank">amberangels.org</a>
+    </p>
+  </header>
+
+  <!-- TOC -->
+  <div class="toc">
+    <div class="toc-label">In this document</div>
+    <ol>
+      <li><a href="#bolo">BOLO Ingester — end-to-end flow</a></li>
+      <li><a href="#cap">FEMA CAP parser — before &amp; after jargon normalization</a></li>
+      <li><a href="#timing">The timing gap problem</a></li>
+      <li><a href="#fatigue">Alert fatigue, privacy, and opt-in architecture</a></li>
+      <li><a href="#purple">Purple Alert — the one search without a vehicle</a></li>
+    </ol>
+  </div>
+
+  <!-- ── 1. BOLO INGESTER ──────────────────────────── -->
+  <section id="bolo">
+    <div class="section-tag">01</div>
+    <h2>BOLO Ingester — end-to-end flow</h2>
+
+    <p>
+      Not all actionable vehicle data arrives via FEMA IPAWS. Local law enforcement routinely
+      posts BOLOs on departmental Facebook pages, county sheriff websites, and state agency news
+      feeds — often before a formal WEA alert is issued. The BOLO ingestor bridges that gap.
+    </p>
+
+    <h3>Automated crawler path</h3>
+    <p>
+      A configurable crawler polls ~10 sources every 15 minutes: FBI kidnapping/missing RSS, NCMEC
+      press releases, GBI Georgia, ALEA Alabama, TBI Tennessee, and others. Coordinators can add
+      county sheriff feeds from the admin panel. Extraction uses regex, dictionary matching,
+      and spaCy NER — no API call per post. Only posts with sufficient vehicle data
+      (a plate, or make&nbsp;+&nbsp;model, or make&nbsp;+&nbsp;color&nbsp;+&nbsp;area) create an alert.
+    </p>
+
+    <h3>Screenshot upload path</h3>
+    <p>
+      When a coordinator spots a BOLO that the crawler missed — a Facebook post, a regional
+      NextDoor alert, a screenshot forwarded by a volunteer — they upload it directly. The flow:
+    </p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Upload.</strong> Coordinator picks the screenshot in the admin panel.
+          The image (JPEG/PNG) is POSTed to <code>/admin/preview-bolo</code>.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>AI extraction.</strong> Claude Haiku (vision) receives the image with a structured
+          prompt asking for: plate, person name, vehicle color, vehicle make/model, area, and alert
+          classification. Returns structured JSON.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Confirmation gate.</strong> A preview card shows the coordinator exactly what will
+          be written to the watchlist. Nothing is activated yet. The coordinator can discard and
+          re-upload a cleaner image.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>Activation.</strong> Coordinator taps <em>"Alert the Angels."</em> Watchlist entry
+          created, vehicle target written, Discord embed fires (with Wikimedia vehicle photo if
+          available), push notifications sent to pilots in the geographic area.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <strong>Logged permanently.</strong> Every ingested alert — source, extracted vehicle
+          profile, raw text, pilots notified, whether Discord fired — is written to
+          <code>alert_ingestion_log</code>, a permanent table with no purge TTL.
+          (Data governance note below.)
+        </div>
+      </div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>
+        The confirmation gate is intentional. Haiku occasionally misreads a plate character or
+        miscategorizes an alert type on a blurry image. Requiring a human confirmation step before
+        watchlist activation keeps a coordinator in the loop on every BOLO ingest, regardless of
+        source.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. FEMA CAP PARSER ────────────────────────── -->
+  <section id="cap">
+    <div class="section-tag">02</div>
+    <h2>FEMA CAP parser — before &amp; after jargon normalization</h2>
+
+    <p>
+      FEMA IPAWS CMAS alerts are constrained by WEA's 90-character message limit. The CAP XML
+      that dispatching agencies transmit uses heavy abbreviation — the same shorthand broadcasters
+      and dispatchers have used for decades over radio. Our initial parser matched full English
+      words and missed almost everything.
+    </p>
+
+    <h3>Representative input (authentic TBI dispatch style)</h3>
+    <pre><code>AMBER ALERT - TN 05/15/26
+SUSP VEH: 17 BLK CHEV SLVRD PU LP TN/CLZ4471
+KAYLEE R TANNER WF 9YOA BLN HAIR BLU EYS
+SUSP: DEREK J TANNER WM 38YOA ARMED AND DANGEROUS
+LKA: NASHVILLE TN / I-40 WESTBOUND</code></pre>
+
+    <div class="compare">
+      <div class="compare-box before">
+        <div class="compare-label">Before — no normalization</div>
+        <div class="compare-row"><span class="compare-key">plate</span><span class="compare-val val-ok">CLZ4471</span></div>
+        <div class="compare-row"><span class="compare-key">color</span><span class="compare-val val-none">None</span></div>
+        <div class="compare-row"><span class="compare-key">body type</span><span class="compare-val val-none">None</span></div>
+        <div class="compare-row"><span class="compare-key">make</span><span class="compare-val val-none">None</span></div>
+        <div class="compare-row"><span class="compare-key">model</span><span class="compare-val val-none">None</span></div>
+        <div class="compare-row"><span class="compare-key">year</span><span class="compare-val val-none">None</span></div>
+      </div>
+      <div class="compare-box after">
+        <div class="compare-label">After — WEA normalization pass</div>
+        <div class="compare-row"><span class="compare-key">plate</span><span class="compare-val val-ok">CLZ4471</span></div>
+        <div class="compare-row"><span class="compare-key">color</span><span class="compare-val val-ok">black</span></div>
+        <div class="compare-row"><span class="compare-key">body type</span><span class="compare-val val-ok">pickup</span></div>
+        <div class="compare-row"><span class="compare-key">make</span><span class="compare-val val-ok">Chevrolet</span></div>
+        <div class="compare-row"><span class="compare-key">model</span><span class="compare-val val-ok">Silverado</span></div>
+        <div class="compare-row"><span class="compare-key">year</span><span class="compare-val val-ok">2017</span></div>
+      </div>
+    </div>
+
+    <h3>What the normalization pass does</h3>
+    <p>
+      Before any regex matching, the raw CAP text goes through ~50 substitution patterns:
+      color codes (<code>BLK→black</code>, <code>SLV→silver</code>, <code>WHT→white</code>),
+      makes (<code>CHEV/CHVY→chevrolet</code>, <code>TOYT→toyota</code>, <code>HOMD→honda</code>),
+      body types (<code>PU/P-U→pickup</code>, <code>TRK→truck</code>, <code>SED→sedan</code>),
+      and ~50 model name abbreviations (<code>SLVRD→silverado</code>, <code>ACCORD→accord</code>,
+      <code>ALTMA→altima</code>).
+    </p>
+    <p>
+      Year extraction required a secondary fix. The pattern was initially matching
+      <code>05</code> from the date string <code>05/15/26</code> in the headline and
+      returning 2005. A negative lookahead excludes 2-digit tokens followed by
+      <code>/</code>, so the correct <code>17</code> in <code>17 BLK CHEV</code> wins.
+    </p>
+
+    <h3>Why this matters downstream</h3>
+    <p>
+      The vehicle profile unlocks three things that don't fire without it:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Requires</th>
+            <th>Effect</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>YOLO corroboration</td>
+            <td>color or body type</td>
+            <td>+14 pts composite confidence on match; −12/−8 pts on mismatch</td>
+          </tr>
+          <tr>
+            <td>Bayesian prior bonus</td>
+            <td>body type</td>
+            <td>+7 pts for minivan in AMBER (historically over-represented); adjusts score against national fleet distribution</td>
+          </tr>
+          <tr>
+            <td>Vehicle reference photo</td>
+            <td>make + model</td>
+            <td>Wikimedia Commons stock photo attached to Discord embed and push card so volunteers know what they're looking for</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 3. TIMING GAP ─────────────────────────────── -->
+  <section id="timing">
+    <div class="section-tag">03</div>
+    <h2>The timing gap problem</h2>
+
+    <p>
+      The interval between when a triggering event occurs and when widespread notification reaches
+      potential searchers is the problem I spend the most time on. It's the most important operational
+      metric and the one I have the least leverage over.
+    </p>
+    <p>
+      The formal alert path has built-in latency: the event occurs, LEOs gather enough information
+      to assess validity and construct a complete vehicle/plate description, that description goes
+      through the IPAWS authoring system, FEMA broadcasts to carriers, carriers push WEA to handsets.
+      That validation window — the time when LEOs are deciding whether the situation meets criteria —
+      is non-negotiable from a false-alert perspective but it's real time off the clock.
+    </p>
+    <p>
+      The logic behind LEA-activated searches (coordinators with verified departmental email
+      addresses being able to create alerts directly) is specifically to compress that window for
+      agencies that are willing to engage with the platform. A dispatcher could push a BOLO to
+      our volunteers while the formal IPAWS alert is still being composed. I don't have a
+      programmatic way to verify LEA credentials yet — I rely on departmental email domains and
+      keep the activation in an audit log — but the capability is there.
+    </p>
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>
+        Direct LEA activation is an open design question. The tradeoff is speed vs. validation:
+        a dispatcher-created alert could go to volunteers faster but with less validation overhead
+        than the IPAWS path. I'd want an MOU and formal vetting process before marketing this
+        capability to agencies.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. ALERT FATIGUE ──────────────────────────── -->
+  <section id="fatigue">
+    <div class="section-tag">04</div>
+    <h2>Alert fatigue, privacy, and opt-in architecture</h2>
+
+    <p>
+      The standard concern with expanded alert reach is fatigue — too many alerts erodes
+      compliance with all of them. I think opt-in volunteer architecture genuinely changes that
+      calculus compared to WEA broadcast.
+    </p>
+    <p>
+      Our volunteers registered and were vetted. They set their geographic alert range. They
+      can narrow that range if they're getting more alerts than they want to act on. The
+      "every teen who missed curfew" problem doesn't apply the same way when the person
+      receiving the alert is choosing to receive it and has established behavioral commitment
+      through registration. Alert fatigue is still a real concern but the population dynamics
+      are different than broadcast.
+    </p>
+    <p>
+      On privacy: the platform has to be deliberately activated. There is no passive background
+      collection. On Android, volunteers run a foreground service with a persistent notification
+      showing an active frame count and a one-tap stop — the system makes it visible that
+      scanning is happening. On iOS, the camera screen must stay open. Neither runs without
+      explicit user action.
+    </p>
+    <p>
+      One feature I built and then disabled illustrates the tension: dynamic area-based BOLO
+      loading. The idea was that if a volunteer is driving a road trip through multiple counties,
+      the app would automatically load BOLOs for whatever jurisdiction they were driving through
+      and scan continuously. Technically that worked. I disabled it for privacy reasons — a bad
+      actor could use stagnant regional BOLOs as cover to drive several counties while actively
+      scanning every plate they pass. That's not what the platform is for.
+    </p>
+    <div class="callout idea">
+      <span class="callout-icon">◆</span>
+      <div>
+        GPS-based alert scoping also improves on WEA architecture in one concrete way:
+        older handsets report coarse location, and WEA radius targeting can mis-locate them
+        by several miles. Our volunteers transmit phone GPS at ~1 Hz during active missions —
+        we know where they actually are.
+      </div>
+    </div>
+
+    <h3>Minimum search criteria</h3>
+    <p>
+      At core this is a license plate reader platform. Searches without a plate or at minimum
+      a make + color + body type don't produce actionable ALPR results, so the system is
+      structurally biased toward vehicle searches. That's an implicit minimum criteria
+      threshold — not a policy decision, just the reality of what ALPR can do. The one exception
+      is below.
+    </p>
+  </section>
+
+  <!-- ── 5. PURPLE ALERT ───────────────────────────── -->
+  <section id="purple">
+    <div class="section-tag">05</div>
+    <h2>Purple Alert — the one search without a vehicle</h2>
+
+    <div class="purple-section">
+      <h3>Purple Alert (developmental disability)</h3>
+      <p>
+        Missing adults with developmental disabilities frequently seek water — ponds, creeks,
+        drainage ditches, retention basins. Several states issue Purple Alerts for this population
+        via FEMA IPAWS CMAS. Purple is the only alert type where vehicle data isn't the primary
+        search lead.
+      </p>
+      <p>
+        When we ingest a Purple Alert, all notifications carry an extra advisory:
+        <em>"Persons with developmental disabilities often seek water. Check ponds, creeks,
+        drainage ditches, and retention basins first."</em>
+      </p>
+      <p>
+        The more interesting capability: coordinators receive an AI-generated list of
+        bodies of water near the incident report location, pulled from OpenStreetMap via
+        the Overpass API. From that list they can:
+      </p>
+      <ul style="margin: 0.75rem 0 0.75rem 1.25rem; font-size: 0.9rem; line-height: 2;">
+        <li>Assign specific water bodies to available ground volunteers by map pin</li>
+        <li>Dispatch drones automatically to hover over uncovered water bodies</li>
+        <li>Track coverage — which locations have been checked, which are still open</li>
+      </ul>
+      <p style="margin-top: 0.75rem;">
+        The drone dispatch for water coverage is the same MSDK V5 autonomous waypoint path
+        as standard observation missions. The Purple Alert context just pre-populates the
+        mission targets from the water body list rather than requiring a coordinator to
+        manually drop observation pins.
+      </p>
+    </div>
+
+    <div class="callout green">
+      <span class="callout-icon">✓</span>
+      <div>
+        Purple Alert is the clearest example in the platform of alert type driving search
+        behavior rather than just notification. The vehicle pipeline is bypassed entirely;
+        the operational logic changes because the missing person profile changes.
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      Amber's Angels &middot; 501(c)(3) &middot; EIN 42-2052151 &middot;
+      <a href="mailto:info@amberangels.org">info@amberangels.org</a>
+    </div>
+    <div>103 Springwood Dr, Carrollton, GA 30117</div>
+  </footer>
+
+</div>
+</body>
+</html>

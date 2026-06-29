@@ -388,12 +388,16 @@ _MODEL_PATTERNS: list[tuple[str, str]] = [
     (r"\bcorvet\b|\bcorvette\b",      "Corvette"),
 ]
 
-# 2-digit year → 4-digit (for years 95–29 covering 1995–2029)
+# 2-digit year → 4-digit (for years 95–29 covering 1995–2029).
+# Negative lookahead/behind on "/" prevents matching month/day components in
+# date strings like "05/15/26" — the "05" and "26" would otherwise look like years.
 _YEAR_RE = re.compile(
-    r"(?<!\d)"
-    r"(?P<y4>20[0-2]\d|19[89]\d)"    # already 4-digit
+    r"(?<!\d)(?<![-/])"
+    r"(?P<y4>20[0-2]\d|19[89]\d)"           # already 4-digit
     r"|"
-    r"(?P<y2>(?:9[5-9]|0\d|1\d|2[0-9]))(?!\d)"  # 2-digit short form
+    r"(?<!\d)(?<![-/])"
+    r"(?P<y2>(?:9[5-9]|0\d|1\d|2[0-9]))"
+    r"(?!\d)(?![-/])"                        # 2-digit short form, not part of a date
 )
 
 
