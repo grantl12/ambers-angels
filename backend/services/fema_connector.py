@@ -753,9 +753,13 @@ async def _post_discord(webhook_url: str, content: str, *, embeds: list | None =
     if not webhook_url:
         return
     try:
-        payload: dict = {"content": content}
+        payload: dict = {}
+        if content:
+            payload["content"] = content
         if embeds:
             payload["embeds"] = embeds
+        if not payload:
+            return
         async with httpx.AsyncClient(verify=_certifi.where(), timeout=5.0) as client:
             resp = await client.post(webhook_url, json=payload)
         if resp.status_code not in (200, 204):
@@ -769,21 +773,11 @@ async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
     atype   = alert["alert_type"]
     profile = alert.get("vehicle_profile", {})
     vehicle_parts = [p for p in [
-        profile.get("color"), profile.get("body_type"), profile.get("make")
+        profile.get("year"), profile.get("color"), profile.get("make"), profile.get("model"),
+        profile.get("body_type"),
     ] if p]
-    vehicle_line = (
-        f"🚗 **Target vehicle:** {' '.join(vehicle_parts).title()}\n"
-        if vehicle_parts else
-        "⚠️ No plate or vehicle description found — monitor manually.\n"
-    )
-    content = (
-        f"{atype['emoji']} **{atype['short']} — {alert['source_program'].upper()}** {atype['emoji']}\n"
-        f"**Headline:** {alert['headline']}\n"
-        f"**Area:** {alert['area']}\n"
-        f"**Issued:** {alert['sent']}\n"
-        f"{vehicle_line}"
-        f"📋 {alert['description'][:300]}{'...' if len(alert['description']) > 300 else ''}"
-    )
+    vehicle_str = " ".join(vehicle_parts).title() if vehicle_parts else None
+
     img_url = await resolve_vehicle_image_url(
         color=profile.get("color"),
         body_type=profile.get("body_type"),
@@ -791,8 +785,23 @@ async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
         model=profile.get("model"),
         year=profile.get("year"),
     )
-    embeds = [{"image": {"url": img_url}}] if img_url else None
-    await _post_discord(webhook_url, content, embeds=embeds)
+    desc = alert.get("description") or ""
+    fields = [
+        {"name": "📍 Area", "value": alert.get("area") or "—", "inline": True},
+        {"name": "📋 Source", "value": alert.get("source_program") or "—", "inline": True},
+        {"name": "🚗 Vehicle", "value": vehicle_str or "No vehicle description found", "inline": True},
+        {"name": "⚠️ Plates", "value": "None extracted — monitor manually", "inline": False},
+    ]
+    embed: dict = {
+        "title": f"{atype['emoji']} {atype['short']} — {(alert.get('source_program') or '').upper()}",
+        "description": (alert.get("headline") or "") + (f"\n\n{desc[:300]}{'...' if len(desc) > 300 else ''}" if desc else ""),
+        "color": 0xFF8800,
+        "fields": fields,
+        "footer": {"text": f"Issued: {alert.get('sent', '—')}"},
+    }
+    if img_url:
+        embed["thumbnail"] = {"url": img_url}
+    await _post_discord(webhook_url, "", embeds=[embed])
 
 
 async def _notify_vehicle_match(
@@ -806,16 +815,11 @@ async def _notify_vehicle_match(
     """Alert pilots when YOLO sees a vehicle matching an active FEMA vehicle target."""
     atype_key = target.get("alert_type", "amber")
     atype = next((e for e in ALERT_REGISTRY if e["key"] == atype_key), ALERT_REGISTRY[0])
-    target_desc = " ".join(filter(None, [target.get("color"), target.get("body_type"), target.get("make")])).title()
-    content = (
-        f"{atype['emoji']} **VEHICLE MATCH — {atype['short']}** {atype['emoji']}\n"
-        f"**Program:** {target.get('source_program', 'Unknown')}\n"
-        f"**Target:** {target_desc or 'unknown vehicle'}\n"
-        f"**Detected:** {detected_color} {detected_body} (YOLO {yolo_conf:.0%} confidence)\n"
-        f"**Drone:** {drone_id}\n"
-        f"**Alert area:** {target.get('area', '—')}\n"
-        f"⚡ Verify plates immediately — this may be your suspect vehicle."
-    )
+    vehicle_parts = [p for p in [
+        target.get("year"), target.get("color"), target.get("make"),
+        target.get("model"), target.get("body_type"),
+    ] if p]
+    vehicle_str = " ".join(vehicle_parts).title() if vehicle_parts else "Unknown vehicle"
     img_url = await resolve_vehicle_image_url(
         color=target.get("color"),
         body_type=target.get("body_type"),
@@ -823,8 +827,22 @@ async def _notify_vehicle_match(
         model=target.get("model"),
         year=target.get("year"),
     )
-    embeds = [{"image": {"url": img_url}}] if img_url else None
-    await _post_discord(webhook_url, content, embeds=embeds)
+    embed: dict = {
+        "title": f"{atype['emoji']} VEHICLE MATCH — {atype['short']}",
+        "description": f"YOLO detected a **{detected_color} {detected_body}** matching the target profile.",
+        "color": 0xFF0000,
+        "fields": [
+            {"name": "🎯 Target Profile", "value": vehicle_str, "inline": True},
+            {"name": "📡 YOLO Confidence", "value": f"{yolo_conf:.0%}", "inline": True},
+            {"name": "🚁 Drone", "value": drone_id, "inline": True},
+            {"name": "📋 Program", "value": target.get("source_program") or "—", "inline": True},
+            {"name": "📍 Alert Area", "value": target.get("area") or "—", "inline": True},
+        ],
+        "footer": {"text": "⚡ Verify plates immediately — this may be your suspect vehicle."},
+    }
+    if img_url:
+        embed["thumbnail"] = {"url": img_url}
+    await _post_discord(webhook_url, "", embeds=[embed])
 
 
 async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -> None:
@@ -834,15 +852,14 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
     atype      = alert["alert_type"]
     profile    = alert.get("vehicle_profile", {})
     plates_fmt = ", ".join(f"`{p}`" for p in new_plates)
-    content = (
-        f"{atype['emoji']} **{atype['short']} — PLATES ON WATCHLIST** {atype['emoji']}\n"
-        f"**Program:** {alert['source_program']}\n"
-        f"**Headline:** {alert['headline']}\n"
-        f"**Area:** {alert['area']}\n"
-        f"**Plates added:** {plates_fmt}\n"
-        f"**Issued:** {alert['sent']}\n"
-        f"⚡ {atype['cta']}"
-    )
+
+    # Build vehicle description
+    vehicle_parts = [p for p in [
+        profile.get("year"), profile.get("color"), profile.get("make"), profile.get("model"),
+        profile.get("body_type"),
+    ] if p]
+    vehicle_str = " ".join(vehicle_parts).title() if vehicle_parts else None
+
     img_url = await resolve_vehicle_image_url(
         color=profile.get("color"),
         body_type=profile.get("body_type"),
@@ -850,8 +867,30 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
         model=profile.get("model"),
         year=profile.get("year"),
     )
-    embeds = [{"image": {"url": img_url}}] if img_url else None
-    await _post_discord(webhook_url, content, embeds=embeds)
+
+    # Rich Discord embed with structured fields
+    fields = [
+        {"name": "🔍 Plates", "value": plates_fmt, "inline": True},
+        {"name": "📍 Area", "value": alert.get("area") or "—", "inline": True},
+        {"name": "📋 Source", "value": alert.get("source_program") or "—", "inline": True},
+    ]
+    if vehicle_str:
+        fields.append({"name": "🚗 Vehicle", "value": vehicle_str, "inline": True})
+    else:
+        fields.append({"name": "🚗 Vehicle", "value": "No vehicle data on file", "inline": True})
+
+    headline = alert.get("headline") or ""
+    embed: dict = {
+        "title": f"{atype['emoji']} {atype['short']} — PLATES ON WATCHLIST",
+        "description": headline,
+        "color": 0xFF4444,
+        "fields": fields,
+        "footer": {"text": f"⚡ {atype['cta']}"},
+    }
+    if img_url:
+        embed["thumbnail"] = {"url": img_url}
+
+    await _post_discord(webhook_url, "", embeds=[embed])
 
 
 # ---------------------------------------------------------------------------
