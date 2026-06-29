@@ -784,10 +784,12 @@ async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
         f"{vehicle_line}"
         f"📋 {alert['description'][:300]}{'...' if len(alert['description']) > 300 else ''}"
     )
-    img_url = resolve_vehicle_image_url(
+    img_url = await resolve_vehicle_image_url(
         color=profile.get("color"),
         body_type=profile.get("body_type"),
         make=profile.get("make"),
+        model=profile.get("model"),
+        year=profile.get("year"),
     )
     embeds = [{"image": {"url": img_url}}] if img_url else None
     await _post_discord(webhook_url, content, embeds=embeds)
@@ -814,10 +816,12 @@ async def _notify_vehicle_match(
         f"**Alert area:** {target.get('area', '—')}\n"
         f"⚡ Verify plates immediately — this may be your suspect vehicle."
     )
-    img_url = resolve_vehicle_image_url(
+    img_url = await resolve_vehicle_image_url(
         color=target.get("color"),
         body_type=target.get("body_type"),
         make=target.get("make"),
+        model=target.get("model"),
+        year=target.get("year"),
     )
     embeds = [{"image": {"url": img_url}}] if img_url else None
     await _post_discord(webhook_url, content, embeds=embeds)
@@ -839,10 +843,12 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
         f"**Issued:** {alert['sent']}\n"
         f"⚡ {atype['cta']}"
     )
-    img_url = resolve_vehicle_image_url(
+    img_url = await resolve_vehicle_image_url(
         color=profile.get("color"),
         body_type=profile.get("body_type"),
         make=profile.get("make"),
+        model=profile.get("model"),
+        year=profile.get("year"),
     )
     embeds = [{"image": {"url": img_url}}] if img_url else None
     await _post_discord(webhook_url, content, embeds=embeds)
@@ -908,10 +914,12 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     atype = alert["alert_type"]
     centroid = _polygon_to_centroid(alert.get("polygon"))
     profile = alert.get("vehicle_profile", {})
-    vehicle_img = resolve_vehicle_image_url(
+    vehicle_img = await resolve_vehicle_image_url(
         color=profile.get("color"),
         body_type=profile.get("body_type"),
         make=profile.get("make"),
+        model=profile.get("model"),
+        year=profile.get("year"),
     )
 
     # Partition by preference

@@ -350,7 +350,9 @@ export default function AdminPage() {
       const data = await apiGet<BoloSource[]>("/admin/bolo-sources")
       setBoloSources(data)
       setBoloSourcesLoaded(true)
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      setBoloSourceMsg(e instanceof Error ? e.message : "Failed to load — try re-logging in")
+    }
   }
 
   async function toggleBoloSource(id: number, active: boolean) {
