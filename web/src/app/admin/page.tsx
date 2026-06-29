@@ -242,10 +242,18 @@ export default function AdminPage() {
   const [auditLoaded,     setAuditLoaded]     = useState(false)
 
   // BOLO ingestor
-  const [boloFile,      setBoloFile]      = useState<File | null>(null)
-  const [boloUploading, setBoloUploading] = useState(false)
-  const [boloResult,    setBoloResult]    = useState<{plate:string;person:string|null;case:string|null;vehicle:string|null;color:string|null;alert_type:string;headline:string|null;area:string|null} | null>(null)
-  const [boloError,     setBoloError]     = useState<string | null>(null)
+  type BoloExtracted = {
+    plate_text: string; person_name: string | null; case_number: string | null
+    vehicle_make: string | null; vehicle_model: string | null; vehicle_year: string | null
+    vehicle_color: string | null; vehicle_type: string | null
+    alert_type: string; headline: string | null; area: string | null
+  }
+  const [boloFile,        setBoloFile]        = useState<File | null>(null)
+  const [boloUploading,   setBoloUploading]   = useState(false)
+  const [boloConfirming,  setBoloConfirming]  = useState(false)
+  const [boloPreview,     setBoloPreview]     = useState<BoloExtracted | null>(null)
+  const [boloResult,      setBoloResult]      = useState<{plate:string;person:string|null;case:string|null;vehicle:string|null;color:string|null;alert_type:string;headline:string|null;area:string|null} | null>(null)
+  const [boloError,       setBoloError]       = useState<string | null>(null)
 
   // BOLO crawler sources
   const [boloSources,       setBoloSources]       = useState<BoloSource[]>([])
@@ -322,27 +330,51 @@ export default function AdminPage() {
     setBoloUploading(true)
     setBoloError(null)
     setBoloResult(null)
+    setBoloPreview(null)
     try {
       const form = new FormData()
       form.append("file", boloFile)
       const token = getToken()
-      const res = await fetch(`${env.apiBaseUrl}/admin/ingest-bolo`, {
+      const res = await fetch(`${env.apiBaseUrl}/admin/preview-bolo`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }))
-        throw new Error(err.detail ?? `Upload failed: ${res.status}`)
+        throw new Error(err.detail ?? `Extraction failed: ${res.status}`)
       }
-      setBoloResult(await res.json())
-      setBoloFile(null)
-      loadActiveAlerts()
+      setBoloPreview(await res.json())
     } catch (e: unknown) {
-      setBoloError(e instanceof Error ? e.message : "Upload failed")
+      setBoloError(e instanceof Error ? e.message : "Extraction failed")
     } finally {
       setBoloUploading(false)
     }
+  }
+
+  async function confirmBolo() {
+    if (!boloPreview) return
+    setBoloConfirming(true)
+    setBoloError(null)
+    try {
+      const data = await apiPost<{plate:string;person:string|null;case:string|null;vehicle:string|null;color:string|null;alert_type:string;headline:string|null;area:string|null}>(
+        "/admin/confirm-bolo", boloPreview
+      )
+      setBoloResult(data)
+      setBoloPreview(null)
+      setBoloFile(null)
+      loadActiveAlerts()
+    } catch (e: unknown) {
+      setBoloError(e instanceof Error ? e.message : "Activation failed")
+    } finally {
+      setBoloConfirming(false)
+    }
+  }
+
+  function discardBolo() {
+    setBoloPreview(null)
+    setBoloFile(null)
+    setBoloError(null)
   }
 
   async function loadBoloSources() {
@@ -983,32 +1015,75 @@ export default function AdminPage() {
           <div>
             <h2 className="text-sm font-semibold text-sky-400">BOLO Ingestor</h2>
             <p className="text-xs text-white/40 mt-0.5">
-              Upload a screenshot of a social media or public safety BOLO. Claude extracts the plate, vehicle, and person automatically.
+              Upload a screenshot of a social media or public safety BOLO. Claude extracts the plate, vehicle, and person — you confirm before any alert fires.
             </p>
           </div>
-          <label htmlFor="bolo-upload"
-            className="flex items-center gap-2 cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60 hover:bg-white/10 transition-colors">
-            {boloFile ? boloFile.name : "Choose screenshot…"}
-          </label>
-          <input id="bolo-upload" type="file" accept="image/*" className="hidden"
-            onChange={(e) => { setBoloFile(e.target.files?.[0] ?? null); setBoloResult(null); setBoloError(null) }} />
-          {boloFile && (
-            <button onClick={uploadBolo} disabled={boloUploading}
-              className="w-full rounded-lg py-2.5 text-sm font-semibold bg-sky-500 text-black hover:bg-sky-400 disabled:opacity-50 transition-colors">
-              {boloUploading ? "Extracting with Claude…" : "Ingest BOLO"}
-            </button>
+
+          {/* Step 1 — file picker (hidden when preview is showing) */}
+          {!boloPreview && !boloResult && (
+            <>
+              <label htmlFor="bolo-upload"
+                className="flex items-center gap-2 cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60 hover:bg-white/10 transition-colors">
+                {boloFile ? boloFile.name : "Choose screenshot…"}
+              </label>
+              <input id="bolo-upload" type="file" accept="image/*" className="hidden"
+                onChange={(e) => { setBoloFile(e.target.files?.[0] ?? null); setBoloResult(null); setBoloError(null) }} />
+              {boloFile && (
+                <button onClick={uploadBolo} disabled={boloUploading}
+                  className="w-full rounded-lg py-2.5 text-sm font-semibold bg-sky-500 text-black hover:bg-sky-400 disabled:opacity-50 transition-colors">
+                  {boloUploading ? "Extracting with Claude…" : "Extract BOLO Data"}
+                </button>
+              )}
+            </>
           )}
+
+          {/* Step 2 — confirmation gate */}
+          {boloPreview && (
+            <div className="space-y-3">
+              <div className="px-3 py-3 rounded-lg bg-white/5 border border-sky-500/30 text-xs space-y-1.5">
+                <div className="font-semibold text-sky-400 mb-2">Claude extracted the following — review before alerting:</div>
+                <div><span className="text-white/40 w-16 inline-block">Plate</span><span className="font-mono font-bold text-white">{boloPreview.plate_text}</span></div>
+                {boloPreview.alert_type && <div><span className="text-white/40 w-16 inline-block">Type</span><span className="text-white uppercase">{boloPreview.alert_type}</span></div>}
+                {boloPreview.person_name && <div><span className="text-white/40 w-16 inline-block">Person</span><span className="text-white">{boloPreview.person_name}</span></div>}
+                {boloPreview.case_number && <div><span className="text-white/40 w-16 inline-block">Case</span><span className="text-white">{boloPreview.case_number}</span></div>}
+                {(boloPreview.vehicle_make || boloPreview.vehicle_type) && (
+                  <div><span className="text-white/40 w-16 inline-block">Vehicle</span>
+                    <span className="text-white">
+                      {[boloPreview.vehicle_year, boloPreview.vehicle_color, boloPreview.vehicle_make, boloPreview.vehicle_model, boloPreview.vehicle_type].filter(Boolean).join(" ")}
+                    </span>
+                  </div>
+                )}
+                {boloPreview.area && <div><span className="text-white/40 w-16 inline-block">Area</span><span className="text-white">{boloPreview.area}</span></div>}
+                {boloPreview.headline && <div className="text-white/30 pt-1 italic">{boloPreview.headline}</div>}
+              </div>
+              <button onClick={confirmBolo} disabled={boloConfirming}
+                className="w-full rounded-lg py-2.5 text-sm font-semibold bg-red-500 text-white hover:bg-red-400 disabled:opacity-50 transition-colors">
+                {boloConfirming ? "Alerting…" : "🚨 Alert the Angels"}
+              </button>
+              <button onClick={discardBolo} disabled={boloConfirming}
+                className="w-full rounded-lg py-2 text-xs text-white/40 hover:text-white/60 transition-colors">
+                Discard — extraction was wrong
+              </button>
+            </div>
+          )}
+
           {boloError && (
             <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400">{boloError}</div>
           )}
+
+          {/* Step 3 — success */}
           {boloResult && (
             <div className="space-y-1 px-3 py-3 rounded-lg bg-white/5 border border-emerald-500/20 text-xs">
-              <div className="font-semibold text-emerald-400 mb-2">✓ Added to watchlist</div>
-              <div><span className="text-white/40">Plate </span><span className="font-mono font-bold text-white">{boloResult.plate}</span></div>
-              {boloResult.person  && <div><span className="text-white/40">Person  </span><span className="text-white">{boloResult.person}</span></div>}
-              {boloResult.vehicle && <div><span className="text-white/40">Vehicle </span><span className="text-white">{boloResult.vehicle}{boloResult.color ? ` · ${boloResult.color}` : ""}</span></div>}
-              {boloResult.area    && <div><span className="text-white/40">Area    </span><span className="text-white">{boloResult.area}</span></div>}
-              {boloResult.case    && <div><span className="text-white/40">Case    </span><span className="text-white">{boloResult.case}</span></div>}
+              <div className="font-semibold text-emerald-400 mb-2">✓ Alert activated — watchlist updated</div>
+              <div><span className="text-white/40 w-16 inline-block">Plate</span><span className="font-mono font-bold text-white">{boloResult.plate}</span></div>
+              {boloResult.person  && <div><span className="text-white/40 w-16 inline-block">Person</span><span className="text-white">{boloResult.person}</span></div>}
+              {boloResult.vehicle && <div><span className="text-white/40 w-16 inline-block">Vehicle</span><span className="text-white">{boloResult.vehicle}{boloResult.color ? ` · ${boloResult.color}` : ""}</span></div>}
+              {boloResult.area    && <div><span className="text-white/40 w-16 inline-block">Area</span><span className="text-white">{boloResult.area}</span></div>}
+              {boloResult.case    && <div><span className="text-white/40 w-16 inline-block">Case</span><span className="text-white">{boloResult.case}</span></div>}
+              <button onClick={() => { setBoloResult(null); setBoloFile(null) }}
+                className="mt-2 text-white/30 hover:text-white/50 text-[10px] transition-colors">
+                Ingest another BOLO
+              </button>
             </div>
           )}
         </section>
