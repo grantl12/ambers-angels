@@ -51,7 +51,11 @@ async def _wikimedia_photo(make: str, model: str | None, year: str | None) -> st
         queries.append(f"{make} {model}")
     queries.append(make)
 
-    async with httpx.AsyncClient(verify=certifi.where(), timeout=5.0) as client:
+    # Wikimedia requires a descriptive User-Agent or returns 403
+    headers = {
+        "User-Agent": "AmberAngels/1.0 (https://amberangels.org; info@amberangels.org) python-httpx"
+    }
+    async with httpx.AsyncClient(verify=certifi.where(), timeout=5.0, headers=headers) as client:
         for q in queries:
             try:
                 resp = await client.get(COMMONS_API, params={

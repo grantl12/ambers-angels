@@ -445,7 +445,7 @@ async def ingest_bolo(
         "sent": datetime.now(timezone.utc).isoformat(),
         "headline": headline, "description": headline, "area": area,
         "polygon": None, "references": [], "plates": [plate],
-        "vehicle_profile": {"color": color, "body_type": vtype, "make": make},
+        "vehicle_profile": {"color": color, "body_type": vtype, "make": make, "model": model, "year": year},
         "alert_type": next((e for e in ALERT_REGISTRY if e["key"] == atype), ALERT_REGISTRY[0]),
         "source_program": "Social Media BOLO",
     }
