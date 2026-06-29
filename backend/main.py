@@ -450,8 +450,25 @@ async def ingest_bolo(
         "source_program": "Social Media BOLO",
     }
     await _notify_watching_pilots(database.AsyncSessionLocal, alert_obj)
+    discord_fired_ingest = bool(webhook_url)
     if webhook_url:
         await _notify_plates(webhook_url, alert_obj, [plate])
+
+    from services.fema_connector import log_alert_ingestion
+    await log_alert_ingestion(
+        database.AsyncSessionLocal,
+        identifier=fema_id,
+        source="bolo",
+        alert_type=atype,
+        headline=headline,
+        area=area,
+        plates=[plate],
+        vehicle_profile={"color": color, "body_type": vtype, "make": make, "model": model, "year": year},
+        source_program="Social Media BOLO",
+        raw_cap_text=headline,
+        discord_fired=discord_fired_ingest,
+        ingested_by=_payload.get("sub"),
+    )
 
     logger.info("BOLO ingest by %s: plate=%s person=%s case=%s", _payload.get("sub"), plate, name, case_num)
     return {
@@ -557,8 +574,25 @@ async def confirm_bolo(req: dict, _payload: dict = Depends(require_bolo_creator)
         "source_program": "Social Media BOLO",
     }
     await _notify_watching_pilots(database.AsyncSessionLocal, alert_obj)
+    discord_fired = bool(webhook_url)
     if webhook_url:
         await _notify_plates(webhook_url, alert_obj, [plate])
+
+    from services.fema_connector import log_alert_ingestion
+    await log_alert_ingestion(
+        database.AsyncSessionLocal,
+        identifier=fema_id,
+        source="bolo",
+        alert_type=atype,
+        headline=headline,
+        area=area,
+        plates=[plate],
+        vehicle_profile={"color": color, "body_type": vtype, "make": make, "model": model, "year": year},
+        source_program="Social Media BOLO",
+        raw_cap_text=headline,
+        discord_fired=discord_fired,
+        ingested_by=_payload.get("sub"),
+    )
 
     logger.info("BOLO confirm by %s: plate=%s person=%s case=%s", _payload.get("sub"), plate, name, case_num)
     return {

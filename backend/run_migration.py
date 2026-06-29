@@ -251,6 +251,30 @@ CREATE TABLE IF NOT EXISTS water_bodies (
 );
 CREATE INDEX IF NOT EXISTS water_bodies_centroid_idx
     ON water_bodies (centroid_lat, centroid_lng);
+
+-- Alert ingestion log: permanent record of every alert we ingested and how we handled it.
+-- Unlike processed_alerts (dedup only), this preserves the full pipeline trace forever.
+-- Source 'fema' = FEMA CMAS/EAS CAP feed; 'nws' = NWS alerts API; 'bolo' = manual/social BOLO;
+--        'ncmec' = NCMEC RSS; 'namus' = NamUs; 'email_bolo' = email webhook.
+CREATE TABLE IF NOT EXISTS alert_ingestion_log (
+    id              BIGSERIAL PRIMARY KEY,
+    identifier      TEXT NOT NULL,
+    source          VARCHAR(20) NOT NULL,           -- 'fema' | 'nws' | 'bolo' | 'ncmec' | 'namus' | 'email_bolo'
+    alert_type      VARCHAR(20),                    -- 'amber' | 'silver' | 'purple' | 'blue' | etc.
+    headline        TEXT,
+    area            TEXT,
+    plates          TEXT[],                         -- plates extracted from CAP text
+    vehicle_profile JSONB DEFAULT '{}',             -- color, body_type, make, model, year
+    source_program  TEXT,                           -- e.g. 'Tennessee Bureau of Investigation'
+    raw_cap_text    TEXT,                           -- first 4000 chars of CAP description/headline
+    pilots_notified INT DEFAULT 0,                  -- number of Expo push tokens messaged
+    discord_fired   BOOLEAN DEFAULT FALSE,
+    ingested_at     TIMESTAMPTZ DEFAULT NOW(),
+    ingested_by     TEXT                            -- username if manual BOLO, NULL if automated
+);
+CREATE INDEX IF NOT EXISTS alert_ingestion_log_ingested_idx ON alert_ingestion_log (ingested_at DESC);
+CREATE INDEX IF NOT EXISTS alert_ingestion_log_type_idx     ON alert_ingestion_log (alert_type);
+CREATE INDEX IF NOT EXISTS alert_ingestion_log_source_idx   ON alert_ingestion_log (source);
 """
 
 try:

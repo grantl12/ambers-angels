@@ -1072,6 +1072,55 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
 _seen_identifiers: set[str] = set()
 
 
+async def log_alert_ingestion(
+    session_factory,
+    *,
+    identifier: str,
+    source: str,
+    alert_type: str | None,
+    headline: str | None,
+    area: str | None,
+    plates: list[str],
+    vehicle_profile: dict,
+    source_program: str | None,
+    raw_cap_text: str | None,
+    pilots_notified: int = 0,
+    discord_fired: bool = False,
+    ingested_by: str | None = None,
+) -> None:
+    """Write a permanent record to alert_ingestion_log. Fire-and-forget — never raises."""
+    async with session_factory() as session:
+        try:
+            import json as _json
+            await session.execute(text("""
+                INSERT INTO alert_ingestion_log
+                    (identifier, source, alert_type, headline, area, plates,
+                     vehicle_profile, source_program, raw_cap_text,
+                     pilots_notified, discord_fired, ingested_by)
+                VALUES
+                    (:identifier, :source, :alert_type, :headline, :area, :plates,
+                     :vehicle_profile::jsonb, :source_program, :raw_cap_text,
+                     :pilots_notified, :discord_fired, :ingested_by)
+                ON CONFLICT DO NOTHING
+            """), {
+                "identifier":     identifier,
+                "source":         source,
+                "alert_type":     alert_type,
+                "headline":       headline,
+                "area":           area,
+                "plates":         plates,
+                "vehicle_profile": _json.dumps(vehicle_profile or {}),
+                "source_program": source_program,
+                "raw_cap_text":   (raw_cap_text or "")[:4000],
+                "pilots_notified": pilots_notified,
+                "discord_fired":  discord_fired,
+                "ingested_by":    ingested_by,
+            })
+            await session.commit()
+        except Exception as e:
+            logger.warning("alert_ingestion_log write failed: %s", e)
+
+
 async def _load_seen_identifiers(session_factory) -> None:
     """Populate _seen_identifiers from DB on startup so restarts don't re-fire old alerts."""
     async with session_factory() as session:
@@ -1204,8 +1253,23 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             else:
                 logger.debug("%s already on watchlist.", plate)
 
+        discord_fired = bool(new_plates and webhook_url)
         if new_plates and webhook_url:
             await _notify_plates(webhook_url, alert, new_plates)
+
+        await log_alert_ingestion(
+            session_factory,
+            identifier=ident,
+            source="fema",
+            alert_type=atype["key"],
+            headline=alert.get("headline"),
+            area=alert.get("area"),
+            plates=new_plates,
+            vehicle_profile=profile,
+            source_program=alert.get("source_program"),
+            raw_cap_text=alert.get("description"),
+            discord_fired=discord_fired,
+        )
 
 
 # ---------------------------------------------------------------------------
