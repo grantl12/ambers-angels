@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Amber's Angels — Technical Notes for Dr. Cain</title>
+<title>Amber's Angels — Notes for Dr. Cain</title>
 <style>
   :root {
     --amber: #f59e0b;
@@ -181,11 +181,11 @@
 
   <!-- Header -->
   <header class="header">
-    <div class="header-tag">Technical Notes — Amber's Angels</div>
-    <h1>For Dr. Cain:<br>Pipeline Architecture &amp; Design Decisions</h1>
+    <div class="header-tag">Amber's Angels</div>
+    <h1>For Dr. Cain:<br>How the System Works</h1>
     <p class="header-sub">
       Prepared June 2026 &middot; Grant Lindberg &middot;
-      <a href="mailto:grant.m.lindberg@googlemail.com">grant.m.lindberg@googlemail.com</a><br>
+      <a href="mailto:info@amberangels.org">info@amberangels.org</a><br>
       Live system: <a href="https://amberangels.org" target="_blank">amberangels.org</a>
     </p>
   </header>
@@ -194,78 +194,78 @@
   <div class="toc">
     <div class="toc-label">In this document</div>
     <ol>
-      <li><a href="#bolo">BOLO Ingester — end-to-end flow</a></li>
-      <li><a href="#cap">FEMA CAP parser — before &amp; after jargon normalization</a></li>
+      <li><a href="#bolo">BOLO ingestor: pulling alerts from outside the federal feed</a></li>
+      <li><a href="#cap">Reading CAP alerts: before and after abbreviation handling</a></li>
       <li><a href="#timing">The timing gap problem</a></li>
-      <li><a href="#fatigue">Alert fatigue, privacy, and opt-in architecture</a></li>
-      <li><a href="#purple">Purple Alert — the one search without a vehicle</a></li>
+      <li><a href="#fatigue">Alert fatigue, privacy, and opt-in design</a></li>
+      <li><a href="#purple">Purple Alert: the one search without a vehicle</a></li>
     </ol>
   </div>
 
   <!-- ── 1. BOLO INGESTER ──────────────────────────── -->
   <section id="bolo">
     <div class="section-tag">01</div>
-    <h2>BOLO Ingester — end-to-end flow</h2>
+    <h2>BOLO ingestor: pulling alerts from outside the federal feed</h2>
 
     <p>
       Not all actionable vehicle data arrives via FEMA IPAWS. Local law enforcement routinely
       posts BOLOs on departmental Facebook pages, county sheriff websites, and state agency news
-      feeds — often before a formal WEA alert is issued. The BOLO ingestor bridges that gap.
+      feeds, often before a formal WEA alert is issued. The BOLO ingestor is our attempt to
+      bridge that gap.
     </p>
 
-    <h3>Automated crawler path</h3>
+    <h3>Automated monitoring</h3>
     <p>
-      A configurable crawler polls ~10 sources every 15 minutes: FBI kidnapping/missing RSS, NCMEC
-      press releases, GBI Georgia, ALEA Alabama, TBI Tennessee, and others. Coordinators can add
-      county sheriff feeds from the admin panel. Extraction uses regex, dictionary matching,
-      and spaCy NER — no API call per post. Only posts with sufficient vehicle data
-      (a plate, or make&nbsp;+&nbsp;model, or make&nbsp;+&nbsp;color&nbsp;+&nbsp;area) create an alert.
+      A background process checks about 10 sources every 15 minutes: FBI kidnapping and missing
+      persons feeds, NCMEC press releases, GBI Georgia, ALEA Alabama, TBI Tennessee, and others.
+      Coordinators can add county sheriff feeds from the admin panel. Extraction runs entirely on
+      our servers. Only posts with enough vehicle data to be actionable — a plate, or a
+      make&nbsp;+&nbsp;model, or at minimum a make&nbsp;+&nbsp;color&nbsp;+&nbsp;area — create an alert.
     </p>
 
-    <h3>Screenshot upload path</h3>
+    <h3>Screenshot upload</h3>
     <p>
-      When a coordinator spots a BOLO that the crawler missed — a Facebook post, a regional
-      NextDoor alert, a screenshot forwarded by a volunteer — they upload it directly. The flow:
+      When a coordinator spots a BOLO the automated process missed — a Facebook post, a regional
+      alert, a screenshot forwarded by a volunteer — they can upload it directly. The flow:
     </p>
     <div class="flow">
       <div class="flow-step">
         <div class="step-num">1</div>
         <div class="step-body">
-          <strong>Upload.</strong> Coordinator picks the screenshot in the admin panel.
-          The image (JPEG/PNG) is POSTed to <code>/admin/preview-bolo</code>.
+          <strong>Upload.</strong> Coordinator selects a screenshot in the admin panel and submits it.
         </div>
       </div>
       <div class="flow-step">
         <div class="step-num">2</div>
         <div class="step-body">
-          <strong>AI extraction.</strong> Claude Haiku (vision) receives the image with a structured
-          prompt asking for: plate, person name, vehicle color, vehicle make/model, area, and alert
-          classification. Returns structured JSON.
+          <strong>AI reads the image.</strong> A vision AI model scans the screenshot and extracts:
+          plate number, person name, vehicle color, make and model, location, and what type of alert
+          it represents.
         </div>
       </div>
       <div class="flow-step">
         <div class="step-num">3</div>
         <div class="step-body">
           <strong>Confirmation gate.</strong> A preview card shows the coordinator exactly what will
-          be written to the watchlist. Nothing is activated yet. The coordinator can discard and
-          re-upload a cleaner image.
+          go live. Nothing is activated yet. They can discard and re-upload a cleaner image if the
+          extraction looks wrong.
         </div>
       </div>
       <div class="flow-step">
         <div class="step-num">4</div>
         <div class="step-body">
-          <strong>Activation.</strong> Coordinator taps <em>"Alert the Angels."</em> Watchlist entry
-          created, vehicle target written, Discord embed fires (with Wikimedia vehicle photo if
-          available), push notifications sent to pilots in the geographic area.
+          <strong>Activation.</strong> Coordinator taps <em>"Alert the Angels."</em> The plate goes
+          onto the active watchlist, volunteers in the area receive push notifications, and a
+          Discord alert fires with a reference photo of the vehicle when one is available.
         </div>
       </div>
       <div class="flow-step">
         <div class="step-num">5</div>
         <div class="step-body">
-          <strong>Logged permanently.</strong> Every ingested alert — source, extracted vehicle
-          profile, raw text, pilots notified, whether Discord fired — is written to
-          <code>alert_ingestion_log</code>, a permanent table with no purge TTL.
-          (Data governance note below.)
+          <strong>Permanent record.</strong> Every ingested alert is written to a log table that
+          is never purged — source, extracted vehicle description, number of volunteers notified,
+          whether a Discord alert fired. Operational alert records should not share a retention
+          policy with user-collected scan data.
         </div>
       </div>
     </div>
@@ -273,10 +273,9 @@
     <div class="callout note">
       <span class="callout-icon">ℹ</span>
       <div>
-        The confirmation gate is intentional. Haiku occasionally misreads a plate character or
-        miscategorizes an alert type on a blurry image. Requiring a human confirmation step before
-        watchlist activation keeps a coordinator in the loop on every BOLO ingest, regardless of
-        source.
+        The confirmation gate is deliberate. The AI occasionally misreads a plate character or
+        miscategorizes an alert type on a blurry image. A human has to approve every BOLO ingest
+        before it reaches volunteers, regardless of source.
       </div>
     </div>
   </section>
@@ -284,16 +283,17 @@
   <!-- ── 2. FEMA CAP PARSER ────────────────────────── -->
   <section id="cap">
     <div class="section-tag">02</div>
-    <h2>FEMA CAP parser — before &amp; after jargon normalization</h2>
+    <h2>Reading CAP alerts: before and after abbreviation handling</h2>
 
     <p>
-      FEMA IPAWS CMAS alerts are constrained by WEA's 90-character message limit. The CAP XML
-      that dispatching agencies transmit uses heavy abbreviation — the same shorthand broadcasters
-      and dispatchers have used for decades over radio. Our initial parser matched full English
-      words and missed almost everything.
+      FEMA IPAWS CMAS alerts are constrained by WEA's 90-character message limit. The underlying
+      CAP data that dispatching agencies transmit uses heavy abbreviation — the same shorthand
+      broadcasters and dispatchers have used for decades over radio. Our system was initially
+      reading those abbreviations as literal text and finding nothing.
     </p>
 
-    <h3>Representative input (authentic TBI dispatch style)</h3>
+    <h3>What the raw CAP text actually looks like</h3>
+    <p>This is a representative example in authentic TBI dispatch style:</p>
     <pre><code>AMBER ALERT - TN 05/15/26
 SUSP VEH: 17 BLK CHEV SLVRD PU LP TN/CLZ4471
 KAYLEE R TANNER WF 9YOA BLN HAIR BLU EYS
@@ -302,16 +302,16 @@ LKA: NASHVILLE TN / I-40 WESTBOUND</code></pre>
 
     <div class="compare">
       <div class="compare-box before">
-        <div class="compare-label">Before — no normalization</div>
+        <div class="compare-label">Before — reading abbreviations literally</div>
         <div class="compare-row"><span class="compare-key">plate</span><span class="compare-val val-ok">CLZ4471</span></div>
-        <div class="compare-row"><span class="compare-key">color</span><span class="compare-val val-none">None</span></div>
-        <div class="compare-row"><span class="compare-key">body type</span><span class="compare-val val-none">None</span></div>
-        <div class="compare-row"><span class="compare-key">make</span><span class="compare-val val-none">None</span></div>
-        <div class="compare-row"><span class="compare-key">model</span><span class="compare-val val-none">None</span></div>
-        <div class="compare-row"><span class="compare-key">year</span><span class="compare-val val-none">None</span></div>
+        <div class="compare-row"><span class="compare-key">color</span><span class="compare-val val-none">not found</span></div>
+        <div class="compare-row"><span class="compare-key">body type</span><span class="compare-val val-none">not found</span></div>
+        <div class="compare-row"><span class="compare-key">make</span><span class="compare-val val-none">not found</span></div>
+        <div class="compare-row"><span class="compare-key">model</span><span class="compare-val val-none">not found</span></div>
+        <div class="compare-row"><span class="compare-key">year</span><span class="compare-val val-none">not found</span></div>
       </div>
       <div class="compare-box after">
-        <div class="compare-label">After — WEA normalization pass</div>
+        <div class="compare-label">After — abbreviation expansion</div>
         <div class="compare-row"><span class="compare-key">plate</span><span class="compare-val val-ok">CLZ4471</span></div>
         <div class="compare-row"><span class="compare-key">color</span><span class="compare-val val-ok">black</span></div>
         <div class="compare-row"><span class="compare-key">body type</span><span class="compare-val val-ok">pickup</span></div>
@@ -321,50 +321,52 @@ LKA: NASHVILLE TN / I-40 WESTBOUND</code></pre>
       </div>
     </div>
 
-    <h3>What the normalization pass does</h3>
+    <h3>How the expansion works</h3>
     <p>
-      Before any regex matching, the raw CAP text goes through ~50 substitution patterns:
-      color codes (<code>BLK→black</code>, <code>SLV→silver</code>, <code>WHT→white</code>),
-      makes (<code>CHEV/CHVY→chevrolet</code>, <code>TOYT→toyota</code>, <code>HOMD→honda</code>),
-      body types (<code>PU/P-U→pickup</code>, <code>TRK→truck</code>, <code>SED→sedan</code>),
-      and ~50 model name abbreviations (<code>SLVRD→silverado</code>, <code>ACCORD→accord</code>,
-      <code>ALTMA→altima</code>).
+      Before the system tries to read vehicle data, it runs the raw text through a translation
+      table of about 100 abbreviations: color codes
+      (<code>BLK→black</code>, <code>SLV→silver</code>, <code>WHT→white</code>),
+      makes (<code>CHEV→chevrolet</code>, <code>TOYT→toyota</code>),
+      body types (<code>PU→pickup</code>, <code>TRK→truck</code>),
+      and model shorthand (<code>SLVRD→silverado</code>, <code>ALTMA→altima</code>).
+      Once the text reads like English, standard pattern matching works.
     </p>
     <p>
-      Year extraction required a secondary fix. The pattern was initially matching
-      <code>05</code> from the date string <code>05/15/26</code> in the headline and
-      returning 2005. A negative lookahead excludes 2-digit tokens followed by
-      <code>/</code>, so the correct <code>17</code> in <code>17 BLK CHEV</code> wins.
+      Year extraction had a subtle bug: the system was reading <code>05</code> from the date
+      at the top of the alert (<code>05/15/26</code>) and returning 2005 instead of 2017.
+      It now ignores numbers that appear next to date separators, so only the year in the
+      vehicle line counts.
     </p>
 
-    <h3>Why this matters downstream</h3>
+    <h3>Why recovering the full vehicle profile matters</h3>
     <p>
-      The vehicle profile unlocks three things that don't fire without it:
+      A plate number is necessary but not sufficient for building volunteer confidence during
+      a search. The full vehicle profile enables three things that can't happen with a bare plate:
     </p>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Feature</th>
-            <th>Requires</th>
-            <th>Effect</th>
+            <th>Capability</th>
+            <th>Needs</th>
+            <th>What it does</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>YOLO corroboration</td>
+            <td>Visual vehicle matching</td>
             <td>color or body type</td>
-            <td>+14 pts composite confidence on match; −12/−8 pts on mismatch</td>
+            <td>The drone or phone camera can confirm or reject a candidate vehicle by color and shape before the plate is even readable. A mismatch subtracts from the confidence score; a match adds.</td>
           </tr>
           <tr>
-            <td>Bayesian prior bonus</td>
+            <td>Statistical confidence adjustment</td>
             <td>body type</td>
-            <td>+7 pts for minivan in AMBER (historically over-represented); adjusts score against national fleet distribution</td>
+            <td>Minivans are historically over-represented in child abduction cases vs. the national vehicle fleet. The system weights body type matches accordingly.</td>
           </tr>
           <tr>
-            <td>Vehicle reference photo</td>
+            <td>Reference photo for volunteers</td>
             <td>make + model</td>
-            <td>Wikimedia Commons stock photo attached to Discord embed and push card so volunteers know what they're looking for</td>
+            <td>A stock photo of a matching vehicle attaches to the Discord alert and push notification so volunteers know what they're actually looking for.</td>
           </tr>
         </tbody>
       </table>
@@ -377,32 +379,35 @@ LKA: NASHVILLE TN / I-40 WESTBOUND</code></pre>
     <h2>The timing gap problem</h2>
 
     <p>
-      The interval between when a triggering event occurs and when widespread notification reaches
-      potential searchers is the problem I spend the most time on. It's the most important operational
-      metric and the one I have the least leverage over.
+      The interval between when an event occurs and when volunteer searchers have the information
+      they need is the problem I think about most. It's the most important operational variable
+      and the one I have the least leverage over.
     </p>
     <p>
-      The formal alert path has built-in latency: the event occurs, LEOs gather enough information
-      to assess validity and construct a complete vehicle/plate description, that description goes
-      through the IPAWS authoring system, FEMA broadcasts to carriers, carriers push WEA to handsets.
-      That validation window — the time when LEOs are deciding whether the situation meets criteria —
-      is non-negotiable from a false-alert perspective but it's real time off the clock.
+      The formal alert path has built-in latency: officers gather enough information to assess
+      validity and construct a complete vehicle description, that description goes through the
+      IPAWS authoring system, FEMA broadcasts to carriers, carriers push WEA to handsets. That
+      validation window is non-negotiable from a false-alert perspective, but it's real time off
+      the clock. We are completely dependent on what scraps of information those agencies decide
+      to share publicly — we have no integration with their feeds or dispatch systems.
     </p>
     <p>
-      The logic behind LEA-activated searches (coordinators with verified departmental email
-      addresses being able to create alerts directly) is specifically to compress that window for
-      agencies that are willing to engage with the platform. A dispatcher could push a BOLO to
-      our volunteers while the formal IPAWS alert is still being composed. I don't have a
-      programmatic way to verify LEA credentials yet — I rely on departmental email domains and
-      keep the activation in an audit log — but the capability is there.
+      The case for allowing verified law enforcement coordinators to push alerts directly is
+      specifically to compress that window. A dispatcher could notify our volunteers while the
+      formal IPAWS alert is still being composed. Right now I rely on departmental email domains
+      as a soft verification step and keep a full audit log of every activation, but I don't
+      have a reliable way to confirm credentials programmatically. That's an open limitation
+      and an open design question I'd genuinely welcome input on — what criteria should be built
+      in so the capability can't be misused?
     </p>
     <div class="callout warn">
       <span class="callout-icon">⚠</span>
       <div>
-        Direct LEA activation is an open design question. The tradeoff is speed vs. validation:
-        a dispatcher-created alert could go to volunteers faster but with less validation overhead
-        than the IPAWS path. I'd want an MOU and formal vetting process before marketing this
-        capability to agencies.
+        Direct law enforcement activation is a live design question. The tradeoff is speed vs.
+        validation: faster notification, but with less formal gatekeeping than the IPAWS path.
+        An MOU and formal criteria for issuance would need to come before we market this to
+        agencies. We'd want to build in the same kind of minimum criteria the AMBER system uses,
+        or something comparable, so it isn't activated for every minor incident.
       </div>
     </div>
   </section>
@@ -410,98 +415,91 @@ LKA: NASHVILLE TN / I-40 WESTBOUND</code></pre>
   <!-- ── 4. ALERT FATIGUE ──────────────────────────── -->
   <section id="fatigue">
     <div class="section-tag">04</div>
-    <h2>Alert fatigue, privacy, and opt-in architecture</h2>
+    <h2>Alert fatigue, privacy, and opt-in design</h2>
 
     <p>
-      The standard concern with expanded alert reach is fatigue — too many alerts erodes
-      compliance with all of them. I think opt-in volunteer architecture genuinely changes that
-      calculus compared to WEA broadcast.
+      The standard concern with expanded alert reach is fatigue. Too many alerts erodes
+      compliance with all of them. I think opt-in volunteer design genuinely changes that
+      calculus compared to WEA broadcast, for a few reasons.
     </p>
     <p>
-      Our volunteers registered and were vetted. They set their geographic alert range. They
-      can narrow that range if they're getting more alerts than they want to act on. The
-      "every teen who missed curfew" problem doesn't apply the same way when the person
-      receiving the alert is choosing to receive it and has established behavioral commitment
-      through registration. Alert fatigue is still a real concern but the population dynamics
-      are different than broadcast.
+      Volunteers chose to register and set their own geographic alert range. They can narrow
+      that range if they're getting more than they want to act on. The "every teen who missed
+      curfew" problem doesn't land the same way when someone is choosing to receive the alert
+      and showing up with that behavioral commitment. Alert fatigue is still real but the
+      population dynamics are different.
+    </p>
+    <p>
+      On location accuracy: older handsets report coarse location, and WEA radius targeting
+      can mis-locate them by several miles. Volunteers in our system transmit phone GPS
+      approximately once per second during active searches, so we know where they actually
+      are. That lets us be more targeted with who gets alerted and reduces spurious
+      notifications for people outside the actual search area.
     </p>
     <p>
       On privacy: the platform has to be deliberately activated. There is no passive background
-      collection. On Android, volunteers run a foreground service with a persistent notification
-      showing an active frame count and a one-tap stop — the system makes it visible that
-      scanning is happening. On iOS, the camera screen must stay open. Neither runs without
+      collection. On Android, a persistent notification shows that scanning is running and has
+      a one-tap stop button. On iOS, the camera screen must stay open. Neither runs without
       explicit user action.
     </p>
     <p>
-      One feature I built and then disabled illustrates the tension: dynamic area-based BOLO
-      loading. The idea was that if a volunteer is driving a road trip through multiple counties,
-      the app would automatically load BOLOs for whatever jurisdiction they were driving through
-      and scan continuously. Technically that worked. I disabled it for privacy reasons — a bad
-      actor could use stagnant regional BOLOs as cover to drive several counties while actively
-      scanning every plate they pass. That's not what the platform is for.
+      One feature I built and then disabled illustrates the tension well. If a volunteer is
+      driving through several counties on a road trip, the idea was to automatically load BOLOs
+      for each jurisdiction they entered and scan continuously throughout. That worked. I shut
+      it off because a bad actor could use stagnant regional BOLOs as justification to drive
+      several counties while running a plate reader on everyone they passed. That's not what
+      this is for.
     </p>
-    <div class="callout idea">
-      <span class="callout-icon">◆</span>
-      <div>
-        GPS-based alert scoping also improves on WEA architecture in one concrete way:
-        older handsets report coarse location, and WEA radius targeting can mis-locate them
-        by several miles. Our volunteers transmit phone GPS at ~1 Hz during active missions —
-        we know where they actually are.
-      </div>
-    </div>
 
-    <h3>Minimum search criteria</h3>
+    <h3>Structural minimum search criteria</h3>
     <p>
-      At core this is a license plate reader platform. Searches without a plate or at minimum
-      a make + color + body type don't produce actionable ALPR results, so the system is
-      structurally biased toward vehicle searches. That's an implicit minimum criteria
-      threshold — not a policy decision, just the reality of what ALPR can do. The one exception
-      is below.
+      At its core this is a license plate reader platform. Searches without a plate, or at
+      minimum a make and color and body type, don't produce results the system can act on.
+      That's an implicit minimum criteria threshold — not a policy decision, just the reality
+      of what optical character recognition can do. The one exception is below.
     </p>
   </section>
 
   <!-- ── 5. PURPLE ALERT ───────────────────────────── -->
   <section id="purple">
     <div class="section-tag">05</div>
-    <h2>Purple Alert — the one search without a vehicle</h2>
+    <h2>Purple Alert: the one search without a vehicle</h2>
 
     <div class="purple-section">
       <h3>Purple Alert (developmental disability)</h3>
       <p>
-        Missing adults with developmental disabilities frequently seek water — ponds, creeks,
+        Missing adults with developmental disabilities frequently seek water: ponds, creeks,
         drainage ditches, retention basins. Several states issue Purple Alerts for this population
-        via FEMA IPAWS CMAS. Purple is the only alert type where vehicle data isn't the primary
-        search lead.
+        via FEMA IPAWS CMAS. It's the only alert type where vehicle data isn't the primary search lead.
       </p>
       <p>
-        When we ingest a Purple Alert, all notifications carry an extra advisory:
+        When we receive a Purple Alert, all notifications carry an extra line:
         <em>"Persons with developmental disabilities often seek water. Check ponds, creeks,
         drainage ditches, and retention basins first."</em>
       </p>
       <p>
-        The more interesting capability: coordinators receive an AI-generated list of
-        bodies of water near the incident report location, pulled from OpenStreetMap via
-        the Overpass API. From that list they can:
+        The more interesting piece: coordinators receive an automatically generated list of
+        bodies of water near the incident location, pulled from public map data. From that list
+        they can:
       </p>
       <ul style="margin: 0.75rem 0 0.75rem 1.25rem; font-size: 0.9rem; line-height: 2;">
         <li>Assign specific water bodies to available ground volunteers by map pin</li>
-        <li>Dispatch drones automatically to hover over uncovered water bodies</li>
-        <li>Track coverage — which locations have been checked, which are still open</li>
+        <li>Dispatch drones automatically to hover over uncovered locations</li>
+        <li>Track coverage: which sites have been checked, which are still open</li>
       </ul>
       <p style="margin-top: 0.75rem;">
-        The drone dispatch for water coverage is the same MSDK V5 autonomous waypoint path
-        as standard observation missions. The Purple Alert context just pre-populates the
-        mission targets from the water body list rather than requiring a coordinator to
-        manually drop observation pins.
+        The drone dispatch for water coverage uses the same autonomous flight path as standard
+        observation missions. The Purple Alert context just pre-populates the mission targets
+        from the water list rather than requiring a coordinator to manually drop pins.
       </p>
     </div>
 
     <div class="callout green">
       <span class="callout-icon">✓</span>
       <div>
-        Purple Alert is the clearest example in the platform of alert type driving search
-        behavior rather than just notification. The vehicle pipeline is bypassed entirely;
-        the operational logic changes because the missing person profile changes.
+        Purple Alert is the clearest example of alert type shaping search behavior rather than
+        just notification. The vehicle pipeline is bypassed entirely. The operational logic
+        changes because the missing person profile changes.
       </div>
     </div>
   </section>
