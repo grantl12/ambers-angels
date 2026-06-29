@@ -378,7 +378,7 @@ async def ingest_bolo(
     /admin/inject-alert.
     """
     from services.bolo_ingestor import extract_bolo
-    from services.fema_connector import _add_to_watchlist, _notify_watching_pilots, _notify_plates
+    from services.fema_connector import _add_to_watchlist, _notify_watching_pilots, _notify_plates, ALERT_REGISTRY
 
     img_bytes = await file.read()
     if len(img_bytes) > 10 * 1024 * 1024:
@@ -446,7 +446,7 @@ async def ingest_bolo(
         "headline": headline, "description": headline, "area": area,
         "polygon": None, "references": [], "plates": [plate],
         "vehicle_profile": {"color": color, "body_type": vtype, "make": make},
-        "alert_type": {"key": atype, "label": atype.upper(), "emoji": "🚨"},
+        "alert_type": next((e for e in ALERT_REGISTRY if e["key"] == atype), ALERT_REGISTRY[0]),
         "source_program": "Social Media BOLO",
     }
     await _notify_watching_pilots(database.AsyncSessionLocal, alert_obj)
@@ -568,7 +568,7 @@ async def bolo_email_webhook(request: Request):
     If the env var is unset, the endpoint is disabled (returns 503).
     """
     from services.bolo_ingestor import extract_bolo
-    from services.fema_connector import _add_to_watchlist, _notify_watching_pilots, _notify_plates
+    from services.fema_connector import _add_to_watchlist, _notify_watching_pilots, _notify_plates, ALERT_REGISTRY
     import base64 as _b64
 
     secret = os.getenv("BOLO_WEBHOOK_SECRET", "")
@@ -689,7 +689,7 @@ async def bolo_email_webhook(request: Request):
         "headline": headline, "description": headline, "area": area,
         "polygon": None, "references": [], "plates": [plate] if plate else [],
         "vehicle_profile": {"color": color, "body_type": vtype, "make": make},
-        "alert_type": {"key": atype, "label": atype.upper(), "emoji": "🔶"},
+        "alert_type": next((e for e in ALERT_REGISTRY if e["key"] == atype), ALERT_REGISTRY[0]),
         "source_program": "Email BOLO",
     }
     await _notify_watching_pilots(database.AsyncSessionLocal, alert_obj)
