@@ -26,6 +26,7 @@ COMMONS_API    = "https://commons.wikimedia.org/w/api.php"
 
 _cache: dict[str, tuple[str | None, float]] = {}
 _CACHE_TTL = 3600  # 1 hour
+_CACHE_NEG_TTL = 300  # retry failed Wikimedia lookups after 5 min
 
 
 def _card_url(color: str | None, body_type: str | None, make: str | None) -> str | None:
@@ -77,7 +78,8 @@ async def _wikimedia_photo(make: str, model: str | None, year: str | None) -> st
                         "action": "query",
                         "titles": title,
                         "prop": "imageinfo",
-                        "iiprop": "url|size",
+                        "iiprop": "url|size|thumburl",
+                        "iiurlwidth": "400",
                         "format": "json",
                     })
                     info_resp.raise_for_status()
@@ -89,10 +91,11 @@ async def _wikimedia_photo(make: str, model: str | None, year: str | None) -> st
                         info = infos[0]
                         size = info.get("size", 0)
                         url  = info.get("url", "")
-                        # Skip tiny thumbnails and SVGs
+                        # Skip tiny originals and SVGs
                         if size < 50_000 or not url.lower().endswith((".jpg", ".jpeg", ".png")):
                             continue
-                        return url
+                        # Prefer the CDN-resized thumbnail — Discord embeds large originals poorly
+                        return info.get("thumburl") or url
             except Exception as exc:
                 logger.debug("Wikimedia search failed for %r: %s", q, exc)
                 continue
@@ -125,9 +128,12 @@ async def resolve_vehicle_image_url(
 
     cache_key = f"{(make or '').lower()}|{(model or '').lower()}|{(year or '').lower()}"
     cached_val, cached_at = _cache.get(cache_key, (None, 0.0))
-    if time.monotonic() - cached_at < _CACHE_TTL:
-        # cached_val is either a Wikimedia URL or the sentinel "" (meaning "no photo found")
-        return cached_val if cached_val else card
+    if cached_val:
+        if time.monotonic() - cached_at < _CACHE_TTL:
+            return cached_val
+    elif cached_at and time.monotonic() - cached_at < _CACHE_NEG_TTL:
+        # Negative cache: Wikimedia returned nothing recently, use card
+        return card
 
     photo = await _wikimedia_photo(make, model, year)
     _cache[cache_key] = (photo or "", time.monotonic())
