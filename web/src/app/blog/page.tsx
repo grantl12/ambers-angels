@@ -8,6 +8,20 @@ export const metadata: Metadata = {
 
 const WHATS_NEW: { week: string; items: string[] }[] = [
   {
+    week: 'June 30, 2026',
+    items: [
+      'Discord alert notifications upgraded to rich embeds — vehicle reference photo, color-coded alert type, confidence score, and GPS location in a single card. Wikimedia Commons stock photo pulled automatically from make/model; falls back to generated color+type card.',
+      'Purple Alert water advisories now fire to Discord and volunteer push notifications on alert ingestion — includes water body count, nearest body distance, and direct link to dispatch screen.',
+      'BOLO confirmation gate — extracted plate and vehicle details now shown in admin panel for review before adding to watchlist. Prevents auto-ingestion errors from low-quality screenshots.',
+      'Alert ingestion log — every ingested alert (FEMA, NCMEC, NamUs, BOLO) now persisted permanently in alert_ingestion_log. Coordinator audit trail, never purged.',
+      'WEA abbreviation expander — ~50 patterns now normalized before vehicle profile extraction (CHEV → Chevrolet, PU → Pickup, BLK → Black, etc.). Significant improvement on AMBER Alert vehicle data quality.',
+      'Year extraction fix — regex now correctly parses vehicle year from WEA headlines without matching date components (e.g. "05" in "05/15/26" no longer returns 2005).',
+      'Blog Post 3 published: "When Plates Disappear" — switched plate, no readable plate, and the squinting agent. Live at /blog/post-3-when-plates-disappear.',
+      'Pipeline tables restyled across all 7 technical papers — numbered list flow-blocks replaced with bordered step/action tables matching the paper design system.',
+      'CI guard: git restore . added to deploy workflow — server-side file deletions can no longer take pages down across deploys.',
+    ],
+  },
+  {
     week: 'June 23, 2026',
     items: [
       'Purple Alert water search — automated shoreline drone missions for missing persons with autism/developmental disabilities. Queries OpenStreetMap for nearby water bodies, generates perimeter flight plans, dispatches volunteer drones.',
