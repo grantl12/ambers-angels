@@ -91,7 +91,7 @@ const POSTS = [
     title: 'When Plates Disappear',
     date: 'June 30, 2026',
     excerpt: 'Plates fail in two distinct ways and our system handles them differently. Switched plate, no readable plate — here\'s what the pipeline does in each case.',
-    live: false,
+    live: true,
   },
   {
     slug: 'post-4-coverage-map',

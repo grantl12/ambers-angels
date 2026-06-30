@@ -58,12 +58,12 @@ strong { color:var(--navy); font-weight:600; }
     <p class="series-label">The Coverage Gap — Post 3 of 8</p>
     <p class="post-number">A content series on the future of public safety AI</p>
     <h1>When Plates Disappear</h1>
-    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; July 8, 2026</p>
+    <p class="byline">By Grant Lindberg, Founder &amp; Executive Director — <a href="https://amberangels.org">Amber's Angels Inc.</a> &nbsp;·&nbsp; June 30, 2026</p>
   </div>
 </header>
 <main class="main">
 
-  <p class="lede">The plate is the primary key. I want to be honest about that before I say anything else — and honest about exactly what our system does when it fails.</p>
+  <p class="lede">The plate is the primary key. I want to be honest about that — and honest about what we built for the cases where it fails, or when alerts don't have plate data at all.</p>
 
   <h2>How Our Pipeline Actually Works</h2>
   <p>Every detection in Amber's Angels runs two independent checks simultaneously: a plate read (OpenALPR + Plate Recognizer) and a vehicle profile classification (YOLO). These two signals are compared. How the system responds depends on which signals are present, what they say, and whether they agree.</p>
@@ -95,12 +95,24 @@ strong { color:var(--navy); font-weight:600; }
     <div class="issue-content"><p>It is not a positive identification. It is a repositioning cue. The coordinator's job when they receive one is to direct the volunteer toward a better angle — not to act on the alert as if the plate had been confirmed. The channel separation and the 75% cap exist precisely to preserve that distinction.</p></div>
   </div>
 
-  <div class="warning">
-    <p><strong>What neither path solves:</strong> If a suspect switches the plate AND changes the vehicle's visible characteristics — repainting, adding body panels — neither pipeline will find them. That's outside what any automated system can address. Human witnesses remain essential.</p>
-  </div>
+  <p>Three channels. Three different evidentiary weights. A coordinator always knows which signal they're looking at.</p>
+
+  <h2>The Third Problem: Plates That Exist but Can't Be Read Yet</h2>
+  <p>Switched plate. Missing plate. There's a third failure mode that sits between them: the plate is physically present but not readable in this frame. Wrong angle. Too much distance. Motion blur across the characters as the vehicle moves through frame.</p>
+  <p>Today, those frames still burn OCR cycles and generate noise. A volunteer driving past a parked car generates dozens of partial reads before the system gets a clean one — or doesn't.</p>
+  <p>We're building what we call the squinting agent. Rather than running OCR at a fixed interval on every frame regardless of geometry, a lightweight vehicle detector watches for a car to enter frame. When it does, the scan interval tightens and OCR begins. As the vehicle approaches and the plate region grows larger in frame, processing intensifies. When the plate crosses a readability threshold — big enough, sharp enough, close enough to straight-on — the system commits to a full read. When the vehicle moves out of range, the interval drops back to idle.</p>
+  <p>The result is fewer wasted reads on frames where OCR was never going to succeed, and higher confidence on the frames where it can. This is in active development — it requires an on-device version of our YOLO vehicle detector for both Android and iOS. The models exist on the server; the native port is the remaining work.</p>
+
+  <p>The broader thread running through all three: when a signal is degraded, surface that explicitly rather than hiding it behind a number. A coordinator should always know whether they're looking at a confirmed read, a geometric guess, or a repositioning cue.</p>
+
+  <h2>When There's No Vehicle Data at All</h2>
+  <p>Some alerts arrive with no vehicle data to match against — no plate, no color, no body type. Purple Alerts, issued for people with cognitive or developmental disabilities who wander, frequently fall into this category. A partial description if you're lucky. A clock running regardless.</p>
+  <p>Our distributed drone network and on-device AI pipeline give us something to offer even there: eyes on waterways, fast. Profile-only detection isn't a workaround in these searches — it's often the only automated tool available. Getting a drone to a creek or a retention pond in the first minutes of a search is exactly what the platform was built to enable.</p>
+  <p>If you want to read about how we're approaching searches where alerts lack vehicle data entirely — including how we're enabling volunteers to <strong>#SearchWaterFirst</strong> — our Purple Alert framework is here: <a href="https://amberangels.org/papers/purple-alert-water-search">amberangels.org/papers/purple-alert-water-search</a></p>
 
   <h2>Why Honesty Matters Here</h2>
   <p>A coordinator who trusts our system needs to know exactly what it can and can't do. Each of the three detection channels — confirmed plate hit, plate match with profile mismatch, profile match without plate — carries a different evidentiary weight. We've built the system to make that weight visible, not to flatten everything into a single confidence number that obscures what the underlying signal actually is.</p>
+  <p>What neither path solves: if a suspect switches the plate and changes the vehicle's visible characteristics — repainting, adding body panels — neither pipeline will find them. That's outside what any automated system can address. Human witnesses remain essential.</p>
   <p>The plate is still the primary key. Everything else is a cue to go find the plate.</p>
   <p>Next week: where the geographic gaps are biggest — and the communities that feel them most acutely.</p>
 
@@ -111,7 +123,7 @@ strong { color:var(--navy); font-weight:600; }
   </div>
   <div class="series-nav">
     <a href="/blog/post-2-different-questions">← Different Questions</a>
-    <a href="/blog/post-4-coverage-map">The Coverage Map Problem →</a>
+    <a href="/blog">All posts →</a>
   </div>
 </main>
 <footer class="footer">Amber's Angels Inc. &nbsp;·&nbsp; EIN 42-2052151 &nbsp;·&nbsp; 501(c)(3) &nbsp;·&nbsp; Carrollton, Georgia &nbsp;·&nbsp; <a href="https://amberangels.org">amberangels.org</a></footer>
