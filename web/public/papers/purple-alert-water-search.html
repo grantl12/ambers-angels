@@ -41,13 +41,16 @@ em { font-style:italic; }
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .timeline { margin:40px 0; }
 .timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
 .timeline-row:last-child { border-bottom:none; }
@@ -131,19 +134,46 @@ em { font-style:italic; }
 
   <p>When Amber's Angels ingests a Purple Alert, the system makes the same inference a veteran search coordinator would make: <em>check the water first</em>. The difference is speed. A coordinator can begin querying water bodies and planning a shoreline search within seconds of the alert firing.</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Water Search Pipeline</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Alert ingestion.</strong> FEMA IPAWS CEM alert arrives. Keyword classifier identifies it as a Purple Alert. Vehicle targets and watchlist entries are created. Discord and push notifications fire to volunteers in the alert area.</li>
-        <li><strong>Water body query.</strong> The coordinator opens the dispatch screen and taps <em>Water Search</em>. The system queries the OpenStreetMap Overpass API for all water bodies within a configurable radius (default 5 km) of the last known location: lakes, ponds, reservoirs, rivers, and retention basins.</li>
-        <li><strong>Caching and ranking.</strong> Results are cached in a local database table (<code>water_bodies</code>) with a 24-hour TTL. Water bodies are ranked by distance from the last known location and presented with area estimates and names.</li>
-        <li><strong>Perimeter flight plan generation.</strong> The coordinator selects a water body. The system generates a closed-loop shoreline perimeter flight plan at a configurable buffer distance (default 20 m from shore for tree clearance) and altitude (default 15 m AGL). Speed is set to 3 m/s for visual search fidelity.</li>
-        <li><strong>VLOS enforcement.</strong> All generated waypoints are checked against the dispatching drone's VLOS radius (default 400 m from home position). If any waypoint exceeds the limit, the mission is rejected unless the drone has BVLOS authorization.</li>
-        <li><strong>Drone dispatch.</strong> The mission is pushed to a volunteer's drone via the autonomous mission system. The drone uploads the KMZ waypoint file to its flight controller and executes the perimeter trace autonomously.</li>
-        <li><strong>Visual search.</strong> The coordinator watches the live RTMP feed from the drone camera. This is a <em>human visual search</em>&thinsp;&mdash;&thinsp;there is no automated person detection in this path. The coordinator is the sensor. If movement or a person is spotted, the coordinator pauses the drone and relays GPS coordinates to ground units.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Water Search Pipeline</div>
+    <table class="pipeline-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>01</td>
+          <td><strong>Alert ingestion.</strong> FEMA IPAWS CEM alert arrives. Keyword classifier identifies it as a Purple Alert. Vehicle targets and watchlist entries are created. Discord and push notifications fire to volunteers in the alert area.</td>
+        </tr>
+        <tr>
+          <td>02</td>
+          <td><strong>Water body query.</strong> The coordinator opens the dispatch screen and taps <em>Water Search</em>. The system queries the OpenStreetMap Overpass API for all water bodies within a configurable radius (default 5 km) of the last known location: lakes, ponds, reservoirs, rivers, and retention basins.</td>
+        </tr>
+        <tr>
+          <td>03</td>
+          <td><strong>Caching and ranking.</strong> Results are cached in a local database table (<code>water_bodies</code>) with a 24-hour TTL. Water bodies are ranked by distance from the last known location and presented with area estimates and names.</td>
+        </tr>
+        <tr>
+          <td>04</td>
+          <td><strong>Perimeter flight plan generation.</strong> The coordinator selects a water body. The system generates a closed-loop shoreline perimeter flight plan at a configurable buffer distance (default 20 m from shore for tree clearance) and altitude (default 15 m AGL). Speed is set to 3 m/s for visual search fidelity.</td>
+        </tr>
+        <tr>
+          <td>05</td>
+          <td><strong>VLOS enforcement.</strong> All generated waypoints are checked against the dispatching drone's VLOS radius (default 400 m from home position). If any waypoint exceeds the limit, the mission is rejected unless the drone has BVLOS authorization.</td>
+        </tr>
+        <tr>
+          <td>06</td>
+          <td><strong>Drone dispatch.</strong> The mission is pushed to a volunteer's drone via the autonomous mission system. The drone uploads the KMZ waypoint file to its flight controller and executes the perimeter trace autonomously.</td>
+        </tr>
+        <tr>
+          <td>07</td>
+          <td><strong>Visual search.</strong> The coordinator watches the live RTMP feed from the drone camera. This is a <em>human visual search</em>&thinsp;&mdash;&thinsp;there is no automated person detection in this path. The coordinator is the sensor. If movement or a person is spotted, the coordinator pauses the drone and relays GPS coordinates to ground units.</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   <h3>Why Visual Search, Not Automated Detection</h3>
