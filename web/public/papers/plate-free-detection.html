@@ -42,24 +42,27 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE9
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .timeline { margin:40px 0; }
 .timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
 .timeline-row:last-child { border-bottom:none; }
 .timeline-time { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); padding:12px 0; }
 .timeline-event { font-size:10.5pt; padding:12px 0; line-height:1.5; }
 table.scoring { width:100%; border-collapse:collapse; margin:24px 0; font-size:10.5pt; }
-table.scoring th { text-align:left; font-weight:600; color:var(--navy); padding:10px 12px; border-bottom:2px solid var(--navy); }
+table.scoring th { background:var(--navy); color:#FAFAF8; text-align:left; font-weight:600; padding:10px 12px; }
 table.scoring td { padding:10px 12px; border-bottom:1px solid var(--rule); }
 table.scoring td:last-child { text-align:right; font-family:'JetBrains Mono',monospace; font-size:9.5pt; }
 table.scenarios { width:100%; border-collapse:collapse; margin:24px 0; font-size:10pt; }
-table.scenarios th { text-align:left; font-weight:600; color:var(--navy); padding:8px 10px; border-bottom:2px solid var(--navy); font-size:9pt; text-transform:uppercase; letter-spacing:0.05em; }
+table.scenarios th { background:var(--navy); color:#FAFAF8; text-align:left; font-weight:600; padding:8px 10px; font-size:9pt; text-transform:uppercase; letter-spacing:0.05em; }
 table.scenarios td { padding:8px 10px; border-bottom:1px solid var(--rule); vertical-align:top; }
 .ref-list { margin-top:32px; }
 .ref-list li { font-size:9pt; color:var(--muted); margin-bottom:8px; line-height:1.5; list-style:decimal; margin-left:20px; }
@@ -311,20 +314,21 @@ table.scenarios td { padding:8px 10px; border-bottom:1px solid var(--rule); vert
 
   <h2>How the Pipeline Connects</h2>
 
-  <div class="flow-block">
-    <div class="flow-label">Plate-Free Detection Pipeline</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Frame arrives.</strong> Either from a drone RTMP stream (worker picks up JPEG from disk) or a phone camera upload (<code>POST /ingest/frame</code>). Every frame is processed by both ALPR and YOLO, regardless of source.</li>
-        <li><strong>YOLO classification.</strong> YOLOv8-nano runs on the full frame. For each detected vehicle: bounding box extracted, body type classified (car/truck/motorcycle/bus), dominant color computed from upper 60% of bounding box in HSV space via k-means clustering.</li>
-        <li><strong>CDC cascade.</strong> The YOLO bounding box crop is passed to the MobileNetV3 fine-grained classifier (ONNX runtime). Returns a generational make/model label and confidence. Background class results are discarded.</li>
-        <li><strong>Vehicle target check.</strong> Every detected vehicle is compared against active <code>vehicle_targets</code> records (cached, 2-minute refresh). Matches fire a Discord notification with a 10-minute per-target-per-drone cooldown.</li>
-        <li><strong>ALPR runs in parallel.</strong> OpenALPR processes the same frame. If no plates are found, or results fall below the 5-character minimum, the frame enters the vehicle-only aggregation path (step 7).</li>
-        <li><strong>Plate found &mdash; watchlist check.</strong> If ALPR reads a plate, it is checked against the watchlist. If matched, vehicle classification feeds into the confidence score as corroboration (or mismatch penalty). Alert routes to main channel or mismatch channel accordingly.</li>
-        <li><strong>No plate &mdash; vehicle-only aggregation.</strong> If no plate was read but a YOLO vehicle matches an active vehicle target, the detection enters the <code>VehicleOnlyGroup</code> aggregation path. Frames are grouped in a 5-second window per drone per target. The vehicle-only scoring model runs: YOLO base (0&ndash;50) + color bonus (+10) + body type bonus (+10) + CDC bonus (+5) + repetition bonus (+2&ndash;5), capped at 75.</li>
-        <li><strong>Vehicle-only alert dispatch.</strong> If the aggregate score reaches 50 or higher, a vehicle-only alert fires to the dedicated Discord channel. Frame thumbnail and GPS coordinates are attached. The embed directs the coordinator to reposition for a plate read.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Plate-Free Detection Pipeline</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Frame arrives.</strong> Either from a drone RTMP stream (worker picks up JPEG from disk) or a phone camera upload (<code>POST /ingest/frame</code>). Every frame is processed by both ALPR and YOLO, regardless of source.</td></tr>
+        <tr><td>02</td><td><strong>YOLO classification.</strong> YOLOv8-nano runs on the full frame. For each detected vehicle: bounding box extracted, body type classified (car/truck/motorcycle/bus), dominant color computed from upper 60% of bounding box in HSV space via k-means clustering.</td></tr>
+        <tr><td>03</td><td><strong>CDC cascade.</strong> The YOLO bounding box crop is passed to the MobileNetV3 fine-grained classifier (ONNX runtime). Returns a generational make/model label and confidence. Background class results are discarded.</td></tr>
+        <tr><td>04</td><td><strong>Vehicle target check.</strong> Every detected vehicle is compared against active <code>vehicle_targets</code> records (cached, 2-minute refresh). Matches fire a Discord notification with a 10-minute per-target-per-drone cooldown.</td></tr>
+        <tr><td>05</td><td><strong>ALPR runs in parallel.</strong> OpenALPR processes the same frame. If no plates are found, or results fall below the 5-character minimum, the frame enters the vehicle-only aggregation path (step 7).</td></tr>
+        <tr><td>06</td><td><strong>Plate found &mdash; watchlist check.</strong> If ALPR reads a plate, it is checked against the watchlist. If matched, vehicle classification feeds into the confidence score as corroboration (or mismatch penalty). Alert routes to main channel or mismatch channel accordingly.</td></tr>
+        <tr><td>07</td><td><strong>No plate &mdash; vehicle-only aggregation.</strong> If no plate was read but a YOLO vehicle matches an active vehicle target, the detection enters the <code>VehicleOnlyGroup</code> aggregation path. Frames are grouped in a 5-second window per drone per target. The vehicle-only scoring model runs: YOLO base (0&ndash;50) + color bonus (+10) + body type bonus (+10) + CDC bonus (+5) + repetition bonus (+2&ndash;5), capped at 75.</td></tr>
+        <tr><td>08</td><td><strong>Vehicle-only alert dispatch.</strong> If the aggregate score reaches 50 or higher, a vehicle-only alert fires to the dedicated Discord channel. Frame thumbnail and GPS coordinates are attached. The embed directs the coordinator to reposition for a plate read.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <h2>Limitations</h2>

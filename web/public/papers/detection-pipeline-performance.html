@@ -42,13 +42,16 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .timeline { margin:40px 0; }
 .timeline-row { display:grid; grid-template-columns:100px 1fr; gap:0; border-bottom:1px solid var(--rule); }
 .timeline-row:last-child { border-bottom:none; }
@@ -163,19 +166,20 @@ table.data-table .mono { font-family:'JetBrains Mono',monospace; font-size:9pt; 
 
   <p>The phone camera path was used in the June 7 test. A volunteer's phone captures JPEG frames and uploads them via <code>POST /ingest/frame</code> (pilot JWT required, 25 MB frame size limit, image content-type enforced). On the server:</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Phone Camera Detection Flow</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Frame upload.</strong> The mobile app captures a JPEG and POSTs it to the server with drone_id, GPS coordinates (lat, lng, altitude, heading, speed, accuracy), and pilot authentication.</li>
-        <li><strong>CLAHE enhancement.</strong> If the initial ALPR pass returns no results or low confidence, the frame is preprocessed with Contrast Limited Adaptive Histogram Equalization (CLAHE) on the luminance channel&thinsp;&mdash;&thinsp;clip limit 2.0, 8&times;8 tile grid&thinsp;&mdash;&thinsp;and ALPR is run again on the enhanced frame.</li>
-        <li><strong>Perspective deskew.</strong> For each detected plate, OpenALPR returns four corner coordinates. If the plate was captured at an angle, those corners describe a trapezoid. The system applies a perspective transform to warp the plate region into a flat rectangle (400&times;85 px, scaled 3&times;), applies a second CLAHE pass (clip limit 3.0, 4&times;4 grid), and re-runs ALPR on the deskewed crop. If the deskewed confidence exceeds the original, it replaces the result.</li>
-        <li><strong>Vehicle classification.</strong> YOLOv8-nano identifies vehicles in the frame by COCO class (car, truck, motorcycle, bus) with bounding box coordinates and detection confidence. Dominant color is extracted from the upper 60% of the bounding box using k-means clustering in HSV color space (k=3) against eleven named color centroids. A second-stage classifier (CDC/MobileNetV3) runs on the cropped bounding box for fine-grained make/model/generation identification.</li>
-        <li><strong>Plate Recognizer cloud API.</strong> Called only when the ALPR confidence on the best plate exceeds the single-frame high-confidence threshold of 70%. Returns independent make, model, color, and body type information. This preserves the free-tier quota of 2,500 lookups per month by avoiding calls on low-confidence frames.</li>
-        <li><strong>Aggregation and scoring.</strong> The detection is fed into the AggregationService (described below) for composite scoring within a five-second window.</li>
-        <li><strong>Event persistence and alert dispatch.</strong> The EventService persists the detection event and, if the composite score meets the HIGH_CONFIDENCE threshold and the plate matches the active watchlist, dispatches alerts to Discord (with the golden frame attached), optional Twilio SMS, and Expo push notifications to coordinators.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Phone Camera Detection Flow</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Frame upload.</strong> The mobile app captures a JPEG and POSTs it to the server with drone_id, GPS coordinates (lat, lng, altitude, heading, speed, accuracy), and pilot authentication.</td></tr>
+        <tr><td>02</td><td><strong>CLAHE enhancement.</strong> If the initial ALPR pass returns no results or low confidence, the frame is preprocessed with Contrast Limited Adaptive Histogram Equalization (CLAHE) on the luminance channel&thinsp;&mdash;&thinsp;clip limit 2.0, 8&times;8 tile grid&thinsp;&mdash;&thinsp;and ALPR is run again on the enhanced frame.</td></tr>
+        <tr><td>03</td><td><strong>Perspective deskew.</strong> For each detected plate, OpenALPR returns four corner coordinates. If the plate was captured at an angle, those corners describe a trapezoid. The system applies a perspective transform to warp the plate region into a flat rectangle (400&times;85 px, scaled 3&times;), applies a second CLAHE pass (clip limit 3.0, 4&times;4 grid), and re-runs ALPR on the deskewed crop. If the deskewed confidence exceeds the original, it replaces the result.</td></tr>
+        <tr><td>04</td><td><strong>Vehicle classification.</strong> YOLOv8-nano identifies vehicles in the frame by COCO class (car, truck, motorcycle, bus) with bounding box coordinates and detection confidence. Dominant color is extracted from the upper 60% of the bounding box using k-means clustering in HSV color space (k=3) against eleven named color centroids. A second-stage classifier (CDC/MobileNetV3) runs on the cropped bounding box for fine-grained make/model/generation identification.</td></tr>
+        <tr><td>05</td><td><strong>Plate Recognizer cloud API.</strong> Called only when the ALPR confidence on the best plate exceeds the single-frame high-confidence threshold of 70%. Returns independent make, model, color, and body type information. This preserves the free-tier quota of 2,500 lookups per month by avoiding calls on low-confidence frames.</td></tr>
+        <tr><td>06</td><td><strong>Aggregation and scoring.</strong> The detection is fed into the AggregationService (described below) for composite scoring within a five-second window.</td></tr>
+        <tr><td>07</td><td><strong>Event persistence and alert dispatch.</strong> The EventService persists the detection event and, if the composite score meets the HIGH_CONFIDENCE threshold and the plate matches the active watchlist, dispatches alerts to Discord (with the golden frame attached), optional Twilio SMS, and Expo push notifications to coordinators.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <h3>Drone RTMP Pipeline</h3>
@@ -303,17 +307,18 @@ table.data-table .mono { font-family:'JetBrains Mono',monospace; font-size:9pt; 
 
   <p>On passing both checks, the dispatch chain fires in parallel:</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Alert Dispatch Chain</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Discord webhook.</strong> A structured embed is posted to the alert channel with: plate text, drone/device ID, confidence percentage, alert type (AMBER, Silver, Purple, etc.), source program, alert description, GPS coordinates with a Google Maps link, and a vehicle profile comparison block showing YOLO-detected color and body type versus the watchlist profile. If a golden frame exists, it is attached as an image embed. If the detection came from on-device OCR (no frame uploaded), the embed notes this explicitly.</li>
-        <li><strong>Vehicle profile mismatch routing.</strong> If the detected vehicle's color or body type contradicts the watchlist profile, a mismatch penalty is applied (up to &minus;12 points for color, &minus;8 for body type). If the penalized confidence drops below 60%, the alert is routed to a separate mismatch channel for triage rather than the primary alert channel.</li>
-        <li><strong>Twilio SMS.</strong> If the composite confidence meets the SMS threshold (default 90%) and Twilio credentials are configured, a text message is sent to all opted-in coordinators and admins with the plate, confidence, drone ID, and a Google Maps link.</li>
-        <li><strong>Expo push notification.</strong> A high-priority push notification is sent to all approved coordinators and admins with a registered push token. The notification title includes the alert type and plate; the body includes the confidence and GPS coordinates.</li>
-        <li><strong>Database logging.</strong> The detection event status is updated to ALERTED, and the golden frame URL is persisted for future reference and evidence chain-of-custody.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Alert Dispatch Chain</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Discord webhook.</strong> A structured embed is posted to the alert channel with: plate text, drone/device ID, confidence percentage, alert type (AMBER, Silver, Purple, etc.), source program, alert description, GPS coordinates with a Google Maps link, and a vehicle profile comparison block showing YOLO-detected color and body type versus the watchlist profile. If a golden frame exists, it is attached as an image embed. If the detection came from on-device OCR (no frame uploaded), the embed notes this explicitly.</td></tr>
+        <tr><td>02</td><td><strong>Vehicle profile mismatch routing.</strong> If the detected vehicle's color or body type contradicts the watchlist profile, a mismatch penalty is applied (up to &minus;12 points for color, &minus;8 for body type). If the penalized confidence drops below 60%, the alert is routed to a separate mismatch channel for triage rather than the primary alert channel.</td></tr>
+        <tr><td>03</td><td><strong>Twilio SMS.</strong> If the composite confidence meets the SMS threshold (default 90%) and Twilio credentials are configured, a text message is sent to all opted-in coordinators and admins with the plate, confidence, drone ID, and a Google Maps link.</td></tr>
+        <tr><td>04</td><td><strong>Expo push notification.</strong> A high-priority push notification is sent to all approved coordinators and admins with a registered push token. The notification title includes the alert type and plate; the body includes the confidence and GPS coordinates.</td></tr>
+        <tr><td>05</td><td><strong>Database logging.</strong> The detection event status is updated to ALERTED, and the golden frame URL is persisted for future reference and evidence chain-of-custody.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <h2>Test Timeline</h2>

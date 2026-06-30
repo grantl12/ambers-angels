@@ -42,13 +42,16 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .timeline { margin:40px 0; }
 .timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
 .timeline-row:last-child { border-bottom:none; }
@@ -355,19 +358,20 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p><code>POST /admin/inject-alert</code> accepts a plate number, headline, area description, alert type, and optional vehicle profile, and creates a watchlist entry and vehicle target <em>immediately</em>. Discord fires. Push notifications go to volunteers. The mobile app's camera gate opens. The volunteer network is active.</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Direct Injection Pipeline</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Detective arrives on scene.</strong> Plate, vehicle description, and last known location confirmed within minutes.</li>
-        <li><strong>Authorized user opens admin panel.</strong> Enters plate, headline, area, alert type, and vehicle profile. Submits.</li>
-        <li><strong>Watchlist entry created.</strong> Plate added to active watchlist with source metadata. Vehicle target inserted with 24-hour expiry.</li>
-        <li><strong>Active mission auto-created.</strong> If no mission is currently active, the system creates one so the mobile camera gate and web dashboard stay synchronized.</li>
-        <li><strong>Notifications fire.</strong> Discord posts the alert with plate and vehicle details. Expo push notifications sent to volunteers whose watch areas match the alert area.</li>
-        <li><strong>Volunteers activate.</strong> Mobile app camera gate opens. Background phone scanning and drone ALPR begin matching against the new plate.</li>
-        <li><strong>Federal pipeline catches up.</strong> When the FEMA alert eventually fires (30&ndash;180 minutes later), the system deduplicates&thinsp;&mdash;&thinsp;the plate is already on the watchlist.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Direct Injection Pipeline</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Detective arrives on scene.</strong> Plate, vehicle description, and last known location confirmed within minutes.</td></tr>
+        <tr><td>02</td><td><strong>Authorized user opens admin panel.</strong> Enters plate, headline, area, alert type, and vehicle profile. Submits.</td></tr>
+        <tr><td>03</td><td><strong>Watchlist entry created.</strong> Plate added to active watchlist with source metadata. Vehicle target inserted with 24-hour expiry.</td></tr>
+        <tr><td>04</td><td><strong>Active mission auto-created.</strong> If no mission is currently active, the system creates one so the mobile camera gate and web dashboard stay synchronized.</td></tr>
+        <tr><td>05</td><td><strong>Notifications fire.</strong> Discord posts the alert with plate and vehicle details. Expo push notifications sent to volunteers whose watch areas match the alert area.</td></tr>
+        <tr><td>06</td><td><strong>Volunteers activate.</strong> Mobile app camera gate opens. Background phone scanning and drone ALPR begin matching against the new plate.</td></tr>
+        <tr><td>07</td><td><strong>Federal pipeline catches up.</strong> When the FEMA alert eventually fires (30&ndash;180 minutes later), the system deduplicates&thinsp;&mdash;&thinsp;the plate is already on the watchlist.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <p>The endpoint requires coordinator or admin authorization&thinsp;&mdash;&thinsp;specifically, the <code>can_create_bolo</code> permission flag, which is set by an admin per user. This is a deliberate access control: the power to activate a volunteer search network on a plate number must be restricted to vetted individuals. A false injection is not just a nuisance; it directs volunteers to surveil an innocent person's vehicle.</p>

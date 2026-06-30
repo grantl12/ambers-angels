@@ -42,13 +42,16 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .timeline { margin:40px 0; }
 .timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
 .timeline-row:last-child { border-bottom:none; }
@@ -299,19 +302,20 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>When the background scanner reads a plate that appears on the active watchlist, the following occurs:</p>
 
-  <div class="flow-block">
-    <div class="flow-label">On-Device Watchlist Hit Flow</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>On-device OCR.</strong> ML Kit recognizes plate text from the camera frame. The frame is processed locally and never stored or transmitted.</li>
-        <li><strong>Plate candidate filter.</strong> The recognized text passes through the plate heuristic filter (length, character mix, common-word blocklist). Non-plate text is discarded.</li>
-        <li><strong>Server POST.</strong> The plate text, confidence, and GPS coordinates are sent to <code>POST /ingest/detection</code> as form-encoded key-value pairs. No image data.</li>
-        <li><strong>Watchlist lookup.</strong> The server normalizes the plate and checks it against the active watchlist. If the confidence exceeds 55% (after normalization to a 0&ndash;100 scale), the check proceeds.</li>
-        <li><strong>Aggregation.</strong> The detection enters the same 5-second aggregation window used by all detection sources. Multiple readings of the same plate within 5 seconds are correlated into a single snapshot with a composite confidence score.</li>
-        <li><strong>Alert dispatch.</strong> If the aggregated confidence exceeds the high-confidence threshold (85%), a Discord alert fires with the plate, confidence, GPS, and detection source. The Discord message explicitly states: <em>&ldquo;Detection source: On-device OCR &mdash; no frame transmitted.&rdquo;</em> No image is attached because no image exists on the server.</li>
-        <li><strong>Volunteer notification.</strong> The phone receives the <code>watchlist_hit: true</code> response and fires a high-priority local notification with vibration, alerting the volunteer that they have driven past a vehicle matching an active alert.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">On-Device Watchlist Hit Flow</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>On-device OCR.</strong> ML Kit recognizes plate text from the camera frame. The frame is processed locally and never stored or transmitted.</td></tr>
+        <tr><td>02</td><td><strong>Plate candidate filter.</strong> The recognized text passes through the plate heuristic filter (length, character mix, common-word blocklist). Non-plate text is discarded.</td></tr>
+        <tr><td>03</td><td><strong>Server POST.</strong> The plate text, confidence, and GPS coordinates are sent to <code>POST /ingest/detection</code> as form-encoded key-value pairs. No image data.</td></tr>
+        <tr><td>04</td><td><strong>Watchlist lookup.</strong> The server normalizes the plate and checks it against the active watchlist. If the confidence exceeds 55% (after normalization to a 0&ndash;100 scale), the check proceeds.</td></tr>
+        <tr><td>05</td><td><strong>Aggregation.</strong> The detection enters the same 5-second aggregation window used by all detection sources. Multiple readings of the same plate within 5 seconds are correlated into a single snapshot with a composite confidence score.</td></tr>
+        <tr><td>06</td><td><strong>Alert dispatch.</strong> If the aggregated confidence exceeds the high-confidence threshold (85%), a Discord alert fires with the plate, confidence, GPS, and detection source. The Discord message explicitly states: <em>&ldquo;Detection source: On-device OCR &mdash; no frame transmitted.&rdquo;</em> No image is attached because no image exists on the server.</td></tr>
+        <tr><td>07</td><td><strong>Volunteer notification.</strong> The phone receives the <code>watchlist_hit: true</code> response and fires a high-priority local notification with vibration, alerting the volunteer that they have driven past a vehicle matching an active alert.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <p>The entire flow produces a detection event record with <code>frame_id = None</code> and <code>frame_url = None</code>. There is no evidence image. There is a plate reading, a location, a timestamp, and a confidence score. That is sufficient to direct law enforcement to the area. It is not sufficient for a positive identification or an arrest&thinsp;&mdash;&thinsp;nor should it be. The volunteer is a tipster, not a forensic analyst.</p>

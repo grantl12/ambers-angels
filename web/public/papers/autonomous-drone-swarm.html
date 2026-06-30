@@ -42,13 +42,16 @@ code { font-family:'JetBrains Mono',monospace; font-size:0.88em; background:#EDE
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .timeline { margin:40px 0; }
 .timeline-row { display:grid; grid-template-columns:80px 1fr; gap:0; border-bottom:1px solid var(--rule); }
 .timeline-row:last-child { border-bottom:none; }
@@ -177,20 +180,21 @@ table.spec-table td code { font-size:0.85em; }
 
   <p>Every mission follows a defined state machine. Status transitions are timestamp-annotated and persisted in the <code>autonomous_missions</code> table.</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Mission Status Lifecycle</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>pending.</strong> Mission created by coordinator. Waypoints generated and stored. Mission appears in the pilot's pending list on the Autonomous Mission Screen. Pilot polls for pending missions every 30 seconds.</li>
-        <li><strong>uploading.</strong> Pilot taps "Accept &amp; Launch." The app sends a pre-mission acknowledgment (including FAA waiver number for BVLOS missions), then calls <code>startWaypointMission()</code> which builds the KMZ and pushes it to the aircraft via <code>WaypointMissionManager.pushKMZFileToAircraft()</code>. Upload progress events fire to the UI.</li>
-        <li><strong>executing.</strong> KMZ uploaded successfully. <code>WaypointMissionManager.startMission()</code> called. The flight controller begins autonomous waypoint execution. The <code>started_at</code> timestamp is set. Both <code>executing</code> and <code>active</code> are accepted status strings&thinsp;&mdash;&thinsp;the mobile DJI SDK emits <code>executing</code> while the backend treats both identically.</li>
-        <li><strong>relook.</strong> (Sweep/observation missions only.) The detection pipeline identified a medium-confidence plate match on the drone's RTMP stream. The mission is paused for sharper frame capture. See <em>Auto-Relook</em> section below.</li>
-        <li><strong>ready_for_control.</strong> (Water search missions only.) The drone has completed its perimeter trace and hovers at the final waypoint. The coordinator retains live camera view for continued visual search. The pilot sees "Perimeter complete &mdash; hovering" and can tap "Complete Mission" when the coordinator is satisfied.</li>
-        <li><strong>completed.</strong> Mission finished successfully. <code>completed_at</code> timestamp set. The drone returns home (observation/sweep) or remains hovering (water search, until explicit completion).</li>
-        <li><strong>aborted.</strong> Pilot or coordinator manually cancelled the mission. The app calls <code>stopWaypointMission()</code> which halts the flight controller&thinsp;&mdash;&thinsp;the drone hovers in place. RTH can be triggered separately.</li>
-        <li><strong>failed.</strong> Mission timed out or encountered an unrecoverable error. Error message stored in <code>error_msg</code> field.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Mission Status Lifecycle</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>pending.</strong> Mission created by coordinator. Waypoints generated and stored. Mission appears in the pilot's pending list on the Autonomous Mission Screen. Pilot polls for pending missions every 30 seconds.</td></tr>
+        <tr><td>02</td><td><strong>uploading.</strong> Pilot taps "Accept &amp; Launch." The app sends a pre-mission acknowledgment (including FAA waiver number for BVLOS missions), then calls <code>startWaypointMission()</code> which builds the KMZ and pushes it to the aircraft via <code>WaypointMissionManager.pushKMZFileToAircraft()</code>. Upload progress events fire to the UI.</td></tr>
+        <tr><td>03</td><td><strong>executing.</strong> KMZ uploaded successfully. <code>WaypointMissionManager.startMission()</code> called. The flight controller begins autonomous waypoint execution. The <code>started_at</code> timestamp is set. Both <code>executing</code> and <code>active</code> are accepted status strings&thinsp;&mdash;&thinsp;the mobile DJI SDK emits <code>executing</code> while the backend treats both identically.</td></tr>
+        <tr><td>04</td><td><strong>relook.</strong> (Sweep/observation missions only.) The detection pipeline identified a medium-confidence plate match on the drone's RTMP stream. The mission is paused for sharper frame capture. See <em>Auto-Relook</em> section below.</td></tr>
+        <tr><td>05</td><td><strong>ready_for_control.</strong> (Water search missions only.) The drone has completed its perimeter trace and hovers at the final waypoint. The coordinator retains live camera view for continued visual search. The pilot sees "Perimeter complete &mdash; hovering" and can tap "Complete Mission" when the coordinator is satisfied.</td></tr>
+        <tr><td>06</td><td><strong>completed.</strong> Mission finished successfully. <code>completed_at</code> timestamp set. The drone returns home (observation/sweep) or remains hovering (water search, until explicit completion).</td></tr>
+        <tr><td>07</td><td><strong>aborted.</strong> Pilot or coordinator manually cancelled the mission. The app calls <code>stopWaypointMission()</code> which halts the flight controller&thinsp;&mdash;&thinsp;the drone hovers in place. RTH can be triggered separately.</td></tr>
+        <tr><td>08</td><td><strong>failed.</strong> Mission timed out or encountered an unrecoverable error. Error message stored in <code>error_msg</code> field.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <h3>Timeout Cleanup</h3>
@@ -209,17 +213,18 @@ table.spec-table td code { font-size:0.85em; }
 
   <p>The detection pipeline produces a confidence score for every license plate read. Scores above the <code>HIGH_CONFIDENCE_EVENT_MIN_SCORE</code> threshold (85%) trigger an immediate alert&thinsp;&mdash;&thinsp;Discord notification, push notification, and optionally SMS. But what about a read at 78%? The plate <em>might</em> match. The camera angle was bad, or the plate was partially occluded, or the lighting washed out a character. A human would reposition for a better look. The auto-relook flow automates that repositioning.</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Auto-Relook Flow</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Medium-confidence detection.</strong> The unified worker detects a plate match between the single-frame floor (55%) and the high-confidence threshold (85%) on an active drone's RTMP stream.</li>
-        <li><strong>Relook request.</strong> The worker calls <code>POST /autonomous/missions/{id}/relook</code> with the plate text and confidence score. The backend transitions the mission to <code>relook</code> status&thinsp;&mdash;&thinsp;only if the mission is currently <code>executing</code> or <code>active</code>.</li>
-        <li><strong>Drone pauses.</strong> A push notification is sent to the pilot's phone via Expo. The app calls <code>pauseMission()</code> on the DJI SDK. The drone holds its current position in a stable hover.</li>
-        <li><strong>Sharper frames.</strong> Stationary hover produces significantly sharper video frames than in-flight capture. The worker evaluates 3&ndash;5 additional frames from the now-stable RTMP stream.</li>
-        <li><strong>Confirmation or resume.</strong> If the re-evaluation exceeds the high-confidence threshold, the alert fires normally. <code>POST /autonomous/missions/{id}/relook-complete?confirmed=true</code> is called. If the frames do not confirm, <code>confirmed=false</code> is sent. In both cases, the mission status transitions back to <code>executing</code> and the drone resumes its waypoint path automatically.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Auto-Relook Flow</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Medium-confidence detection.</strong> The unified worker detects a plate match between the single-frame floor (55%) and the high-confidence threshold (85%) on an active drone's RTMP stream.</td></tr>
+        <tr><td>02</td><td><strong>Relook request.</strong> The worker calls <code>POST /autonomous/missions/{id}/relook</code> with the plate text and confidence score. The backend transitions the mission to <code>relook</code> status&thinsp;&mdash;&thinsp;only if the mission is currently <code>executing</code> or <code>active</code>.</td></tr>
+        <tr><td>03</td><td><strong>Drone pauses.</strong> A push notification is sent to the pilot's phone via Expo. The app calls <code>pauseMission()</code> on the DJI SDK. The drone holds its current position in a stable hover.</td></tr>
+        <tr><td>04</td><td><strong>Sharper frames.</strong> Stationary hover produces significantly sharper video frames than in-flight capture. The worker evaluates 3&ndash;5 additional frames from the now-stable RTMP stream.</td></tr>
+        <tr><td>05</td><td><strong>Confirmation or resume.</strong> If the re-evaluation exceeds the high-confidence threshold, the alert fires normally. <code>POST /autonomous/missions/{id}/relook-complete?confirmed=true</code> is called. If the frames do not confirm, <code>confirmed=false</code> is sent. In both cases, the mission status transitions back to <code>executing</code> and the drone resumes its waypoint path automatically.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <p>The relook mechanism eliminates a class of false negatives that would otherwise be lost. Without it, a medium-confidence read from a moving drone is discarded and the drone continues past the target. With it, the system pauses, looks again, and either confirms the match or resumes the search&thinsp;&mdash;&thinsp;no human intervention required.</p>

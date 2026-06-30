@@ -42,13 +42,16 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#F0EB
 .stat-cell .cite { font-size:7.5pt; color:var(--rule); margin-top:4px; display:block; }
 .pullquote { background:var(--navy); padding:32px 40px; margin:48px -32px; }
 .pullquote p { font-family:'Playfair Display',serif; font-size:15pt; font-style:italic; color:#FAFAF8; line-height:1.6; border-left:2px solid var(--purple); padding-left:20px; margin:0; }
-.flow-block { margin:40px 0; border:1px solid var(--rule); }
-.flow-label { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
-.flow-content { padding:24px; }
-.flow-content ol { list-style:none; counter-reset:flow; padding:0; }
-.flow-content ol li { counter-increment:flow; padding:10px 0; border-bottom:1px solid var(--rule); font-size:10.5pt; line-height:1.6; display:flex; gap:12px; }
-.flow-content ol li:last-child { border-bottom:none; }
-.flow-content ol li::before { content:counter(flow,decimal-leading-zero); font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); flex-shrink:0; padding-top:2px; }
+.pipeline-wrap { margin:40px 0; border:1px solid var(--rule); overflow:hidden; }
+.pipeline-header { background:var(--navy); padding:12px 24px; font-size:8.5pt; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--purple); }
+.pipeline-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.pipeline-table thead th { background:#1a2e47; color:rgba(250,250,248,0.4); font-family:'JetBrains Mono',monospace; font-size:7.5pt; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; padding:8px 20px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.08); }
+.pipeline-table thead th:first-child { width:56px; text-align:center; }
+.pipeline-table tbody td { padding:16px 20px; vertical-align:top; line-height:1.65; border-bottom:1px solid var(--rule); }
+.pipeline-table tbody td:first-child { font-family:'JetBrains Mono',monospace; font-size:9pt; font-weight:500; color:var(--purple); text-align:center; background:rgba(124,58,237,0.04); border-right:1px solid var(--rule); white-space:nowrap; }
+.pipeline-table tbody tr:last-child td { border-bottom:none; }
+.pipeline-table tbody tr:hover td { background:rgba(0,0,0,0.018); }
+.pipeline-table tbody tr:hover td:first-child { background:rgba(124,58,237,0.07); }
 .comparison-table { width:100%; border-collapse:collapse; margin:40px 0; font-size:10.5pt; }
 .comparison-table th { background:var(--navy); color:#FAFAF8; padding:12px 16px; text-align:left; font-weight:600; font-size:9.5pt; letter-spacing:0.05em; }
 .comparison-table td { padding:12px 16px; border-bottom:1px solid var(--rule); line-height:1.5; }
@@ -155,14 +158,15 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#F0EB
 
   <p>The output is a list of road segments, each with a <code>coverageScore</code> (integer count of cameras that can see it). Two views are exposed via the API:</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Coverage Endpoints</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Coordinator view</strong> (<code>GET /coverage/map</code>). Returns all road segments in the area with their coverage scores. Segments are colored on the mission map from red (score 0 &mdash; no camera coverage) through yellow (sparse) to green (well covered). Camera positions and exact counts are never sent to the client&thinsp;&mdash;&thinsp;only the segment geometry and a bucketed score.</li>
-        <li><strong>Pilot view</strong> (<code>GET /coverage/priority-zones</code>). Returns only uncovered and sparse segments. Segments with coverage scores &ge;&nbsp;3 (<code>_COVERED_MIN</code>) are omitted entirely. Remaining segments are labeled &ldquo;high&rdquo; priority (score 0, no cameras at all) or &ldquo;medium&rdquo; priority (score 1&ndash;2, sparse coverage). This tells a volunteer driver: <em>these are the roads nobody is watching.</em></li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Coverage Endpoints</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Coordinator view</strong> (<code>GET /coverage/map</code>). Returns all road segments in the area with their coverage scores. Segments are colored on the mission map from red (score 0 &mdash; no camera coverage) through yellow (sparse) to green (well covered). Camera positions and exact counts are never sent to the client&thinsp;&mdash;&thinsp;only the segment geometry and a bucketed score.</td></tr>
+        <tr><td>02</td><td><strong>Pilot view</strong> (<code>GET /coverage/priority-zones</code>). Returns only uncovered and sparse segments. Segments with coverage scores &ge;&nbsp;3 (<code>_COVERED_MIN</code>) are omitted entirely. Remaining segments are labeled &ldquo;high&rdquo; priority (score 0, no cameras at all) or &ldquo;medium&rdquo; priority (score 1&ndash;2, sparse coverage). This tells a volunteer driver: <em>these are the roads nobody is watching.</em></td></tr>
+      </tbody>
+    </table>
   </div>
 
   <p>The security model is deliberate. Fixed camera positions are sensitive infrastructure data. The coverage service never exposes camera coordinates or even exact camera counts to the client. Pilots see only the derived priority labels. Coordinators see integer scores. The raw camera table is never queried by the client directly.</p>
@@ -276,17 +280,18 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#F0EB
 
   <p>Event-triggered mobile scanning sidesteps this debate entirely. Here is the data lifecycle for a volunteer detection in Amber&rsquo;s Angels:</p>
 
-  <div class="flow-block">
-    <div class="flow-label">Detection Data Lifecycle</div>
-    <div class="flow-content">
-      <ol>
-        <li><strong>Alert activates.</strong> FEMA IPAWS alert ingested. Watchlist and vehicle targets created. Volunteer scanning enabled.</li>
-        <li><strong>On-device scan.</strong> Volunteer&rsquo;s phone runs ML Kit OCR on camera frames. Raw frames never leave the device. Only extracted plate text, confidence score, and GPS position are transmitted.</li>
-        <li><strong>Non-match discard.</strong> If the scanned plate does not match any active watchlist entry, the detection is processed by the aggregation service and, if it does not reach the alert threshold, is stored as a low-priority detection event. Non-alerted detection events are purged after 30 days.</li>
-        <li><strong>Match alert.</strong> If the plate matches an active watchlist entry with sufficient confidence, a high-confidence alert fires (Discord notification, optional Twilio SMS). The detection event is stored with status <code>alerted</code> as evidence. Alerted events are retained for 365 days, then purged along with any associated golden frame files on disk.</li>
-        <li><strong>Alert resolves.</strong> The FEMA alert is cancelled or a coordinator resolves it. Watchlist entries are deactivated. Scanning stops. No new data is generated.</li>
-      </ol>
-    </div>
+  <div class="pipeline-wrap">
+    <div class="pipeline-header">Detection Data Lifecycle</div>
+    <table class="pipeline-table">
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><strong>Alert activates.</strong> FEMA IPAWS alert ingested. Watchlist and vehicle targets created. Volunteer scanning enabled.</td></tr>
+        <tr><td>02</td><td><strong>On-device scan.</strong> Volunteer&rsquo;s phone runs ML Kit OCR on camera frames. Raw frames never leave the device. Only extracted plate text, confidence score, and GPS position are transmitted.</td></tr>
+        <tr><td>03</td><td><strong>Non-match discard.</strong> If the scanned plate does not match any active watchlist entry, the detection is processed by the aggregation service and, if it does not reach the alert threshold, is stored as a low-priority detection event. Non-alerted detection events are purged after 30 days.</td></tr>
+        <tr><td>04</td><td><strong>Match alert.</strong> If the plate matches an active watchlist entry with sufficient confidence, a high-confidence alert fires (Discord notification, optional Twilio SMS). The detection event is stored with status <code>alerted</code> as evidence. Alerted events are retained for 365 days, then purged along with any associated golden frame files on disk.</td></tr>
+        <tr><td>05</td><td><strong>Alert resolves.</strong> The FEMA alert is cancelled or a coordinator resolves it. Watchlist entries are deactivated. Scanning stops. No new data is generated.</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <p>Telemetry data (volunteer GPS tracks) is purged after 90 days. Non-alerted detections are purged after 30 days. Alerted detections&thinsp;&mdash;&thinsp;actual evidence of a missing person&rsquo;s vehicle being sighted&thinsp;&mdash;&thinsp;are retained for one year. All purges run as daily background tasks.</p>
