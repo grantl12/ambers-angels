@@ -184,6 +184,7 @@ function withNSETarget(config) {
       if (buildConfigsAfter[uuid]?.buildSettings !== undefined) {
         Object.assign(buildConfigsAfter[uuid].buildSettings, {
           CODE_SIGN_STYLE: "Automatic",
+          DEVELOPMENT_TEAM: "9R34NWWUHD",
           INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
           IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
           PRODUCT_BUNDLE_IDENTIFIER: nseBundleId,
