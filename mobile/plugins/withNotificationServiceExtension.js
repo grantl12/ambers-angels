@@ -68,10 +68,13 @@ class NotificationService: UNNotificationServiceExtension {
 }
 `
 
-const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+function buildInfoPlist(bundleId) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleIdentifier</key>
+    <string>${bundleId}</string>
     <key>NSExtension</key>
     <dict>
         <key>NSExtensionPointIdentifier</key>
@@ -82,6 +85,7 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 `
+}
 
 // Xcode 14+ signs resource bundle targets by default, which breaks builds when
 // those bundles don't have a development team. Patch the generated Podfile to
@@ -142,9 +146,12 @@ function withNSEFiles(config) {
     "ios",
     (cfg) => {
       const nseDir = path.join(cfg.modRequest.platformProjectRoot, NSE_TARGET)
+      const nseBundleId = `${cfg.ios.bundleIdentifier}.${NSE_TARGET}`
       fs.mkdirSync(nseDir, { recursive: true })
       fs.writeFileSync(path.join(nseDir, "NotificationService.swift"), SWIFT_SOURCE, "utf8")
-      fs.writeFileSync(path.join(nseDir, "Info.plist"), INFO_PLIST, "utf8")
+      // CFBundleIdentifier is a literal — EAS's xcconfig overrides PRODUCT_BUNDLE_IDENTIFIER
+      // for all targets, which would set it to the parent app's ID and fail validation.
+      fs.writeFileSync(path.join(nseDir, "Info.plist"), buildInfoPlist(nseBundleId), "utf8")
       return cfg
     },
   ])
