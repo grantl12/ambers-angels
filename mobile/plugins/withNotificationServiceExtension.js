@@ -77,11 +77,6 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
-// xcode package stores cross-references as "UUID /* comment */" — strip the comment
-function uuidOnly(ref) {
-  return typeof ref === "string" ? ref.split(" ")[0] : ref
-}
-
 // Write Swift source + Info.plist into the ios/ project directory during pre-build
 function withNSEFiles(config) {
   return withDangerousMod(config, [
@@ -107,6 +102,14 @@ function withNSETarget(config) {
     // Idempotent — skip if already added
     if (proj.pbxTargetByName(NSE_TARGET)) return cfg
 
+    // Snapshot XCBuildConfiguration UUIDs BEFORE addTarget so we can diff
+    // afterwards to find exactly which configs belong to the new NSE target.
+    const objects = proj.hash.project.objects
+    const buildConfigs = objects["XCBuildConfiguration"] || {}
+    const beforeUuids = new Set(
+      Object.keys(buildConfigs).filter((k) => !k.endsWith("_comment"))
+    )
+
     // Create the extension target
     const target = proj.addTarget(NSE_TARGET, "app_extension", NSE_TARGET)
 
@@ -131,38 +134,22 @@ function withNSETarget(config) {
       proj.addToPbxGroup(groupResult.uuid, mainGroupKey)
     }
 
-    // Patch build settings on the target's own configurations.
-    // pbxXCConfigurationListSection() does not exist in the xcode package version
-    // bundled with Expo 54 — go through proj.hash.project.objects directly.
-    const objects = proj.hash.project.objects
-    const nativeTargets = objects["PBXNativeTarget"] || {}
-    const configLists = objects["XCConfigurationList"] || {}
-    const buildConfigs = objects["XCBuildConfiguration"] || {}
+    // Diff: new UUIDs added by addTarget are the NSE's Debug + Release configs
+    const nseConfigUuids = Object.keys(buildConfigs).filter(
+      (k) => !k.endsWith("_comment") && !beforeUuids.has(k)
+    )
 
-    let configListKey = null
-    for (const [key, val] of Object.entries(nativeTargets)) {
-      if (key.endsWith("_comment") || typeof val !== "object" || !val) continue
-      if (val.name === NSE_TARGET) {
-        configListKey = uuidOnly(val.buildConfigurationList)
-        break
-      }
-    }
-
-    if (configListKey) {
-      const configList = configLists[configListKey]
-      const configUuids = (configList?.buildConfigurations ?? []).map((c) => uuidOnly(c.value))
-      for (const uuid of configUuids) {
-        if (buildConfigs[uuid]?.buildSettings) {
-          Object.assign(buildConfigs[uuid].buildSettings, {
-            CODE_SIGN_STYLE: "Automatic",
-            INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
-            IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
-            PRODUCT_BUNDLE_IDENTIFIER: nseBundleId,
-            SKIP_INSTALL: "YES",
-            SWIFT_VERSION: "5.0",
-            TARGETED_DEVICE_FAMILY: '"1,2"',
-          })
-        }
+    for (const uuid of nseConfigUuids) {
+      if (buildConfigs[uuid]?.buildSettings !== undefined) {
+        Object.assign(buildConfigs[uuid].buildSettings, {
+          CODE_SIGN_STYLE: "Automatic",
+          INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
+          IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
+          PRODUCT_BUNDLE_IDENTIFIER: nseBundleId,
+          SKIP_INSTALL: "YES",
+          SWIFT_VERSION: "5.0",
+          TARGETED_DEVICE_FAMILY: '"1,2"',
+        })
       }
     }
 
