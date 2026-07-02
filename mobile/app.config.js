@@ -77,6 +77,7 @@ module.exports = {
 
     android: {
       package: "com.ambersangels.app",
+      versionCode: 2,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#050a0f",
