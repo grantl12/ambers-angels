@@ -39,6 +39,7 @@ from services.fema_connector import (
     _notify_cancelled,
     _push_notify_cancelled,
     _upsert_alert_areas,
+    log_alert_ingestion,
     ALERT_REGISTRY,
 )
 
@@ -383,7 +384,7 @@ async def _process_alerts(
             refs = alert.get("references", [])
             if not any(r in _seen_identifiers for r in refs):
                 continue
-            logger.info("[%s] ALERT CANCELLED — references: %s", source, refs)
+            logger.info("[%s] ALERT CANCELLED — id=%s refs=%s", source, ident, refs)
             deactivated = await _deactivate_by_references(session_factory, refs)
             if deactivated:
                 logger.info("[%s] Deactivated plates: %s", source, deactivated)
@@ -396,24 +397,35 @@ async def _process_alerts(
         # ── Active alert ──────────────────────────────────────────────────────
         last_alert_seen_at = datetime.now(timezone.utc)
         atype = alert["alert_type"]
+        profile = alert.get("vehicle_profile", {})
+        plates = alert.get("plates", [])
 
         logger.info(
             "[%s] %s: %s | Area: %s",
             source, atype["short"], alert["headline"], alert["area"],
+        )
+        logger.info(
+            "[%s] Plates: %s | Vehicle: color=%s type=%s make=%s | ID: %s",
+            source,
+            plates if plates else ["(none)"],
+            profile.get("color", "?"),
+            profile.get("yolo_body_type", "?"),
+            profile.get("make", "?"),
+            ident,
         )
 
         await _upsert_alert_areas(session_factory, alert["area"])
         await _add_vehicle_target(session_factory, alert)
         await _notify_watching_pilots(session_factory, alert)
 
-        if not alert["plates"]:
+        discord_fired = False
+        if not plates:
             logger.warning("[%s] No plate found — sending no-plate notification.", source)
             if webhook_url:
                 await _notify_no_plate(webhook_url, alert)
         else:
             new_plates: list[str] = []
-            profile = alert.get("vehicle_profile", {})
-            for plate in alert["plates"]:
+            for plate in plates:
                 desc = (
                     f"{alert['source_program']} | {alert['headline']} | "
                     f"Area: {alert['area']} | Issued: {alert['sent']} | ID: {ident}"
@@ -428,9 +440,27 @@ async def _process_alerts(
                 )
                 if inserted:
                     new_plates.append(plate)
+                    logger.info("[%s] Watchlist: added %s", source, plate)
+                else:
+                    logger.info("[%s] Watchlist: %s already present", source, plate)
 
+            discord_fired = bool(new_plates and webhook_url)
             if new_plates and webhook_url:
                 await _notify_plates(webhook_url, alert, new_plates)
+
+        await log_alert_ingestion(
+            session_factory,
+            identifier=ident,
+            source=source.lower(),
+            alert_type=atype["key"],
+            headline=alert.get("headline"),
+            area=alert.get("area"),
+            plates=plates,
+            vehicle_profile=profile,
+            source_program=alert.get("source_program"),
+            raw_cap_text=alert.get("description"),
+            discord_fired=discord_fired,
+        )
 
         processed += 1
 
