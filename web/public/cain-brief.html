@@ -199,6 +199,7 @@
       <li><a href="#timing">The timing gap problem</a></li>
       <li><a href="#fatigue">Alert fatigue, privacy, and opt-in design</a></li>
       <li><a href="#purple">Purple Alert: the one search without a vehicle</a></li>
+      <li><a href="#live-log">Live alert record: California AMBER Alert, July 1 2026</a></li>
     </ol>
   </div>
 
@@ -500,6 +501,169 @@ LKA: NASHVILLE TN / I-40 WESTBOUND</code></pre>
         Purple Alert is the clearest example of alert type shaping search behavior rather than
         just notification. The vehicle pipeline is bypassed entirely. The operational logic
         changes because the missing person profile changes.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. LIVE ALERT RECORD ────────────────────────── -->
+  <section id="live-log">
+    <div class="section-tag">06</div>
+    <h2>Live alert record: California AMBER Alert, July 1 2026</h2>
+
+    <p>
+      This section is an honest account of how the system performed during a real AMBER Alert
+      that was active while this document was being prepared. It includes what we logged, what
+      we didn't log, and what the system did in response. The logging gap described below has
+      since been corrected.
+    </p>
+
+    <h3>The alert</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Alert type</td><td>Child Abduction Emergency (AMBER Alert)</td></tr>
+          <tr><td>Source</td><td>NWS Alerts API — <code>api.weather.gov/alerts/active</code></td></tr>
+          <tr><td>NWS identifier</td><td><code>2600758927273051</code></td></tr>
+          <tr><td>Issued</td><td>3:15 AM PT / 6:15 AM ET, July 1 2026</td></tr>
+          <tr><td>Area</td><td>Alameda County CA · Kern County CA · Los Angeles County CA · San Joaquin County CA</td></tr>
+          <tr><td>Plate extracted</td><td><code>7SJW989</code></td></tr>
+          <tr><td>Vehicle extracted</td><td>White Mazda (body type: car)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>What the system did — timeline</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>6:14 AM ET — poll cycle, no alert.</strong> The NWS poller ran its standard
+          2-minute cycle and returned zero new Child Abduction Emergency alerts.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>6:16 AM ET — alert detected.</strong> The next poll cycle returned one new CAE
+          alert. The system extracted plate <code>7SJW989</code> and a white Mazda vehicle profile
+          from the alert text. A vehicle target row was written to the database immediately.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>6:16 AM ET — Wikimedia vehicle image lookup.</strong> The system queried Wikimedia
+          Commons for a reference photo of the vehicle (Mazda CX-5) to attach to the Discord alert
+          so volunteers know what they are looking for.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>6:16 AM ET — push notification sent.</strong> One registered volunteer device
+          received an Expo push notification. Three additional pilots whose watch areas overlapped
+          would have received email — SMTP was not configured at the time, so those were skipped.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <strong>6:16 AM ET — Discord alert fired.</strong> A Discord webhook posted the alert
+          to the internal operator channel, including the plate, vehicle description, and the
+          reference photo of the Mazda CX-5.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <strong>Plate <code>7SJW989</code> active on watchlist.</strong> The plate entered the
+          active watchlist immediately and would have triggered a confidence-weighted hit on any
+          volunteer scan that matched it — phone camera or drone.
+        </div>
+      </div>
+    </div>
+
+    <p>
+      End-to-end latency from NWS alert issuance (3:15 AM PT) to watchlist activation was
+      approximately 61 minutes. That gap is NWS propagation delay, not system delay — the system
+      processed the alert within seconds of it appearing in the NWS feed. Our poll cycle adds at
+      most 2 minutes of additional latency.
+    </p>
+
+    <h3>What we logged — and what we didn't</h3>
+    <p>
+      At the time of this alert, the NWS/EAS polling path was logging at a summary level only.
+      The log entry recorded was:
+    </p>
+    <pre><code>2026-07-01 10:16:29 [INFO] [NWS] AMBER: AMBER Alert | Area: Alameda, CA,Kern, CA,Los Angeles, CA,San Joaquin, CA</code></pre>
+    <p>
+      What that line omits:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Logged?</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td>Plate number extracted</td><td style="color:var(--red)">Not logged at INFO level</td><td>Can't confirm extraction without reading the database</td></tr>
+          <tr><td>Vehicle profile (color, make, type)</td><td style="color:var(--red)">Not logged at INFO level</td><td>No way to verify what was dispatched from the log alone</td></tr>
+          <tr><td>Raw NWS alert text (description field)</td><td style="color:var(--red)">Not saved anywhere</td><td>Original message that created the alert is unrecoverable once NWS expires it — typically within 24 hours</td></tr>
+          <tr><td>Full headline from NWS</td><td style="color:var(--red)">Not saved anywhere</td><td>Same as above</td></tr>
+          <tr><td>Watchlist insert confirmed</td><td style="color:var(--red)">Not logged</td><td>No log confirmation that the plate actually entered the watchlist vs. failing silently</td></tr>
+          <tr><td>Watchlist DB record</td><td style="color:var(--green)">Saved permanently</td><td>Plate, vehicle fields, source, timestamp — retained in database</td></tr>
+          <tr><td>Expo push sent (1 device)</td><td style="color:var(--green)">Logged</td><td>HTTP 200 from Expo push API confirmed in log</td></tr>
+          <tr><td>Discord webhook fired</td><td style="color:var(--green)">Logged</td><td>HTTP 204 from Discord API confirmed in log</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>
+        The origination message — the raw text that NWS published when the alert was issued —
+        was not saved. NWS does not archive expired alerts through their public API beyond
+        roughly 24 hours. Because we were only logging a one-line summary, the full alert
+        description (including what the alert text actually said about the vehicle and the child)
+        is permanently unrecoverable for this event.
+      </div>
+    </div>
+
+    <h3>What changed after this alert</h3>
+    <p>
+      On July 1 2026, the NWS/EAS polling path was updated to:
+    </p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Log plates and vehicle profile at INFO level</strong> immediately on detection,
+          so the extracted data is visible in PM2 logs without needing to query the database.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Log per-plate watchlist confirmation</strong> — each plate is now explicitly
+          logged as "added" or "already present" when it hits the watchlist insert.
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Write a permanent row to <code>alert_ingestion_log</code></strong> for every
+          processed alert. This table is never purged. Each row stores: the NWS identifier,
+          source, alert type, headline, area, plate array, full vehicle profile JSON, source
+          program string, the first 4,000 characters of the raw description text, and whether
+          Discord fired. The FEMA CMAS path already wrote to this table; the NWS/EAS path did not.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout green">
+      <span class="callout-icon">✓</span>
+      <div>
+        Going forward, every alert processed by any ingest path — FEMA CMAS, FEMA EAS, NWS,
+        NamUs, or BOLO upload — produces a permanent <code>alert_ingestion_log</code> row that
+        includes the raw source text. The gap described above will not recur.
       </div>
     </div>
   </section>
