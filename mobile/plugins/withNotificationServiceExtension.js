@@ -166,14 +166,23 @@ function withNSETarget(config) {
       proj.addToPbxGroup(groupResult.uuid, mainGroupKey)
     }
 
-    // Diff: new UUIDs added by addTarget are the NSE's Debug + Release configs
-    const nseConfigUuids = Object.keys(buildConfigs).filter(
+    // Diff: new UUIDs added by addTarget are the NSE's Debug + Release configs.
+    // Re-read from objects in case addTarget replaced the section reference.
+    const buildConfigsAfter = objects["XCBuildConfiguration"] || {}
+    const nseConfigUuids = Object.keys(buildConfigsAfter).filter(
       (k) => !k.endsWith("_comment") && !beforeUuids.has(k)
     )
 
+    if (nseConfigUuids.length === 0) {
+      throw new Error(
+        `withNotificationServiceExtension: addTarget created no new XCBuildConfiguration entries ` +
+        `(beforeUuids: ${beforeUuids.size}). Cannot set PRODUCT_BUNDLE_IDENTIFIER.`
+      )
+    }
+
     for (const uuid of nseConfigUuids) {
-      if (buildConfigs[uuid]?.buildSettings !== undefined) {
-        Object.assign(buildConfigs[uuid].buildSettings, {
+      if (buildConfigsAfter[uuid]?.buildSettings !== undefined) {
+        Object.assign(buildConfigsAfter[uuid].buildSettings, {
           CODE_SIGN_STYLE: "Automatic",
           INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
           IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
