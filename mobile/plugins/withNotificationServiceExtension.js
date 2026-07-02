@@ -5,8 +5,7 @@
  * vehicleImageUrl from the notification payload, attaching it as a banner
  * image. Without this, iOS cannot show images in push notification banners.
  *
- * Requires mutable-content: 1 in the APNs payload — set via mutableContent: true
- * in the Expo push message (handled in fema_connector.py).
+ * Requires mutableContent: true in the Expo push message (set in fema_connector.py).
  */
 
 const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins")
@@ -15,8 +14,7 @@ const fs = require("fs")
 
 const NSE_TARGET = "NotificationServiceExtension"
 
-const SWIFT_SOURCE = `
-import UserNotifications
+const SWIFT_SOURCE = `import UserNotifications
 
 class NotificationService: UNNotificationServiceExtension {
     var contentHandler: ((UNNotificationContent) -> Void)?
@@ -62,7 +60,7 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
 }
-`.trimStart()
+`
 
 const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -78,6 +76,11 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 `
+
+// xcode package stores cross-references as "UUID /* comment */" — strip the comment
+function uuidOnly(ref) {
+  return typeof ref === "string" ? ref.split(" ")[0] : ref
+}
 
 // Write Swift source + Info.plist into the ios/ project directory during pre-build
 function withNSEFiles(config) {
@@ -99,13 +102,13 @@ function withNSETarget(config) {
     const proj = cfg.modResults
     const bundleId = cfg.ios.bundleIdentifier
     const nseBundleId = `${bundleId}.${NSE_TARGET}`
-    const deploymentTarget = cfg.ios.deploymentTarget ?? "15.1"
+    const deploymentTarget = cfg.ios.deploymentTarget || "15.1"
 
-    // Idempotent — skip if already added (e.g. re-running prebuild)
+    // Idempotent — skip if already added
     if (proj.pbxTargetByName(NSE_TARGET)) return cfg
 
-    // Create the extension target
-    const target = proj.addTarget(NSE_TARGET, "app_extension", NSE_TARGET, nseBundleId)
+    // Create the extension target (3 args — 4th arg is groupName, not bundleId)
+    const target = proj.addTarget(NSE_TARGET, "app_extension", NSE_TARGET)
 
     // Build phases
     proj.addBuildPhase(
@@ -118,32 +121,46 @@ function withNSETarget(config) {
     proj.addBuildPhase([], "PBXFrameworksBuildPhase", "Frameworks", target.uuid)
 
     // File group in the Xcode navigator
-    const { uuid: groupUuid } = proj.addPbxGroup(
+    const groupResult = proj.addPbxGroup(
       ["NotificationService.swift", "Info.plist"],
       NSE_TARGET,
       NSE_TARGET
     )
     const mainGroupKey = proj.findPBXGroupKey({ name: cfg.modRequest.projectName })
-    if (mainGroupKey) proj.addToPbxGroup(groupUuid, mainGroupKey)
+    if (mainGroupKey && groupResult && groupResult.uuid) {
+      proj.addToPbxGroup(groupResult.uuid, mainGroupKey)
+    }
 
-    // Patch build settings on the target's own configurations (Debug + Release)
-    const targetSection = proj.pbxNativeTargetSection()
-    const configListKey = targetSection[target.uuid]?.buildConfigurationList
-    const configList = proj.pbxXCConfigurationListSection()[configListKey]
-    const configKeys = (configList?.buildConfigurations ?? []).map((c) => c.value)
+    // Patch build settings on the target's own configurations.
+    // buildConfigurationList is stored as "UUID /* comment */" — strip the comment
+    // before using it as a lookup key.
+    const nativeTargets = proj.pbxNativeTargetSection()
+    let configListKey = null
+    for (const [key, val] of Object.entries(nativeTargets)) {
+      if (key.endsWith("_comment") || typeof val !== "object" || !val) continue
+      if (val.name === NSE_TARGET) {
+        configListKey = uuidOnly(val.buildConfigurationList)
+        break
+      }
+    }
 
-    const allConfigs = proj.pbxXCBuildConfigurationSection()
-    for (const key of configKeys) {
-      if (!allConfigs[key]?.buildSettings) continue
-      Object.assign(allConfigs[key].buildSettings, {
-        CODE_SIGN_STYLE: "Automatic",
-        INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
-        IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
-        PRODUCT_BUNDLE_IDENTIFIER: nseBundleId,
-        SKIP_INSTALL: "YES",
-        SWIFT_VERSION: "5.0",
-        TARGETED_DEVICE_FAMILY: '"1,2"',
-      })
+    if (configListKey) {
+      const configList = proj.pbxXCConfigurationListSection()[configListKey]
+      const configUuids = (configList?.buildConfigurations ?? []).map((c) => uuidOnly(c.value))
+      const allConfigs = proj.pbxXCBuildConfigurationSection()
+      for (const uuid of configUuids) {
+        if (allConfigs[uuid]?.buildSettings) {
+          Object.assign(allConfigs[uuid].buildSettings, {
+            CODE_SIGN_STYLE: "Automatic",
+            INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
+            IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
+            PRODUCT_BUNDLE_IDENTIFIER: nseBundleId,
+            SKIP_INSTALL: "YES",
+            SWIFT_VERSION: "5.0",
+            TARGETED_DEVICE_FAMILY: '"1,2"',
+          })
+        }
+      }
     }
 
     return cfg
