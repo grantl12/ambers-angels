@@ -72,8 +72,8 @@ export default function CameraScreen() {
 
   const cameraRef = useRef<CameraView>(null)
   const locationRef = useRef<Location.LocationObject | null>(null)
-  const captureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const djiCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const djiCaptureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const telemetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const bgFrameTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const locationSubRef = useRef<Location.LocationSubscription | null>(null)
@@ -83,6 +83,9 @@ export default function CameraScreen() {
   const lastHitNotifRef = useRef(0)
   const mountedRef = useRef(true)
   const scanAuthTokenRef = useRef<string | undefined>(undefined)
+  // Server-driven adaptive capture interval — updated from capture_interval_ms in /ingest/frame responses.
+  // Separate from captureIntervalSec (background service setting). Bounded 400–3000ms.
+  const captureIntervalMsRef = useRef<number>(1000)
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
@@ -124,16 +127,15 @@ export default function CameraScreen() {
     return () => sub?.remove()
   }, [locPermission])
 
-  // Starts (or restarts) the frame-capture timers for the current volunteer
-  // mode/interval. Pulled out of startMission so a live settings change
-  // (e.g. captureIntervalSec) can tear down and recreate just these timers
-  // without restarting telemetry/GPS/mission state.
+  // Starts (or restarts) the frame-capture loops for the current volunteer mode.
+  // iOS and DJI use recursive setTimeout so the server's capture_interval_ms
+  // response drives the next delay — faster when plates are visible, slower when not.
+  // Android background service uses its own fixed timer (captureIntervalSec).
   const startCaptureLoops = useCallback((currentSettings: AppSettings, scanAuthToken: string | undefined) => {
-    // Phone camera frame capture
+    const clampMs = (ms: number) => Math.max(400, Math.min(3000, ms))
+
     if (currentSettings.volunteerMode === "phone" || currentSettings.volunteerMode === "both") {
       if (Platform.OS === "android") {
-        // Android: start a native Foreground Service so scanning survives backgrounding.
-        // The user can switch to Uber/Maps and frames keep uploading.
         startBackgroundScan({
           apiBase:    currentSettings.apiBaseUrl,
           droneId:    currentSettings.droneId,
@@ -142,26 +144,37 @@ export default function CameraScreen() {
           authToken:  scanAuthToken,
         }).catch(() => setError("Could not start background scan"))
 
-        // Poll the native side for frame count to keep the HUD updated
         bgFrameTimerRef.current = setInterval(async () => {
           const n = await getScanFrameCount().catch(() => 0)
           setFrameCount(n)
         }, 2000)
       } else {
-        // iOS: on-device OCR via Vision framework.
-        // Frames stay on-device unless a watchlist hit is confirmed — then
-        // that one frame is uploaded as evidence (golden frame).
-        captureTimerRef.current = setInterval(async () => {
-          if (!cameraRef.current) return
+        // iOS: on-device Vision framework OCR. Recursive setTimeout — interval adapts
+        // based on whether plate candidates were found this cycle.
+        captureIntervalMsRef.current = 1000
+        const runIosLoop = async () => {
+          if (!mountedRef.current) return
+          const scheduleNext = () => {
+            captureTimerRef.current = setTimeout(runIosLoop, captureIntervalMsRef.current)
+          }
+          if (!cameraRef.current) { scheduleNext(); return }
           try {
             const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 })
-            if (!photo) return
+            if (!photo) { scheduleNext(); return }
 
             const candidates = await recognizePlate(photo.uri)
             setFrameCount((n) => n + 1)
             setError(null)
 
-            if (candidates.length === 0) return
+            if (candidates.length === 0) {
+              // No plate text visible — back off gradually up to 2s
+              captureIntervalMsRef.current = clampMs(captureIntervalMsRef.current + 300)
+              scheduleNext()
+              return
+            }
+
+            // Plate candidate found — speed up to 800ms
+            captureIntervalMsRef.current = 800
 
             const best = candidates[0]
             const loc = locationRef.current
@@ -179,8 +192,8 @@ export default function CameraScreen() {
             })
 
             if (result.watchlist_hit) {
-              // Upload the evidence frame — this is the ONE frame that matched
-              postFrame({
+              // Upload evidence frame; use server's suggested next interval if provided
+              const frameResult = await postFrame({
                 uri:      photo.uri,
                 droneId:  currentSettings.droneId,
                 pilotId:  currentSettings.pilotId || undefined,
@@ -191,14 +204,18 @@ export default function CameraScreen() {
                 heading:  loc?.coords.heading ?? undefined,
                 speed:    loc?.coords.speed ?? undefined,
                 accuracy: loc?.coords.accuracy ?? undefined,
-              }).catch(() => {})
+              }).catch(() => null)
+
+              if (frameResult?.capture_interval_ms) {
+                captureIntervalMsRef.current = clampMs(frameResult.capture_interval_ms)
+              }
 
               const now = Date.now()
               if (now - lastHitNotifRef.current > 60_000) {
                 lastHitNotifRef.current = now
                 const auth2 = await getAuthState()
                 const isCoordOrAdmin = auth2?.role === "admin" || auth2?.role === "coordinator"
-                if (!isCoordOrAdmin) {
+                if (isCoordOrAdmin) {
                   Notifications.scheduleNotificationAsync({
                     content: {
                       title: "🚨 WATCHLIST MATCH",
@@ -218,38 +235,49 @@ export default function CameraScreen() {
               ? msg
               : `Recognition failed — ${msg}`)
           }
-        }, currentSettings.captureIntervalSec * 1000)
+          scheduleNext()
+        }
+        captureTimerRef.current = setTimeout(runIosLoop, captureIntervalMsRef.current)
       }
     }
 
-    // DJI drone frame capture loop (volunteerMode: "drone" or "both")
+    // DJI drone frame capture — recursive setTimeout, server drives next interval
     if (currentSettings.volunteerMode === "drone" || currentSettings.volunteerMode === "both") {
-      djiCaptureTimerRef.current = setInterval(async () => {
+      let djiIntervalMs = 1000
+      const runDjiLoop = async () => {
+        if (!mountedRef.current) return
+        const scheduleNext = (ms: number) => {
+          djiCaptureTimerRef.current = setTimeout(runDjiLoop, ms)
+        }
         try {
           const b64 = await captureDJIFrame(90)
-          if (!b64) return  // no frame yet / not connected
-
-          // Prefer drone GPS over phone GPS for DJI frames
-          const [djiLoc, djiHeading] = await Promise.all([getDroneLocation(), getDroneHeading()])
-          const phoneLoc = locationRef.current
-
-          await postFrame({
-            // Encode base64 as a data URI so the same multipart upload path works
-            uri:      `data:image/jpeg;base64,${b64}`,
-            droneId:  currentSettings.droneId,
-            pilotId:  currentSettings.pilotId || undefined,
-            source:   "dji_sdk",
-            lat:      djiLoc?.lat      ?? phoneLoc?.coords.latitude,
-            lng:      djiLoc?.lng      ?? phoneLoc?.coords.longitude,
-            altitude: djiLoc?.altitude ?? phoneLoc?.coords.altitude ?? undefined,
-            heading:  djiHeading       ?? phoneLoc?.coords.heading  ?? undefined,
-          })
-          setFrameCount((n) => n + 1)
-          setError(null)
+          if (b64) {
+            const [djiLoc, djiHeading] = await Promise.all([getDroneLocation(), getDroneHeading()])
+            const phoneLoc = locationRef.current
+            const result = await postFrame({
+              uri:      `data:image/jpeg;base64,${b64}`,
+              droneId:  currentSettings.droneId,
+              pilotId:  currentSettings.pilotId || undefined,
+              source:   "dji_sdk",
+              lat:      djiLoc?.lat      ?? phoneLoc?.coords.latitude,
+              lng:      djiLoc?.lng      ?? phoneLoc?.coords.longitude,
+              altitude: djiLoc?.altitude ?? phoneLoc?.coords.altitude ?? undefined,
+              heading:  djiHeading       ?? phoneLoc?.coords.heading  ?? undefined,
+            })
+            setFrameCount((n) => n + 1)
+            setError(null)
+            djiIntervalMs = result.capture_interval_ms
+              ? clampMs(result.capture_interval_ms)
+              : 1000
+          } else {
+            djiIntervalMs = 1500  // no frame yet — poll slowly
+          }
         } catch {
-          // Non-fatal — DJI frames are best-effort
+          djiIntervalMs = 1500  // non-fatal, back off
         }
-      }, currentSettings.captureIntervalSec * 1000)
+        scheduleNext(djiIntervalMs)
+      }
+      djiCaptureTimerRef.current = setTimeout(runDjiLoop, djiIntervalMs)
     }
   }, [])
 
@@ -259,8 +287,8 @@ export default function CameraScreen() {
   // because the running setInterval closures still hold the old value.
   useEffect(() => {
     if (!active || !settings) return
-    if (captureTimerRef.current)    clearInterval(captureTimerRef.current)
-    if (djiCaptureTimerRef.current) clearInterval(djiCaptureTimerRef.current)
+    if (captureTimerRef.current)    clearTimeout(captureTimerRef.current)
+    if (djiCaptureTimerRef.current) clearTimeout(djiCaptureTimerRef.current)
     if (bgFrameTimerRef.current)    clearInterval(bgFrameTimerRef.current)
     captureTimerRef.current    = null
     djiCaptureTimerRef.current = null
@@ -271,8 +299,8 @@ export default function CameraScreen() {
   }, [settings?.captureIntervalSec, settings?.volunteerMode])
 
   const stopMission = useCallback(() => {
-    if (captureTimerRef.current)    clearInterval(captureTimerRef.current)
-    if (djiCaptureTimerRef.current) clearInterval(djiCaptureTimerRef.current)
+    if (captureTimerRef.current)    clearTimeout(captureTimerRef.current)
+    if (djiCaptureTimerRef.current) clearTimeout(djiCaptureTimerRef.current)
     if (telemetryTimerRef.current)  clearInterval(telemetryTimerRef.current)
     if (bgFrameTimerRef.current)    clearInterval(bgFrameTimerRef.current)
     locationSubRef.current?.remove()
