@@ -1170,6 +1170,9 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
             {
                 "to": tok, "title": push_title, "body": push_body,
                 "data": push_data, "sound": "default", "priority": "high",
+                # mutableContent signals APNs to invoke the NotificationServiceExtension
+                # before display — required for iOS banner images
+                "mutableContent": True,
                 **({"android": {"imageUrl": vehicle_img}} if vehicle_img else {}),
             }
             for tok in push_tokens

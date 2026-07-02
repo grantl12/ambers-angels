@@ -34,7 +34,7 @@ module.exports = {
 
     ios: {
       bundleIdentifier: "com.ambersangels.app",
-      buildNumber: "16",
+      buildNumber: "17",
       supportsTablet: false,
       usesAppleSignIn: true,
       icon: "./assets/icon.png",
@@ -107,6 +107,7 @@ module.exports = {
     plugins: [
       "expo-updates",
       "./plugins/withPrivacyManifest",
+      "./plugins/withNotificationServiceExtension",
       "./modules/dji-camera/plugin",
       "./modules/phone-camera/plugin",
       [

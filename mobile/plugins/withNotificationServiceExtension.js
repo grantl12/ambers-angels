@@ -1,0 +1,157 @@
+/**
+ * Expo config plugin: adds a Notification Service Extension (NSE) to the iOS build.
+ *
+ * The NSE intercepts push notifications before display and downloads the
+ * vehicleImageUrl from the notification payload, attaching it as a banner
+ * image. Without this, iOS cannot show images in push notification banners.
+ *
+ * Requires mutable-content: 1 in the APNs payload — set via mutableContent: true
+ * in the Expo push message (handled in fema_connector.py).
+ */
+
+const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins")
+const path = require("path")
+const fs = require("fs")
+
+const NSE_TARGET = "NotificationServiceExtension"
+
+const SWIFT_SOURCE = `
+import UserNotifications
+
+class NotificationService: UNNotificationServiceExtension {
+    var contentHandler: ((UNNotificationContent) -> Void)?
+    var bestAttemptContent: UNMutableNotificationContent?
+
+    override func didReceive(
+        _ request: UNNotificationRequest,
+        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
+        self.contentHandler = contentHandler
+        bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
+
+        guard
+            let content = bestAttemptContent,
+            // Expo promotes data keys to top-level in the APNs payload
+            let urlString = content.userInfo["vehicleImageUrl"] as? String,
+            let url = URL(string: urlString)
+        else {
+            contentHandler(request.content)
+            return
+        }
+
+        URLSession.shared.downloadTask(with: url) { [weak self] location, _, _ in
+            guard let self, let location else {
+                contentHandler(request.content)
+                return
+            }
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("jpg")
+            do {
+                try FileManager.default.moveItem(at: location, to: tmp)
+                let attachment = try UNNotificationAttachment(identifier: "vehicle", url: tmp)
+                content.attachments = [attachment]
+            } catch {}
+            contentHandler(content)
+        }.resume()
+    }
+
+    override func serviceExtensionTimeWillExpire() {
+        if let handler = contentHandler, let content = bestAttemptContent {
+            handler(content)
+        }
+    }
+}
+`.trimStart()
+
+const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key>
+        <string>com.apple.usernotifications.service</string>
+        <key>NSExtensionPrincipalClass</key>
+        <string>$(PRODUCT_MODULE_NAME).NotificationService</string>
+    </dict>
+</dict>
+</plist>
+`
+
+// Write Swift source + Info.plist into the ios/ project directory during pre-build
+function withNSEFiles(config) {
+  return withDangerousMod(config, [
+    "ios",
+    (cfg) => {
+      const nseDir = path.join(cfg.modRequest.platformProjectRoot, NSE_TARGET)
+      fs.mkdirSync(nseDir, { recursive: true })
+      fs.writeFileSync(path.join(nseDir, "NotificationService.swift"), SWIFT_SOURCE, "utf8")
+      fs.writeFileSync(path.join(nseDir, "Info.plist"), INFO_PLIST, "utf8")
+      return cfg
+    },
+  ])
+}
+
+// Add the NSE target to the Xcode project
+function withNSETarget(config) {
+  return withXcodeProject(config, (cfg) => {
+    const proj = cfg.modResults
+    const bundleId = cfg.ios.bundleIdentifier
+    const nseBundleId = `${bundleId}.${NSE_TARGET}`
+    const deploymentTarget = cfg.ios.deploymentTarget ?? "15.1"
+
+    // Idempotent — skip if already added (e.g. re-running prebuild)
+    if (proj.pbxTargetByName(NSE_TARGET)) return cfg
+
+    // Create the extension target
+    const target = proj.addTarget(NSE_TARGET, "app_extension", NSE_TARGET, nseBundleId)
+
+    // Build phases
+    proj.addBuildPhase(
+      ["NotificationService.swift"],
+      "PBXSourcesBuildPhase",
+      "Sources",
+      target.uuid
+    )
+    proj.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", target.uuid)
+    proj.addBuildPhase([], "PBXFrameworksBuildPhase", "Frameworks", target.uuid)
+
+    // File group in the Xcode navigator
+    const { uuid: groupUuid } = proj.addPbxGroup(
+      ["NotificationService.swift", "Info.plist"],
+      NSE_TARGET,
+      NSE_TARGET
+    )
+    const mainGroupKey = proj.findPBXGroupKey({ name: cfg.modRequest.projectName })
+    if (mainGroupKey) proj.addToPbxGroup(groupUuid, mainGroupKey)
+
+    // Patch build settings on the target's own configurations (Debug + Release)
+    const targetSection = proj.pbxNativeTargetSection()
+    const configListKey = targetSection[target.uuid]?.buildConfigurationList
+    const configList = proj.pbxXCConfigurationListSection()[configListKey]
+    const configKeys = (configList?.buildConfigurations ?? []).map((c) => c.value)
+
+    const allConfigs = proj.pbxXCBuildConfigurationSection()
+    for (const key of configKeys) {
+      if (!allConfigs[key]?.buildSettings) continue
+      Object.assign(allConfigs[key].buildSettings, {
+        CODE_SIGN_STYLE: "Automatic",
+        INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
+        IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
+        PRODUCT_BUNDLE_IDENTIFIER: nseBundleId,
+        SKIP_INSTALL: "YES",
+        SWIFT_VERSION: "5.0",
+        TARGETED_DEVICE_FAMILY: '"1,2"',
+      })
+    }
+
+    return cfg
+  })
+}
+
+module.exports = function withNotificationServiceExtension(config) {
+  config = withNSEFiles(config)
+  config = withNSETarget(config)
+  return config
+}
