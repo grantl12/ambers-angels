@@ -41,6 +41,13 @@ module.exports = {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"],
       },
+      appExtensions: [
+        {
+          targetName: "NotificationServiceExtension",
+          bundleIdentifier: "com.ambersangels.app.NotificationServiceExtension",
+          entitlements: {},
+        },
+      ],
       infoPlist: {
         // Camera + location permission strings
         NSCameraUsageDescription:
