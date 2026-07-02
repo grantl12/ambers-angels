@@ -82,3 +82,10 @@ grants/New\ Text\ Document.txt
 
 # Design source files
 AMBER\ Angels/
+
+# Mobile build artifacts — excluded at root so EAS archiver picks them up
+mobile/android/
+mobile/node_modules/
+mobile/dist/
+mobile/ios/
+mobile/credentials/
