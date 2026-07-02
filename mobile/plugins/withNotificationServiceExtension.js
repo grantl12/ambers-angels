@@ -107,7 +107,7 @@ function withNSETarget(config) {
     // Idempotent — skip if already added
     if (proj.pbxTargetByName(NSE_TARGET)) return cfg
 
-    // Create the extension target (3 args — 4th arg is groupName, not bundleId)
+    // Create the extension target
     const target = proj.addTarget(NSE_TARGET, "app_extension", NSE_TARGET)
 
     // Build phases
@@ -127,14 +127,18 @@ function withNSETarget(config) {
       NSE_TARGET
     )
     const mainGroupKey = proj.findPBXGroupKey({ name: cfg.modRequest.projectName })
-    if (mainGroupKey && groupResult && groupResult.uuid) {
+    if (mainGroupKey && groupResult?.uuid) {
       proj.addToPbxGroup(groupResult.uuid, mainGroupKey)
     }
 
     // Patch build settings on the target's own configurations.
-    // buildConfigurationList is stored as "UUID /* comment */" — strip the comment
-    // before using it as a lookup key.
-    const nativeTargets = proj.pbxNativeTargetSection()
+    // pbxXCConfigurationListSection() does not exist in the xcode package version
+    // bundled with Expo 54 — go through proj.hash.project.objects directly.
+    const objects = proj.hash.project.objects
+    const nativeTargets = objects["PBXNativeTarget"] || {}
+    const configLists = objects["XCConfigurationList"] || {}
+    const buildConfigs = objects["XCBuildConfiguration"] || {}
+
     let configListKey = null
     for (const [key, val] of Object.entries(nativeTargets)) {
       if (key.endsWith("_comment") || typeof val !== "object" || !val) continue
@@ -145,12 +149,11 @@ function withNSETarget(config) {
     }
 
     if (configListKey) {
-      const configList = proj.pbxXCConfigurationListSection()[configListKey]
+      const configList = configLists[configListKey]
       const configUuids = (configList?.buildConfigurations ?? []).map((c) => uuidOnly(c.value))
-      const allConfigs = proj.pbxXCBuildConfigurationSection()
       for (const uuid of configUuids) {
-        if (allConfigs[uuid]?.buildSettings) {
-          Object.assign(allConfigs[uuid].buildSettings, {
+        if (buildConfigs[uuid]?.buildSettings) {
+          Object.assign(buildConfigs[uuid].buildSettings, {
             CODE_SIGN_STYLE: "Automatic",
             INFOPLIST_FILE: `${NSE_TARGET}/Info.plist`,
             IPHONEOS_DEPLOYMENT_TARGET: deploymentTarget,
