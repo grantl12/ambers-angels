@@ -77,6 +77,38 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
+// Xcode 14+ signs resource bundle targets by default, which breaks builds when
+// those bundles don't have a development team. Patch the generated Podfile to
+// opt resource bundle targets out of code signing.
+function withPodfileResourceBundleFix(config) {
+  return withDangerousMod(config, [
+    "ios",
+    (cfg) => {
+      const podfilePath = require("path").join(cfg.modRequest.platformProjectRoot, "Podfile")
+      let podfile = require("fs").readFileSync(podfilePath, "utf8")
+
+      const fix = `
+  installer.pods_project.targets.each do |target|
+    if target.respond_to?(:product_type) && target.product_type == "com.apple.product-type.bundle"
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      end
+    end
+  end
+`
+      // Append inside the existing post_install block that Expo always generates
+      if (!podfile.includes("CODE_SIGNING_ALLOWED")) {
+        podfile = podfile.replace(
+          /^(post_install do \|installer\|)/m,
+          `$1\n${fix}`
+        )
+        require("fs").writeFileSync(podfilePath, podfile, "utf8")
+      }
+      return cfg
+    },
+  ])
+}
+
 // Write Swift source + Info.plist into the ios/ project directory during pre-build
 function withNSEFiles(config) {
   return withDangerousMod(config, [
@@ -160,5 +192,6 @@ function withNSETarget(config) {
 module.exports = function withNotificationServiceExtension(config) {
   config = withNSEFiles(config)
   config = withNSETarget(config)
+  config = withPodfileResourceBundleFix(config)
   return config
 }
