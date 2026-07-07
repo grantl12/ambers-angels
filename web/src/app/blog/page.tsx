@@ -8,6 +8,12 @@ export const metadata: Metadata = {
 
 const WHATS_NEW: { week: string; items: string[] }[] = [
   {
+    week: 'July 7, 2026',
+    items: [
+      'Blog Post 4 published: "The Coverage Map Problem" — why fixed ALPR coverage gaps aren\'t random, and what that means for rural departments and tribal nations. Live at /blog/post-4-coverage-map.',
+    ],
+  },
+  {
     week: 'June 30, 2026',
     items: [
       'Discord alert notifications upgraded to rich embeds — vehicle reference photo, color-coded alert type, confidence score, and GPS location in a single card. Wikimedia Commons stock photo pulled automatically from make/model; falls back to generated color+type card.',
@@ -113,7 +119,7 @@ const POSTS = [
     title: 'The Coverage Map Problem',
     date: 'July 7, 2026',
     excerpt: 'The communities in the biggest coverage gaps are often the ones with the least infrastructure budget. That\'s not a coincidence.',
-    live: false,
+    live: true,
   },
   {
     slug: 'post-5-join-swarm',
