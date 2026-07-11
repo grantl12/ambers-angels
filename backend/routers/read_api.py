@@ -156,7 +156,7 @@ def create_mission(req: CreateMissionRequest):
     try:
         row = db.execute(text("""
             INSERT INTO missions (title, status, area)
-            VALUES (:title, 'active', :area::jsonb)
+            VALUES (:title, 'active', :area ::jsonb)
             RETURNING id::text, title, status, started_at
         """), {"title": req.title.strip(), "area": req.area}).fetchone()
         db.commit()

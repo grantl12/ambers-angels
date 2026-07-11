@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-_INSERT = "INSERT INTO audit_log (username, action, details, created_at) VALUES (:u, :a, :d::jsonb, NOW())"
+_INSERT = "INSERT INTO audit_log (username, action, details, created_at) VALUES (:u, :a, :d ::jsonb, NOW())"
 
 
 def write_audit_sync(db, username: str, action: str, details: dict | None = None) -> None:

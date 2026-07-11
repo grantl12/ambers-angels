@@ -20,6 +20,10 @@ export type AuthState = {
 export async function getAuthState(): Promise<AuthState | null> {
   const token = await AsyncStorage.getItem(KEY_TOKEN)
   if (!token) return null
+  if (isTokenExpired(token)) {
+    await clearAuth()
+    return null
+  }
   return {
     token,
     username: (await AsyncStorage.getItem(KEY_USERNAME)) ?? "",

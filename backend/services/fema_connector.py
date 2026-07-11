@@ -213,11 +213,19 @@ def _polygon_to_centroid(polygon: str | None) -> tuple[float, float] | None:
 # ---------------------------------------------------------------------------
 # Plate extraction
 # ---------------------------------------------------------------------------
+# "PLATE" is often followed by a filler word before the actual value —
+# e.g. CHP AMBER Alerts read "...CALIFORNIA LICENSE PLATE NUMBER 36095DV."
+# Without accounting for that filler, "plate[:\s#]*(...)" greedily captures
+# the word "NUMBER" itself instead of the plate that follows it.
 _PLATE_PATTERNS = [
-    re.compile(r"\bplate[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
-    re.compile(r"\blicense\s+plate[:\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    re.compile(r"\bplate\s*(?:number|no\.?|#)?[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    re.compile(r"\blicense\s+plate\s*(?:number|no\.?|#)?[:\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
     re.compile(r"\b([A-Z]{1,3}[0-9]{1,4}[A-Z0-9]{0,3})\b"),
 ]
+
+# Filler words that can get matched as the capture group itself when the
+# text reads "PLATE NUMBER" with no value following (or other edge phrasing).
+_PLATE_STOPWORDS = {"NUMBER", "PLATE", "UNKNOWN", "NONE", "LICENSE"}
 
 
 def _extract_plates(text_blob: str) -> list[str]:
@@ -225,6 +233,8 @@ def _extract_plates(text_blob: str) -> list[str]:
     for pattern in _PLATE_PATTERNS:
         for m in pattern.finditer(text_blob):
             candidate = m.group(1).upper().replace(" ", "")
+            if candidate in _PLATE_STOPWORDS:
+                continue
             if 4 <= len(candidate) <= 8 and candidate not in found:
                 found.append(candidate)
     return found
@@ -1266,7 +1276,7 @@ async def log_alert_ingestion(
                      pilots_notified, discord_fired, ingested_by)
                 VALUES
                     (:identifier, :source, :alert_type, :headline, :area, :plates,
-                     :vehicle_profile::jsonb, :source_program, :raw_cap_text,
+                     :vehicle_profile ::jsonb, :source_program, :raw_cap_text,
                      :pilots_notified, :discord_fired, :ingested_by)
                 ON CONFLICT DO NOTHING
             """), {
