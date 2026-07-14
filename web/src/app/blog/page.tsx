@@ -8,6 +8,12 @@ export const metadata: Metadata = {
 
 const WHATS_NEW: { week: string; items: string[] }[] = [
   {
+    week: 'July 14, 2026',
+    items: [
+      'Blog Post 5 published: "Join Swarm" — how coordinator-directed remote drone deployment lets a volunteer contribute an aerial search without leaving their driveway. Live at /blog/post-5-join-swarm.',
+    ],
+  },
+  {
     week: 'July 7, 2026',
     items: [
       'Blog Post 4 published: "The Coverage Map Problem" — why fixed ALPR coverage gaps aren\'t random, and what that means for rural departments and tribal nations. Live at /blog/post-4-coverage-map.',
@@ -127,7 +133,7 @@ const POSTS = [
     title: 'Join Swarm',
     date: 'July 14, 2026',
     excerpt: 'A volunteer with a drone, kids at home, and nowhere to go can still contribute an aerial search. Here\'s how coordinator-directed remote deployment works.',
-    live: false,
+    live: true,
   },
   {
     slug: 'post-6-privacy-architecture',
