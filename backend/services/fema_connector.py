@@ -13,8 +13,10 @@ Supported alert programs (all flow through FEMA IPAWS):
 Runs as a FastAPI background task (asyncio loop). Polls every POLL_INTERVAL_SECONDS.
 
 FEMA IPAWS public feed:
-  https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/cmas/get/recent/{minutes}
-  Returns CAP-formatted XML. No auth required for recent public alerts.
+  https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/feed
+  Atom index of recent messages (event code, state FIPS, updated time).
+  Each entry's <id> is the URL for the full CAP XML message. No auth
+  required for recent public alerts.
 """
 
 import asyncio
@@ -25,7 +27,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -39,10 +41,13 @@ from services.vehicle_image import resolve_vehicle_image_url
 POLL_INTERVAL_SECONDS = int(os.getenv("FEMA_POLL_INTERVAL", "300"))
 FEMA_LOOKBACK_MINUTES = int(os.getenv("FEMA_LOOKBACK_MINUTES", "60"))
 
-FEMA_URL = (
-    "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/cmas/get/recent/"
-    f"{FEMA_LOOKBACK_MINUTES}"
-)
+# The old "/rest/public/cmas|eas/get/recent/{minutes}" paths this used to hit
+# never existed (confirmed 404 on every poll since inception) — the real
+# IPAWS-OPEN public feed is an Atom index at /rest/feed, where each entry is
+# metadata only (event code, state FIPS, updated time) and the actual CAP
+# XML for a message must be fetched separately from /rest/eas/{id}.
+IPAWS_FEED_URL = "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/feed"
+ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
 CAP_NS = "urn:oasis:names:tc:emergency:cap:1.2"
 
@@ -401,13 +406,20 @@ _MODEL_PATTERNS: list[tuple[str, str]] = [
 # 2-digit year → 4-digit (for years 95–29 covering 1995–2029).
 # Negative lookahead/behind on "/" prevents matching month/day components in
 # date strings like "05/15/26" — the "05" and "26" would otherwise look like years.
+# Negative lookbehind on ", " (y4) and lookahead on ",\s*\d{4}" (y2) exclude
+# both halves of a spelled-out narrative date ("On July 16, 2026, ...") —
+# near-universal CAP boilerplate — which is an alert issue date, not a
+# vehicle model year. Without both guards, excluding just the "2026" half
+# still leaves the "16" (day-of-month) matching as a bare 2-digit year.
+# Lookahead on "year(s) old" excludes person ages ("a 13 year old female") —
+# just as universal in missing-person narratives as the date sentence.
 _YEAR_RE = re.compile(
-    r"(?<!\d)(?<![-/])"
+    r"(?<!\d)(?<![-/])(?<!, )"
     r"(?P<y4>20[0-2]\d|19[89]\d)"           # already 4-digit
     r"|"
     r"(?<!\d)(?<![-/])"
     r"(?P<y2>(?:9[5-9]|0\d|1\d|2[0-9]))"
-    r"(?!\d)(?![-/])"                        # 2-digit short form, not part of a date
+    r"(?!\d)(?![-/])(?!,\s?\d{4})(?!\s*years?\s*old)"  # not a date or an age
 )
 
 
@@ -419,15 +431,28 @@ def _normalize_wea_text(text: str) -> str:
 
 
 def _extract_year(text: str) -> str | None:
-    """Extract model year from alert text; expands 2-digit to 4-digit."""
+    """
+    Extract model year from alert text; expands 2-digit to 4-digit.
+
+    Narrative alert descriptions almost always contain a spelled-out date
+    ("On July 16, 2026, ..."), and the day-of-month ("16") satisfies the
+    2-digit-year pattern just as well as the real year satisfies the 4-digit
+    one — scanning in text order can return the day instead of the year if
+    the date sentence precedes any real vehicle-year mention. A 4-digit
+    match is unambiguous, so always prefer any of those over a 2-digit guess
+    regardless of where each appears in the text.
+    """
     for m in _YEAR_RE.finditer(text):
         if m.group("y4"):
             yr = int(m.group("y4"))
-        else:
+            if 1980 <= yr <= 2030:
+                return str(yr)
+    for m in _YEAR_RE.finditer(text):
+        if m.group("y2"):
             y2 = int(m.group("y2"))
             yr = 2000 + y2 if y2 <= 29 else 1900 + y2
-        if 1980 <= yr <= 2030:
-            return str(yr)
+            if 1980 <= yr <= 2030:
+                return str(yr)
     return None
 
 
@@ -450,14 +475,14 @@ def _extract_vehicle_profile(text_blob: str) -> dict:
     body_type = None
     yolo_body_type = None
     for token, yolo, label in _BODY_TYPE_MAP:
-        if re.search(token, tl):
+        if re.search(r"\b" + token + r"\b", tl):
             body_type = label
             yolo_body_type = yolo
             break
 
     make = None
     for pattern in _MAKE_WORDS:
-        m = re.search(pattern, tl)
+        m = re.search(r"\b" + pattern + r"\b", tl)
         if m:
             make = m.group(0).strip().title().replace(r"\B", "").replace("Vw", "VW")
             break
@@ -542,13 +567,25 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
     alerts: list[dict] = []
     ns = {"cap": CAP_NS}
 
-    alert_nodes = root.findall(".//cap:alert", ns)
-    if not alert_nodes:
-        alert_nodes = root.findall(".//alert")
+    # /rest/eas/{id} returns a single bare <alert> as the document root (no
+    # wrapper) — that's not matched by a descendant search. Handle that shape
+    # directly; fall back to descendant search for any batch/collection doc.
+    if root.tag.split("}")[-1] == "alert":
+        alert_nodes = [root]
+    else:
+        alert_nodes = root.findall(".//cap:alert", ns)
+        if not alert_nodes:
+            alert_nodes = root.findall(".//alert")
 
     for alert in alert_nodes:
         def find_text(tag: str) -> str:
-            el = alert.find(f"cap:{tag}", ns) or alert.find(tag)
+            # NB: `find(...) or find(...)` is wrong here — ElementTree elements
+            # with no children are falsy even when found (not None), so `or`
+            # silently falls through to the (namespace-mismatched) fallback
+            # and always loses. Must check `is None` explicitly.
+            el = alert.find(f"cap:{tag}", ns)
+            if el is None:
+                el = alert.find(tag)
             return el.text.strip() if el is not None and el.text else ""
 
         identifier = find_text("identifier")
@@ -619,6 +656,77 @@ def _parse_cap_alerts(xml_bytes: bytes) -> list[dict]:
         })
 
     # Process active alerts before cancellations in the same poll cycle
+    alerts.sort(key=lambda a: 0 if a["msg_type"] == "alert" else 1)
+    return alerts
+
+
+async def _fetch_recent_ipaws_alerts(lookback_minutes: int) -> list[dict]:
+    """
+    Fetch the IPAWS-OPEN feed index, then fetch and parse each recent
+    monitored message individually.
+
+    The feed at IPAWS_FEED_URL only carries metadata per entry (event code,
+    state FIPS, updated time, message link) — the full CAP XML for a message
+    lives at its own URL (the entry's <id>) and must be fetched separately.
+    Shared by both the CMAS and EAS pollers since they're the same feed.
+    """
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
+            resp = await client.get(IPAWS_FEED_URL, headers={"Accept": "application/xml"})
+    except Exception as e:
+        logger.error("[IPAWS] Feed fetch error: %s", e)
+        return []
+
+    if resp.status_code != 200:
+        logger.warning("[IPAWS] Feed returned HTTP %s", resp.status_code)
+        return []
+
+    try:
+        feed_root = ET.fromstring(resp.content)
+    except ET.ParseError as e:
+        logger.error("[IPAWS] Feed XML parse error: %s", e)
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=lookback_minutes)
+    message_urls: list[str] = []
+
+    for entry in feed_root.findall(".//atom:entry", ATOM_NS):
+        event = next(
+            (c.get("term") for c in entry.findall("atom:category", ATOM_NS)
+             if c.get("label") == "event"),
+            None,
+        )
+        if event not in _MONITORED_CODES:
+            continue
+
+        updated_text = entry.findtext("atom:updated", namespaces=ATOM_NS)
+        try:
+            updated = datetime.fromisoformat((updated_text or "").replace("Z", "+00:00"))
+        except ValueError:
+            updated = None
+        if updated is not None and updated < cutoff:
+            continue
+
+        msg_url = entry.findtext("atom:id", namespaces=ATOM_NS)
+        if msg_url:
+            message_urls.append(msg_url)
+
+    if not message_urls:
+        return []
+
+    alerts: list[dict] = []
+    async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
+        for url in message_urls:
+            try:
+                msg_resp = await client.get(url, headers={"Accept": "application/xml"})
+            except Exception as e:
+                logger.warning("[IPAWS] Message fetch error for %s: %s", url, e)
+                continue
+            if msg_resp.status_code != 200:
+                logger.warning("[IPAWS] Message HTTP %s for %s", msg_resp.status_code, url)
+                continue
+            alerts.extend(_parse_cap_alerts(msg_resp.content))
+
     alerts.sort(key=lambda a: 0 if a["msg_type"] == "alert" else 1)
     return alerts
 
@@ -1332,24 +1440,7 @@ async def _persist_identifier(session_factory, ident: str) -> None:
 async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) -> None:
     logger.info("Polling IPAWS (%dm lookback)...", FEMA_LOOKBACK_MINUTES)
 
-    try:
-        # apps.fema.gov does not send its full intermediate cert chain, so Python's
-        # SSL stack cannot build the trust path regardless of CA bundle. verify=False
-        # is intentional and scoped only to this government endpoint.
-        async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
-            resp = await client.get(FEMA_URL, headers={"Accept": "application/xml"})
-    except Exception as e:
-        logger.error("IPAWS fetch error: %s", e)
-        return
-
-    if resp.status_code == 404:
-        logger.info("No active alerts in lookback window.")
-        return
-    if resp.status_code != 200:
-        logger.warning("IPAWS returned HTTP %s", resp.status_code)
-        return
-
-    alerts = _parse_cap_alerts(resp.content)
+    alerts = await _fetch_recent_ipaws_alerts(FEMA_LOOKBACK_MINUTES)
 
     if not alerts:
         logger.info("No monitored alerts found.")

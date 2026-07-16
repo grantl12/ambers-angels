@@ -28,6 +28,7 @@ import certifi as _certifi
 from services.fema_connector import (
     _seen_identifiers,
     _parse_cap_alerts,
+    _fetch_recent_ipaws_alerts,
     _extract_plates,
     _extract_vehicle_profile,
     _add_to_watchlist,
@@ -50,10 +51,6 @@ logger = logging.getLogger(__name__)
 POLL_INTERVAL  = int(os.getenv("AMBER_POLL_INTERVAL", "120"))   # 2 minutes
 EAS_LOOKBACK   = int(os.getenv("FEMA_LOOKBACK_MINUTES", "60"))
 
-EAS_URL        = (
-    "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/eas/get/recent/"
-    f"{EAS_LOOKBACK}"
-)
 AMBER_GOV_URLS: list[str] = []  # amber.alert.gov DNS does not resolve — disabled
 
 # NWS Alerts API — catches WEA/IPAWS alerts that bypass the FEMA CMAS public feed.
@@ -75,30 +72,13 @@ last_alert_seen_at:      Optional[datetime] = None
 
 async def _poll_eas(session_factory, webhook_url: Optional[str]) -> int:
     """
-    Poll FEMA IPAWS EAS endpoint. Returns number of new alerts processed.
-    Same CAP XML format as CMAS — reuses _parse_cap_alerts directly.
+    Poll the IPAWS-OPEN feed for recent EAS/CAE/CEM/LEW messages. Same feed
+    fema_connector's CMAS poller uses — shared fetch+parse, separate cadence.
     """
     global last_eas_poll_at
     last_eas_poll_at = datetime.now(timezone.utc)
 
-    try:
-        # apps.fema.gov does not send its full intermediate cert chain, so Python's
-        # SSL stack cannot build the trust path regardless of CA bundle. verify=False
-        # is intentional and scoped only to this government endpoint.
-        async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
-            resp = await client.get(EAS_URL, headers={"Accept": "application/xml"})
-    except Exception as e:
-        logger.error("[EAS] Fetch error: %s", e)
-        return 0
-
-    if resp.status_code == 404:
-        logger.info("[EAS] No active alerts in lookback window.")
-        return 0
-    if resp.status_code != 200:
-        logger.warning("[EAS] HTTP %s", resp.status_code)
-        return 0
-
-    alerts = _parse_cap_alerts(resp.content)
+    alerts = await _fetch_recent_ipaws_alerts(EAS_LOOKBACK)
     if not alerts:
         logger.info("[EAS] No monitored alerts in response.")
         return 0

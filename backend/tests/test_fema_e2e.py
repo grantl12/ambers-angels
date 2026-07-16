@@ -22,6 +22,7 @@ import os
 import textwrap
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
@@ -495,11 +496,38 @@ class TestWatchAreaNotification:
 class TestPollFemaIpaws:
 
     def _make_http_mock(self, content: bytes, status_code: int = 200):
-        mock_response = MagicMock()
-        mock_response.status_code = status_code
-        mock_response.content = content
+        """
+        poll_fema_ipaws now fetches the IPAWS feed index first (one entry
+        linking to a message URL), then fetches that message's CAP XML
+        separately — a real two-step protocol (see _fetch_recent_ipaws_alerts).
+        The first call returns a synthetic one-entry feed; the second (and
+        any further) call returns the given CAP `content`. On a non-200
+        status, every call returns that status so the "fetch failed" path
+        is still exercised.
+        """
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        feed_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<feed xmlns="http://www.w3.org/2005/Atom">'
+            '<entry>'
+            '<id>https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/eas/999</id>'
+            f'<updated>{now}</updated>'
+            '<category term="13" label="statefips"/>'
+            '<category term="CAE" label="event"/>'
+            '</entry></feed>'
+        ).encode()
+
+        call_count = {"n": 0}
+
+        async def fake_get(*args, **kwargs):
+            call_count["n"] += 1
+            if status_code != 200:
+                return MagicMock(status_code=status_code, content=content)
+            body = feed_xml if call_count["n"] == 1 else content
+            return MagicMock(status_code=200, content=body)
+
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.get = AsyncMock(side_effect=fake_get)
         mock_client_cls = MagicMock()
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
