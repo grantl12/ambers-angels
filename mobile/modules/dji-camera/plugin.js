@@ -122,13 +122,6 @@ function withDJIManifest(config) {
       },
     })
 
-    // USB accessory filter for RC dongle
-    filtered.push({
-      $: {
-        'android:name': 'android.hardware.usb.action.USB_ACCESSORY_ATTACHED',
-      },
-    })
-
     mainApplication['meta-data'] = filtered
 
     // Ensure USB host feature is declared
