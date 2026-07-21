@@ -8,6 +8,12 @@ export const metadata: Metadata = {
 
 const WHATS_NEW: { week: string; items: string[] }[] = [
   {
+    week: 'July 21, 2026',
+    items: [
+      'Blog Post 6 published: "Privacy by Architecture, Not Policy" — why an architecture that makes certain data uses impossible beats a policy that merely forbids them. Live at /blog/post-6-privacy-architecture.',
+    ],
+  },
+  {
     week: 'July 14, 2026',
     items: [
       'Blog Post 5 published: "Join Swarm" — how coordinator-directed remote drone deployment lets a volunteer contribute an aerial search without leaving their driveway. Live at /blog/post-5-join-swarm.',
@@ -141,7 +147,7 @@ const POSTS = [
     title: 'Privacy by Architecture, Not Policy',
     date: 'July 21, 2026',
     excerpt: 'A policy says what you\'re allowed to do with data. An architecture makes certain uses impossible. I spent years in a job where that distinction was the work itself.',
-    live: false,
+    live: true,
   },
   {
     slug: 'post-7-the-math',
