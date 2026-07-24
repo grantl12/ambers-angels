@@ -151,9 +151,10 @@ export default function BetaPage() {
               It stays on your phone alongside the beta app, and you can uninstall both any time.
             </Faq>
             <Faq q="Does the app track me or store footage of my car?">
-              No. Background scanning runs entirely on your phone — raw camera frames never leave
-              your device. Only license plate text is transmitted, and only during an active mission.
-              Full details on our <Link href="/privacy" className="text-amber-400 hover:underline">privacy page</Link>.
+              Scanning runs entirely on your phone — non-matching frames never leave your device,
+              only plate text and location are transmitted. The one exception: if you scan a vehicle
+              that matches an active alert, that single frame uploads as evidence, the same as it
+              would from a drone. Full details on our <Link href="/privacy" className="text-amber-400 hover:underline">privacy page</Link>.
             </Faq>
             <Faq q="What if I find a bug?">
               That&apos;s exactly why you&apos;re here. Shake your phone in TestFlight to send a

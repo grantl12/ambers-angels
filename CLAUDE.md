@@ -82,8 +82,8 @@ Manual migration without full deploy — trigger via GitHub Actions UI:
 - Mobile config is `mobile/app.config.js` (dynamic)
 - **`autoIncrement` in eas.json is NOT supported with app.config.js** — never add it
 - **`--build-number` flag does not work with app.config.js** — never use it
-- Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.)
-- Current build number: **16** (iOS Vision framework added in build 16) — app.config.js is source of truth
+- Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.). Android's `android.versionCode` bumps independently for Play Store resubmissions — check both before assuming a number is current.
+- Current build number: **19** iOS / **3** Android (as of 2026-07-22, uncommitted in working tree) — app.config.js is the source of truth, this number will drift; verify with `grep -n "buildNumber\|versionCode" mobile/app.config.js` before citing it
 - EAS account: `ambersangels` (with 's') — confirmed via `eas whoami`. Slug: `ambers-angels`
 - OTA update channel: `eas update --branch preview` delivers JS-only changes to build 11
 - All mobile changes in June 2026 are OTA-compatible (no native code changed)

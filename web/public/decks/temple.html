@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Amber's Angels — Carrollton PD Briefing</title>
+<title>Amber's Angels — Temple PD Briefing</title>
 <style>
 @font-face {
   font-family: 'Inter';
@@ -95,18 +95,18 @@
 <script type="application/json" id="speaker-notes">
 [
   "Open by thanking Dobbs and Hitchcock for the time. Set the framing up front so the rest of the deck reads correctly: this is a volunteer civilian network that responds to government-issued AMBER Alerts — it is not law enforcement, it does not enable citizens to report crimes, and it does not contact officers directly. Every output goes through a human coordinator we control. We are here today to answer hard questions and show you what we have built.",
-  "Lead with the stake. 76% of abducted children who are murdered are killed within the first three hours. This is the entire reason for the platform. The point is not to be impressive — it is to compress the window between an alert firing and a credible vehicle sighting reaching CPD. If they push on the source, OJJDP / NCMEC.",
-  "This is the slide that disarms the liability conversation early — say what we are, but more importantly say what we are NOT. We respond only to FEMA-issued alerts. Volunteers sign a binding agreement that they observe and report only, never pursue or confront. Every detection routes through a coordinator we vet — not direct to officers, not direct to the public. CPD is never liable for a volunteer's actions because volunteers are not acting on CPD instructions.",
-  "Point to Hitchcock's own quote at the bottom of the slide — don't skip it. In 2019 he told Fox 5 Atlanta that having Flock was 'very, very helpful' and 'hopefully it saved somebody's life.' You agree. The question on this slide is not whether LPR works — it's where it runs out. Every fixed-camera deployment defines a perimeter the cameras were installed to cover, and that perimeter doesn't move when an alert fires. A suspect leaving the alert zone is, by definition, somewhere the cameras aren't. We're not here to replace what CPD already runs — we are adding mobile coverage that travels with the alert polygon. The map on the right is illustrative; deliberately no camera count because counts vary by source and you don't want to be wrong about theirs.",
+  "Lead with the stake. 76% of abducted children who are murdered are killed within the first three hours. This is the entire reason for the platform. The point is not to be impressive — it is to compress the window between an alert firing and a credible vehicle sighting reaching TPD. If they push on the source, OJJDP / NCMEC.",
+  "This is the slide that disarms the liability conversation early — say what we are, but more importantly say what we are NOT. We respond only to FEMA-issued alerts. Volunteers sign a binding agreement that they observe and report only, never pursue or confront. Every detection routes through a coordinator we vet — not direct to officers, not direct to the public. TPD is never liable for a volunteer's actions because volunteers are not acting on TPD instructions.",
+  "Point to Hitchcock's own quote at the bottom of the slide — don't skip it. In 2019 he told Fox 5 Atlanta that having Flock was 'very, very helpful' and 'hopefully it saved somebody's life.' You agree. The question on this slide is not whether LPR works — it's where it runs out. Every fixed-camera deployment defines a perimeter the cameras were installed to cover, and that perimeter doesn't move when an alert fires. A suspect leaving the alert zone is, by definition, somewhere the cameras aren't. We're not here to replace what TPD already runs — we are adding mobile coverage that travels with the alert polygon. The map on the right is illustrative; deliberately no camera count because counts vary by source and you don't want to be wrong about theirs.",
   "Walk the pipeline. FEMA IPAWS fires. Volunteers in the polygon get a mission push. Their phone (or drone) streams frames to our backend. Cascade inference flags candidate vehicles. Coordinator reviews — confirms or rejects. Only confirmed leads route to responding teams. Emphasize the human-review gate before the last arrow. If asked: AI flags, humans decide.",
   "This is the liability slide. Walk it slowly. Left side: volunteers cannot touch a live mission without first accepting a binding agreement that says observe and report only — no pursuit, no confrontation, no contact with subjects, no approaching vehicles. Background check on enrollment. Right side: every coordinator action is timestamped to an audit log. If a detection was acted on, we can show who reviewed it, when, and what they decided. This is what makes the platform defensible.",
   "Show this and pause. This is the swarm dispatch UI — live as of last week. Coordinator sees every drone on the mission map, clicks one, picks operation mode, accepts or overrides the system-suggested observation point (highest-priority coverage gap), and dispatches. No volunteer is flying — the coordinator we vet is. Direct comparable to Flock Aerodome's tooling, except every flight requires a coordinator decision and is logged. If asked about Part 108: that mode is gated off until the FAA rule lands.",
   "Companion to the previous slide. Where a drone can't reach quickly — distance, weather, battery — the platform pings nearby enrolled volunteers with a suggested drive corridor through the gap. They opt in per-mission. If they don't drive, nothing happens. If they do, frames stream through the same coordinator review gate. This is the network multiplier.",
-  "Walk the three reliability scenarios straight. Drone failure: battery warning at 30%, one-click RTH at 20%, coordinator has full situational awareness. Backend failure: errors post to coordinator Discord in seconds, CPD never sees the noise. Alert cancellation: FEMA sends a Cancel, platform stands down automatically, volunteers are notified and go back to their day — no coordinator action needed. If they ask about protocol for volunteer stand-down, that's a good question — note it and bring it back.",
-  "Privacy posture — this matters for CPD's public messaging as much as for the platform itself. Phone scanning is on-device — non-matching frames never leave volunteer phones; one frame uploads as evidence only on a confirmed watchlist hit, same as a drone hit. Drone non-matches are deleted immediately; match evidence is retained for up to one year then auto-purged. There is no persistent plate database — plate matches live only inside the active alert window and are purged when the alert closes. The platform is incapable of being used to track citizens outside of an active government alert. If asked: yes, we publish the retention policy publicly.",
+  "Walk the three reliability scenarios straight. Drone failure: battery warning at 30%, one-click RTH at 20%, coordinator has full situational awareness. Backend failure: errors post to coordinator Discord in seconds, TPD never sees the noise. Alert cancellation: FEMA sends a Cancel, platform stands down automatically, volunteers are notified and go back to their day — no coordinator action needed. If they ask about protocol for volunteer stand-down, that's a good question — note it and bring it back.",
+  "Privacy posture — this matters for TPD's public messaging as much as for the platform itself. Phone scanning is on-device — non-matching frames never leave volunteer phones; one frame uploads as evidence only on a confirmed watchlist hit, same as a drone hit. Drone non-matches are deleted immediately; match evidence is retained for up to one year then auto-purged. There is no persistent plate database — plate matches live only inside the active alert window and are purged when the alert closes. The platform is incapable of being used to track citizens outside of an active government alert. If asked: yes, we publish the retention policy publicly.",
   "This is the technical credibility slide. Don't claim a specific false-positive percentage — we don't have measured field data yet. What we can say accurately: plate-only systems run ~30% false positives; our cascade requires multiple independent signals to corroborate before anything escalates to the coordinator; that means fewer noise alerts and more actionable leads. The coordinator is still the final gate. If someone pushes on numbers, be honest: we're designing for low noise, and the pilot will produce the actual data.",
   "This is a Georgia story. Lead with the two Georgia-specific programs they already know: Levi's Call (GCIC) and Mattie's Call (GBI). They have worked these alerts. Our platform responds to both with exactly the same pipeline as AMBER. Then point to Blue Alert — this one is for them personally. The same volunteer network that searches for a missing child will activate for a missing or endangered officer. One trained network, the full Georgia alert stack.",
-  "The Carroll County pilot — six months, 30 ground volunteers, 5 Part 107 pilots. Mixed rural and suburban — representative ground for the model. Goals listed. Open question for the room: what would CPD want included in the public transparency report? That gets them participating in the design, which is the goal of this meeting.",
+  "The Carroll County pilot — six months, 30 ground volunteers, 5 Part 107 pilots. Mixed rural and suburban — representative ground for the model. Goals listed. Open question for the room: what would TPD want included in the public transparency report? That gets them participating in the design, which is the goal of this meeting.",
   "Walk the two asks, then pause on the feedback box. This is the most important part of the slide. Make it personal — use their names. 'Dobbs, Hitchcock — whatever you tell us in this room goes back into the product.' We are not pitching a finished thing. We are inviting them to help shape something that will represent Carroll County to every other department in Georgia that sees it. That's real authority to give someone. Let it land. Then ask: what would you change?",
   "Close with the offer to stay for questions and a live walkthrough of the coordinator console. Hand business cards. Confirm next-step ownership before leaving the room."
 ]
@@ -1115,9 +1115,9 @@ section {
       <p class="s1-sub">A volunteer civilian search network that activates only when FEMA issues an alert — and routes every detection through a coordinator before anything reaches a responding officer.</p>
       <div class="s1-meeting">
         <span class="dot"></span>
-        <span>Briefing for the Carrollton Police Department</span>
+        <span>Briefing for the Temple Police Department</span>
         <span class="sep">·</span>
-        <span>June 2, 2026</span>
+        <span>[Meeting Date TBD]</span>
       </div>
     </div>
     <div class="s1-bottom">Grant Lindberg, Executive Director  ·  info@amberangels.org  ·  amberangels.org</div>
@@ -1139,7 +1139,7 @@ section {
       <div class="s2-source">Source — OJJDP / National Center for Missing &amp; Exploited Children</div>
     </div>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">02 / 15</div>
   </section>
 
@@ -1147,7 +1147,7 @@ section {
   <section id="s3" data-screen-label="03 Where We Fit">
     <span class="label">For The Record</span>
     <h2>What this platform is —<br>and what it <em>deliberately is not</em>.</h2>
-    <p class="s3-intro">Before anything else, we want to set the boundary. Amber's Angels is a volunteer civilian search network that responds to government-issued alerts only. The framing matters for liability, for public messaging, and for how detections route to CPD.</p>
+    <p class="s3-intro">Before anything else, we want to set the boundary. Amber's Angels is a volunteer civilian search network that responds to government-issued alerts only. The framing matters for liability, for public messaging, and for how detections route to TPD.</p>
 
     <div class="fit-grid">
       <div class="fit-col is">
@@ -1197,7 +1197,7 @@ section {
             <div class="marker">×</div>
             <div class="copy">
               <strong>Not law enforcement</strong>
-              <p>We do not have arrest authority, we do not deploy on our own initiative, and we do not represent CPD or any agency.</p>
+              <p>We do not have arrest authority, we do not deploy on our own initiative, and we do not represent TPD or any agency.</p>
             </div>
           </li>
           <li>
@@ -1226,7 +1226,7 @@ section {
     </div>
 
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">03 / 15</div>
   </section>
 
@@ -1252,7 +1252,7 @@ section {
       </div>
       <blockquote class="s4-quote">
         <p>"Having this and identifying the person right away was very, very helpful — and hopefully it saved somebody's life or even saved his own life."</p>
-        <cite>— Lt. Blake Hitchcock, Carrollton PD · Fox 5 Atlanta, 2019</cite>
+        <cite>— Lt. Blake Hitchcock, Temple PD · Fox 5 Atlanta, 2019</cite>
       </blockquote>
     </div>
     <div class="s4-map">
@@ -1281,7 +1281,7 @@ section {
       <p class="s4-map-caption">COVERAGE GAP · ILLUSTRATIVE</p>
     </div>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">04 / 15</div>
   </section>
 
@@ -1317,15 +1317,15 @@ section {
       <div class="pipe-step">
         <div class="pipe-icon">🚔</div>
         <div class="stage-num">05 — HANDOFF</div>
-        <h3>Lead to CPD</h3>
-        <p>Coordinator-verified GPS, time, photo, and vehicle profile delivered to the response team CPD designates.</p>
+        <h3>Lead to TPD</h3>
+        <p>Coordinator-verified GPS, time, photo, and vehicle profile delivered to the response team TPD designates.</p>
       </div>
     </div>
     <div class="pipe-note">
-      <strong>No AI-only alerts ever reach CPD.</strong> The cascade flags candidates; a trained human coordinator decides what's a lead. We reduce false positives from ~30% (plate-only systems) to under 5% by requiring vehicle make/model/color corroboration before a coordinator even sees the result.
+      <strong>No AI-only alerts ever reach TPD.</strong> The cascade flags candidates; a trained human coordinator decides what's a lead. We reduce false positives from ~30% (plate-only systems) to under 5% by requiring vehicle make/model/color corroboration before a coordinator even sees the result.
     </div>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">05 / 15</div>
   </section>
 
@@ -1333,7 +1333,7 @@ section {
   <section id="s6" data-screen-label="06 Liability and Audit">
     <div class="header-row">
       <h2>Volunteers are <em>accountable</em>.<br>So are coordinators.</h2>
-      <p>Two mechanisms underpin CPD's protection: a binding volunteer agreement signed before any mission contact, and a tamper-evident audit log of every coordinator action.</p>
+      <p>Two mechanisms underpin TPD's protection: a binding volunteer agreement signed before any mission contact, and a tamper-evident audit log of every coordinator action.</p>
     </div>
 
     <div class="liab-grid">
@@ -1357,7 +1357,7 @@ section {
           </div>
           <div class="tos-clause">
             <div class="chk">✓</div>
-            <div>I understand I am <strong>not acting under the authority of any law enforcement agency</strong>, and I do not represent Carrollton PD or Amber's Angels in the field.</div>
+            <div>I understand I am <strong>not acting under the authority of any law enforcement agency</strong>, and I do not represent Temple PD or Amber's Angels in the field.</div>
           </div>
           <div class="tos-clause">
             <div class="chk">✓</div>
@@ -1398,7 +1398,7 @@ section {
           <div class="audit-row">
             <span class="t">14:38:11</span>
             <span class="who">system</span>
-            <span class="act">lead handoff to <em>CPD dispatch</em> · ack received</span>
+            <span class="act">lead handoff to <em>TPD dispatch</em> · ack received</span>
           </div>
           <div class="audit-row">
             <span class="t">14:42:55</span>
@@ -1422,12 +1422,12 @@ section {
           </div>
         </div>
 
-        <div class="liab-foot">CPD can request a full audit export for any closed alert — coordinator identity, review decision, latency to escalation, and outcome.</div>
+        <div class="liab-foot">TPD can request a full audit export for any closed alert — coordinator identity, review decision, latency to escalation, and outcome.</div>
       </div>
     </div>
 
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">06 / 15</div>
   </section>
 
@@ -1581,7 +1581,7 @@ section {
               <div class="obs-row">
                 <div class="obs-pin">📍</div>
                 <div>
-                  <div class="obs-where">Old Carrollton Rd · gap fill</div>
+                  <div class="obs-where">Old Temple Rd · gap fill</div>
                   <div class="obs-coords">34.5763, −85.0782 · 1.4 mi from drone home</div>
                 </div>
               </div>
@@ -1600,7 +1600,7 @@ section {
     </div>
 
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">07 / 15</div>
   </section>
 
@@ -1717,7 +1717,7 @@ section {
     </div>
 
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">08 / 15</div>
   </section>
 
@@ -1743,7 +1743,7 @@ section {
         </div>
         <button class="rth-btn">↩  Return to home</button>
 
-        <div class="rel-foot">CPD sees drone status on the same map. <strong>One operator, full situational awareness.</strong></div>
+        <div class="rel-foot">TPD sees drone status on the same map. <strong>One operator, full situational awareness.</strong></div>
       </div>
 
       <!-- Discord error alerting -->
@@ -1776,7 +1776,7 @@ section {
           </div>
         </div>
 
-        <div class="rel-foot">On-call coordinator paged on <strong>ERROR · CPD never sees the noise.</strong></div>
+        <div class="rel-foot">On-call coordinator paged on <strong>ERROR · TPD never sees the noise.</strong></div>
       </div>
 
       <!-- Alert resolved / cancelled -->
@@ -1814,7 +1814,7 @@ section {
     </div>
 
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">09 / 15</div>
   </section>
 
@@ -1874,7 +1874,7 @@ section {
       </div>
     </div>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">10 / 15</div>
   </section>
 
@@ -1932,7 +1932,7 @@ section {
       </div>
     </div>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">11 / 15</div>
   </section>
 
@@ -1981,7 +1981,7 @@ section {
     </div>
     <p style="font-size:14px;color:var(--dim);margin-top:16px;padding-left:4px;">★ Georgia-specific programs</p>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">12 / 15</div>
   </section>
 
@@ -1998,15 +1998,15 @@ section {
         </li>
         <li class="pilot-goal-item">
           <div class="goal-n">2</div>
-          <p>Achieve operational readiness for <strong>live AMBER Alert response</strong>, including a CPD-observed tabletop exercise.</p>
+          <p>Achieve operational readiness for <strong>live AMBER Alert response</strong>, including a TPD-observed tabletop exercise.</p>
         </li>
         <li class="pilot-goal-item">
           <div class="goal-n">3</div>
-          <p>Demonstrate VMMC detection performance in <strong>controlled field exercises with CPD observers</strong> — including a false-positive rejection drill.</p>
+          <p>Demonstrate VMMC detection performance in <strong>controlled field exercises with TPD observers</strong> — including a false-positive rejection drill.</p>
         </li>
         <li class="pilot-goal-item">
           <div class="goal-n">4</div>
-          <p>Publish a <strong>public transparency report</strong> with CPD's input — detection accuracy, review latency, retention compliance.</p>
+          <p>Publish a <strong>public transparency report</strong> with TPD's input — detection accuracy, review latency, retention compliance.</p>
         </li>
       </ul>
     </div>
@@ -2017,17 +2017,17 @@ section {
       <div class="impact-r"><span class="lbl">Total added coverage</span><span class="val">~1,000 mi</span></div>
       <div class="impact-r"><span class="lbl">Detection signals per vehicle</span><span class="val">5</span></div>
       <div class="impact-r"><span class="lbl">Plate-only false-positive rate</span><span class="val">~30%</span></div>
-      <p class="s13-cred">Seeking formal partnership with CPD. Active engagement from local SDVOSB veteran network. Proximity to Atlanta metro for AI model iteration and Part 107 instructor availability.</p>
+      <p class="s13-cred">Seeking formal partnership with TPD. Active engagement from local SDVOSB veteran network. Proximity to Atlanta metro for AI model iteration and Part 107 instructor availability.</p>
     </div>
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">13 / 15</div>
   </section>
 
   <!-- 14 THE ASK ───────────────────────────────────────────── -->
   <section id="s14" data-screen-label="14 The Ask">
     <div class="header-row">
-      <span class="label">What we're asking of CPD</span>
+      <span class="label">What we're asking of TPD</span>
       <h2>Two small things —<br>none of them <em>funding</em>.</h2>
       <p>We are not asking the department for money. We are asking for a formal posture that lets us deploy in your jurisdiction with your visibility, your input, and your discretion.</p>
     </div>
@@ -2036,15 +2036,15 @@ section {
       <div class="ask-card">
         <div class="n">01</div>
         <h3>Tabletop Exercise Slot</h3>
-        <p>A controlled walkthrough of the dispatch flow — coordinator console, swarm dispatch, audit log — fit into CPD's training calendar at whatever depth makes sense.</p>
-        <div class="ask-detail"><strong>Your team validates the flow before any live deployment.</strong> CPD sets the scenario, scope, and time.</div>
+        <p>A controlled walkthrough of the dispatch flow — coordinator console, swarm dispatch, audit log — fit into TPD's training calendar at whatever depth makes sense.</p>
+        <div class="ask-detail"><strong>Your team validates the flow before any live deployment.</strong> TPD sets the scenario, scope, and time.</div>
       </div>
 
       <div class="ask-card">
         <div class="n">02</div>
         <h3>Partnership Cadence</h3>
-        <p>A recurring touchpoint for the pilot duration — status, audit-report walkthrough, anything CPD wants reviewed.</p>
-        <div class="ask-detail"><strong>Cadence and format set by CPD.</strong> Designed so you have continuous visibility without continuous burden.</div>
+        <p>A recurring touchpoint for the pilot duration — status, audit-report walkthrough, anything TPD wants reviewed.</p>
+        <div class="ask-detail"><strong>Cadence and format set by TPD.</strong> Designed so you have continuous visibility without continuous burden.</div>
       </div>
     </div>
 
@@ -2055,11 +2055,11 @@ section {
 
     <div class="ask-foot">
       <span class="nodot">Not asking for</span>
-      <span>Funding · operational authority · use of CPD branding · access to CJIS · access to LE-only data.</span>
+      <span>Funding · operational authority · use of TPD branding · access to CJIS · access to LE-only data.</span>
     </div>
 
     <div class="logo-mark"><img src="mobile/assets/icon.png" alt="AA"><span>Amber's <em>Angels</em></span></div>
-    <div class="meeting-tag"><span class="dot"></span>CPD · 06.02.2026</div>
+    <div class="meeting-tag"><span class="dot"></span>TPD · TBD</div>
     <div class="slide-num">14 / 15</div>
   </section>
 
@@ -2068,7 +2068,7 @@ section {
     <img src="mobile/assets/icon.png" class="s15-logo" alt="AA">
     <div class="s15-org">Amber's Angels</div>
     <h2 class="s15-headline">When a child goes missing,<br>every second is the golden hour.</h2>
-    <p class="s15-sub">We are building the network that makes sure no corridor goes unwatched and no community goes unprotected. We would be honored to do it alongside Carrollton PD.<br><strong>Thank you.</strong></p>
+    <p class="s15-sub">We are building the network that makes sure no corridor goes unwatched and no community goes unprotected. We would be honored to do it alongside Temple PD.<br><strong>Thank you.</strong></p>
     <div class="s15-contact">
       <div class="s15-contact-item">
         <div class="s15-contact-label">Executive Director</div>

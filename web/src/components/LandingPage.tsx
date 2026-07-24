@@ -298,7 +298,7 @@ export default function LandingPage() {
           <span className={s.label}>Privacy First</span>
           <div className={s.sectionHeader}>
             <h2>We save lives without building a surveillance state.</h2>
-            <p>Every architectural decision begins with one question: what is the minimum data required for this mission? Phone scanning runs entirely on-device — no frames leave the phone. Drone footage that doesn&apos;t match is deleted immediately; confirmed matches are retained as time-limited evidence and automatically purged. Innocent citizens are never profiled.</p>
+            <p>Every architectural decision begins with one question: what is the minimum data required for this mission? Phone scanning runs entirely on-device — non-matching frames never leave the phone; one frame uploads only as evidence on a watchlist hit. Drone footage that doesn&apos;t match is deleted immediately; confirmed matches are retained as time-limited evidence and automatically purged. Innocent citizens are never profiled.</p>
           </div>
         </div>
         <div className={`${s.privacyGrid} ${s.fadeUp}`}>

@@ -86,7 +86,7 @@ graph TB
 | **Compute** | DigitalOcean Droplets — API + database co-hosted |
 | **TLS/HTTPS** | nginx reverse proxy with Let's Encrypt certificates |
 | **Edge Hardware** | DJI Mavic 3 (Part 107 operator required) + Android/iOS smartphones |
-| **Security** | End-to-end encryption for all detection data; phone frames never leave device; non-matching drone frames deleted post-inference; match evidence retained up to 1 year |
+| **Security** | End-to-end encryption for all detection data; non-matching phone frames never leave device (one frame uploads as evidence only on a watchlist hit); non-matching drone frames deleted post-inference; match evidence retained up to 1 year |
 
 ---
 
@@ -226,7 +226,7 @@ By utilizing a distributed tech stack, Amber's Angels remains highly scalable wi
 | :--- | :--- |
 | **Unauthorized API access** | JWT authentication, role-based access control |
 | **DDoS / abuse during active alerts** | `slowapi` rate limiting + DigitalOcean network firewall |
-| **Data exfiltration** | Phone frames never leave device; drone non-match frames deleted immediately; match evidence retained up to 1 year with access controls |
+| **Data exfiltration** | Non-matching phone frames never leave device; drone non-match frames deleted immediately; match evidence (including the single phone-hit evidence frame) retained up to 1 year with access controls |
 | **Credential exposure** | Secrets managed via `.env` (never committed to source control) |
 | **Volunteer identity spoofing** | Background check + government ID verification at onboarding |
 | **False alert injection** | Alerts consumed only from FEMA IPAWS official feed |

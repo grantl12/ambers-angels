@@ -194,6 +194,19 @@ app.mount("/frames", StaticFiles(directory=GOLDEN_DIR), name="frames")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 _bearer_optional = HTTPBearer(auto_error=False)
 
+
+def _optional_pilot(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),
+) -> Optional[dict]:
+    """Accept any request; decode JWT if present but don't require it."""
+    if creds:
+        try:
+            from routers.auth import _decode_token
+            return _decode_token(creds.credentials)
+        except Exception:
+            pass
+    return None
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -950,14 +963,24 @@ async def ingest_frame(
     pilot_id: Optional[str] = Form(None),
     source: Optional[str] = Form(None),
     detected_at: Optional[str] = Form(None),
-    _pilot: dict = Depends(get_current_pilot),
+    _pilot: Optional[dict] = Depends(_optional_pilot),
 ):
     """
     Raw JPEG frame ingestion from native app (DJI SDK or phone camera).
     Runs OpenALPR server-side, then feeds each result into the same
     AggregationService → EventService pipeline as the RTMP worker.
+
+    Auth: pilot JWT is required for every source except `phone_gps` — that source
+    is the one-frame evidence upload ScanService.kt / CameraScreen.tsx fire on a
+    watchlist hit, mirroring the anonymous-scan trust model already granted to
+    POST /ingest/detection. A phone volunteer scanning without an account still
+    needs that upload to succeed, or a watchlist hit silently produces no evidence
+    frame. Every other source (dji_sdk, or missing/malformed) still requires login.
     """
     from services.frame_preprocessor import run_alpr as _run_alpr
+
+    if source != "phone_gps" and not _pilot:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     if file.content_type and file.content_type.lower() not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=415, detail="Only JPEG, PNG, or WebP frames are accepted.")
@@ -1217,19 +1240,6 @@ async def ingest_frame(
     # Return the next capture interval. If we saw plates, we speed up.
     interval_ms = 800 if outcomes else 1500
     return {"status": "ok", "outcomes": outcomes, "watchlist_hit": _frame_watchlist_hit, "capture_interval_ms": interval_ms}
-
-
-def _optional_pilot(
-    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_optional),
-) -> Optional[dict]:
-    """Accept any request; decode JWT if present but don't require it."""
-    if creds:
-        try:
-            from routers.auth import _decode_token
-            return _decode_token(creds.credentials)
-        except Exception:
-            pass
-    return None
 
 
 @app.post("/ingest/detection")

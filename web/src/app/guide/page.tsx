@@ -312,9 +312,10 @@ export default function GuidePage() {
           <H3 id="background-scan">Background Scan</H3>
           <RoleBadge role="pilot" />
           <P>
-            Background scan is the default volunteer mode. ML Kit OCR runs entirely on your device — frames
-            never leave your phone. Only the plate text and confidence score are transmitted to the server.
-            This is a privacy guarantee enforced by the architecture, not policy.
+            Background scan is the default volunteer mode. ML Kit OCR runs entirely on your device —
+            non-matching frames never leave your phone; only the plate text and confidence score are
+            transmitted to the server. If a scan matches an active watchlist, that one frame uploads
+            as evidence. This is a privacy guarantee enforced by the architecture, not policy.
           </P>
           <Ul>
             <Li>Mount your phone with the camera facing traffic</Li>

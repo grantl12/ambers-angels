@@ -94,6 +94,11 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 </header>
 <main class="main">
 
+  <div style="background:var(--navy); color:var(--cream); border-left:4px solid var(--amber); padding:20px 24px; margin:0 0 32px;">
+    <p style="margin:0 0 8px; font-weight:700; letter-spacing:0.3px; color:var(--amber);">Update &mdash; July 22, 2026</p>
+    <p style="margin:0; font-size:10.5pt; line-height:1.6;">Since this paper was published, the architecture changed: on June 28, 2026, the background/foreground scan path on both platforms was given the ability to upload <strong>one</strong> JPEG frame as evidence when a scan produces a confirmed watchlist hit &mdash; through the exact native-code-and-app-review path this paper describes as the only way to break the guarantee (see &ldquo;What Would It Take to Break This Guarantee?&rdquo; below, which turned out to be a roadmap rather than a hypothetical). The guarantee this paper still holds: <strong>non-matching frames never leave the phone.</strong> The absolute &ldquo;zero frames, ever&rdquo; claims below are historical and no longer accurate; sections that changed are annotated inline. See the current <a href="/privacy">Privacy Policy</a> for the up-to-date claim.</p>
+  </div>
+
   <div class="abstract">
     <p class="abstract-label">Abstract</p>
     <p>Amber&rsquo;s Angels asks private citizens to mount their phones on dashboards and scan license plates during active missing persons alerts. That is an extraordinary ask. For it to work, volunteers must trust&thinsp;&mdash;&thinsp;and be able to verify&thinsp;&mdash;&thinsp;that their phones are not uploading video of every car they pass. This paper describes the architectural separation between the app&rsquo;s two camera paths: a background passive scan that runs optical character recognition entirely on the phone and transmits only plate text, and an active pilot camera mode that intentionally uploads raw frames for evidence. The privacy guarantee of the background path is enforced by code structure, not by policy. There is no server endpoint that accepts frames from the background scanner, no configuration toggle that enables frame upload, and no over-the-air update that can change this without shipping a new native binary through app store review. When the architecture makes the wrong thing impossible, the policy becomes redundant.</p>
@@ -114,7 +119,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
     <li><code>drone_id</code> &mdash; a volunteer-chosen device identifier</li>
   </ul>
 
-  <p>That is it. No image data. No pixel buffer. No thumbnail. No compressed frame. The raw camera capture is used as input to the on-device OCR model, and then it is discarded. The JPEG never touches a network socket. The endpoint that receives this data, <code>POST /ingest/detection</code>, does not accept a file upload field&thinsp;&mdash;&thinsp;there is no <code>file</code> parameter in its API contract. Even if a malicious client tried to attach an image, the server would ignore it.</p>
+  <p>That is it &mdash; for this endpoint. The raw camera capture is used as input to the on-device OCR model, and then it is discarded; the JPEG never touches a network socket at this step. <code>POST /ingest/detection</code> does not accept a file upload field&thinsp;&mdash;&thinsp;there is no <code>file</code> parameter in its API contract, and that remains true today. <em>(Update, July 2026: on a confirmed watchlist hit, the phone makes a separate, second call to <code>POST /ingest/frame</code> to upload one evidence frame &mdash; see the note at the top of this paper. That call did not exist when this section was written.)</em></p>
 
   <p>On Android, this runs as a foreground service with its own persistent notification. The volunteer can switch to Uber, Google Maps, or any other app&thinsp;&mdash;&thinsp;scanning continues in the background. The user sees a running count of plates read, and if a plate matches the active watchlist, the phone fires a high-priority notification with vibration. The entire pipeline from camera capture to OCR to plate candidate filtering to server POST runs in Kotlin native code, independent of the React Native UI layer.</p>
 
@@ -156,6 +161,8 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>Compare this to a policy change, which requires an email to a legal department and an updated PDF on a website.</p>
 
+  <p><em>(Update, July 2026: this is exactly what happened. The scan service was modified to call <code>POST /ingest/frame</code> on a watchlist hit, compiled into a new native build, and shipped through app store review &mdash; the reviewable, diffable process this section predicted. The point stands: it took a shipped app update, not a silent server-side or policy change.)</em></p>
+
   <h2>Technical Implementation</h2>
 
   <h3>The On-Device OCR Pipeline</h3>
@@ -195,7 +202,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>Authentication is also different. <code>POST /ingest/detection</code> uses an <code>_optional_pilot</code> dependency&thinsp;&mdash;&thinsp;it accepts a JWT if one is present but does not require it. This allows the Android background scan service to operate even when the user has not logged in. By contrast, <code>POST /ingest/frame</code> requires a valid pilot JWT via the <code>get_current_pilot</code> dependency. Unauthenticated frame uploads are rejected.</p>
 
-  <p>The <code>frame_id</code> field in the aggregation pipeline is explicitly set to <code>None</code> for on-device detections. This means no <code>frame_url</code> is stored in the detection event record, no golden frame file is created, and no frame thumbnail can appear in a Discord alert or evidence package. When a detection from the background scanner triggers a watchlist match, the Discord notification reads: <em>&ldquo;Detection source: On-device OCR &mdash; no frame transmitted.&rdquo;</em> That message is not a workaround for a missing feature. It is the system working exactly as designed.</p>
+  <p>The <code>frame_id</code> field in the aggregation pipeline is set to <code>None</code> for the initial <code>/ingest/detection</code> POST &mdash; no image accompanies that call, full stop. <em>(Update, July 2026: on a confirmed watchlist hit, the phone follows up with a call to <code>POST /ingest/frame</code>, a UUID is generated for that one frame, and it is saved to the golden frame directory. The Discord notification for a phone-scan hit now includes that evidence frame, the same as a drone hit. Non-hit detections still produce no frame and no Discord attachment &mdash; that part of the design is unchanged.)</em></p>
 
   <h2>What Leaves the Phone</h2>
 
@@ -207,7 +214,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
     </tr>
     <tr>
       <td class="col-label">Raw camera frame</td>
-      <td class="no">Never transmitted</td>
+      <td class="na">Only on watchlist hit (1 frame)*</td>
       <td class="yes">Uploaded as JPEG</td>
     </tr>
     <tr>
@@ -232,7 +239,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
     </tr>
     <tr>
       <td class="col-label">Golden frame (evidence)</td>
-      <td class="no">No frame exists</td>
+      <td class="na">Created only on watchlist hit*</td>
       <td class="yes">Stored on server</td>
     </tr>
     <tr>
@@ -252,6 +259,8 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
     </tr>
   </table>
 
+  <p style="font-size:9.5pt; color:var(--muted);">*Added June 28, 2026. Every non-hit frame is still discarded on-device and never transmitted &mdash; only a confirmed watchlist match triggers the one-time evidence upload.</p>
+
   <p>The separation is total. The two paths share the same aggregation pipeline on the server&thinsp;&mdash;&thinsp;both feed into the same <code>AggregationService</code> with the same 5-second correlation window, the same watchlist lookup, the same confidence thresholds&thinsp;&mdash;&thinsp;but they arrive through different endpoints, with different authentication, different payloads, and fundamentally different privacy properties.</p>
 
   <h2>The Volunteer Trust Problem</h2>
@@ -266,7 +275,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>In every case, the technology was the same before and after the mission expanded. Only the policy changed. The hardware and software were always <em>capable</em> of the expanded use&thinsp;&mdash;&thinsp;someone just decided to use the capability.</p>
 
-  <p>Amber&rsquo;s Angels cannot be that. If a volunteer&rsquo;s neighbor sees the app running and asks &ldquo;is your phone recording me?&rdquo;, the answer needs to be verifiable. The phone is reading license plates and sending <em>text</em>&thinsp;&mdash;&thinsp;a string of characters. It is not recording video. It is not uploading photos. And no server-side change can make it start, because the code that decides what to transmit runs on the phone itself, compiled into the app binary, subject to app store review.</p>
+  <p>Amber&rsquo;s Angels cannot be that. If a volunteer&rsquo;s neighbor sees the app running and asks &ldquo;is your phone recording me?&rdquo;, the answer needs to be verifiable. The phone is reading license plates and sending <em>text</em>&thinsp;&mdash;&thinsp;a string of characters &mdash; unless that specific plate matches an active alert, in which case one photo of that one vehicle is uploaded as evidence. It is not recording video, and it is not photographing anyone else's car. No server-side change can make it upload more than that, because the code that decides what to transmit runs on the phone itself, compiled into the app binary, subject to app store review.</p>
 
   <div class="pullquote">
     <p>&ldquo;The question every volunteer asks is not &lsquo;what does your privacy policy say?&rsquo; It is &lsquo;is my phone recording my neighbors?&rsquo; Architecture lets me answer that question with a fact, not a promise.&rdquo;</p>
@@ -276,15 +285,15 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>Flock Safety, the dominant ALPR provider in the U.S. law enforcement market, deploys fixed cameras on poles that capture an image of every vehicle that passes. Those images&thinsp;&mdash;&thinsp;including the full vehicle, surrounding context, and sometimes occupants&thinsp;&mdash;&thinsp;are stored on Flock&rsquo;s cloud servers. Access policies govern who can query the data, for how long it is retained, and what purposes are permissible.</p>
 
-  <p>Amber&rsquo;s Angels&rsquo; background scan path is architecturally incapable of producing that data. There is no image to store, no context to capture, no occupant to photograph. The data that reaches the server is <code>ABC1234, 0.87, 33.5795, -85.0766</code>. That is a plate number, a confidence score, and a GPS point. It is less data than a toll booth transponder generates.</p>
+  <p>For the overwhelming majority of scans &mdash; every plate that does not match an active alert &mdash; Amber&rsquo;s Angels&rsquo; background scan path produces no image at all: no context to capture, no occupant to photograph. The data that reaches the server is <code>ABC1234, 0.87, 33.5795, -85.0766</code>. That is a plate number, a confidence score, and a GPS point. It is less data than a toll booth transponder generates. The one exception is a confirmed watchlist match, where a single evidence frame is uploaded &mdash; the same evidentiary standard applied to a drone hit, and disclosed in the Privacy Policy.</p>
 
   <p>This is not a criticism of Flock&rsquo;s engineering. Fixed-camera ALPR requires image capture&thinsp;&mdash;&thinsp;the camera is unattended, and human review of captured images is part of the evidence workflow. The architectures serve different operational models. But the privacy properties are categorically different, and that distinction matters when the operator is a private citizen driving their own car through their own neighborhood.</p>
 
   <div class="stat-grid">
     <div class="stat-cell">
       <span class="num purple">0</span>
-      <span class="label">frames uploaded in background scan mode</span>
-      <span class="cite">By architecture, not policy</span>
+      <span class="label">frames uploaded per non-matching scan</span>
+      <span class="cite">One frame uploads only on a confirmed hit</span>
     </div>
     <div class="stat-cell">
       <span class="num amber">640&times;480</span>
@@ -312,13 +321,14 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
         <tr><td>03</td><td><strong>Server POST.</strong> The plate text, confidence, and GPS coordinates are sent to <code>POST /ingest/detection</code> as form-encoded key-value pairs. No image data.</td></tr>
         <tr><td>04</td><td><strong>Watchlist lookup.</strong> The server normalizes the plate and checks it against the active watchlist. If the confidence exceeds 55% (after normalization to a 0&ndash;100 scale), the check proceeds.</td></tr>
         <tr><td>05</td><td><strong>Aggregation.</strong> The detection enters the same 5-second aggregation window used by all detection sources. Multiple readings of the same plate within 5 seconds are correlated into a single snapshot with a composite confidence score.</td></tr>
-        <tr><td>06</td><td><strong>Alert dispatch.</strong> If the aggregated confidence exceeds the high-confidence threshold (85%), a Discord alert fires with the plate, confidence, GPS, and detection source. The Discord message explicitly states: <em>&ldquo;Detection source: On-device OCR &mdash; no frame transmitted.&rdquo;</em> No image is attached because no image exists on the server.</td></tr>
-        <tr><td>07</td><td><strong>Volunteer notification.</strong> The phone receives the <code>watchlist_hit: true</code> response and fires a high-priority local notification with vibration, alerting the volunteer that they have driven past a vehicle matching an active alert.</td></tr>
+        <tr><td>06</td><td><strong>Evidence upload (hit only).</strong> <em>(Added June 28, 2026.)</em> The phone follows up with a call to <code>POST /ingest/frame</code>, uploading the one frame that produced the match. The server assigns it a UUID and saves it to the golden frame directory.</td></tr>
+        <tr><td>07</td><td><strong>Alert dispatch.</strong> If the aggregated confidence exceeds the high-confidence threshold (85%), a Discord alert fires with the plate, confidence, GPS, detection source, and the evidence frame from step 06 attached &mdash; the same as a drone hit.</td></tr>
+        <tr><td>08</td><td><strong>Volunteer notification.</strong> The phone receives the <code>watchlist_hit: true</code> response and fires a high-priority local notification with vibration, alerting the volunteer that they have driven past a vehicle matching an active alert.</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>The entire flow produces a detection event record with <code>frame_id = None</code> and <code>frame_url = None</code>. There is no evidence image. There is a plate reading, a location, a timestamp, and a confidence score. That is sufficient to direct law enforcement to the area. It is not sufficient for a positive identification or an arrest&thinsp;&mdash;&thinsp;nor should it be. The volunteer is a tipster, not a forensic analyst.</p>
+  <p>A non-matching scan produces a detection event record with <code>frame_id = None</code> and <code>frame_url = None</code> &mdash; no evidence image, just a plate reading, a location, a timestamp, and a confidence score. That's the overwhelming majority of scans, and it's sufficient to direct law enforcement to the area without being sufficient for a positive identification or an arrest&thinsp;&mdash;&thinsp;nor should it be; the volunteer is a tipster, not a forensic analyst. A confirmed watchlist match is the one case that gets an evidence frame, per step 06 above.</p>
 
   <h2>The Active Camera Path: When Frames Are Needed</h2>
 
@@ -344,7 +354,7 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <p>On-device OCR is implemented on both platforms. Android uses ML Kit inside a foreground service (<code>ScanService.kt</code>), allowing scanning to continue when the user switches to another app&thinsp;&mdash;&thinsp;a critical capability for gig economy drivers who need navigation or ride-share apps running simultaneously. iOS uses Apple&rsquo;s Vision framework (<code>VNRecognizeTextRequest</code>) via a Swift native module, running in the foreground camera loop. iOS does not support background camera access, so volunteers must keep the app open while scanning.</p>
 
-  <p>Both platforms transmit only plate text, confidence, and GPS to the server via <code>POST /ingest/detection</code>. No frames leave the device on either platform. The privacy guarantee is identical across iOS and Android&thinsp;&mdash;&thinsp;the only difference is the background execution model.</p>
+  <p>Both platforms transmit plate text, confidence, and GPS to the server via <code>POST /ingest/detection</code> on every scan. Non-matching frames never leave the device on either platform; on a confirmed watchlist hit, both platforms follow up with the same one-frame upload to <code>POST /ingest/frame</code>. The privacy guarantee is identical across iOS and Android&thinsp;&mdash;&thinsp;the only difference is the background execution model.</p>
 
   <h3>On-Device Model Improvements</h3>
 
@@ -354,19 +364,21 @@ code { font-family:'JetBrains Mono',monospace; font-size:9.5pt; background:#EDE8
 
   <h3>Vehicle-Only Classification on Device</h3>
 
-  <p>The background scan path currently transmits only plate text. It does not perform vehicle classification (color, body type, make/model) because YOLO runs server-side and no frame is uploaded. A future enhancement could run a lightweight vehicle classification model on-device alongside ML Kit, transmitting vehicle attributes as additional form fields without transmitting any image data. This would enable profile-only matching (matching FEMA alerts that describe a vehicle but provide no plate number) from the background scan path, expanding coverage without compromising the no-frame-upload guarantee.</p>
+  <p>The background scan path transmits only plate text during the initial scan, before any watchlist match is known. It does not perform vehicle classification (color, body type, make/model) because YOLO runs server-side, and the only frame the path ever uploads is the single evidence frame that follows a confirmed <em>plate</em> match &mdash; too late to help match a profile-only alert (one that describes a vehicle but provides no plate number). A future enhancement could run a lightweight vehicle classification model on-device alongside ML Kit, transmitting vehicle attributes as additional form fields without transmitting any image data during the scan itself. This would enable profile-only matching from the background scan path, expanding coverage while keeping the same evidence-frame-only-on-a-hit guarantee.</p>
 
-  <h3>Consent-Gated Frame Upload</h3>
+  <h3>Evidence Frame on Watchlist Hit &mdash; Built June 28, 2026</h3>
 
-  <p>There may be future scenarios where a volunteer using the background scan path encounters a high-confidence watchlist match and a coordinator wants a visual confirmation. The correct design is an explicit, per-detection consent prompt: the phone notifies the volunteer of the match, asks &ldquo;Would you like to capture and upload a photo for confirmation?&rdquo;, and only transmits a frame if the volunteer taps yes. This preserves the architectural guarantee (the scan service never uploads frames autonomously) while allowing volunteers to opt into evidence collection on a case-by-case basis. This feature is not built. If it is built, it will require clear disclosure in the app&rsquo;s privacy notice and a reviewable consent flow.</p>
+  <p>This section originally described a hypothetical: a future, consent-gated frame upload for high-confidence matches, guarded by an explicit &ldquo;would you like to upload a photo?&rdquo; prompt. That is not what got built. What shipped instead follows the same evidentiary standard as the drone path: on a confirmed watchlist hit, the scan service automatically uploads the one frame that produced the match, with no per-detection prompt. The disclosure lives in the Privacy Policy and Terms of Service, which volunteers accept before scanning &mdash; not in a live consent dialog per hit.</p>
+
+  <p>The architectural guarantee this paper is actually built around is narrower than &ldquo;the scan service never uploads frames autonomously,&rdquo; and more precise: <strong>the scan service never uploads frames for non-matching scans.</strong> That boundary is still enforced in native code, still requires a new compiled build and app store review to move, and is the guarantee volunteers should be told about. Extending frame capture any further &mdash; to non-hit frames, or to any other passive/background scanning path &mdash; is treated as a hard line and would require exactly the kind of consent flow this section originally proposed.</p>
 
   <h2>Conclusion</h2>
 
   <p>The distinction between policy-based and architecture-based privacy is not academic. It is the difference between a promise and a constraint. Promises are broken by board votes, acquisition agreements, and quarterly revenue targets. Constraints are broken by code changes that go through version control, code review, native compilation, and app store submission.</p>
 
-  <p>Amber&rsquo;s Angels chose the constraint. On both Android and iOS, the phone scanning path runs on-device OCR, transmits text, and discards the frame. No server endpoint accepts frames from this path. No configuration enables frame upload. No over-the-air update can change this. The only way to add frame upload to the phone scanner is to write new native code, compile it, submit it to Google and Apple, and wait for review&thinsp;&mdash;&thinsp;producing an auditable, public, reviewable change in the process.</p>
+  <p>Amber&rsquo;s Angels chose the constraint. On both Android and iOS, the phone scanning path runs on-device OCR, transmits text, and discards the frame for every non-matching scan. No configuration toggle or server-side flag enables frame upload beyond that; getting from &ldquo;discard&rdquo; to &ldquo;upload one evidence frame on a hit&rdquo; took exactly what this paper predicted &mdash; new native code, compiled, submitted to Google and Apple, and reviewed&thinsp;&mdash;&thinsp;producing an auditable, public, reviewable change in the process, not a silent policy update.</p>
 
-  <p>When a volunteer asks &ldquo;is my phone recording my neighbors?&rdquo;, I do not answer with a privacy policy. I answer with an architecture. The phone reads plates and sends text. The frame never leaves the phone. That is how the code works, and code does not lie.</p>
+  <p>When a volunteer asks &ldquo;is my phone recording my neighbors?&rdquo;, I do not answer with a privacy policy. I answer with an architecture. The phone reads plates and sends text; the frame is discarded unless that plate is the one we're looking for, in which case one frame is saved as evidence, the same as it would be from a drone. That is how the code works, and code does not lie.</p>
 
   <div class="cta">
     <p>Amber&rsquo;s Angels is a 501(c)(3) nonprofit (EIN 42-2052151) building event-triggered public safety AI. For partnership inquiries or technical questions, contact <a href="mailto:info@amberangels.org">info@amberangels.org</a>.</p>
