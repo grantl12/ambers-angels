@@ -245,7 +245,7 @@ def register(req: RegisterRequest):
             VALUES
                 (:username, :email, :password_hash, :full_name, :phone, :city,
                  :radius, :drones, :part107, :cert_number,
-                 :watch_areas, CAST(:notif_prefs AS jsonb), :status, :role, :approved_at)
+                 CAST(:watch_areas AS jsonb), CAST(:notif_prefs AS jsonb), :status, :role, :approved_at)
         """), {
             "username":      username,
             "email":         req.email.strip().lower(),
@@ -257,7 +257,7 @@ def register(req: RegisterRequest):
             "drones":        req.drones,
             "part107":       req.part107,
             "cert_number":   req.cert_number,
-            "watch_areas":   req.watch_areas or [],
+            "watch_areas":   json.dumps(req.watch_areas or []),
             "notif_prefs":   json.dumps(req.notification_prefs or ["push", "email"]),
             "status":        pilot_status,
             "role":          pilot_role,
@@ -498,7 +498,7 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
                 drones               = COALESCE(:drones, drones),
                 part107              = COALESCE(:part107, part107),
                 cert_number          = COALESCE(:cert_number, cert_number),
-                watch_areas          = COALESCE(:watch_areas, watch_areas),
+                watch_areas          = COALESCE(CAST(:watch_areas AS jsonb), watch_areas),
                 notification_prefs   = COALESCE(CAST(:notif_prefs AS jsonb), notification_prefs)
             WHERE username = :u
         """), {
@@ -510,7 +510,7 @@ def update_me(req: UpdateProfileRequest, payload: dict = Depends(get_current_pil
             "drones":       req.drones,
             "part107":      req.part107,
             "cert_number":  req.cert_number,
-            "watch_areas":  req.watch_areas,
+            "watch_areas":  json.dumps(req.watch_areas) if req.watch_areas is not None else None,
             "notif_prefs":  json.dumps(req.notification_prefs) if req.notification_prefs is not None else None,
         })
         db.commit()

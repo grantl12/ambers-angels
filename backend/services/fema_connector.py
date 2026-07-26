@@ -222,22 +222,31 @@ def _polygon_to_centroid(polygon: str | None) -> tuple[float, float] | None:
 # e.g. CHP AMBER Alerts read "...CALIFORNIA LICENSE PLATE NUMBER 36095DV."
 # Without accounting for that filler, "plate[:\s#]*(...)" greedily captures
 # the word "NUMBER" itself instead of the plate that follows it.
+#
+# Some state TTS-generated CAP text (e.g. Kansas KBI/TylerTech) spells the
+# plate out character-by-character for the audio broadcast and keeps that
+# spelling in the text description too, and uses "License Tag" instead of
+# "license plate" — e.g. "License Tag 4 4 6 M S L" or "License Tag 4 4 6-M S L".
+# A human reads that as plate 446MSL instantly; the old patterns require
+# contiguous characters and the literal word "plate", so they miss it entirely.
 _PLATE_PATTERNS = [
-    re.compile(r"\bplate\s*(?:number|no\.?|#)?[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    re.compile(r"\b(?:license\s+)?(?:plate|tag)\s*(?:number|no\.?|#)?[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
     re.compile(r"\blicense\s+plate\s*(?:number|no\.?|#)?[:\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    # Spelled-out / TTS-friendly: single characters separated by spaces and/or hyphens.
+    re.compile(r"\b(?:license\s+)?(?:plate|tag)\s*(?:number|no\.?|#)?[:\s#]*([A-Z0-9](?:[\s\-]+[A-Z0-9]){3,7})\b", re.IGNORECASE),
     re.compile(r"\b([A-Z]{1,3}[0-9]{1,4}[A-Z0-9]{0,3})\b"),
 ]
 
 # Filler words that can get matched as the capture group itself when the
 # text reads "PLATE NUMBER" with no value following (or other edge phrasing).
-_PLATE_STOPWORDS = {"NUMBER", "PLATE", "UNKNOWN", "NONE", "LICENSE"}
+_PLATE_STOPWORDS = {"NUMBER", "PLATE", "UNKNOWN", "NONE", "LICENSE", "TAG"}
 
 
 def _extract_plates(text_blob: str) -> list[str]:
     found: list[str] = []
     for pattern in _PLATE_PATTERNS:
         for m in pattern.finditer(text_blob):
-            candidate = m.group(1).upper().replace(" ", "")
+            candidate = re.sub(r"[\s\-]", "", m.group(1)).upper()
             if candidate in _PLATE_STOPWORDS:
                 continue
             if 4 <= len(candidate) <= 8 and candidate not in found:
@@ -985,12 +994,19 @@ async def _push_notify_cancelled(session_factory, alert: dict) -> None:
                         role = 'admin'
                         OR alert_scope = 'nationwide'
                         OR (
-                          watch_areas IS NOT NULL
-                          AND jsonb_array_length(watch_areas) > 0
-                          AND EXISTS (
-                              SELECT 1 FROM jsonb_array_elements_text(watch_areas) wa
-                              WHERE :area ILIKE '%' || wa || '%'
-                          )
+                          -- Nested CASE, not AND — Postgres does not guarantee left-to-right
+                          -- short-circuit for AND/OR, but CASE/WHEN branch evaluation is guaranteed,
+                          -- so a malformed (non-array) watch_areas value on any one pilot row can
+                          -- never again raise "cannot get array length of a non-array" and abort
+                          -- notifications for every pilot.
+                          CASE WHEN jsonb_typeof(watch_areas) = 'array' THEN
+                            CASE WHEN jsonb_array_length(watch_areas) > 0 THEN
+                              EXISTS (
+                                  SELECT 1 FROM jsonb_array_elements_text(watch_areas) wa
+                                  WHERE :area ILIKE '%' || wa || '%'
+                              )
+                            ELSE false END
+                          ELSE false END
                         )
                       )
                 """),
@@ -1095,6 +1111,7 @@ async def _notify_no_plate(webhook_url: str, alert: dict) -> None:
     }
     if img_url:
         embed["thumbnail"] = {"url": img_url}
+        embed["footer"]["text"] += " • Photo is a reference image, not the actual vehicle"
     await _post_discord(webhook_url, "", embeds=[embed])
 
 
@@ -1136,6 +1153,7 @@ async def _notify_vehicle_match(
     }
     if img_url:
         embed["thumbnail"] = {"url": img_url}
+        embed["footer"]["text"] += " • Photo is a reference image, not the actual vehicle"
     await _post_discord(webhook_url, "", embeds=[embed])
 
 
@@ -1193,6 +1211,7 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
         embed["color"] = 0xFF4444
     if img_url:
         embed["thumbnail"] = {"url": img_url}
+        embed["footer"]["text"] += " • Photo is a reference image, not the actual vehicle"
 
     await _post_discord(webhook_url, "", embeds=[embed])
 
@@ -1230,12 +1249,19 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                         role = 'admin'
                         OR alert_scope = 'nationwide'
                         OR (
-                          watch_areas IS NOT NULL
-                          AND jsonb_array_length(watch_areas) > 0
-                          AND EXISTS (
-                              SELECT 1 FROM jsonb_array_elements_text(watch_areas) wa
-                              WHERE :area ILIKE '%' || wa || '%'
-                          )
+                          -- Nested CASE, not AND — Postgres does not guarantee left-to-right
+                          -- short-circuit for AND/OR, but CASE/WHEN branch evaluation is guaranteed,
+                          -- so a malformed (non-array) watch_areas value on any one pilot row can
+                          -- never again raise "cannot get array length of a non-array" and abort
+                          -- notifications for every pilot.
+                          CASE WHEN jsonb_typeof(watch_areas) = 'array' THEN
+                            CASE WHEN jsonb_array_length(watch_areas) > 0 THEN
+                              EXISTS (
+                                  SELECT 1 FROM jsonb_array_elements_text(watch_areas) wa
+                                  WHERE :area ILIKE '%' || wa || '%'
+                              )
+                            ELSE false END
+                          ELSE false END
                         )
                       )
                 """),

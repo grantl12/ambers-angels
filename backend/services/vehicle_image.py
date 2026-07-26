@@ -28,6 +28,17 @@ _cache: dict[str, tuple[str | None, float]] = {}
 _CACHE_TTL = 3600  # 1 hour
 _CACHE_NEG_TTL = 300  # retry failed Wikimedia lookups after 5 min
 
+# Commons search for "{make} {model} automobile" routinely surfaces non-exterior
+# shots (interior, dashboard, engine bay) that look like nothing a responder
+# should treat as evidence. Reject those titles and keep searching instead of
+# returning the first image that merely passes the size/extension check.
+_NON_EXTERIOR_TITLE_HINTS = (
+    "interior", "dashboard", "dash board", "cockpit", "cabin", "seat",
+    "steering", "console", "engine", "engine bay", "undercarriage",
+    "chassis", "wheel rim", "diagram", "blueprint", "cutaway", "badge",
+    "emblem", "logo", "brochure", "advert", "advertisement", "poster",
+)
+
 
 def _card_url(color: str | None, body_type: str | None, make: str | None) -> str | None:
     if not color and not body_type and not make:
@@ -71,7 +82,10 @@ async def _wikimedia_photo(make: str, model: str | None, year: str | None) -> st
                 results = resp.json().get("query", {}).get("search", [])
                 for result in results:
                     title = result.get("title", "")
-                    if not title.lower().endswith((".jpg", ".jpeg", ".png")):
+                    title_lower = title.lower()
+                    if not title_lower.endswith((".jpg", ".jpeg", ".png")):
+                        continue
+                    if any(hint in title_lower for hint in _NON_EXTERIOR_TITLE_HINTS):
                         continue
                     # Resolve to actual image URL via imageinfo
                     info_resp = await client.get(COMMONS_API, params={
