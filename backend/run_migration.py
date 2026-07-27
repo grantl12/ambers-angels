@@ -135,6 +135,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS audit_log_username_idx ON audit_log (username);
+CREATE TABLE IF NOT EXISTS push_notifications (
+    id          BIGSERIAL PRIMARY KEY,
+    username    TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    type        TEXT,
+    data        JSONB DEFAULT '{}',
+    sent_at     TIMESTAMPTZ DEFAULT NOW(),
+    read_at     TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS push_notifications_username_sent_idx
+    ON push_notifications (username, sent_at DESC);
 """
 
 try:

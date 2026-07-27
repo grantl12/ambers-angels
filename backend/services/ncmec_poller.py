@@ -27,6 +27,7 @@ import httpx
 from sqlalchemy import text
 
 from services.fema_connector import _post_discord
+from services import push_service
 
 logger = logging.getLogger(__name__)
 
@@ -318,44 +319,27 @@ async def _notify_new_case(
 
 async def _push_notify_resolved(session_factory, case: dict) -> None:
     """Push 'possibly resolved' to admin + nationwide pilots."""
-    async with session_factory() as session:
-        try:
+    try:
+        async with session_factory() as session:
             rows = await session.execute(
                 text("""
-                    SELECT DISTINCT expo_push_token FROM pilots
+                    SELECT DISTINCT username, expo_push_token FROM pilots
                     WHERE status = 'approved'
-                      AND expo_push_token IS NOT NULL
                       AND (role = 'admin' OR alert_scope = 'nationwide')
                 """)
             )
-            tokens = [r[0] for r in rows.fetchall()]
-        except Exception as e:
-            logger.error("[NCMEC] Push token query failed: %s", e)
-            return
-
-    if not tokens:
+            recipients = [(r[0], r[1]) for r in rows.fetchall()]
+    except Exception as e:
+        logger.error("[NCMEC] Push token query failed: %s", e)
         return
 
-    import httpx as _httpx
-    messages = [
-        {
-            "to":       tok,
-            "title":    f"✅ Possibly Resolved — {case['state']}",
-            "body":     f"{case['name']} removed from NCMEC — may have been found.",
-            "sound":    "default",
-            "priority": "high",
-        }
-        for tok in tokens
-    ]
-    try:
-        async with _httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(
-                "https://exp.host/--/api/v2/push/send",
-                json=messages,
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-            )
-    except Exception as e:
-        logger.error("[NCMEC] Push notify failed: %s", e)
+    await push_service.send_push_notifications(
+        session_factory,
+        recipients,
+        f"✅ Possibly Resolved — {case['state']}",
+        f"{case['name']} removed from NCMEC — may have been found.",
+        "ncmec_resolved",
+    )
 
 
 # ── Per-state poll ────────────────────────────────────────────────────────────

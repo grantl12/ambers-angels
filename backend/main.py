@@ -59,6 +59,7 @@ from routers.read_api import router as read_router, detection_purge_loop
 from routers.auth import router as auth_router, get_current_pilot, require_admin
 from routers.alerts import router as alerts_router
 from routers.autonomous import router as autonomous_router
+from routers.notifications import router as notifications_router
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
 from services.discord_logger import DiscordErrorHandler
 
@@ -161,6 +162,7 @@ app.include_router(read_router)
 app.include_router(auth_router)
 app.include_router(alerts_router)
 app.include_router(autonomous_router)
+app.include_router(notifications_router)
 
 # Serve golden_frames as static files — thumbnails for alert detections
 os.makedirs(GOLDEN_DIR, exist_ok=True)

@@ -31,6 +31,8 @@ from typing import Optional
 import httpx
 from sqlalchemy import text
 
+from services import push_service
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -605,10 +607,9 @@ async def _push_notify_cancelled(session_factory, alert: dict) -> None:
         async with session_factory() as session:
             rows = await session.execute(
                 text("""
-                    SELECT DISTINCT expo_push_token
+                    SELECT DISTINCT username, expo_push_token
                     FROM pilots
                     WHERE status = 'approved'
-                      AND expo_push_token IS NOT NULL
                       AND (
                         role = 'admin'
                         OR alert_scope = 'nationwide'
@@ -624,33 +625,18 @@ async def _push_notify_cancelled(session_factory, alert: dict) -> None:
                 """),
                 {"area": alert["area"] or ""},
             )
-            tokens = [r[0] for r in rows.fetchall()]
+            recipients = [(r[0], r[1]) for r in rows.fetchall()]
     except Exception as e:
         logger.error("Cancelled-alert pilot query failed: %s", e)
         return
 
-    if not tokens:
-        return
-
-    messages = [
-        {
-            "to":       tok,
-            "title":    "✅ Alert Cancelled — Stand Down",
-            "body":     alert["headline"] or "An active alert in your area has been cancelled.",
-            "sound":    "default",
-            "priority": "high",
-        }
-        for tok in tokens
-    ]
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(
-                "https://exp.host/--/api/v2/push/send",
-                json=messages,
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-            )
-    except Exception as e:
-        logger.error("Cancelled-alert push failed: %s", e)
+    await push_service.send_push_notifications(
+        session_factory,
+        recipients,
+        "✅ Alert Cancelled — Stand Down",
+        alert["headline"] or "An active alert in your area has been cancelled.",
+        "alert_cancelled",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -754,7 +740,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         async with session_factory() as session:
             rows = await session.execute(
                 text("""
-                    SELECT DISTINCT email, full_name, expo_push_token, notification_prefs
+                    SELECT DISTINCT username, email, full_name, expo_push_token, notification_prefs
                     FROM pilots
                     WHERE status = 'approved'
                       AND (
@@ -784,12 +770,13 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
     centroid = _polygon_to_centroid(alert.get("polygon"))
 
     # Partition by preference
-    # row: (email, full_name, expo_push_token, notification_prefs)
-    push_tokens = [
-        row[2] for row in matched
-        if row[2] and "push" in (row[3] or ["push", "email"])
+    # row: (username, email, full_name, expo_push_token, notification_prefs)
+    push_recipients = [
+        (row[0], row[3])  # (username, expo_push_token)
+        for row in matched
+        if row[3] and "push" in (row[4] or ["push", "email"])
     ]
-    if push_tokens:
+    if push_recipients:
         push_title = f"🚨 {atype['short']} — {alert['area'] or 'Unknown area'}"
         push_body  = alert["headline"] or atype["cta"]
         push_data  = {
@@ -797,29 +784,19 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
             "centroidLng": centroid[1] if centroid else None,
             "label":       alert["area"] or atype["name"],
         }
-        messages = [
-            {"to": tok, "title": push_title, "body": push_body,
-             "data": push_data, "sound": "default", "priority": "high"}
-            for tok in push_tokens
-        ]
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    "https://exp.host/--/api/v2/push/send",
-                    json=messages,
-                    headers={"Accept": "application/json", "Content-Type": "application/json"},
-                )
-            if resp.status_code in (200, 204):
-                logger.info("Expo push sent to %d device(s)", len(push_tokens))
-            else:
-                logger.warning("Expo push returned %s", resp.status_code)
-        except Exception as e:
-            logger.error("Expo push failed: %s", e)
+        await push_service.send_push_notifications(
+            session_factory,
+            push_recipients,
+            push_title,
+            push_body,
+            "alert_new",
+            push_data,
+        )
 
     # ── Email ─────────────────────────────────────────────────────────────────
     email_pilots = [
-        (row[0], row[1]) for row in matched
-        if "email" in (row[3] or ["push", "email"])
+        (row[1], row[2]) for row in matched
+        if "email" in (row[4] or ["push", "email"])
     ]
     if email_pilots:
         import smtplib
