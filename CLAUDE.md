@@ -287,6 +287,8 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 
 8. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
 
+9. **In-app notification history** — pilots currently receive push notifications (FEMA alerts, high-confidence detections, mission updates) with no in-app record. Add a Notifications tab or screen showing a chronological inbox of past notifications. Needs: a `push_notifications` DB table (pilot_username, title, body, type, sent_at, read_at nullable), backend write on every `send_push_notification()` call, and a `GET /notifications` endpoint. Mobile side: new screen + unread badge count on the tab.
+
 ### Longer Term / Needs Config Only
 
 - **Twilio SMS** — fully implemented in `alert_dispatcher.py`, silently skips if env vars absent. Just needs `TWILIO_*` vars added to server `.env`.
