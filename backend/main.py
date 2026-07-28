@@ -1041,14 +1041,41 @@ async def ingest_frame(
             os.getenv("ALERT_WEBHOOK_URL", ""),
         )
 
-        # --- Plate Recognizer (cloud, only on high-confidence frames) ---
+        # Pre-fetch active watchlist plates once — used both to gate the Plate
+        # Recognizer cloud call below and for candidate selection further down.
+        _active_wl_plates: set[str] = set()
+        if results.get("results"):
+            try:
+                _wl_db = database.SessionLocal()
+                try:
+                    _wl_rows = _wl_db.execute(
+                        text("SELECT UPPER(REPLACE(REPLACE(plate_text,' ',''),'-','')) FROM watchlist WHERE active = TRUE")
+                    ).fetchall()
+                    _active_wl_plates = {r[0] for r in _wl_rows}
+                finally:
+                    _wl_db.close()
+            except Exception:
+                pass
+
+        # --- Plate Recognizer (cloud, only on high-confidence frames that
+        # also carry a candidate matching the active watchlist — cuts calls
+        # to the paid API by ~95% vs. gating on confidence alone) ---
         max_conf = max((r.get("confidence", 0.0) for r in (results or {}).get("results", [])), default=0.0)
         pr_by_plate: dict[str, object] = {}
-        if max_conf >= SINGLE_FRAME_HIGH_CONFIDENCE:
-            pr_list = await pr_recognize(frame_bytes, regions=["us"])
-            for pr in pr_list:
-                if pr.plate:
-                    pr_by_plate[pr.plate.upper()] = pr
+        if max_conf >= SINGLE_FRAME_HIGH_CONFIDENCE and _active_wl_plates:
+            _frame_candidates = {
+                (r.get("plate") or "").upper().replace(" ", "").replace("-", "")
+                for r in results.get("results", [])
+            } | {
+                (c.get("plate") or "").upper().replace(" ", "").replace("-", "")
+                for r in results.get("results", [])
+                for c in r.get("candidates", [])
+            }
+            if _frame_candidates & _active_wl_plates:
+                pr_list = await pr_recognize(frame_bytes, regions=["us"])
+                for pr in pr_list:
+                    if pr.plate:
+                        pr_by_plate[pr.plate.upper()] = pr
     finally:
         os.unlink(tmp_path)
         if enhanced_path and clahe_is_temp and enhanced_path != tmp_path:
@@ -1093,23 +1120,11 @@ async def ingest_frame(
                 logger.warning("vehicle-only detection path failed: %s", _voe)
         return {"status": "no_plates", "plates": [], "watchlist_hit": False, "capture_interval_ms": interval_ms}
 
-    # Pre-fetch active watchlist plates once — used for candidate selection below.
-    # ALPR candidates are sorted by confidence; the top hit is often a partial read
-    # (e.g. "YVJ02" instead of "YVJ024"). We prefer a lower-ranked candidate when
-    # it exactly matches the watchlist over the highest-confidence mis-read.
-    _active_wl_plates: set[str] = set()
-    try:
-        _wl_db = database.SessionLocal()
-        try:
-            _wl_rows = _wl_db.execute(
-                text("SELECT UPPER(REPLACE(REPLACE(plate_text,' ',''),'-','')) FROM watchlist WHERE active = TRUE")
-            ).fetchall()
-            _active_wl_plates = {r[0] for r in _wl_rows}
-        finally:
-            _wl_db.close()
-    except Exception:
-        pass
-
+    # _active_wl_plates was already pre-fetched above (used to gate the Plate
+    # Recognizer call). ALPR candidates are sorted by confidence; the top hit
+    # is often a partial read (e.g. "YVJ02" instead of "YVJ024"). We prefer a
+    # lower-ranked candidate when it exactly matches the watchlist over the
+    # highest-confidence mis-read.
     def _pick_best_plate(plate_res: dict) -> tuple[str, float]:
         """Return (plate_text, confidence) preferring a watchlist match over top rank."""
         top = (plate_res.get("plate") or "").upper().replace(" ", "").replace("-", "")
