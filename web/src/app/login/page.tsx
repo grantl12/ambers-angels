@@ -28,6 +28,7 @@ function LoginForm() {
   const [loading,  setLoading]  = useState(false)
   const [pending,  setPending]  = useState(false)
   const welcome = searchParams.get("welcome") === "1"
+  const expired = searchParams.get("expired") === "1"
   const from    = searchParams.get("from") ?? "/map"
 
   // If already logged in, bounce to map
@@ -167,6 +168,12 @@ function LoginForm() {
         {welcome && (
           <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-400">
             Account created! Sign in to access the dashboard.
+          </div>
+        )}
+
+        {expired && (
+          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-400">
+            Your session expired. Sign in again to continue.
           </div>
         )}
 

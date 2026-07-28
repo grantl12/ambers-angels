@@ -884,10 +884,22 @@ def get_alert_history(limit: int = Query(200, le=500)):
             SELECT
                 a.id, a.plate_text, a.drone_id, a.channel, a.sent_at,
                 de.vehicle_color, de.vehicle_type, de.vehicle_make, de.vehicle_model,
-                de.confidence, w.alert_type, w.description
+                de.confidence, w.alert_type, w.description, de.frame_url,
+                t.lat, t.lon
             FROM alerts a
             LEFT JOIN detection_events de ON de.id::text = a.event_id
             LEFT JOIN watchlist w ON w.plate_text = a.plate_text
+            LEFT JOIN LATERAL (
+                SELECT lat, lon
+                FROM telemetry_points
+                WHERE lat IS NOT NULL
+                  AND de.last_seen IS NOT NULL
+                  AND ABS(EXTRACT(EPOCH FROM (ts - de.last_seen))) < 300
+                ORDER BY
+                    CASE WHEN drone_id = de.drone_id THEN 0 ELSE 1 END,
+                    ABS(EXTRACT(EPOCH FROM (ts - de.last_seen)))
+                LIMIT 1
+            ) t ON true
             ORDER BY a.sent_at DESC
             LIMIT :limit
         """), {"limit": limit}).fetchall()
@@ -905,6 +917,9 @@ def get_alert_history(limit: int = Query(200, le=500)):
                 "confidence":   round(r[9], 1) if r[9] else None,
                 "alertType":    r[10] or "amber",
                 "description":  r[11],
+                "frameUrl":     r[12],
+                "lat":          r[13],
+                "lng":          r[14],
             }
             for r in rows
         ]

@@ -56,3 +56,18 @@ export function clearAuth() {
   localStorage.removeItem(FULLNAME_KEY)
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`
 }
+
+/**
+ * Called by api-client on any 401 response. Clears the stale/expired token
+ * and bounces to login with a message, instead of leaving pages showing
+ * silently-empty data (the same shape of bug mobile's registerSessionExpiredHandler
+ * was added to fix).
+ */
+export function handleSessionExpired() {
+  if (typeof window === "undefined") return
+  const hadToken = !!getToken()
+  clearAuth()
+  if (hadToken && window.location.pathname !== "/login") {
+    window.location.href = "/login?expired=1"
+  }
+}

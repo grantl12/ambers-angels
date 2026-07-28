@@ -15,6 +15,7 @@ export type Detection = {
   vehicleMake?: string | null
   vehicleModel?: string | null
   source?: string
+  frameUrl?: string | null
 }
 
 export async function fetchDetectionsFeed(limit = 50): Promise<Detection[]> {

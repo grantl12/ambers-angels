@@ -5,7 +5,12 @@ import React, { useCallback, useEffect, useState } from "react"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import {
   FlatList,
+  Image,
+  Linking,
+  Modal,
   RefreshControl,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,6 +19,7 @@ import {
 import { fetchDetectionsFeed, type Detection } from "../api/detections"
 import { fetchAlertHistory, type AlertHistory } from "../api/alerts"
 import { fetchNcmecRecent, type NcmecCase } from "../api/ncmec"
+import { getApiBaseUrl } from "../api/client"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,12 +48,12 @@ const ALERT_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
 // Detection card
 // ---------------------------------------------------------------------------
 
-function DetectionCard({ item }: { item: Detection }) {
+function DetectionCard({ item, onPress }: { item: Detection; onPress: () => void }) {
   const isAlert   = item.status === "alerted"
   const alertBadge = item.alertType ? ALERT_BADGE[item.alertType.toLowerCase()] : null
 
   return (
-    <View style={[styles.card, isAlert && styles.cardAlert]}>
+    <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.card, isAlert && styles.cardAlert]}>
       <View style={styles.cardRow}>
         <Text style={[styles.plate, isAlert && styles.plateAlert]}>
           {item.plateText || "—"}
@@ -94,7 +100,7 @@ function DetectionCard({ item }: { item: Detection }) {
           <Text style={styles.metaTime}>{relativeTime(item.timestamp)}</Text>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 
@@ -102,11 +108,11 @@ function DetectionCard({ item }: { item: Detection }) {
 // Alert history card
 // ---------------------------------------------------------------------------
 
-function HistoryCard({ item }: { item: AlertHistory }) {
+function HistoryCard({ item, onPress }: { item: AlertHistory; onPress: () => void }) {
   const alertBadge = item.alertType ? ALERT_BADGE[item.alertType.toLowerCase()] : null
 
   return (
-    <View style={[styles.card, styles.cardAlert]}>
+    <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.card, styles.cardAlert]}>
       <View style={styles.cardRow}>
         <Text style={styles.plateAlert}>
           {item.plate || "—"}
@@ -123,9 +129,9 @@ function HistoryCard({ item }: { item: AlertHistory }) {
         </View>
       </View>
 
-      {(item.vehicleColor || item.vehicleMake || item.vehicleType) && (
+      {(item.vehicleColor || item.vehicleMake || item.vehicleModel || item.vehicleType) && (
         <Text style={styles.vehicle} numberOfLines={1}>
-          {[item.vehicleColor, item.vehicleMake, item.vehicleType]
+          {[item.vehicleColor, item.vehicleMake, item.vehicleModel, item.vehicleType]
             .filter(Boolean)
             .join(" ")}
         </Text>
@@ -143,7 +149,7 @@ function HistoryCard({ item }: { item: AlertHistory }) {
           <Text style={styles.metaText}>{item.channel}</Text>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 
@@ -151,7 +157,7 @@ function HistoryCard({ item }: { item: AlertHistory }) {
 // NCMEC missing persons card
 // ---------------------------------------------------------------------------
 
-function NcmecCard({ item }: { item: NcmecCase }) {
+function NcmecCard({ item, onPress }: { item: NcmecCase; onPress: () => void }) {
   const resolved = !!item.resolvedAt
   const age = item.missingSince
     ? (() => {
@@ -166,7 +172,7 @@ function NcmecCard({ item }: { item: NcmecCase }) {
     : null
 
   return (
-    <View style={[styles.card, resolved ? styles.cardResolved : styles.cardMissing]}>
+    <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.card, resolved ? styles.cardResolved : styles.cardMissing]}>
       <View style={styles.cardRow}>
         <Text style={styles.missingName} numberOfLines={1}>
           {item.name || "Unknown"}
@@ -198,7 +204,127 @@ function NcmecCard({ item }: { item: NcmecCase }) {
           <Text style={styles.metaTime}>Missing {age}</Text>
         )}
       </View>
+    </TouchableOpacity>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Detail modal — shared across detection / dispatched-alert / NCMEC cards
+// ---------------------------------------------------------------------------
+
+type Selected =
+  | { kind: "detection"; item: Detection }
+  | { kind: "history"; item: AlertHistory }
+  | { kind: "missing"; item: NcmecCase }
+
+function frameSrc(frameUrl: string | null | undefined): string | null {
+  return frameUrl ? `${getApiBaseUrl()}${frameUrl}` : null
+}
+
+function openInMaps(lat: number, lng: number) {
+  Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`)
+}
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value == null || value === "") return null
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
     </View>
+  )
+}
+
+function DetectionDetails({ item }: { item: Detection }) {
+  return (
+    <>
+      <DetailRow label="Plate"       value={item.plateText} />
+      <DetailRow label="Status"      value={item.status} />
+      <DetailRow label="Alert type"  value={item.alertType} />
+      <DetailRow label="Confidence"  value={item.confidence != null ? `${item.confidence.toFixed(0)}%` : null} />
+      <DetailRow label="Vehicle"     value={[item.vehicleColor, item.vehicleMake, item.vehicleModel, item.vehicleType].filter(Boolean).join(" ") || null} />
+      <DetailRow label="Device"      value={item.droneId} />
+      <DetailRow label="Source"      value={item.source} />
+      <DetailRow label="Detected"    value={item.timestamp ? new Date(item.timestamp).toLocaleString() : null} />
+    </>
+  )
+}
+
+function HistoryDetails({ item }: { item: AlertHistory }) {
+  return (
+    <>
+      <DetailRow label="Plate"       value={item.plate} />
+      <DetailRow label="Alert type"  value={item.alertType} />
+      <DetailRow label="Description" value={item.description} />
+      <DetailRow label="Confidence"  value={item.confidence != null ? `${item.confidence.toFixed(0)}%` : null} />
+      <DetailRow label="Vehicle"     value={[item.vehicleColor, item.vehicleMake, item.vehicleModel, item.vehicleType].filter(Boolean).join(" ") || null} />
+      <DetailRow label="Device"      value={item.droneId} />
+      <DetailRow label="Channel"     value={item.channel} />
+      <DetailRow label="Sent"        value={item.sentAt ? new Date(item.sentAt).toLocaleString() : null} />
+    </>
+  )
+}
+
+function MissingDetails({ item }: { item: NcmecCase }) {
+  return (
+    <>
+      <DetailRow label="Name"           value={item.name} />
+      <DetailRow label="Age now"        value={item.ageNow} />
+      <DetailRow label="Location"       value={[item.city, item.state].filter(Boolean).join(", ") || null} />
+      <DetailRow label="Missing since"  value={item.missingSince ? new Date(item.missingSince).toLocaleDateString() : null} />
+      <DetailRow label="Status"         value={item.resolvedAt ? `Resolved ${new Date(item.resolvedAt).toLocaleDateString()}` : "Missing"} />
+      {item.posterUrl && (
+        <TouchableOpacity onPress={() => Linking.openURL(item.posterUrl!)}>
+          <Text style={styles.sourceLink}>View NCMEC poster</Text>
+        </TouchableOpacity>
+      )}
+    </>
+  )
+}
+
+function DetailModal({ selected, onClose }: { selected: Selected | null; onClose: () => void }) {
+  if (!selected) return null
+
+  const title =
+    selected.kind === "detection" ? (selected.item.plateText || "Detection")
+    : selected.kind === "history"  ? (selected.item.plate || "Dispatched Alert")
+    : (selected.item.name || "Missing Person")
+
+  const image =
+    selected.kind === "missing" ? (selected.item.photoUrl || selected.item.posterUrl)
+    : frameSrc(selected.item.frameUrl)
+
+  const lat = selected.kind === "missing" ? null : selected.item.lat
+  const lng = selected.kind === "missing" ? null : selected.item.lng
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.modalRoot}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={onClose} style={styles.modalHeaderBtn}>
+            <Text style={styles.modalClose}>Close</Text>
+          </TouchableOpacity>
+          <Text style={styles.modalTitle} numberOfLines={1}>{title}</Text>
+          <View style={styles.modalHeaderBtn} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.modalBody}>
+          {image && (
+            <Image source={{ uri: image }} style={styles.detailImage} resizeMode="cover" />
+          )}
+
+          {selected.kind === "detection" && <DetectionDetails item={selected.item} />}
+          {selected.kind === "history"   && <HistoryDetails item={selected.item} />}
+          {selected.kind === "missing"   && <MissingDetails item={selected.item} />}
+
+          {lat != null && lng != null && (
+            <TouchableOpacity onPress={() => openInMaps(lat, lng)} style={styles.mapLinkBtn}>
+              <Text style={styles.mapLinkText}>📍 {lat.toFixed(5)}, {lng.toFixed(5)} — Open in Maps</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
   )
 }
 
@@ -215,6 +341,7 @@ export default function FeedScreen() {
   const [refreshing,  setRefreshing]  = useState(false)
   const [filter,      setFilter]      = useState<Filter>("all")
   const [myDeviceId,  setMyDeviceId]  = useState<string | null>(null)
+  const [selected,    setSelected]    = useState<Selected | null>(null)
 
   useEffect(() => {
     AsyncStorage.getItem("aa_drone_id").then((id) => setMyDeviceId(id ?? null))
@@ -309,7 +436,7 @@ export default function FeedScreen() {
         <FlatList
           data={history}
           keyExtractor={(d) => String(d.id)}
-          renderItem={({ item }) => <HistoryCard item={item} />}
+          renderItem={({ item }) => <HistoryCard item={item} onPress={() => setSelected({ kind: "history", item })} />}
           contentContainerStyle={[styles.list, history.length === 0 && styles.listEmpty]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
@@ -328,7 +455,7 @@ export default function FeedScreen() {
         <FlatList
           data={ncmecCases}
           keyExtractor={(c) => c.guid}
-          renderItem={({ item }) => <NcmecCard item={item} />}
+          renderItem={({ item }) => <NcmecCard item={item} onPress={() => setSelected({ kind: "missing", item })} />}
           contentContainerStyle={[styles.list, ncmecCases.length === 0 && styles.listEmpty]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
@@ -347,7 +474,7 @@ export default function FeedScreen() {
         <FlatList
           data={visible}
           keyExtractor={(d) => d.id}
-          renderItem={({ item }) => <DetectionCard item={item} />}
+          renderItem={({ item }) => <DetectionCard item={item} onPress={() => setSelected({ kind: "detection", item })} />}
           contentContainerStyle={[styles.list, visible.length === 0 && styles.listEmpty]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
@@ -369,6 +496,8 @@ export default function FeedScreen() {
           }
         />
       )}
+
+      <DetailModal selected={selected} onClose={() => setSelected(null)} />
     </View>
   )
 }
@@ -440,4 +569,33 @@ const styles = StyleSheet.create({
   cardMissing:  { borderColor: "rgba(220,38,38,0.35)", backgroundColor: "rgba(220,38,38,0.06)" },
   cardResolved: { borderColor: "rgba(22,163,74,0.25)",  backgroundColor: "rgba(22,163,74,0.05)"  },
   missingName:  { fontWeight: "700", fontSize: 15, color: "rgba(255,255,255,0.85)", flex: 1 },
+
+  // Detail modal
+  modalRoot: { flex: 1, backgroundColor: "#050a0f" },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  modalHeaderBtn: { minWidth: 56 },
+  modalClose:  { color: "#38bdf8", fontSize: 15, fontWeight: "600" },
+  modalTitle:  { flex: 1, textAlign: "center", color: "#fff", fontSize: 16, fontWeight: "700" },
+  modalBody:   { padding: 16, gap: 2 },
+  detailImage: { width: "100%", aspectRatio: 4 / 3, borderRadius: 10, marginBottom: 12, backgroundColor: "rgba(255,255,255,0.04)" },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  detailLabel: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
+  detailValue: { fontSize: 13, color: "rgba(255,255,255,0.9)", fontWeight: "600", flexShrink: 1, textAlign: "right", marginLeft: 12 },
+  mapLinkBtn: { marginTop: 16, paddingVertical: 12, alignItems: "center", borderRadius: 8, backgroundColor: "rgba(56,189,248,0.12)" },
+  mapLinkText: { color: "#38bdf8", fontSize: 13, fontWeight: "600" },
+  sourceLink: { color: "#38bdf8", fontSize: 13, fontWeight: "600", marginTop: 12 },
 })

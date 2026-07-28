@@ -12,11 +12,6 @@ nginx RTMP → HLS (`hls on; hls_path /tmp/hls; hls_fragment 2s;`) → serve `/t
 ### Adaptive Scanning — Hierarchical Pipeline Plan (future)
 Three stages: Stage 0 — YOLO-nano vehicle detection (~3fps, ~6MB TFLite/CoreML); Stage 1 — plate readability binary classifier (small CNN on vehicle bbox crop); Stage 2 — OCR only when plate readable. Adaptive interval: `lerp(2000ms, 400ms, bbox_area_fraction)`. First step (no native code): skip ALPR in `unified_worker.py` when `yolo_vehicles` empty; use YOLO bbox area to set `capture_interval_ms` dynamically. Client just needs to consume the field (see Capture Interval above).
 
-### Feed & Map UX Polish (found 2026-07-17, not urgent)
-- **Feed tiles are dead ends** — `DetectionCard`, `HistoryCard`, `NcmecCard` in `FeedScreen.tsx` have no `onPress`/`TouchableOpacity` at all. Tapping any detection, dispatched alert, or missing-person tile does nothing. Needs real detail screens (full detection with GPS/frame, alert dispatch detail, NCMEC case detail) designed before wiring navigation.
-- **Map alert fly-to silently no-ops for alerts with no geo data** — `MapScreen.tsx`'s `alertToRegion()` returns `null` (button `disabled={!region}`) when an alert has neither `polygon` nor `centroidLat`/`centroidLng`. `/admin/inject-alert` (`main.py`) never sets either on the `vehicle_targets` insert, so manually-injected test/demo alerts can never fly-to — only real FEMA-sourced alerts (which carry parsed CAP polygon/centroid) work today. Fix: geocode `req.area` or accept optional lat/lng in the inject request so demo alerts are fully clickable too.
-- **Web admin has no "you're not logged in" state** — `web/src/app/admin/page.tsx` and the mission map both silently show empty sections (Active Alerts, pilots roster, etc.) on a 401, identical in appearance to a genuinely empty result. Unlike mobile (`registerSessionExpiredHandler` in `client.ts`), web has no session-expiry/logged-out messaging or redirect. Worth adding before this trips someone else up the way it did here.
-
 ### BOLO Crawler Ingestion Bug (confirmed still broken 2026-07-28)
 `bolo_sources` table has 10 active sources (FBI Wanted RSS, NCMEC, GA GBI, TBI, FL FDLE, ALEA, AL SBI, AL AG) and `last_crawled_at` updates on schedule — the crawler runs. But zero rows have ever landed in `watchlist` or `vehicle_targets` with a BOLO source. Extraction/parsing (`bolo_crawler.py`, `bolo_extractor.py`) isn't producing actionable records. Needs tracing — likely a parsing/regex mismatch against real source HTML/RSS structure, similar in spirit to the FEMA endpoint bugs found 2026-07-16.
 
@@ -68,9 +63,6 @@ Source column on `detection_events`, `watchlist`, `vehicle_targets`:
 
 ### `/guide` Page — Screenshot Work (in progress)
 `web/src/app/guide/page.tsx` and `web/public/guide/*.png` are uncommitted — do not commit until resolved. **Privacy rule**: never show real NCMEC feed (real children's names) on this public page — use fictional names from `scripts/seed_demo.py` (Emma Johnson / Marcus Williams / Sofia Rodriguga). Still needed: Mission Map, Camera permission flow, Notifications, Drone Dispatch screenshots (capturing on iOS). Still needed: safe "Hits" data for Event Feed screenshot — do NOT run seed_demo.py or screenshot.mjs against production. Proposed: insert cosmetic rows into `detection_events` directly, delete after.
-
-### Mobile Event Feed — "Alerts"/"Missing" Tabs Don't Auto-Refresh
-`FeedScreen.tsx`: "All"/"Hits"/"Mine" tabs poll every 5s but "Alerts" (`fetchAlertHistory()`) and "Missing" (`loadNcmec()`) only load on mount. Add the same polling interval so server-side fixes show up without manual pull-to-refresh.
 
 ### Longer Term / Needs Config Only
 

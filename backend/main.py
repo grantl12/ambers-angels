@@ -265,6 +265,8 @@ class InjectAlertRequest(_BaseModel):
     vehicle_make: Optional[str] = None
     alert_type: str = "amber"            # amber|silver|blue|matties|purple|mipa|ema
     source_program: str = "Manual Inject"
+    lat: Optional[float] = None          # map fly-to center; defaults to Carrollton pilot area if omitted
+    lng: Optional[float] = None
 
 
 @app.post("/admin/inject-alert")
@@ -325,16 +327,22 @@ async def inject_alert(
     # Always insert a vehicle_target so the camera gate opens — bypass the
     # profile-completeness guard that _add_vehicle_target enforces for FEMA alerts.
     from datetime import timedelta as _td
+    # Carrollton, GA pilot-area center — used as the map fly-to fallback when
+    # the inject request doesn't supply coordinates, so manual/demo alerts
+    # (which have no CAP polygon to derive a centroid from) are still clickable.
+    CARROLLTON_LAT, CARROLLTON_LNG = 33.5801, -85.0766
     async with database.AsyncSessionLocal() as _sess:
         try:
             await _sess.execute(
                 text("""
                     INSERT INTO vehicle_targets
                         (fema_identifier, alert_type, source_program, headline,
-                         area, color, body_type, make, polygon, expires_at)
+                         area, color, body_type, make, polygon,
+                         centroid_lat, centroid_lng, expires_at)
                     VALUES
                         (:fema_id, :atype, 'manual', :headline,
                          :area, :color, :btype, :make, NULL,
+                         :lat, :lng,
                          NOW() + INTERVAL '24 hours')
                     ON CONFLICT (fema_identifier) DO UPDATE
                         SET expires_at = NOW() + INTERVAL '24 hours'
@@ -347,6 +355,8 @@ async def inject_alert(
                     "color":   req.vehicle_color or None,
                     "btype":   req.vehicle_type or None,
                     "make":    req.vehicle_make or None,
+                    "lat":     req.lat if req.lat is not None else CARROLLTON_LAT,
+                    "lng":     req.lng if req.lng is not None else CARROLLTON_LNG,
                 },
             )
             await _sess.commit()
