@@ -49,6 +49,28 @@ Alerted detection_events (status='alerted') are NEVER deleted — they are evide
 5. Stats from June 7 test: 47s end-to-end, 99% peak confidence, sub-meter GPS, 23 frames to first hit
 6. To reset: admin "Clear Test Data" button, or SQL above. Detection events with status='alerted' are kept (evidence).
 
+**Never build as root on the server**
+Never run `npm ci`, `npm run build`, or any build command directly as root in the web directory. Running as root creates root-owned files (`node_modules/`, `.next/`) that the deploy script (running as `ambers-angels`) cannot `rm -rf`, so `set -e` kills the deploy mid-run — leaving `node_modules` deleted but the web process stopped. This happened twice in the same incident (2026-06-26), taking the site down both times, and again on 2026-07-27 when a root-owned `web/src/app/guide/` directory blocked a `git pull` for two consecutive deploys. Always prefix build commands with `su -l ambers-angels -c "..."` when SSH'd in as root:
+```
+plink ... root@157.245.125.103 'su -l ambers-angels -c "cd /home/ambers-angels/proj_dir/ambers-angels/web && npm ci && npm run build"'
+```
+If you find root-owned files blocking a deploy, `chown -R ambers-angels:ambers-angels` them back before retrying — don't just force through as root.
+
+**PM2 caches env vars from initial `pm2 start` — `restart --update-env` is not enough**
+PM2 captures the shell environment at `pm2 start` time and persists it in its dump file. `load_dotenv(override=False)` (Python default) won't overwrite an existing env var PM2 already injected. Discovered during the 2026-06-22 DB password rotation — the API stayed "degraded" through 3 restart cycles because PM2 kept injecting the old `DATABASE_URL`. When rotating any credential or adding a new env var a process reads, `pm2 delete <name>` then `pm2 start` fresh (not just restart), then `pm2 save`. The worker also needs `PYTHONPATH=.../openalpr/src/bindings/python` set in the shell at `pm2 start` time.
+
+**Verify mobile builds on a real device/emulator before trusting "root cause found"**
+A plausible, correctly-diagnosed root cause is not proof it's the *only* bug. On 2026-07-17, an Android build failing for Play Store testers was traced to a stale versionCode — true and worth fixing, but sideload-testing the "fixed" build anyway surfaced a second, unrelated bug (a malformed `AndroidManifest` `<meta-data>` tag causing `INSTALL_PARSE_FAILED_MANIFEST_MALFORMED`). Uploading without that verification step would have failed again. Treat "found a bug and fixed it" as a hypothesis until the actual artifact has been installed and opened on a device, especially before any App Store/Play Store submission.
+
+**No new Anthropic API calls for new agent features**
+The detection agent (`detection_agent.py`) already uses the Claude API; don't default to it for additional AI features (QA chatbot, calendar agent, etc.) on a self-funded nonprofit budget. Prefer local/open-source inference. Only reach for Anthropic again when there's a clear technical reason no local model can do the job, or the user explicitly asks for it.
+
+**Coordinator/BOLO permission gate is a domestic-abuse safeguard, not bureaucracy**
+`can_create_bolo` and the admin-approval flow (`POST /auth/approve-coordinator/{username}`) exist because the threat model is someone falsely claiming LEO status, getting coordinator access, and putting a real person's plate on the watchlist to weaponize the volunteer network against them. Discord fires on every coordinator request (`_notify_coordinator_request` in `auth.py`) so this can't happen silently. Do not build self-service coordinator onboarding or public BOLO-activation marketing without first adding LEA identity verification (agency email domain or CJIS cert) — the current gate (admin approval + permission flag) is a stopgap, not the final control.
+
+**Blog post byline dates drift ~1 week ahead of the publish schedule**
+Every unpublished post's standalone HTML file (`web/public/blog/post-N-*.html`) has a byline date that doesn't match the scheduled date in `web/src/app/blog/page.tsx`'s `POSTS` array — consistently about a week later (confirmed on post-4 and post-5, same pattern both times). When flipping a post's `live` flag to `true`, always grep the HTML file for `By Grant Lindberg` and fix the byline date to match today's actual publish date / the `page.tsx` `date:` field. Also add a "What's New" entry in `page.tsx`'s `WHATS_NEW` array announcing the post.
+
 **Known Hardcoded Values (intentional — tune from real-world data)**
 - `backend/services/aggregation_service.py`: `RAW_DETECTION_FLOOR=55`, `SINGLE_FRAME_HIGH_CONFIDENCE=70`, `HIGH_CONFIDENCE_EVENT_MIN_SCORE=85`
 - `backend/services/event_service.py`: `ALERT_COOLDOWN_SECONDS=120`, `REOPEN_WINDOW_SECONDS=300`
