@@ -275,6 +275,20 @@ CREATE TABLE IF NOT EXISTS alert_ingestion_log (
 CREATE INDEX IF NOT EXISTS alert_ingestion_log_ingested_idx ON alert_ingestion_log (ingested_at DESC);
 CREATE INDEX IF NOT EXISTS alert_ingestion_log_type_idx     ON alert_ingestion_log (alert_type);
 CREATE INDEX IF NOT EXISTS alert_ingestion_log_source_idx   ON alert_ingestion_log (source);
+
+-- In-app notification history
+CREATE TABLE IF NOT EXISTS push_notifications (
+    id          BIGSERIAL PRIMARY KEY,
+    username    TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    type        TEXT,
+    data        JSONB DEFAULT '{}',
+    sent_at     TIMESTAMPTZ DEFAULT NOW(),
+    read_at     TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS push_notifications_username_sent_idx
+    ON push_notifications (username, sent_at DESC);
 """
 
 try:
