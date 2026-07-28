@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1024px; height: 500px; overflow: hidden;
+    background: #050a0f;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    position: relative;
+  }
+
+  /* Background — dark map feel */
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 700px 500px at 80% 50%, rgba(20,55,20,0.75) 0%, transparent 70%),
+      radial-gradient(ellipse 500px 400px at 20% 20%, rgba(10,30,10,0.6) 0%, transparent 60%),
+      radial-gradient(ellipse 800px 600px at 50% 100%, rgba(8,20,8,0.8) 0%, transparent 70%),
+      linear-gradient(150deg, #060d06 0%, #050a0f 40%, #060e0a 100%);
+  }
+
+  /* Subtle road grid */
+  .road { position: absolute; background: rgba(160,140,60,0.15); }
+  .rh1 { top: 38%; left: 0; right: 0; height: 2px; }
+  .rh2 { top: 62%; left: 0; right: 0; height: 1px; background: rgba(160,140,60,0.1); }
+  .rv1 { left: 55%; top: 0; bottom: 0; width: 2px; }
+  .rv2 { left: 75%; top: 0; bottom: 0; width: 1px; background: rgba(160,140,60,0.1); }
+
+  /* Amber glow orb — centre right */
+  .glow {
+    position: absolute;
+    right: 160px; top: 50%;
+    transform: translateY(-50%);
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.06) 45%, transparent 70%);
+  }
+
+  /* Drone dots */
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 12px 4px rgba(245,158,11,0.5);
+  }
+  .dot-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1.5px solid rgba(245,158,11,0.35);
+    animation: none;
+  }
+
+  /* Alert polygon — faint */
+  .polygon {
+    position: absolute;
+    right: 80px; top: 30%;
+    width: 280px; height: 200px;
+    border: 1.5px solid rgba(245,158,11,0.25);
+    border-radius: 6px;
+    background: rgba(245,158,11,0.04);
+  }
+
+  /* Signal lines from dots */
+  .signal {
+    position: absolute;
+    background: linear-gradient(90deg, rgba(245,158,11,0.3), transparent);
+    height: 1px;
+    transform-origin: left center;
+  }
+
+  /* LEFT — wordmark + tagline */
+  .left {
+    position: absolute;
+    left: 72px; top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .icon-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .icon-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 16px 6px rgba(245,158,11,0.45);
+    flex-shrink: 0;
+  }
+
+  .brand {
+    font-size: 46px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: #fff;
+  }
+  .brand em {
+    font-style: normal;
+    color: #f59e0b;
+  }
+
+  .tagline {
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.42);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 16px;
+  }
+
+  .divider {
+    width: 48px; height: 2px;
+    background: #f59e0b;
+    border-radius: 2px;
+    margin: 22px 0;
+    opacity: 0.7;
+  }
+
+  .descriptor {
+    font-size: 17px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.55;
+    max-width: 360px;
+  }
+  .descriptor strong {
+    color: rgba(255,255,255,0.82);
+    font-weight: 600;
+  }
+
+  /* Badges */
+  .badges {
+    display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.45);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  /* RIGHT — stat cluster */
+  .right {
+    position: absolute;
+    right: 72px; top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px 20px;
+    min-width: 180px;
+    text-align: right;
+  }
+  .stat-card.amber-border {
+    border-color: rgba(245,158,11,0.3);
+    background: rgba(245,158,11,0.05);
+  }
+  .stat-num {
+    font-size: 30px;
+    font-weight: 800;
+    color: #f59e0b;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.38);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+
+<!-- Road grid -->
+<div class="road rh1"></div>
+<div class="road rh2"></div>
+<div class="road rv1"></div>
+<div class="road rv2"></div>
+
+<!-- Glow + polygon -->
+<div class="glow"></div>
+<div class="polygon"></div>
+
+<!-- Drone dots -->
+<div class="dot" style="width:10px;height:10px;right:220px;top:175px;"></div>
+<div class="dot-ring" style="width:26px;height:26px;right:212px;top:167px;"></div>
+
+<div class="dot" style="width:8px;height:8px;right:310px;top:290px;"></div>
+<div class="dot-ring" style="width:20px;height:20px;right:304px;top:284px;"></div>
+
+<div class="dot" style="width:7px;height:7px;right:155px;top:310px;"></div>
+
+<!-- Left content -->
+<div class="left">
+  <div class="icon-row">
+    <div class="icon-dot"></div>
+  </div>
+  <div class="brand">Amber&apos;s <em>Angels</em></div>
+  <div class="tagline">FEMA IPAWS Volunteer Response Network</div>
+  <div class="divider"></div>
+  <div class="descriptor">
+    Respond to active <strong>AMBER Alerts</strong> and missing persons searches.<br>
+    Your phone or drone — no extra hardware required.
+  </div>
+  <div class="badges">
+    <span class="badge">501(c)(3) Nonprofit</span>
+    <span class="badge">Privacy-First</span>
+    <span class="badge">SDVOSB Founded</span>
+  </div>
+</div>
+
+<!-- Right stat cluster -->
+<div class="right">
+  <div class="stat-card amber-border">
+    <div class="stat-num">&lt;5%</div>
+    <div class="stat-label">False positive rate</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">5</div>
+    <div class="stat-label">Alert types covered</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">3 hr</div>
+    <div class="stat-label">Critical response window</div>
+  </div>
+</div>
+
+</body>
+</html>
