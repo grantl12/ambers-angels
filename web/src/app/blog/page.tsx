@@ -8,6 +8,12 @@ export const metadata: Metadata = {
 
 const WHATS_NEW: { week: string; items: string[] }[] = [
   {
+    week: 'July 28, 2026',
+    items: [
+      'Blog Post 7 published: "The Math" — the actual numbers from our live system test (sub-minute detection, 99% confidence, 193 detection events) and the context that makes them matter. Live at /blog/post-7-the-math.',
+    ],
+  },
+  {
     week: 'July 21, 2026',
     items: [
       'Blog Post 6 published: "Privacy by Architecture, Not Policy" — why an architecture that makes certain data uses impossible beats a policy that merely forbids them. Live at /blog/post-6-privacy-architecture.',
@@ -155,7 +161,7 @@ const POSTS = [
     title: 'The Math',
     date: 'July 28, 2026',
     excerpt: 'Under a minute. Under ten seconds. 99% confidence. 193 detection events. Here are the numbers from our live system test — and the context that makes them matter.',
-    live: false,
+    live: true,
   },
   {
     slug: 'post-8-before-the-alert',
