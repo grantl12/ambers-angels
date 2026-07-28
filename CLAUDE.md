@@ -15,7 +15,8 @@ plink -pw 'Ambers1Angels' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:
 - PM2 binary: `/home/ambers-angels/.local/bin/pm2`
 - App root: `/home/ambers-angels/proj_dir/ambers-angels/`
 - DB: `postgresql+asyncpg://postgres:Ambers1Angels@127.0.0.1:5432/ambersangels`
-  - psql: `psql -h 127.0.0.1 -U postgres ambersangels`
+  - psql (from server): `echo "Ambers1Angels" | sudo -S -u postgres psql -d ambersangels` — **password auth via PGPASSWORD fails**; must use sudo peer auth
+  - In GitHub Actions scripts, use this pattern: `Q() { echo "Ambers1Angels" | sudo -S -u postgres psql -d ambersangels -t -A -c "$1" 2>/dev/null; }`
 - Use `DEBIAN_FRONTEND=noninteractive` to suppress interactive prompts
 
 ## PM2 Processes
@@ -41,6 +42,8 @@ su -l ambers-angels -c '/home/ambers-angels/.local/bin/pm2 restart ambers-angels
 ## CI/CD
 
 Push to `main` → GitHub Actions SSHs into droplet → `git pull` → `npm ci && npm run build` → `pm2 restart ambers-angels-web`.
+
+**`workflow_dispatch` requires workflow file on `main`** — a workflow only on a feature branch returns 404 when triggered. Always push new workflows to main before triggering manually.
 
 **API and worker do NOT auto-restart on deploy.** After any backend change, run:
 ```
@@ -91,7 +94,9 @@ eas submit --platform ios --profile production --latest
 
 3. ~~**amber.alert.gov**~~ — **DISABLED**. Hostname has no DNS record. `AMBER_GOV_URLS = []` in amber_alert_poller.py.
 
-4. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll.
+4. **BOLO crawler** (`bolo_sources` table) — 10 active sources (FBI Wanted RSS, NCMEC, GA GBI, TBI, FL FDLE, ALEA, AL SBI, AL AG). All active and crawled on schedule. **As of June 29 2026, zero BOLOs have been ingested into watchlist or vehicle_targets** — crawler is running but extraction/parsing is not yet producing actionable records. Investigate the crawler code to find why it fetches but doesn't write.
+
+5. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll.
    - Persists missing-child cases in `ncmec_cases` table
    - **New cases**: Discord notification fires ONLY when there is an active FEMA vehicle target in the same state (cross-reference). No target = no notification, because volunteers cannot act on a missing-person case without a vehicle to search for.
    - **Resolved cases**: Always fires Discord "possibly resolved" notification
@@ -108,9 +113,20 @@ eas submit --platform ios --profile production --latest
 Detection pipeline uses composite scoring:
 - OpenALPR confidence
 - Plate Recognizer cloud API (only called when ALPR confidence ≥ threshold)
-- YOLO vehicle classification (color, body type, make/model via CDC)
+- YOLO vehicle classification (color, body type) + CDC make/model/generation
 - 5-second aggregation window via `AggregationService`
 - HIGH_CONFIDENCE threshold triggers Discord alert + optional SMS (Twilio)
+
+Scoring bonuses: color match +2, body type match +2, CDC label match +4 (≥60% consistency), YOLO ±3. **`vehicle_make` field in DB is only populated by Plate Recognizer API, never by local YOLO/CDC classifiers.**
+
+### CDC Classifier (Cascade Stage 2)
+
+- `backend/services/cdc_classifier.py` — MobileNetV3 ONNX, fine-grained make/model/generation labels (e.g. "Toyota_Camry_XV70")
+- Model lives on Grant's Windows machine: `D:/Users/grant/Documents/ChaDongCha/ml/export/vehicle_classifier.onnx`
+- **Not deployed to server** — gracefully degrades (returns `None`) when model file absent
+- Env vars: `CDC_MODEL_PATH`, `CDC_MANIFEST_PATH`
+- Called from `vehicle_classifier.py` after each YOLO detection; crop (BGR) passed directly
+- Dataset was DDG-scraped with quality issues (skewed toward rare/cool cars). Needs purposeful rebuild before retraining. Current use is verification layer ("is this actually a sedan?"), not primary classification.
 
 ### Role Matrix
 
@@ -212,6 +228,9 @@ Both `executing` and `active` are accepted status strings (mobile DJI SDK emits 
 | `autonomous_missions` | Drone missions: status lifecycle, waypoints_json (JSONB), operation_mode, progress_pct, timestamps |
 | `processed_alerts` | FEMA/EAS identifier dedup: survives PM2 restarts. Entries older than 24h excluded from startup load. |
 | `alert_resolutions` | Audit log of manual alert resolutions by coordinators/admins |
+| `bolo_sources` | BOLO crawler source registry: name, source_type (rss/html), state, active, last_crawled_at. 10 sources seeded. |
+
+**Live DB state (as of June 29 2026):** `watchlist` has 2 SIM/demo entries only (GHX4821 silver sedan, TYP6633 black SUV — both `source_program` null, added June 16). `vehicle_targets` is empty. No real alert has ever been ingested.
 
 ## Contact / Identity
 
@@ -288,6 +307,14 @@ Print versions at `grants/Handoff/amber-angels/project/` must also be manually u
 8. **DJI MSDK iOS** — current Kotlin module is Android-only. iOS DJI SDK requires a macOS build machine. `Platform.OS !== 'android'` guard is in place; iOS pilots fall back to phone camera mode.
 
 9. **In-app notification history** — pilots currently receive push notifications (FEMA alerts, high-confidence detections, mission updates) with no in-app record. Add a Notifications tab or screen showing a chronological inbox of past notifications. Needs: a `push_notifications` DB table (pilot_username, title, body, type, sent_at, read_at nullable), backend write on every `send_push_notification()` call, and a `GET /notifications` endpoint. Mobile side: new screen + unread badge count on the tab.
+
+10. **National alerts map** — mission map currently shows only vehicle-target FEMA alerts. All CAP event types already flow through the FEMA poller; they're just discarded if no vehicle found. Plan:
+    - Add `fema_alerts_log` table (event_code, headline, area, polygon, received_at) — store ALL alerts, not just ones with plates/vehicles
+    - `GET /fema/alerts/all` endpoint returning polygon + headline + event_code
+    - Map layer: color-code by type (red=AMBER, orange=Silver/Purple, yellow=CEM/fire/civil, blue=LEW/Blue Alert)
+    - No new volunteer workflow — display only. Makes the mission map a national real-time CAP viewer.
+
+11. **BOLO ingestion debugging** — `bolo_sources` table is seeded and sources are crawled (last_crawled_at updates), but nothing is written to `watchlist` or `vehicle_targets`. Find the crawler code and trace why extraction produces no records.
 
 ### Longer Term / Needs Config Only
 
