@@ -62,6 +62,9 @@ PM2 captures the shell environment at `pm2 start` time and persists it in its du
 **Verify mobile builds on a real device/emulator before trusting "root cause found"**
 A plausible, correctly-diagnosed root cause is not proof it's the *only* bug. On 2026-07-17, an Android build failing for Play Store testers was traced to a stale versionCode — true and worth fixing, but sideload-testing the "fixed" build anyway surfaced a second, unrelated bug (a malformed `AndroidManifest` `<meta-data>` tag causing `INSTALL_PARSE_FAILED_MANIFEST_MALFORMED`). Uploading without that verification step would have failed again. Treat "found a bug and fixed it" as a hypothesis until the actual artifact has been installed and opened on a device, especially before any App Store/Play Store submission.
 
+**`workflow_dispatch` requires the workflow file to exist on `main`**
+A GitHub Actions workflow with a `workflow_dispatch` trigger only shows up / can be triggered via API or the Actions tab UI once that workflow file is present on the repo's default branch. A workflow that only exists on a feature branch returns 404 when you try to dispatch it manually. Always push new workflows to `main` before trying to trigger them by hand.
+
 **No new Anthropic API calls for new agent features**
 The detection agent (`detection_agent.py`) already uses the Claude API; don't default to it for additional AI features (QA chatbot, calendar agent, etc.) on a self-funded nonprofit budget. Prefer local/open-source inference. Only reach for Anthropic again when there's a clear technical reason no local model can do the job, or the user explicitly asks for it.
 

@@ -1,6 +1,6 @@
 # Architecture Reference
 
-## Alert Ingestion (4 active sources + 1 disabled)
+## Alert Ingestion (5 active sources + 1 disabled + 1 non-functional)
 
 1. **FEMA IPAWS CMAS** (`backend/services/fema_connector.py`) — CAP XML, 5-min poll via `fema_background_loop()`. Covers CAE (AMBER/Levi's), CEM (Silver/Mattie's/Purple/MIPA/EMA), LEW (Blue Alert). Extracts plates + vehicle profiles → `watchlist` + `vehicle_targets`, fires Discord + push. Cancellation: CAP `msg_type=Cancel` deactivates entries. **Dedup is DB-backed** via `processed_alerts` table — survives restarts.
 
@@ -11,6 +11,8 @@
 4. ~~**amber.alert.gov**~~ — **DISABLED**. Hostname has no DNS record. `AMBER_GOV_URLS = []`.
 
 5. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll. Persists cases in `ncmec_cases`. New case Discord fires ONLY when active FEMA vehicle target exists in same state. Resolved cases always fire. Initial state loaded from DB on startup to prevent re-firing old resolutions.
+
+6. **BOLO crawler** (`backend/services/bolo_crawler.py`, `bolo_extractor.py`) — `bolo_sources` table has 10 active sources (FBI Wanted RSS, NCMEC, GA GBI, TBI, FL FDLE, ALEA, AL SBI, AL AG), polled on `BOLO_CRAWL_INTERVAL`. **Confirmed non-functional as of 2026-07-28**: `last_crawled_at` updates on schedule (crawling runs), but zero rows have ever landed in `watchlist` or `vehicle_targets` with a BOLO source — extraction/parsing isn't producing actionable records. See TODO: "BOLO Crawler Ingestion Bug".
 
 ## Frame Pipeline
 
@@ -52,6 +54,12 @@ Detection pipeline uses composite scoring (`aggregation_service.py`):
 - Thresholds: PROBABLE ≥ 75 + ≥2 detections; HIGH_CONFIDENCE ≥ 85 + ≥3 detections
 - HIGH_CONFIDENCE triggers Discord + optional SMS (Twilio); PROBABLE also triggers Discord
 - 5-second window is a DRONE concern. Phone path has fast-path direct DB lookup bypassing the window.
+
+### CDC Classifier (Cascade Stage 2)
+
+- `backend/services/cdc_classifier.py` — MobileNetV3 ONNX, fine-grained make/model/generation labels (e.g. "Toyota_Camry_XV70"). Called from `vehicle_classifier.py` after each YOLO detection.
+- Model path via `CDC_MODEL_PATH` env var, defaults to `DEFAULT_CDC_ROOT / "vehicle_classifier.onnx"`. **Not deployed to the server** — `cdc_classifier.py` gracefully degrades (returns `None`) when the model file is absent.
+- Dataset was DDG-scraped with quality issues (skewed toward rare/cool cars). Needs a purposeful rebuild before retraining. Current use is a verification layer ("is this actually a sedan?"), not primary classification.
 - Plate Recognizer called only at ALPR ≥ 70% — adds make/model to vehicle corroboration
 
 ## Role Matrix

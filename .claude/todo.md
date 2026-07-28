@@ -1,5 +1,8 @@
 # Pending TODO
 
+### LinkedIn Presence
+Post regularly as Amber's Angels. One founder story post (who we are, what we built, why) to establish the account, then milestone posts for CPD letter and App Store approval. Avoid repeated "go look at our page" links — each post should stand alone as content.
+
 ### RTMP Live View for Coordinators
 nginx RTMP → HLS (`hls on; hls_path /tmp/hls; hls_fragment 2s;`) → serve `/tmp/hls/` auth-gated → mission map "Live Feed" button on active drone markers → `hls.js` player. Auth: short-lived signed URL token. Do alongside: nginx `on_publish` hook to snapshot pilot GPS at stream start → `stream_sessions` table → fixes loose 10-min telemetry fallback.
 
@@ -8,6 +11,17 @@ nginx RTMP → HLS (`hls on; hls_path /tmp/hls; hls_fragment 2s;`) → serve `/t
 
 ### Adaptive Scanning — Hierarchical Pipeline Plan (future)
 Three stages: Stage 0 — YOLO-nano vehicle detection (~3fps, ~6MB TFLite/CoreML); Stage 1 — plate readability binary classifier (small CNN on vehicle bbox crop); Stage 2 — OCR only when plate readable. Adaptive interval: `lerp(2000ms, 400ms, bbox_area_fraction)`. First step (no native code): skip ALPR in `unified_worker.py` when `yolo_vehicles` empty; use YOLO bbox area to set `capture_interval_ms` dynamically. Client just needs to consume the field (see Capture Interval above).
+
+### Feed & Map UX Polish (found 2026-07-17, not urgent)
+- **Feed tiles are dead ends** — `DetectionCard`, `HistoryCard`, `NcmecCard` in `FeedScreen.tsx` have no `onPress`/`TouchableOpacity` at all. Tapping any detection, dispatched alert, or missing-person tile does nothing. Needs real detail screens (full detection with GPS/frame, alert dispatch detail, NCMEC case detail) designed before wiring navigation.
+- **Map alert fly-to silently no-ops for alerts with no geo data** — `MapScreen.tsx`'s `alertToRegion()` returns `null` (button `disabled={!region}`) when an alert has neither `polygon` nor `centroidLat`/`centroidLng`. `/admin/inject-alert` (`main.py`) never sets either on the `vehicle_targets` insert, so manually-injected test/demo alerts can never fly-to — only real FEMA-sourced alerts (which carry parsed CAP polygon/centroid) work today. Fix: geocode `req.area` or accept optional lat/lng in the inject request so demo alerts are fully clickable too.
+- **Web admin has no "you're not logged in" state** — `web/src/app/admin/page.tsx` and the mission map both silently show empty sections (Active Alerts, pilots roster, etc.) on a 401, identical in appearance to a genuinely empty result. Unlike mobile (`registerSessionExpiredHandler` in `client.ts`), web has no session-expiry/logged-out messaging or redirect. Worth adding before this trips someone else up the way it did here.
+
+### BOLO Crawler Ingestion Bug (confirmed still broken 2026-07-28)
+`bolo_sources` table has 10 active sources (FBI Wanted RSS, NCMEC, GA GBI, TBI, FL FDLE, ALEA, AL SBI, AL AG) and `last_crawled_at` updates on schedule — the crawler runs. But zero rows have ever landed in `watchlist` or `vehicle_targets` with a BOLO source. Extraction/parsing (`bolo_crawler.py`, `bolo_extractor.py`) isn't producing actionable records. Needs tracing — likely a parsing/regex mismatch against real source HTML/RSS structure, similar in spirit to the FEMA endpoint bugs found 2026-07-16.
+
+### National Alerts Map
+Mission map currently shows only vehicle-target FEMA alerts. All CAP event types already flow through the FEMA poller; they're discarded today if no plate/vehicle is extracted. Plan: add a `fema_alerts_log` table (event_code, headline, area, polygon, received_at) storing ALL alerts; `GET /fema/alerts/all` endpoint; map layer color-coded by type (red=AMBER, orange=Silver/Purple, yellow=CEM/fire/civil, blue=LEW/Blue Alert). Display-only, no new volunteer workflow — makes the mission map a national real-time CAP viewer.
 
 ### Public Discord Join Button
 Only `aa-test` channel exists — internal only. Define public channel structure (alert-firehose + general chat) and get real invite link before adding button to `/guide` page.
