@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./client"
+import { apiGet } from "./client"
 
 export type Detection = {
   id: string
@@ -18,7 +18,5 @@ export type Detection = {
 }
 
 export async function fetchDetectionsFeed(limit = 50): Promise<Detection[]> {
-  const res = await fetch(`${getApiBaseUrl()}/detections/feed?limit=${limit}`)
-  if (!res.ok) return []
-  return res.json()
+  return apiGet<Detection[]>(`/detections/feed?limit=${limit}`)
 }
