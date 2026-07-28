@@ -26,6 +26,14 @@ jobs:
             /home/ambers-angels/.local/bin/pm2 set pm2-logrotate:max_size 50M
             /home/ambers-angels/.local/bin/pm2 set pm2-logrotate:retain 7
 
+            # Install/update backend Python deps (idempotent — safe to run every
+            # deploy). There's no venv on this box; the API/worker processes run
+            # against the ambers-angels user's ~/.local site-packages, so new
+            # requirements.txt entries never took effect without this — that's
+            # why feedparser/beautifulsoup4/spacy silently never installed after
+            # the BOLO crawler was added, leaving it fetching nothing forever.
+            pip3 install --user -q -r backend/requirements.txt
+
             # Run DB migrations (idempotent — safe to run every deploy)
             python3 backend/run_migration.py
 

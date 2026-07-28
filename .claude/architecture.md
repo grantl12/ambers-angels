@@ -12,7 +12,7 @@
 
 5. **NCMEC RSS** (`backend/services/ncmec_poller.py`) — all 50 US states, 30-min poll. Persists cases in `ncmec_cases`. New case Discord fires ONLY when active FEMA vehicle target exists in same state. Resolved cases always fire. Initial state loaded from DB on startup to prevent re-firing old resolutions.
 
-6. **BOLO crawler** (`backend/services/bolo_crawler.py`, `bolo_extractor.py`) — `bolo_sources` table has 10 active sources (FBI Wanted RSS, NCMEC, GA GBI, TBI, FL FDLE, ALEA, AL SBI, AL AG), polled on `BOLO_CRAWL_INTERVAL`. **Confirmed non-functional as of 2026-07-28**: `last_crawled_at` updates on schedule (crawling runs), but zero rows have ever landed in `watchlist` or `vehicle_targets` with a BOLO source — extraction/parsing isn't producing actionable records. See TODO: "BOLO Crawler Ingestion Bug".
+6. **BOLO crawler** (`backend/services/bolo_crawler.py`, `bolo_extractor.py`) — `bolo_sources` table has 10 sources (FBI Wanted RSS, NCMEC, GA GBI, TBI, FL FDLE, ALEA, AL SBI, AL AG), polled on `BOLO_CRAWL_INTERVAL`. Root cause of "zero rows ever ingested" found and fixed 2026-07-28: `feedparser`/`beautifulsoup4`/`spacy` were in `requirements.txt` but `deploy.yml` never ran `pip install` for the backend (only `npm ci` for web), so every fetch silently hit the code's own `except ImportError` fallback and returned `[]` — for the entire life of the feature. Fixed by adding a `pip3 install --user -r backend/requirements.txt` step to `deploy.yml`. Now that fetching actually runs, most of the 10 seeded source URLs turn out to be stale or bot-blocked (FBI/GBI 403, TN.gov connection reset, FDLE/ALEA-SBI/NCMEC-pressreleases 404) — only 2 of 10 currently return real content. See TODO: "BOLO Crawler Follow-Up".
 
 ## Frame Pipeline
 
