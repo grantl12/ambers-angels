@@ -14,6 +14,7 @@ import urllib.parse
 import httpx
 import certifi as _certifi
 from services.vehicle_image import resolve_vehicle_image_url
+from services import push_service
 
 logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
@@ -172,15 +173,16 @@ class AlertDispatcher:
                 "inline": False,
             })
 
+        vehicle_img_url: Optional[str] = None
         if vehicle_context:
             embed["fields"].append(_vehicle_context_field(vehicle_context))
-            ref_img = resolve_vehicle_image_url(
+            vehicle_img_url = await resolve_vehicle_image_url(
                 color=vehicle_context.get("expected_color"),
                 body_type=vehicle_context.get("expected_type"),
                 make=vehicle_context.get("expected_make"),
             )
-            if ref_img:
-                embed["thumbnail"] = {"url": ref_img}
+            if vehicle_img_url:
+                embed["thumbnail"] = {"url": vehicle_img_url}
             reasoning = vehicle_context.get("agent_reasoning")
             if reasoning:
                 embed["fields"].append({
@@ -215,7 +217,7 @@ class AlertDispatcher:
             await self._send_sms(plate, confidence, drone_id, location, alert_type)
 
         # 4. Expo push — notify coordinators/admins on their phones
-        await self._send_push(plate, confidence, drone_id, alert_type, location)
+        await self._send_push(plate, confidence, drone_id, alert_type, location, vehicle_img_url)
 
     # -------------------------------------------------------------------------
 
@@ -271,7 +273,7 @@ class AlertDispatcher:
             "footer": {"text": ts_str},
         }
 
-        ref_img = resolve_vehicle_image_url(color=t_color, body_type=t_body, make=t_make)
+        ref_img = await resolve_vehicle_image_url(color=t_color, body_type=t_body, make=t_make)
         if ref_img:
             embed["thumbnail"] = {"url": ref_img}
 
@@ -408,6 +410,7 @@ class AlertDispatcher:
         drone_id: str,
         alert_type: Optional[str],
         location: Optional[dict],
+        vehicle_image_url: Optional[str] = None,
     ) -> None:
         """Push watchlist-hit notification to coordinators and admins via Expo."""
         try:
@@ -416,18 +419,18 @@ class AlertDispatcher:
             _db = database.SessionLocal()
             try:
                 rows = _db.execute(_text(
-                    "SELECT expo_push_token FROM pilots "
+                    "SELECT username, expo_push_token FROM pilots "
                     "WHERE expo_push_token IS NOT NULL AND expo_push_token != '' "
                     "AND role IN ('coordinator', 'admin') AND status = 'approved'"
                 )).fetchall()
-                tokens = [r[0] for r in rows]
+                recipients = [(r[0], r[1]) for r in rows]
             finally:
                 _db.close()
         except Exception as exc:
             logger.warning("Could not load coordinator push tokens: %s", exc)
             return
 
-        if not tokens:
+        if not recipients:
             return
 
         conf_str   = f"{confidence:.0f}% confidence" if confidence else ""
@@ -438,28 +441,18 @@ class AlertDispatcher:
         if lat and lng:
             body = f"{body} · {lat:.4f},{lng:.4f}"
 
-        payload = [
-            {
-                "to":       token,
-                "title":    f"🚨 {alert_str} DETECTION — {plate}",
-                "body":     body,
-                "sound":    "default",
-                "priority": "high",
-                "data":     {"plate": plate, "alertType": alert_type or "amber"},
-            }
-            for token in tokens
-        ]
+        data = {"plate": plate, "alertType": alert_type or "amber"}
+        if vehicle_image_url:
+            data["vehicleImageUrl"] = vehicle_image_url
 
-        async with httpx.AsyncClient(verify=_certifi.where(), timeout=10.0) as client:
-            try:
-                resp = await client.post(
-                    "https://exp.host/--/api/v2/push/send",
-                    json=payload,
-                    headers={"Accept": "application/json", "Content-Type": "application/json"},
-                )
-                logger.info("Expo push dispatch: %s — %d token(s)", resp.status_code, len(tokens))
-            except Exception as exc:
-                logger.warning("Expo push dispatch failed: %s", exc)
+        await push_service.send_push_notifications(
+            database.AsyncSessionLocal,
+            recipients,
+            f"🚨 {alert_str} DETECTION — {plate}",
+            body,
+            "watchlist_hit",
+            data=data,
+        )
 
     # -------------------------------------------------------------------------
 

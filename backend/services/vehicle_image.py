@@ -37,6 +37,9 @@ _NON_EXTERIOR_TITLE_HINTS = (
     "steering", "console", "engine", "engine bay", "undercarriage",
     "chassis", "wheel rim", "diagram", "blueprint", "cutaway", "badge",
     "emblem", "logo", "brochure", "advert", "advertisement", "poster",
+    "charging port", "charge port", "charging cable", "charging station",
+    "ev charger", "ev charging", "supercharger", "wall charger", "plug-in",
+    "charging socket",
 )
 
 
@@ -69,50 +72,53 @@ async def _wikimedia_photo(make: str, model: str | None, year: str | None) -> st
     }
     async with httpx.AsyncClient(verify=certifi.where(), timeout=5.0, headers=headers) as client:
         for q in queries:
-            try:
-                resp = await client.get(COMMONS_API, params={
-                    "action": "query",
-                    "list": "search",
-                    "srsearch": f"{q} automobile",
-                    "srnamespace": "6",  # File namespace
-                    "srlimit": "5",
-                    "format": "json",
-                })
-                resp.raise_for_status()
-                results = resp.json().get("query", {}).get("search", [])
-                for result in results:
-                    title = result.get("title", "")
-                    title_lower = title.lower()
-                    if not title_lower.endswith((".jpg", ".jpeg", ".png")):
-                        continue
-                    if any(hint in title_lower for hint in _NON_EXTERIOR_TITLE_HINTS):
-                        continue
-                    # Resolve to actual image URL via imageinfo
-                    info_resp = await client.get(COMMONS_API, params={
+            # Try an exterior-biased search first; fall back to the plain query
+            # since not every Commons file title carries the word "exterior".
+            for srsearch in (f"{q} automobile exterior", f"{q} automobile"):
+                try:
+                    resp = await client.get(COMMONS_API, params={
                         "action": "query",
-                        "titles": title,
-                        "prop": "imageinfo",
-                        "iiprop": "url|size|thumburl",
-                        "iiurlwidth": "400",
+                        "list": "search",
+                        "srsearch": srsearch,
+                        "srnamespace": "6",  # File namespace
+                        "srlimit": "5",
                         "format": "json",
                     })
-                    info_resp.raise_for_status()
-                    pages = info_resp.json().get("query", {}).get("pages", {})
-                    for page in pages.values():
-                        infos = page.get("imageinfo", [])
-                        if not infos:
+                    resp.raise_for_status()
+                    results = resp.json().get("query", {}).get("search", [])
+                    for result in results:
+                        title = result.get("title", "")
+                        title_lower = title.lower()
+                        if not title_lower.endswith((".jpg", ".jpeg", ".png")):
                             continue
-                        info = infos[0]
-                        size = info.get("size", 0)
-                        url  = info.get("url", "")
-                        # Skip tiny originals and SVGs
-                        if size < 50_000 or not url.lower().endswith((".jpg", ".jpeg", ".png")):
+                        if any(hint in title_lower for hint in _NON_EXTERIOR_TITLE_HINTS):
                             continue
-                        # Prefer the CDN-resized thumbnail — Discord embeds large originals poorly
-                        return info.get("thumburl") or url
-            except Exception as exc:
-                logger.debug("Wikimedia search failed for %r: %s", q, exc)
-                continue
+                        # Resolve to actual image URL via imageinfo
+                        info_resp = await client.get(COMMONS_API, params={
+                            "action": "query",
+                            "titles": title,
+                            "prop": "imageinfo",
+                            "iiprop": "url|size|thumburl",
+                            "iiurlwidth": "400",
+                            "format": "json",
+                        })
+                        info_resp.raise_for_status()
+                        pages = info_resp.json().get("query", {}).get("pages", {})
+                        for page in pages.values():
+                            infos = page.get("imageinfo", [])
+                            if not infos:
+                                continue
+                            info = infos[0]
+                            size = info.get("size", 0)
+                            url  = info.get("url", "")
+                            # Skip tiny originals and SVGs
+                            if size < 50_000 or not url.lower().endswith((".jpg", ".jpeg", ".png")):
+                                continue
+                            # Prefer the CDN-resized thumbnail — Discord embeds large originals poorly
+                            return info.get("thumburl") or url
+                except Exception as exc:
+                    logger.debug("Wikimedia search failed for %r: %s", srsearch, exc)
+                    continue
 
     return None
 
