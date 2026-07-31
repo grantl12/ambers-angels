@@ -104,7 +104,10 @@ _MODEL_PATTERNS: list[tuple[str, str]] = [
     (r"\bwrangler\b",         "Wrangler"),
     (r"\bgrand\s*cherokee\b", "Grand Cherokee"),
     (r"\bcherokee\b",         "Cherokee"),
-    (r"\bmodel\s*[sy3x]\b",   "Model S"),
+    (r"\bmodel\s*s\b",        "Model S"),
+    (r"\bmodel\s*y\b",        "Model Y"),
+    (r"\bmodel\s*3\b",        "Model 3"),
+    (r"\bmodel\s*x\b",        "Model X"),
 ]
 
 # ── Regex patterns ────────────────────────────────────────────────────────────
