@@ -33,32 +33,82 @@ _MAKES = {
     "subaru", "suzuki", "tesla", "toyota", "volkswagen", "vw", "volvo",
 }
 
-_COLORS = {
-    # longer phrases first so "dark blue" matches before "blue"
+# Ordered list so "dark blue" is checked before "blue", etc. Do NOT convert to set.
+_COLORS: list[str] = [
     "dark blue", "dark green", "dark gray", "dark grey", "dark red",
     "light blue", "light gray", "light grey", "olive green",
     "black", "white", "silver", "gray", "grey", "red", "blue", "green",
     "yellow", "orange", "brown", "tan", "beige", "gold", "purple", "maroon",
     "navy", "teal", "burgundy", "charcoal", "bronze", "cream",
-}
+]
 
-# Maps keywords found in text to YOLO body-type labels
+# Maps keywords found in text to YOLO body-type labels.
+# Keys are checked with word-boundary regex, so " car " is not needed — use "car".
 _TYPES: dict[str, str] = {
     "sedan": "car",
     "coupe": "car",
     "hatchback": "car",
     "convertible": "car",
-    " car ": "car",
+    "car": "car",
     "suv": "suv",
     "crossover": "suv",
     "truck": "truck",
     "pickup": "truck",
-    "van": "van",
     "minivan": "van",
+    "van": "van",
     "motorcycle": "motorcycle",
     "motorbike": "motorcycle",
     "dirt bike": "motorcycle",
 }
+
+# Specific model names — checked before make to avoid make shadowing model matches.
+# Only unambiguous model names included; common English words (escape, focus, etc.) omitted.
+_MODEL_PATTERNS: list[tuple[str, str]] = [
+    (r"\bsilverado\b",        "Silverado"),
+    (r"\bf-?150\b",           "F-150"),
+    (r"\bf-?250\b",           "F-250"),
+    (r"\bf-?350\b",           "F-350"),
+    (r"\bcamry\b",            "Camry"),
+    (r"\bcorolla\b",          "Corolla"),
+    (r"\baccord\b",           "Accord"),
+    (r"\bcivic\b",            "Civic"),
+    (r"\bcr-?v\b",            "CR-V"),
+    (r"\baltima\b",           "Altima"),
+    (r"\bsentra\b",           "Sentra"),
+    (r"\brogue\b",            "Rogue"),
+    (r"\bram\s*1500\b",       "Ram 1500"),
+    (r"\bcharger\b",          "Charger"),
+    (r"\bchallenger\b",       "Challenger"),
+    (r"\bdurango\b",          "Durango"),
+    (r"\btahoe\b",            "Tahoe"),
+    (r"\bsuburban\b",         "Suburban"),
+    (r"\bequinox\b",          "Equinox"),
+    (r"\bmalibu\b",           "Malibu"),
+    (r"\bcruze\b",            "Cruze"),
+    (r"\bsierra\b",           "Sierra"),
+    (r"\bmustang\b",          "Mustang"),
+    (r"\bsonata\b",           "Sonata"),
+    (r"\btucson\b",           "Tucson"),
+    (r"\bsanta\s*fe\b",       "Santa Fe"),
+    (r"\bsorento\b",          "Sorento"),
+    (r"\bsportage\b",         "Sportage"),
+    (r"\bpathfinder\b",       "Pathfinder"),
+    (r"\bmurano\b",           "Murano"),
+    (r"\boutback\b",          "Outback"),
+    (r"\bforester\b",         "Forester"),
+    (r"\bimpreza\b",          "Impreza"),
+    (r"\bjetta\b",            "Jetta"),
+    (r"\bpassat\b",           "Passat"),
+    (r"\btiguan\b",           "Tiguan"),
+    (r"\bcorvette\b",         "Corvette"),
+    (r"\bwrangler\b",         "Wrangler"),
+    (r"\bgrand\s*cherokee\b", "Grand Cherokee"),
+    (r"\bcherokee\b",         "Cherokee"),
+    (r"\bmodel\s*s\b",        "Model S"),
+    (r"\bmodel\s*y\b",        "Model Y"),
+    (r"\bmodel\s*3\b",        "Model 3"),
+    (r"\bmodel\s*x\b",        "Model X"),
+]
 
 # ── Regex patterns ────────────────────────────────────────────────────────────
 
@@ -142,10 +192,16 @@ def extract(text: str) -> dict:
     if ym:
         result["vehicle_year"] = ym.group(1)
 
-    # ── Color — check longest phrases first ────────────────────────────────────
+    # ── Color — check longest phrases first (list order is critical) ───────────
     for color in _COLORS:
         if color in tl:
             result["vehicle_color"] = color
+            break
+
+    # ── Model — checked before make to prevent make match shadowing the model ──
+    for pattern, label in _MODEL_PATTERNS:
+        if re.search(pattern, tl):
+            result["vehicle_model"] = label
             break
 
     # ── Make — longest match first to handle "land rover" before "rover" ───────
@@ -154,9 +210,9 @@ def extract(text: str) -> dict:
             result["vehicle_make"] = make.title()
             break
 
-    # ── Vehicle type ────────────────────────────────────────────────────────────
+    # ── Vehicle type — word-boundary matching prevents " car " space trap ───────
     for kw, vtype in _TYPES.items():
-        if kw in tl:
+        if re.search(r'\b' + re.escape(kw) + r'\b', tl):
             result["vehicle_type"] = vtype
             break
 
@@ -197,7 +253,16 @@ def extract(text: str) -> dict:
 
 
 def is_actionable(fields: dict) -> bool:
-    """Gate: plate, OR (make + model), OR (make + color + area)."""
+    """
+    Gate: does this extraction have enough to add to watchlist or vehicle_targets?
+
+    Paths (any one suffices):
+      - plate alone          → watchlist lookup
+      - make + model         → specific vehicle identification
+      - make + color + area  → YOLO matching with vehicle profile
+      - color + type + area  → YOLO matching on color/body even without make
+                               ("blue pickup truck in GA" is actionable)
+    """
     has_plate   = bool(fields.get("plate_text"))
     has_vehicle = bool(fields.get("vehicle_make")) and bool(fields.get("vehicle_model"))
     has_partial = (
@@ -205,4 +270,9 @@ def is_actionable(fields: dict) -> bool:
         and bool(fields.get("vehicle_color"))
         and bool(fields.get("area"))
     )
-    return has_plate or has_vehicle or has_partial
+    has_type_partial = (
+        bool(fields.get("vehicle_color"))
+        and bool(fields.get("vehicle_type"))
+        and bool(fields.get("area"))
+    )
+    return has_plate or has_vehicle or has_partial or has_type_partial
