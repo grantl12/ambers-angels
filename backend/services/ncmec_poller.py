@@ -29,6 +29,7 @@ from sqlalchemy import text
 
 from services.fema_connector import _post_discord
 from services import push_service
+from services.geocoding import geocode, bbox_polygon
 
 logger = logging.getLogger(__name__)
 
@@ -255,8 +256,8 @@ async def _mark_resolved(session_factory, guids: list[str]) -> list[dict]:
             return []
 
 
-async def _active_vehicle_target_in_state(session_factory, state: str) -> bool:
-    """True if we have an unexpired FEMA vehicle target whose area mentions this state."""
+async def _active_vehicle_target_in_state(session_factory, state: str) -> Optional[dict]:
+    """The matching unexpired FEMA vehicle target whose area mentions this state, or None."""
     state_names = {
         "AL":"Alabama","AK":"Alaska","AZ":"Arizona","AR":"Arkansas","CA":"California",
         "CO":"Colorado","CT":"Connecticut","DE":"Delaware","FL":"Florida","GA":"Georgia",
@@ -275,16 +276,19 @@ async def _active_vehicle_target_in_state(session_factory, state: str) -> bool:
         try:
             row = await session.execute(
                 text("""
-                    SELECT 1 FROM vehicle_targets
+                    SELECT id, color, body_type, make FROM vehicle_targets
                     WHERE (expires_at IS NULL OR expires_at > NOW())
                       AND (area ILIKE :abbr OR area ILIKE :name)
                     LIMIT 1
                 """),
                 {"abbr": f"% {state} %", "name": f"%{state_name}%"},
             )
-            return row.fetchone() is not None
+            r = row.fetchone()
+            if r is None:
+                return None
+            return {"id": r[0], "color": r[1], "body_type": r[2], "make": r[3]}
         except Exception:
-            return False
+            return None
 
 
 async def _load_initial_state(session_factory) -> None:
@@ -372,6 +376,95 @@ async def _push_notify_resolved(session_factory, case: dict) -> None:
     )
 
 
+async def _create_pending_alert(
+    session_factory,
+    state: str,
+    case: dict,
+    target: dict,
+) -> Optional[int]:
+    """
+    Stage an NCMEC cross-reference as a pending alert awaiting coordinator review —
+    this is NOT written to vehicle_targets, so it never affects the camera gate,
+    mission map, or YOLO matching until a coordinator explicitly approves it.
+    """
+    area = f"{case['city']}, {state}" if case.get("city") else state
+    centroid = geocode(area)
+    polygon = bbox_polygon(*centroid) if centroid else None
+
+    headline = case.get("vehicle_description") or f"{case['name']} — possible vehicle match"
+
+    async with session_factory() as session:
+        try:
+            row = await session.execute(
+                text("""
+                    INSERT INTO ncmec_pending_alerts
+                        (ncmec_case_guid, matched_vehicle_target_id, state, area,
+                         headline, vehicle_description, vehicle_plate,
+                         photo_url, poster_url, centroid_lat, centroid_lng, polygon)
+                    VALUES
+                        (:guid, :target_id, :state, :area,
+                         :headline, :vdesc, :vplate,
+                         :photo, :poster, :clat, :clng, :polygon)
+                    RETURNING id
+                """),
+                {
+                    "guid":      case["guid"],
+                    "target_id": target["id"],
+                    "state":     state,
+                    "area":      area,
+                    "headline":  headline,
+                    "vdesc":     case.get("vehicle_description"),
+                    "vplate":    case.get("vehicle_plate"),
+                    "photo":     case.get("photo_url"),
+                    "poster":    case.get("poster_url"),
+                    "clat":      centroid[0] if centroid else None,
+                    "clng":      centroid[1] if centroid else None,
+                    "polygon":   polygon,
+                },
+            )
+            pending_id = row.scalar_one()
+            await session.commit()
+            return pending_id
+        except Exception as e:
+            logger.error("[NCMEC/%s] Failed to insert pending alert for %s: %s",
+                         state, case.get("name"), e)
+            return None
+
+
+async def _push_notify_pending_review(
+    session_factory,
+    state: str,
+    case: dict,
+    pending_id: int,
+) -> None:
+    """Push coordinators+admins to review an NCMEC/vehicle-target cross-reference."""
+    try:
+        async with session_factory() as session:
+            rows = await session.execute(
+                text("""
+                    SELECT DISTINCT username, expo_push_token FROM pilots
+                    WHERE status = 'approved' AND role IN ('admin', 'coordinator')
+                """)
+            )
+            recipients = [(r[0], r[1]) for r in rows.fetchall()]
+    except Exception as e:
+        logger.error("[NCMEC] Pending-review push token query failed: %s", e)
+        return
+
+    await push_service.send_push_notifications(
+        session_factory,
+        recipients,
+        f"🟠 NCMEC case matches active vehicle target in {state}",
+        f"{case['name']} — the national system did not create this alert. Tap to review.",
+        "ncmec_review",
+        data={
+            "type":      "ncmec_review",
+            "pendingId": pending_id,
+            "reviewUrl": f"https://amberangels.org/admin/ncmec-review/{pending_id}",
+        },
+    )
+
+
 # ── Per-state poll ────────────────────────────────────────────────────────────
 
 async def _poll_state(
@@ -419,11 +512,18 @@ async def _poll_state(
                     state, len(new_cases), [c["name"] for c in new_cases])
         last_new_case_at = datetime.now(timezone.utc)
 
-        if webhook_url:
-            has_target = await _active_vehicle_target_in_state(session_factory, state)
-            if has_target:
-                for c in new_cases:
+        target = await _active_vehicle_target_in_state(session_factory, state)
+        if target:
+            for c in new_cases:
+                if webhook_url:
                     await _notify_new_case(webhook_url, c, has_vehicle_target=True)
+                try:
+                    pending_id = await _create_pending_alert(session_factory, state, c, target)
+                    if pending_id is not None:
+                        await _push_notify_pending_review(session_factory, state, c, pending_id)
+                except Exception as e:
+                    logger.error("[NCMEC/%s] Pending-alert creation failed for %s: %s",
+                                 state, c.get("name"), e)
 
 
 # ── Background loop ───────────────────────────────────────────────────────────

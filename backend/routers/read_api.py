@@ -955,39 +955,7 @@ def get_watchlist():
 # Admin — manual test alert
 # ---------------------------------------------------------------------------
 
-_NOMINATIM_URL  = "https://nominatim.openstreetmap.org/search"
-_NOMINATIM_UA   = "AmberAngels-admin/1.0"
-# Half-side of the standard search box in degrees (≈5.5 km at mid-latitudes)
-_ZONE_HALF_DEG  = 0.05
-
-
-def _geocode(area: str) -> tuple[float, float] | None:
-    """Return (lat, lng) for a location string via Nominatim, or None on failure."""
-    import re
-    query = area.strip()
-    # Bare US zip codes (5 digits) confuse Nominatim — append country hint
-    if re.fullmatch(r"\d{5}", query):
-        query = f"{query}, USA"
-    try:
-        resp = _requests.get(
-            _NOMINATIM_URL,
-            params={"q": query, "format": "json", "limit": 1, "countrycodes": "us"},
-            headers={"User-Agent": _NOMINATIM_UA},
-            timeout=8,
-        )
-        resp.raise_for_status()
-        results = resp.json()
-        if results:
-            return float(results[0]["lat"]), float(results[0]["lon"])
-    except Exception as e:
-        logger.warning("Manual alert geocode failed for %r: %s", area, e)
-    return None
-
-
-def _bbox_polygon(lat: float, lng: float, half: float = _ZONE_HALF_DEG) -> str:
-    """Return space-separated 'lat,lng' pairs forming a closed rectangular polygon."""
-    s, n, w, e = lat - half, lat + half, lng - half, lng + half
-    return f"{s},{w} {s},{e} {n},{e} {n},{w} {s},{w}"
+from services.geocoding import geocode as _geocode, bbox_polygon as _bbox_polygon
 
 
 def _discord_zone_embed(
@@ -1225,6 +1193,207 @@ def delete_manual_vehicle(alert_id: int):
         ), {"id": alert_id})
         db.commit()
         return {"deleted": alert_id}
+    finally:
+        db.close()
+
+
+class PolygonUpdate(BaseModel):
+    polygon: str
+
+
+@router.get("/admin/ncmec-pending", dependencies=[Depends(require_coordinator)])
+def list_ncmec_pending():
+    """Fallback visibility into the review queue if a push was missed/dismissed by accident."""
+    db = database.SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT id, ncmec_case_guid, state, area, headline, vehicle_description,
+                   vehicle_plate, photo_url, poster_url, status, created_at
+            FROM ncmec_pending_alerts
+            WHERE status = 'pending'
+            ORDER BY created_at DESC
+        """)).fetchall()
+        return [
+            {
+                "id": r[0], "caseGuid": r[1], "state": r[2], "area": r[3],
+                "headline": r[4], "vehicleDescription": r[5], "vehiclePlate": r[6],
+                "photoUrl": r[7], "posterUrl": r[8], "status": r[9],
+                "createdAt": r[10].isoformat() if r[10] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+@router.get("/admin/ncmec-pending/{pending_id}", dependencies=[Depends(require_coordinator)])
+def get_ncmec_pending(pending_id: int):
+    db = database.SessionLocal()
+    try:
+        row = db.execute(text("""
+            SELECT id, ncmec_case_guid, matched_vehicle_target_id, state, area, headline,
+                   vehicle_description, vehicle_plate, photo_url, poster_url,
+                   centroid_lat, centroid_lng, polygon, status, created_at
+            FROM ncmec_pending_alerts WHERE id = :id
+        """), {"id": pending_id}).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Not found")
+
+        matched_target = None
+        if row[2]:
+            t = db.execute(text(
+                "SELECT color, body_type, make FROM vehicle_targets WHERE id = :id"
+            ), {"id": row[2]}).fetchone()
+            if t:
+                matched_target = {"color": t[0], "bodyType": t[1], "make": t[2]}
+
+        return {
+            "id": row[0], "caseGuid": row[1], "state": row[3], "area": row[4],
+            "headline": row[5], "vehicleDescription": row[6], "vehiclePlate": row[7],
+            "photoUrl": row[8], "posterUrl": row[9],
+            "centroidLat": row[10], "centroidLng": row[11], "polygon": row[12],
+            "status": row[13], "createdAt": row[14].isoformat() if row[14] else None,
+            "matchedTarget": matched_target,
+        }
+    finally:
+        db.close()
+
+
+@router.patch("/admin/ncmec-pending/{pending_id}", dependencies=[Depends(require_coordinator)])
+def update_ncmec_pending_polygon(pending_id: int, req: PolygonUpdate):
+    """Save an edited search-zone polygon without deciding yet."""
+    db = database.SessionLocal()
+    try:
+        row = db.execute(text("""
+            UPDATE ncmec_pending_alerts SET polygon = :polygon
+            WHERE id = :id AND status = 'pending'
+            RETURNING id
+        """), {"id": pending_id, "polygon": req.polygon}).fetchone()
+        db.commit()
+        if not row:
+            raise HTTPException(status_code=409, detail="Not pending or not found")
+        return {"id": pending_id, "polygon": req.polygon}
+    finally:
+        db.close()
+
+
+@router.post("/admin/ncmec-pending/{pending_id}/approve")
+def approve_ncmec_pending(
+    pending_id: int,
+    req: PolygonUpdate,
+    payload: dict = Depends(require_bolo_creator),
+):
+    """
+    Same safeguard as /admin/manual-alert and BOLO creation — this turns an
+    automated NCMEC cross-reference (not a real FEMA/EAS/NWS alert) into a real
+    volunteer-facing vehicle_targets row, so it requires can_create_bolo.
+    """
+    db = database.SessionLocal()
+    try:
+        row = db.execute(text("""
+            UPDATE ncmec_pending_alerts
+            SET status = 'approved', decided_by = :who, decided_at = NOW(), polygon = :polygon
+            WHERE id = :id AND status = 'pending'
+            RETURNING state, area, headline, vehicle_description, vehicle_plate,
+                      centroid_lat, centroid_lng, matched_vehicle_target_id
+        """), {"id": pending_id, "who": payload["sub"], "polygon": req.polygon}).fetchone()
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Already decided or not found")
+
+        state, area, headline, vdesc, vplate, clat, clng, matched_target_id = row
+
+        target_row = None
+        if matched_target_id:
+            target_row = db.execute(text(
+                "SELECT color, body_type, make FROM vehicle_targets WHERE id = :id"
+            ), {"id": matched_target_id}).fetchone()
+        color     = target_row[0] if target_row else None
+        body_type = target_row[1] if target_row else None
+        make      = target_row[2] if target_row else None
+
+        fema_id  = f"ncmec-{uuid.uuid4().hex[:8]}"
+        headline = headline or vdesc or "NCMEC vehicle match"
+
+        new_target = db.execute(text("""
+            INSERT INTO vehicle_targets
+                (fema_identifier, alert_type, source_program, headline,
+                 area, color, body_type, make, polygon, centroid_lat, centroid_lng)
+            VALUES
+                (:fid, 'amber', 'ncmec', :headline,
+                 :area, :color, :body_type, :make, :polygon, :clat, :clng)
+            RETURNING id
+        """), {
+            "fid": fema_id, "headline": headline, "area": area,
+            "color": color, "body_type": body_type, "make": make,
+            "polygon": req.polygon, "clat": clat, "clng": clng,
+        }).fetchone()
+        new_target_id = new_target[0]
+
+        db.execute(text(
+            "UPDATE ncmec_pending_alerts SET created_vehicle_target_id = :vt WHERE id = :id"
+        ), {"vt": new_target_id, "id": pending_id})
+
+        write_audit_sync(db, payload["sub"], "ncmec_pending_approved",
+                          {"pending_id": pending_id, "vehicle_target_id": new_target_id})
+        db.commit()
+
+        # Push-notify pilots exactly as a real FEMA alert would — this reuses the
+        # existing watch-areas-based geofence, same as every other alert type.
+        from services.fema_connector import _notify_watching_pilots
+        alert_for_notify = {
+            "alert_type": {
+                "key": "amber", "name": "AMBER Alert", "short": "AMBER",
+                "emoji": "🟠", "cta": "NCMEC cross-reference — volunteers respond.",
+            },
+            "area":           area or "",
+            "headline":       headline,
+            "polygon":        req.polygon,
+            "source_program": "ncmec",
+        }
+        threading.Thread(
+            target=lambda: asyncio.run(
+                _notify_watching_pilots(database.AsyncSessionLocal, alert_for_notify)
+            ),
+            daemon=True,
+        ).start()
+
+        webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+        if webhook_url:
+            try:
+                _requests.post(
+                    webhook_url,
+                    json={"content": f"✅ **NCMEC alert approved by {payload['sub']}** — "
+                                      f"{headline} ({area}) — pushed to volunteers."},
+                    timeout=5,
+                )
+            except Exception as e:
+                logger.warning("NCMEC approval Discord notify failed: %s", e)
+
+        return {"id": pending_id, "vehicleTargetId": new_target_id}
+    finally:
+        db.close()
+
+
+@router.post("/admin/ncmec-pending/{pending_id}/dismiss")
+def dismiss_ncmec_pending(
+    pending_id: int,
+    payload: dict = Depends(require_coordinator),
+):
+    db = database.SessionLocal()
+    try:
+        row = db.execute(text("""
+            UPDATE ncmec_pending_alerts
+            SET status = 'dismissed', decided_by = :who, decided_at = NOW()
+            WHERE id = :id AND status = 'pending'
+            RETURNING id
+        """), {"id": pending_id, "who": payload["sub"]}).fetchone()
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Already decided or not found")
+        write_audit_sync(db, payload["sub"], "ncmec_pending_dismissed", {"pending_id": pending_id})
+        db.commit()
+        return {"id": pending_id, "status": "dismissed"}
     finally:
         db.close()
 

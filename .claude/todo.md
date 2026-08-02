@@ -1,5 +1,19 @@
 # Pending TODO
 
+### Extend Coordinator-Approval Gate to Remaining Discord-Only Vehicle Matches
+As of 2026-07-31, NCMEC cases that cross-reference an active FEMA vehicle target go
+through a coordinator-approval queue (`ncmec_pending_alerts` → push review →
+`/admin/ncmec-review` → approve/dismiss) before anything reaches volunteers — see
+`.claude/architecture.md`'s NCMEC entry. Two other "vehicle profile matched, no
+plate" paths still fire straight to Discord with no push/approval step at all:
+`backend/services/alert_dispatcher.py`'s `dispatch_vehicle_only_alert()` (YOLO
+match during aggregation) and `backend/services/fema_connector.py`'s
+`check_vehicle_targets()`/`_notify_vehicle_match()` (direct YOLO-to-target match on
+ingest). Both are live per-drone/per-frame matches on a 10-minute cooldown, not a
+poll-cycle event like NCMEC, so they need their own design pass to fit the same
+pending-approval pattern — not a copy-paste of the NCMEC plumbing. End state: the
+only thing that's Discord-only is `discord_logger.py`'s error/crash handler.
+
 ### LinkedIn Presence
 Post regularly as Amber's Angels. One founder story post (who we are, what we built, why) to establish the account, then milestone posts for CPD letter and App Store approval. Avoid repeated "go look at our page" links — each post should stand alone as content.
 

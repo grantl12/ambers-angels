@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
-import { Platform, View, ActivityIndicator } from "react-native"
+import { Platform, View, ActivityIndicator, Linking } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import * as Updates from "expo-updates"
 import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native"
@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import * as Notifications from "expo-notifications"
 import { TabNavigator } from "./src/navigation/TabNavigator"
+import NcmecReviewModal from "./src/screens/NcmecReviewModal"
 import LoginScreen from "./src/screens/LoginScreen"
 import SSOCompleteScreen from "./src/screens/SSOCompleteScreen"
 import TosGateScreen from "./src/screens/TosGateScreen"
@@ -65,6 +66,7 @@ export default function App() {
     email:             string | null
     provider:          "apple" | "google"
   } | null>(null)
+  const [ncmecReviewId, setNcmecReviewId] = useState<number | null>(null)
   const navRef = useNavigationContainerRef()
 
   // Wire up session-expiry handler — fires whenever any API call gets a 401
@@ -83,6 +85,17 @@ export default function App() {
       if (data?.type === "coverage_gap") {
         // Volunteer coverage ping — open Camera so they can start recording
         if (navRef.isReady()) navRef.navigate("Camera" as never)
+        return
+      }
+
+      if (data?.type === "ncmec_review") {
+        // Coordinator review prompt — quick approve/dismiss in-app; resizing the
+        // search zone still deep-links to the web admin panel from the modal.
+        if (typeof data.pendingId === "number") {
+          setNcmecReviewId(data.pendingId)
+        } else if (typeof data.reviewUrl === "string") {
+          Linking.openURL(data.reviewUrl)
+        }
         return
       }
 
@@ -214,8 +227,14 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <NavigationContainer ref={navRef}>
           <StatusBar style="light" />
-          <TabNavigator username={username} onSignOut={() => setAuthed(false)} role={role} />
+          <TabNavigator
+            username={username}
+            onSignOut={() => setAuthed(false)}
+            role={role}
+            onOpenNcmecReview={(id) => setNcmecReviewId(id)}
+          />
         </NavigationContainer>
+        <NcmecReviewModal pendingId={ncmecReviewId} onClose={() => setNcmecReviewId(null)} />
       </QueryClientProvider>
     </SafeAreaProvider>
   )

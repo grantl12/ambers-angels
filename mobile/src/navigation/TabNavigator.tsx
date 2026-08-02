@@ -12,9 +12,10 @@ import AdminScreen from "../screens/AdminScreen"
 import { fetchNotifications } from "../api/notifications"
 
 type Props = {
-  username:   string | null
-  onSignOut:  () => void
-  role:       string
+  username:          string | null
+  onSignOut:         () => void
+  role:              string
+  onOpenNcmecReview: (id: number) => void
 }
 
 const Tab = createBottomTabNavigator()
@@ -31,7 +32,7 @@ const ICON: Record<string, string> = {
 
 const POLL_INTERVAL_MS = 30_000
 
-export function TabNavigator({ username, onSignOut, role }: Props) {
+export function TabNavigator({ username, onSignOut, role, onOpenNcmecReview }: Props) {
   const isCoordinator = role === "coordinator" || role === "admin"
   const isAdmin       = role === "admin"
   const [unreadCount, setUnreadCount] = useState(0)
@@ -83,7 +84,7 @@ export function TabNavigator({ username, onSignOut, role }: Props) {
         }}
         listeners={{ tabPress: () => setUnreadCount(0) }}
       >
-        {() => <NotificationsScreen onRead={() => setUnreadCount(0)} />}
+        {() => <NotificationsScreen onRead={() => setUnreadCount(0)} onOpenNcmecReview={onOpenNcmecReview} />}
       </Tab.Screen>
       <Tab.Screen name="Missions" options={{ title: isCoordinator ? "Dispatch" : "Missions" }}>
         {() => isCoordinator ? <CoordinatorDispatchScreen /> : <AutonomousMissionScreen />}

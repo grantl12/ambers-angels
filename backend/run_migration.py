@@ -289,6 +289,30 @@ CREATE TABLE IF NOT EXISTS push_notifications (
 );
 CREATE INDEX IF NOT EXISTS push_notifications_username_sent_idx
     ON push_notifications (username, sent_at DESC);
+
+-- NCMEC cross-reference matches awaiting coordinator review before any
+-- volunteer-facing alert is created from them
+CREATE TABLE IF NOT EXISTS ncmec_pending_alerts (
+    id                        SERIAL PRIMARY KEY,
+    ncmec_case_guid           TEXT NOT NULL,
+    matched_vehicle_target_id INT,
+    state                     VARCHAR(2),
+    area                      TEXT,
+    headline                  TEXT,
+    vehicle_description       TEXT,
+    vehicle_plate             VARCHAR(32),
+    photo_url                 TEXT,
+    poster_url                TEXT,
+    centroid_lat              DOUBLE PRECISION,
+    centroid_lng              DOUBLE PRECISION,
+    polygon                   TEXT,
+    status                    VARCHAR(20) DEFAULT 'pending',
+    created_vehicle_target_id INT,
+    decided_by                TEXT,
+    decided_at                TIMESTAMPTZ,
+    created_at                TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ncmec_pending_status_idx ON ncmec_pending_alerts (status);
 """
 
 try:

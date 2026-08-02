@@ -2,9 +2,11 @@ import React, { useCallback, useState } from "react"
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   RefreshControl,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
@@ -18,6 +20,7 @@ const TYPE_ICON: Record<string, string> = {
   alert_new:       "🚨",
   alert_cancelled: "✅",
   ncmec_resolved:  "✅",
+  ncmec_review:    "🟠",
 }
 
 function timeAgo(iso: string): string {
@@ -33,9 +36,10 @@ function timeAgo(iso: string): string {
 
 interface Props {
   onRead?: () => void
+  onOpenNcmecReview?: (id: number) => void
 }
 
-export default function NotificationsScreen({ onRead }: Props) {
+export default function NotificationsScreen({ onRead, onOpenNcmecReview }: Props) {
   const [items, setItems]       = useState<AppNotification[]>([])
   const [loading, setLoading]   = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -92,19 +96,31 @@ export default function NotificationsScreen({ onRead }: Props) {
           tintColor="#f59e0b"
         />
       }
-      renderItem={({ item }) => (
-        <View style={[styles.item, item.read_at ? styles.itemRead : styles.itemUnread]}>
-          <Text style={styles.icon}>
-            {TYPE_ICON[item.type ?? ""] ?? "🔔"}
-          </Text>
-          <View style={styles.content}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.body}>{item.body}</Text>
-            <Text style={styles.time}>{timeAgo(item.sent_at)}</Text>
-          </View>
-          {!item.read_at && <View style={styles.dot} />}
-        </View>
-      )}
+      renderItem={({ item }) => {
+        const pendingId = typeof item.data?.pendingId === "number" ? item.data.pendingId : null
+        const reviewUrl = typeof item.data?.reviewUrl === "string" ? item.data.reviewUrl : null
+        const onPress =
+          pendingId != null && onOpenNcmecReview ? () => onOpenNcmecReview(pendingId)
+          : reviewUrl ? () => Linking.openURL(reviewUrl)
+          : null
+        const Wrapper = onPress ? TouchableOpacity : View
+        return (
+          <Wrapper
+            style={[styles.item, item.read_at ? styles.itemRead : styles.itemUnread]}
+            {...(onPress ? { onPress } : {})}
+          >
+            <Text style={styles.icon}>
+              {TYPE_ICON[item.type ?? ""] ?? "🔔"}
+            </Text>
+            <View style={styles.content}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.body}>{item.body}</Text>
+              <Text style={styles.time}>{timeAgo(item.sent_at)}</Text>
+            </View>
+            {!item.read_at && <View style={styles.dot} />}
+          </Wrapper>
+        )
+      }}
       ItemSeparatorComponent={() => <View style={styles.sep} />}
     />
   )
