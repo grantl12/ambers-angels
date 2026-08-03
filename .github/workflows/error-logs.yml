@@ -1,0 +1,43 @@
+name: Error Logs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull recent error logs
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 157.245.125.103
+          username: ambers-angels
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          command_timeout: 30s
+          script: |
+            echo "===== ERROR LOG DUMP — $(date -u) ====="
+
+            echo ""
+            echo "=== API error log (last 100 lines) ==="
+            tail -n 100 /home/ambers-angels/.pm2/logs/ambers-angels-api-error.log 2>/dev/null || echo "(no error log)"
+
+            echo ""
+            echo "=== Worker error log (last 100 lines) ==="
+            tail -n 100 /home/ambers-angels/.pm2/logs/ambers-angels-worker-error.log 2>/dev/null || echo "(no error log)"
+
+            echo ""
+            echo "=== RTMP monitor error log (last 50 lines) ==="
+            tail -n 50 /home/ambers-angels/.pm2/logs/ambers-angels-rtmp-monitor-error.log 2>/dev/null || echo "(no error log)"
+
+            echo ""
+            echo "=== API out log — last 50 lines ==="
+            tail -n 50 /home/ambers-angels/.pm2/logs/ambers-angels-api-out.log 2>/dev/null || echo "(no out log)"
+
+            echo ""
+            echo "=== PM2 process status ==="
+            /home/ambers-angels/.local/bin/pm2 jlist 2>/dev/null | python3 -c "
+import sys, json
+procs = json.load(sys.stdin)
+for p in procs:
+    m = p.get('pm2_env', {})
+    print(f\"{p['name']:40s} status={m.get('status','?'):12s} restarts={m.get('restart_time',0):4d} uptime={m.get('pm_uptime','?')}\")"
