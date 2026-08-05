@@ -34,7 +34,7 @@ module.exports = {
 
     ios: {
       bundleIdentifier: "com.ambersangels.app",
-      buildNumber: "19",
+      buildNumber: "20",
       supportsTablet: false,
       usesAppleSignIn: true,
       icon: "./assets/icon.png",
@@ -54,15 +54,14 @@ module.exports = {
           "Camera is used to capture frames for license plate recognition.",
         NSLocationWhenInUseUsageDescription:
           "Location is used to tag detections and update your drone position on the mission map.",
-        NSLocationAlwaysAndWhenInUseUsageDescription:
-          "Location is used in the background to keep your drone position live during a mission.",
-        NSLocationAlwaysUsageDescription:
-          "Location is used in the background to keep your drone position live during a mission.",
 
-        // Required for iOS background location — without this iOS kills
-        // the location subscription when the app is backgrounded, breaking
-        // mission telemetry entirely.
-        UIBackgroundModes: ["location", "fetch", "remote-notification"],
+        // Only remote-notification is backed by real functionality (the
+        // NotificationServiceExtension). "location" and "fetch" were
+        // declared but never implemented (no background task/location
+        // subscription registered anywhere in the app) — that mismatch is
+        // what got build 19 rejected under Guideline 2.5.4. Do not re-add
+        // either without also building the feature that needs them.
+        UIBackgroundModes: ["remote-notification"],
 
         // Apple compliance
         ITSAppUsesNonExemptEncryption: false,

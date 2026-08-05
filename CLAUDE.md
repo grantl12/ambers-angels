@@ -40,6 +40,35 @@ plink -pw '$SSH_PW' -batch -hostkey 'ssh-ed25519 255 66:68:d4:a3:02:92:82:25:c3:
 - DB: connection string in server `.env` (`DATABASE_URL`). For psql: `psql -h 127.0.0.1 -U postgres ambersangels`
 - Use `DEBIAN_FRONTEND=noninteractive` to suppress interactive prompts
 
+## Ops API — for Claude Code sessions that can't SSH out
+
+The cloud "Code" tab sandbox (mobile app → Code tab) only has HTTPS egress —
+no route to `157.245.125.103` on port 22. For those sessions, use
+`backend/routers/ops.py` instead of plink: a small HTTPS API on the live
+API server, gated by a static header key (not a pilot JWT — these are
+agent sessions, not logged-in humans).
+
+```
+curl -H "X-Ops-Key: $OPS_API_KEY" -H "X-Ops-Actor: mobile-emergency" https://amberangels.org/ops/health
+curl -H "X-Ops-Key: $OPS_API_KEY" "https://amberangels.org/ops/logs/api?lines=300"
+curl -X POST -H "X-Ops-Key: $OPS_API_KEY" -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT * FROM detection_events ORDER BY created_at DESC LIMIT 5"}' \
+  https://amberangels.org/ops/query
+curl -X POST -H "X-Ops-Key: $OPS_API_KEY" -H "Content-Type: application/json" \
+  -d '{"process": "api"}' https://amberangels.org/ops/restart
+curl -X POST -H "X-Ops-Key: $OPS_API_KEY" https://amberangels.org/ops/migrate
+```
+
+- **`OPS_API_KEY`** — in Claude memory (`server_credentials.md`) and server `.env`. Send as `X-Ops-Key` header.
+- **`X-Ops-Actor`** — optional free-text label, written to `audit_log` (action `ops.*`) with every call. Use it to note context (e.g. `mobile-emergency`, `mobile-idea`) — there's no other record of who/why triggered an ops call.
+- **`GET /ops/health`** — `pm2 jlist` summary (status, restarts, memory/cpu per process).
+- **`GET /ops/logs/{process}?lines=N`** — `process` ∈ `api`/`web`/`worker`/`rtmp-monitor`/`all`, `lines` capped at 2000.
+- **`POST /ops/query`** `{"sql": "..."}` — **read-only, enforced by Postgres** (`SET TRANSACTION READ ONLY`), not by string-matching the query — a `WITH x AS (DELETE ...) SELECT * FROM x` fails the same as a bare `DELETE`. Query is also wrapped as a single subquery, so `...; DROP TABLE x` is a syntax error before READ ONLY even matters. Capped at 500 rows, 5s statement timeout.
+- **`POST /ops/restart`** `{"process": "..."}` — `pm2 restart <name> --update-env`, same allowlist as logs. Backgrounded so self-restarting `api`/`all` doesn't kill the response mid-flight.
+- **`POST /ops/migrate`** — runs `backend/run_migration.py` (idempotent).
+- **Deliberately excluded: arbitrary shell exec, arbitrary (non-SELECT) SQL.** A bearer-key-gated RCE endpoint on a server holding AMBER-alert/missing-child data isn't worth it even for a real emergency. If an emergency doesn't fit these four actions, add another narrow named action to `ops.py` — don't turn this into a general command channel.
+- If `OPS_API_KEY` is ever rotated, update both server `.env` and `server_credentials.md` — same PM2-cached-env gotcha as other secrets applies (delete+recreate `ambers-angels-api`, not just restart).
+
 ## PM2 Processes
 
 | Name | What |
@@ -83,7 +112,7 @@ Manual migration without full deploy — trigger via GitHub Actions UI:
 - **`autoIncrement` in eas.json is NOT supported with app.config.js** — never add it
 - **`--build-number` flag does not work with app.config.js** — never use it
 - Before each build: bump `ios.buildNumber` in `app.config.js` ("3" → "4" → "5" etc.). Android's `android.versionCode` bumps independently for Play Store resubmissions — check both before assuming a number is current.
-- Current build number: **19** iOS / **3** Android (as of 2026-07-22, uncommitted in working tree) — app.config.js is the source of truth, this number will drift; verify with `grep -n "buildNumber\|versionCode" mobile/app.config.js` before citing it
+- Current build number: **20** iOS / **3** Android (as of 2026-08-05, uncommitted in working tree) — app.config.js is the source of truth, this number will drift; verify with `grep -n "buildNumber\|versionCode" mobile/app.config.js` before citing it
 - EAS account: `ambersangels` (with 's') — confirmed via `eas whoami`. Slug: `ambers-angels`
 - OTA update channel: `eas update --branch preview` delivers JS-only changes to build 11
 - All mobile changes in June 2026 are OTA-compatible (no native code changed)
@@ -97,11 +126,12 @@ eas submit --platform ios --profile production --latest
 
 ## App Store Status
 
-- Build 4 submitted, under review
+- Build 19 rejected 2026-08-04 (Guideline 2.5.4); build 20 fixes it, not yet submitted.
 - Rejection history and resolutions:
   - **5.1.1(iv)**: Camera permission pre-prompt button text changed to "Continue"
   - **5.1.1(v)**: Account deletion added (`DELETE /auth/delete-account`). UI in Settings → bottom → "Delete Account" (two-tap confirm). Tell reviewers: *"Account deletion: Settings tab → scroll to bottom → Delete Account."*
   - **2.1 (law enforcement)**: Apple flags "report criminal activity" language. **Do not use that framing.** The app responds to existing government-issued FEMA alerts, it does not enable users to report crimes. Use: *"participate in active public safety searches," "respond to government-issued AMBER/Silver Alerts,"* not *"report criminal activity"* or *"alert law enforcement."* Submit CPD meeting screenshot as documentation while formal letter is pending.
+  - **2.5.4 (build 19, 2026-08-04)**: `UIBackgroundModes` in `app.config.js` declared `location` and `fetch` with no feature behind either — no `TaskManager`/background location task/background fetch registration anywhere in the mobile app; only foreground location (`Location.watchPositionAsync` in `CameraScreen.tsx`) was ever implemented. Fixed in build 20: `UIBackgroundModes` trimmed to `["remote-notification"]` (the only one actually backed, by `NotificationServiceExtension`), and the unused `NSLocationAlwaysAndWhenInUseUsageDescription`/`NSLocationAlwaysUsageDescription` strings removed since nothing calls `requestBackgroundPermissionsAsync`. If background location/telemetry-while-backgrounded becomes a real feature later, re-add `location` to `UIBackgroundModes` only alongside the actual implementation — don't declare it ahead of the feature.
 
 ## Contact / Identity
 
@@ -134,6 +164,7 @@ Speaker notes in `const NOTES = [...]` at top of each file. Update all relevant 
 | `JWT_SECRET` | 64-char hex secret for HS256 JWT signing |
 | `ALERT_WEBHOOK_URL` | Discord webhook URL for alert notifications |
 | `INTERNAL_API_KEY` | Shared secret for worker → `/detections/` calls (`X-Internal-Key` header) |
+| `OPS_API_KEY` | Shared secret for the `/ops/*` API (`X-Ops-Key` header) — see "Ops API" section above |
 | `TWILIO_ACCOUNT_SID` | Optional — SMS on HIGH_CONFIDENCE hits |
 | `TWILIO_AUTH_TOKEN` | Optional |
 | `TWILIO_FROM_NUMBER` | Optional |
