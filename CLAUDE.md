@@ -48,16 +48,25 @@ no route to `157.245.125.103` on port 22. For those sessions, use
 API server, gated by a static header key (not a pilot JWT — these are
 agent sessions, not logged-in humans).
 
+nginx strips `/api/` before proxying to FastAPI (see `location /api/` in the
+site config), so every call below needs that prefix — `/ops/...` alone 404s
+against the Next.js frontend, it does not reach the router.
+
 ```
-curl -H "X-Ops-Key: $OPS_API_KEY" -H "X-Ops-Actor: mobile-emergency" https://amberangels.org/ops/health
-curl -H "X-Ops-Key: $OPS_API_KEY" "https://amberangels.org/ops/logs/api?lines=300"
+curl -H "X-Ops-Key: $OPS_API_KEY" -H "X-Ops-Actor: mobile-emergency" https://amberangels.org/api/ops/health
+curl -H "X-Ops-Key: $OPS_API_KEY" "https://amberangels.org/api/ops/logs/api?lines=300"
 curl -X POST -H "X-Ops-Key: $OPS_API_KEY" -H "Content-Type: application/json" \
   -d '{"sql": "SELECT * FROM detection_events ORDER BY created_at DESC LIMIT 5"}' \
-  https://amberangels.org/ops/query
+  https://amberangels.org/api/ops/query
 curl -X POST -H "X-Ops-Key: $OPS_API_KEY" -H "Content-Type: application/json" \
-  -d '{"process": "api"}' https://amberangels.org/ops/restart
-curl -X POST -H "X-Ops-Key: $OPS_API_KEY" https://amberangels.org/ops/migrate
+  -d '{"process": "api"}' https://amberangels.org/api/ops/restart
+curl -X POST -H "X-Ops-Key: $OPS_API_KEY" https://amberangels.org/api/ops/migrate
 ```
+
+Verified live 2026-08-05: auth (wrong key → 403), a real `SELECT`, a bare
+`DELETE` (rejected — invalid as a subquery), a CTE-smuggled `DELETE`
+(rejected — Postgres refuses a data-modifying CTE not at top level), and a
+real `worker` restart (restart count incremented, uptime reset).
 
 - **`OPS_API_KEY`** — in Claude memory (`server_credentials.md`) and server `.env`. Send as `X-Ops-Key` header.
 - **`X-Ops-Actor`** — optional free-text label, written to `audit_log` (action `ops.*`) with every call. Use it to note context (e.g. `mobile-emergency`, `mobile-idea`) — there's no other record of who/why triggered an ops call.
