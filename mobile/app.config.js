@@ -34,7 +34,7 @@ module.exports = {
 
     ios: {
       bundleIdentifier: "com.ambersangels.app",
-      buildNumber: "20",
+      buildNumber: "21",
       supportsTablet: false,
       usesAppleSignIn: true,
       icon: "./assets/icon.png",
@@ -76,7 +76,7 @@ module.exports = {
 
     android: {
       package: "com.ambersangels.app",
-      versionCode: 3,
+      versionCode: 4,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#050a0f",
@@ -135,10 +135,21 @@ module.exports = {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission:
-            "Allow Amber's Angels to use your location during missions.",
-          isIosBackgroundLocationEnabled: true,
-          isAndroidBackgroundLocationEnabled: true,
+          // Foreground-only on both platforms: iOS scanning requires the
+          // screen to stay open, and Android's ScanService is a *foreground*
+          // service (FOREGROUND_SERVICE_LOCATION is already declared in
+          // modules/phone-camera/android/.../AndroidManifest.xml for that —
+          // this plugin doesn't need to add it again). Neither platform runs
+          // a true background location task. `false` (not omitted) is what
+          // makes this plugin delete the "Always" permission strings instead
+          // of falling back to default text. Declaring background-location
+          // capability with no matching feature is what got iOS build 19
+          // rejected under Guideline 2.5.4 — don't re-enable either flag
+          // below without building the feature that needs it.
+          locationAlwaysAndWhenInUsePermission: false,
+          locationAlwaysPermission: false,
+          isIosBackgroundLocationEnabled: false,
+          isAndroidBackgroundLocationEnabled: false,
         },
       ],
     ],
