@@ -20,7 +20,7 @@ load_dotenv()
 # --- Sync engine (used by health check, simple DB reads) ---
 SYNC_DATABASE_URL = os.getenv("DATABASE_URL", "").replace("+asyncpg", "")
 
-engine = create_engine(SYNC_DATABASE_URL)
+engine = create_engine(SYNC_DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- Async engine (used by event_service, event_repository) ---
@@ -29,7 +29,7 @@ ASYNC_DATABASE_URL = os.getenv("DATABASE_URL", "")
 if ASYNC_DATABASE_URL and "+asyncpg" not in ASYNC_DATABASE_URL:
     ASYNC_DATABASE_URL = ASYNC_DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-async_engine = create_async_engine(ASYNC_DATABASE_URL, echo=False)
+async_engine = create_async_engine(ASYNC_DATABASE_URL, echo=False, pool_pre_ping=True, pool_recycle=1800)
 AsyncSessionLocal = async_sessionmaker(
     async_engine, class_=AsyncSession, expire_on_commit=False
 )
