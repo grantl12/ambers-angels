@@ -11,7 +11,7 @@ GET /detections/feed
 
 import asyncio
 import logging
-import threading
+import os
 import time as _time
 from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel
@@ -1096,12 +1096,13 @@ def create_manual_alert(req: ManualAlertRequest):
             "polygon":        polygon_str,
             "source_program": "manual",
         }
-        threading.Thread(
-            target=lambda: asyncio.run(
-                _notify_watching_pilots(database.AsyncSessionLocal, alert_for_notify)
-            ),
-            daemon=True,
-        ).start()
+        # Schedule onto the main loop (owns async_engine's connection pool) —
+        # NOT a new thread + asyncio.run(), which creates an isolated loop
+        # that corrupts asyncpg connections created under the main loop.
+        asyncio.run_coroutine_threadsafe(
+            _notify_watching_pilots(database.AsyncSessionLocal, alert_for_notify),
+            database.main_loop,
+        )
 
         webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
         if webhook_url and centroid:
@@ -1351,12 +1352,13 @@ def approve_ncmec_pending(
             "polygon":        req.polygon,
             "source_program": "ncmec",
         }
-        threading.Thread(
-            target=lambda: asyncio.run(
-                _notify_watching_pilots(database.AsyncSessionLocal, alert_for_notify)
-            ),
-            daemon=True,
-        ).start()
+        # Schedule onto the main loop (owns async_engine's connection pool) —
+        # NOT a new thread + asyncio.run(), which creates an isolated loop
+        # that corrupts asyncpg connections created under the main loop.
+        asyncio.run_coroutine_threadsafe(
+            _notify_watching_pilots(database.AsyncSessionLocal, alert_for_notify),
+            database.main_loop,
+        )
 
         webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
         if webhook_url:

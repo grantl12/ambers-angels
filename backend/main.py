@@ -104,6 +104,7 @@ _alert_dispatcher = AlertDispatcher(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    database.main_loop = asyncio.get_running_loop()
     _webhook = os.getenv("ALERT_WEBHOOK_URL", "")
     fema_task = asyncio.create_task(
         fema_background_loop(

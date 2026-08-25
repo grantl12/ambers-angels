@@ -36,6 +36,16 @@ AsyncSessionLocal = async_sessionmaker(
 
 Base = declarative_base()
 
+# Set once in main.py's lifespan (asyncio.get_running_loop()). Sync route
+# handlers run in a worker thread (FastAPI/anyio threadpool) and must not
+# spin up their own event loop (asyncio.run()) to fire an async DB call in
+# the background — asyncpg connections from async_engine's pool are bound
+# to whichever loop created them, so touching them from a second loop
+# throws "attached to a different loop" / corrupts the connection's
+# protocol state. Use asyncio.run_coroutine_threadsafe(coro, database.main_loop)
+# instead to schedule the coroutine onto the loop that actually owns the pool.
+main_loop = None
+
 
 def get_db():
     """Sync DB session dependency for FastAPI endpoints."""
