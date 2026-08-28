@@ -8,6 +8,12 @@ export const metadata: Metadata = {
 
 const WHATS_NEW: { week: string; items: string[] }[] = [
   {
+    week: 'August 28, 2026',
+    items: [
+      'Blog Post 8 published: "Before the Alert" — by the time FEMA fires, law enforcement has often known about the situation for up to 3 hours. Here\'s the gap that bothers us most, and what we\'re building to close it. Live at /blog/post-8-before-the-alert.',
+    ],
+  },
+  {
     week: 'July 28, 2026',
     items: [
       'Blog Post 7 published: "The Math" — the actual numbers from our live system test (sub-minute detection, 99% confidence, 193 detection events) and the context that makes them matter. Live at /blog/post-7-the-math.',
@@ -167,9 +173,9 @@ const POSTS = [
     slug: 'post-8-before-the-alert',
     tag: 'Post 8 of 8',
     title: 'Before the Alert',
-    date: 'August 4, 2026',
+    date: 'August 28, 2026',
     excerpt: 'By the time FEMA fires, law enforcement has known about the situation for up to 3 hours. Here\'s the gap that bothers me most — and what we\'re building to close it.',
-    live: false,
+    live: true,
   },
 ]
 
