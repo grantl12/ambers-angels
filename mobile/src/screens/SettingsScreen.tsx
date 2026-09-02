@@ -642,7 +642,7 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
             Amber's Angels Inc. is an independent 501(c)(3) nonprofit (EIN 42-2052151).
           </Text>
           <Text style={[styles.hint, { marginTop: 6 }]}>
-            Alert data is sourced from the following official government systems:
+            Alert data is sourced from the following official U.S. government systems:
           </Text>
           <TouchableOpacity onPress={() => Linking.openURL("https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system")}>
             <Text style={styles.sourceLink}>FEMA IPAWS (fema.gov)</Text>
@@ -650,12 +650,20 @@ export default function SettingsScreen({ username, onSignOut }: Props) {
           <TouchableOpacity onPress={() => Linking.openURL("https://www.weather.gov/alerts")}>
             <Text style={styles.sourceLink}>NWS Alerts API (weather.gov)</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL("https://www.missingkids.org")}>
-            <Text style={styles.sourceLink}>NCMEC (missingkids.org)</Text>
-          </TouchableOpacity>
           <TouchableOpacity onPress={() => Linking.openURL("https://namus.nij.ojp.gov")}>
             <Text style={styles.sourceLink}>NamUs (namus.nij.ojp.gov)</Text>
           </TouchableOpacity>
+          <Text style={[styles.hint, { marginTop: 10 }]}>
+            Additional source (not a government agency):
+          </Text>
+          <TouchableOpacity onPress={() => Linking.openURL("https://www.missingkids.org")}>
+            <Text style={styles.sourceLink}>NCMEC (missingkids.org)</Text>
+          </TouchableOpacity>
+          <Text style={[styles.hint, { marginTop: 2 }]}>
+            NCMEC (National Center for Missing & Exploited Children) is an independent
+            501(c)(3) nonprofit that operates the national missing-child clearinghouse
+            under a cooperative agreement with the U.S. Department of Justice.
+          </Text>
           <Text style={[styles.hint, { marginTop: 4 }]}>
             Amber's Angels does not generate, modify, or verify alert data.
             All alert content originates from the sources listed above.
