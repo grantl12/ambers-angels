@@ -9,15 +9,18 @@ jobs:
     steps:
       - name: Query BOLO data from DB and logs
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          SUDO_PW: ${{ secrets.AMBERS_ANGELS_SUDO_PW }}
         with:
           host: 157.245.125.103
           username: ambers-angels
           key: ${{ secrets.DROPLET_SSH_KEY }}
           command_timeout: 30s
+          envs: SUDO_PW
           script: |
             echo "===== BOLO AUDIT — $(date -u) ====="
 
-            Q() { echo "Ambers1Angels" | sudo -S -u postgres psql -d ambersangels -t -A -c "$1" 2>/dev/null; }
+            Q() { echo "$SUDO_PW" | sudo -S -u postgres psql -d ambersangels -t -A -c "$1" 2>/dev/null; }
 
             echo ""
             echo "=== 1. Recent BOLO entries in processed_alerts ==="
