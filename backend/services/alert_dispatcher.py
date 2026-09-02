@@ -183,6 +183,20 @@ class AlertDispatcher:
             )
             if vehicle_img_url:
                 embed["thumbnail"] = {"url": vehicle_img_url}
+
+        # The push notification's image was always the generic stock/reference
+        # photo above (matched on color/make/type), never the actual captured
+        # frame — even though that real evidence photo is right here and gets
+        # attached to the Discord embed a few lines down. Prefer the real
+        # frame for the push when we have one; only fall back to the stock
+        # photo when no evidence frame was captured.
+        if frame_url:
+            # Same convention as web (event-feed.tsx) and mobile (FeedScreen.tsx
+            # frameSrc()): frame_url is API-relative ("/frames/{id}.jpg") and
+            # needs the /api prefix nginx strips before proxying to FastAPI —
+            # amberangels.org/frames/... with no /api hits the Next.js frontend
+            # and 404s instead of reaching the StaticFiles mount.
+            vehicle_img_url = f"https://amberangels.org/api{frame_url}"
             reasoning = vehicle_context.get("agent_reasoning")
             if reasoning:
                 embed["fields"].append({

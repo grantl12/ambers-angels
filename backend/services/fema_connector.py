@@ -232,10 +232,15 @@ def _polygon_to_centroid(polygon: str | None) -> tuple[float, float] | None:
 # A human reads that as plate 446MSL instantly; the old patterns require
 # contiguous characters and the literal word "plate", so they miss it entirely.
 _PLATE_PATTERNS = [
-    re.compile(r"\b(?:license\s+)?(?:plate|tag)\s*(?:number|no\.?|#)?[:\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
-    re.compile(r"\blicense\s+plate\s*(?:number|no\.?|#)?[:\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    # [:,\s#] (not just [:\s#]) — some state CAP text (confirmed: Oregon AMBER
+    # alert, 2026-08-31) punctuates as "license plate, O E O 4 2 2, Oregon" —
+    # a comma right after the keyword silently defeated every pattern below and
+    # the pipeline fired a false "no plate" notification despite the plate
+    # being right there in the alert text.
+    re.compile(r"\b(?:license\s+)?(?:plate|tag)\s*(?:number|no\.?|#)?[:,\s#]*([A-Z0-9]{4,8})\b", re.IGNORECASE),
+    re.compile(r"\blicense\s+plate\s*(?:number|no\.?|#)?[:,\s]+([A-Z0-9]{4,8})\b", re.IGNORECASE),
     # Spelled-out / TTS-friendly: single characters separated by spaces and/or hyphens.
-    re.compile(r"\b(?:license\s+)?(?:plate|tag)\s*(?:number|no\.?|#)?[:\s#]*([A-Z0-9](?:[\s\-]+[A-Z0-9]){3,7})\b", re.IGNORECASE),
+    re.compile(r"\b(?:license\s+)?(?:plate|tag)\s*(?:number|no\.?|#)?[:,\s#]*([A-Z0-9](?:[\s\-]+[A-Z0-9]){3,7})\b", re.IGNORECASE),
     re.compile(r"\b([A-Z]{1,3}[0-9]{1,4}[A-Z0-9]{0,3})\b"),
 ]
 
@@ -1206,7 +1211,7 @@ async def _notify_plates(webhook_url: str, alert: dict, new_plates: list[str]) -
 # Watch-area pilot notifications
 # ---------------------------------------------------------------------------
 
-async def _notify_watching_pilots(session_factory, alert: dict) -> None:
+async def _notify_watching_pilots(session_factory, alert: dict) -> int:
     """
     Push-notify approved pilots based on alert scope:
       - Admins and pilots with alert_scope='nationwide' always receive notifications.
@@ -1217,6 +1222,9 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
       - 'push' in prefs → Expo device push (if token registered)
       - 'email' in prefs → email via SMTP
     Default is both, so pilots who haven't set a preference get everything.
+
+    Returns the number of devices Expo actually accepted the push for —
+    for `alert_ingestion_log.pilots_notified`, not just "how many rows matched".
     """
     # Use the synchronous session to avoid asyncpg pool/event-loop mismatch
     # that occurs after PM2 restarts (asyncpg Futures bound to old loop).
@@ -1261,10 +1269,10 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         matched = await asyncio.to_thread(_fetch_pilots, alert["area"] or "")
     except Exception as e:
         logger.error("Watch-area query failed: %s", e)
-        return
+        return 0
 
     if not matched:
-        return
+        return 0
 
     atype = alert["alert_type"]
     centroid = _polygon_to_centroid(alert.get("polygon"))
@@ -1284,6 +1292,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
         for row in matched
         if row[3] and "push" in (row[4] or ["push", "email"])
     ]
+    pilots_notified = 0
     if push_recipients:
         push_title = f"🚨 {atype['short']} — {alert['area'] or 'Unknown area'}"
         if atype.get("water_check"):
@@ -1296,7 +1305,7 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
             "label":       alert["area"] or atype["name"],
             "vehicleImageUrl": vehicle_img,
         }
-        await push_service.send_push_notifications(
+        pilots_notified = await push_service.send_push_notifications(
             session_factory,
             push_recipients,
             push_title,
@@ -1345,6 +1354,8 @@ async def _notify_watching_pilots(session_factory, alert: dict) -> None:
                     logger.info("Watch-area email sent to %s", email)
                 except Exception as e:
                     logger.error("Watch-area email to %s failed: %s", email, e)
+
+    return pilots_notified
 
 
 # ---------------------------------------------------------------------------
@@ -1488,12 +1499,34 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
                     stderr=subprocess.DEVNULL,
                 )
 
-        await _notify_watching_pilots(session_factory, alert)
+        pilots_notified = await _notify_watching_pilots(session_factory, alert)
 
         if not alert["plates"]:
-            logger.warning("No plate found in alert — sending no-plate notification.")
+            logger.warning(
+                "No plate found in alert — sending no-plate notification. CAP text: %r",
+                (alert.get("description") or "")[:300],
+            )
+            no_plate_discord_fired = bool(webhook_url)
             if webhook_url:
                 await _notify_no_plate(webhook_url, alert)
+            # Previously this branch never wrote to alert_ingestion_log at all —
+            # no-plate CMAS/CAP alerts left no permanent audit trail, only a
+            # transient PM2 log line, making a missed-plate incident like this
+            # one hard to investigate after the fact.
+            await log_alert_ingestion(
+                session_factory,
+                identifier=ident,
+                source="fema",
+                alert_type=atype["key"],
+                headline=alert.get("headline"),
+                area=alert.get("area"),
+                plates=[],
+                vehicle_profile=alert.get("vehicle_profile", {}),
+                source_program=alert.get("source_program"),
+                raw_cap_text=alert.get("description"),
+                pilots_notified=pilots_notified,
+                discord_fired=no_plate_discord_fired,
+            )
             continue
 
         new_plates: list[str] = []
@@ -1532,6 +1565,7 @@ async def poll_fema_ipaws(session_factory, webhook_url: Optional[str] = None) ->
             vehicle_profile=profile,
             source_program=alert.get("source_program"),
             raw_cap_text=alert.get("description"),
+            pilots_notified=pilots_notified,
             discord_fired=discord_fired,
         )
 

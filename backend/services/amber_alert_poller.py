@@ -396,11 +396,14 @@ async def _process_alerts(
 
         await _upsert_alert_areas(session_factory, alert["area"])
         await _add_vehicle_target(session_factory, alert)
-        await _notify_watching_pilots(session_factory, alert)
+        pilots_notified = await _notify_watching_pilots(session_factory, alert)
 
         discord_fired = False
         if not plates:
-            logger.warning("[%s] No plate found — sending no-plate notification.", source)
+            logger.warning(
+                "[%s] No plate found — sending no-plate notification. CAP text: %r",
+                source, (alert.get("description") or "")[:300],
+            )
             if webhook_url:
                 await _notify_no_plate(webhook_url, alert)
         else:
@@ -439,6 +442,7 @@ async def _process_alerts(
             vehicle_profile=profile,
             source_program=alert.get("source_program"),
             raw_cap_text=alert.get("description"),
+            pilots_notified=pilots_notified,
             discord_fired=discord_fired,
         )
 

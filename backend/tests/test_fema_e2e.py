@@ -212,6 +212,20 @@ class TestParsing:
         assert "XYZ123" in _extract_plates("plate: XYZ123 seen heading north")
         assert "AB1234" in _extract_plates("license plate AB1234 was recorded")
 
+    def test_extract_plates_comma_separated(self):
+        # Regression: Oregon AMBER alert (2026-08-31) read "...license plate,
+        # O E O 4 2 2, Oregon, unknown direction..." — the comma right after
+        # "plate" defeated every pattern and fired a false no-plate notification.
+        text = (
+            "The suspect was driving a 2006, Silver Infinity M 30, license "
+            "plate, O E O 4 2 2, Oregon, unknown direction of travel."
+        )
+        assert "OEO422" in _extract_plates(text)
+
+    def test_extract_plates_spelled_out_tag(self):
+        text = "a 1998 white Dodge Ram 1500 License Tag 4 4 6 M S L Vehicle has heavy front end damage"
+        assert "446MSL" in _extract_plates(text)
+
     def test_classify_alert_amber(self):
         entry = _classify_alert(["CAE"], "child abduction emergency")
         assert entry is not None
