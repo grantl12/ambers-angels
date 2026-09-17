@@ -109,14 +109,24 @@ export default function LandingPage() {
             <a href="#involve" className={s.btnPrimary}>Become a Volunteer</a>
             <a href="mailto:info@amberangels.org" className={s.btnGhost}>Grant &amp; Partnership Inquiries</a>
           </div>
-          <a
-            href="https://apps.apple.com/us/app/ambers-angels/id6768685184"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={s.appStoreLink}
-          >
-            <img src="/app-store-badge.svg" alt="Download on the App Store" className={s.appStoreBadge} />
-          </a>
+          <div className={s.storeBadges}>
+            <a
+              href="https://apps.apple.com/us/app/ambers-angels/id6768685184"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={s.appStoreLink}
+            >
+              <img src="/app-store-badge.svg" alt="Download on the App Store" className={s.appStoreBadge} />
+            </a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.ambersangels.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={s.appStoreLink}
+            >
+              <img src="/google-play-badge.svg" alt="Get it on Google Play" className={s.appStoreBadge} />
+            </a>
+          </div>
           <div className={s.heroBadges}>
             <span className={s.heroBadge}>501(c)(3) Approved</span>
             <span className={s.heroBadge}>Carrollton, GA Pilot</span>

@@ -162,7 +162,8 @@
   transition: border-color 0.15s, color 0.15s;
 }
 .btnGhost:hover { border-color: rgba(255,255,255,0.28); color: #fff; }
-.appStoreLink { display: inline-block; margin-bottom: 20px; }
+.storeBadges { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.appStoreLink { display: inline-block; }
 .appStoreBadge { height: 44px; width: auto; display: block; }
 .heroBadges { display: flex; gap: 8px; flex-wrap: wrap; }
 .heroBadge {
