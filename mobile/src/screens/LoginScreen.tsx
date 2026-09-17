@@ -40,7 +40,7 @@ export default function LoginScreen({ onLogin, onSSONewUser }: Props) {
   }, [])
 
   useEffect(() => {
-    setRegisterUrl("https://amberangels.org/api/pilot/register.html")
+    setRegisterUrl("https://amberangels.org/pilot/register")
   }, [])
 
   function goBack() {
