@@ -38,10 +38,9 @@ Mission map currently shows only vehicle-target FEMA alerts. All CAP event types
 Only `aa-test` channel exists — internal only. Define public channel structure (alert-firehose + general chat) and get real invite link before adding button to `/guide` page.
 
 ### Store Distribution
-- **`/beta` page** (`web/src/app/beta/page.tsx`): both install buttons have `href="#"` — need real iOS TestFlight public link and Android internal testing opt-in link (~300 unique visitors/day with no download path)
-- **Google Play**: org policy blocks service account key (`iam.disableServiceAccountKeyCreation`). Manual path: download AAB from EAS → Play Console → Internal testing → upload → copy opt-in link → put on `/beta` page
-- **Android package name** `com.ambersangels.app` registration required before September 2026 (hard deadline)
-- **App Store badges**: add to landing page hero once iOS listing approved AND Android Play Store listing live; retire or repurpose `/beta` page
+- **Both stores live as of 2026-09-17** — see "App Store Status" in top-level CLAUDE.md for links. Homepage hero badges added (`web/src/components/LandingPage.tsx`).
+- **Still stale**: `/beta` page (`web/src/app/beta/page.tsx`) still has dead `href="#"` install buttons and TestFlight/"internal testing" copy from before either store went live — needs to be repointed to the real store links (or retired now that the homepage badges cover this) and the "Get Involved" section's "iOS available via TestFlight, Android coming soon" copy in `LandingPage.tsx` is now inaccurate. Not fixed yet — flagged, not done.
+- **Android package name** `com.ambersangels.app` registration — confirmed done now that the Play listing is live under that package name.
 
 ### CPD Letter of Support (waiting)
 Once signed: add "Carrollton PD Partnership" badge to homepage hero, update "Actively engaging" → "In active partnership with Carrollton PD", add "Trusted by Law Enforcement" block, add partnership language to App Store description.

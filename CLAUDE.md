@@ -135,7 +135,8 @@ eas submit --platform ios --profile production --latest
 
 ## App Store Status
 
-- Build 19 rejected 2026-08-04 (Guideline 2.5.4); build 20 fixes it, not yet submitted.
+- **Live on both stores as of 2026-09-17**: iOS App Store — https://apps.apple.com/us/app/ambers-angels/id6768685184. Google Play — https://play.google.com/store/apps/details?id=com.ambersangels.app. Exact approval dates between build 20 (submitted, see below) and now are not recorded — confirmed live by checking both listings directly on 2026-09-17. Badges linking to both live on the homepage hero (`web/src/components/LandingPage.tsx`).
+- Build 19 rejected 2026-08-04 (Guideline 2.5.4); build 20 fixed it and was submitted/approved.
 - Rejection history and resolutions:
   - **5.1.1(iv)**: Camera permission pre-prompt button text changed to "Continue"
   - **5.1.1(v)**: Account deletion added (`DELETE /auth/delete-account`). UI in Settings → bottom → "Delete Account" (two-tap confirm). Tell reviewers: *"Account deletion: Settings tab → scroll to bottom → Delete Account."*
